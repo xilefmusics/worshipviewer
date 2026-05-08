@@ -7,13 +7,28 @@ use serde::Deserialize;
 use surrealdb::types::SurrealValue;
 
 use shared::api::ListQuery;
-use shared::user::User;
+use shared::user::{HttpAuditMetrics, User};
 
 use crate::database::{Database, surreal_take_errors};
 use crate::error::AppError;
 
 use super::model::{UserRecord, user_resource};
 use super::repository::UserRepository;
+
+#[derive(Debug, Deserialize, SurrealValue)]
+struct HttpAuditMetricsRow {
+    request_count: i64,
+    last_used_at: Option<surrealdb::types::Datetime>,
+}
+
+impl From<HttpAuditMetricsRow> for HttpAuditMetrics {
+    fn from(row: HttpAuditMetricsRow) -> Self {
+        Self {
+            request_count: row.request_count.max(0) as u64,
+            last_used_at: row.last_used_at.map(Into::into),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct SurrealUserRepo {
@@ -112,6 +127,23 @@ impl UserRepository for SurrealUserRepo {
             .await?
             .map(UserRecord::into_user)
             .ok_or(AppError::NotFound("user not found".into()))
+    }
+
+    async fn get_http_audit_metrics_for_user(&self, user_id: &str) -> Result<HttpAuditMetrics, AppError> {
+        let mut response = self
+            .inner()
+            .db
+            .query(
+                "RETURN { request_count: fn::http_audit_count_for_user($rid), last_used_at: fn::http_audit_last_used_at_for_user($rid) };",
+            )
+            .bind(("rid", RecordId::new("user", user_id.to_owned())))
+            .await
+            .map_err(|e| crate::log_and_convert!(AppError::database, "user.http_audit_metrics.query", e))?;
+        let row = response
+            .take::<Option<HttpAuditMetricsRow>>(0)
+            .map_err(|e| crate::log_and_convert!(AppError::database, "user.http_audit_metrics.take", e))?
+            .ok_or_else(|| AppError::database("http audit metrics for user returned no row"))?;
+        Ok(row.into())
     }
 
     async fn get_user_by_email(&self, email: &str) -> Result<Option<User>, AppError> {
