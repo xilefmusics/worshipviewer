@@ -1,15 +1,31 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use surrealdb::types::RecordId;
+use serde::Deserialize;
+use surrealdb::types::{RecordId, SurrealValue};
 
-use shared::user::Session;
+use shared::user::{HttpAuditMetrics, Session};
 
 use crate::database::{Database, record_id_string};
 use crate::error::AppError;
 
 use super::model::{SessionCreateRecord, SessionIdRecord, SessionRecord};
 use super::repository::SessionRepository;
+
+#[derive(Debug, Deserialize, SurrealValue)]
+struct HttpAuditMetricsRow {
+    request_count: i64,
+    last_used_at: Option<surrealdb::types::Datetime>,
+}
+
+impl From<HttpAuditMetricsRow> for HttpAuditMetrics {
+    fn from(row: HttpAuditMetricsRow) -> Self {
+        Self {
+            request_count: row.request_count.max(0) as u64,
+            last_used_at: row.last_used_at.map(Into::into),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct SurrealSessionRepo {
@@ -38,6 +54,30 @@ impl SessionRepository for SurrealSessionRepo {
             .take::<Option<SessionRecord>>(0)?
             .map(SessionRecord::into_session)
             .ok_or(AppError::NotFound("session not found".into()))
+    }
+
+    async fn get_http_audit_metrics_for_session(
+        &self,
+        session_id: &str,
+    ) -> Result<HttpAuditMetrics, AppError> {
+        let mut response = self
+            .inner()
+            .db
+            .query(
+                "RETURN { request_count: fn::http_audit_count_for_session($rid), last_used_at: fn::http_audit_last_used_at_for_session($rid) };",
+            )
+            .bind(("rid", RecordId::new("session", session_id.to_owned())))
+            .await
+            .map_err(|e| {
+                crate::log_and_convert!(AppError::database, "session.http_audit_metrics.query", e)
+            })?;
+        let row = response
+            .take::<Option<HttpAuditMetricsRow>>(0)
+            .map_err(|e| {
+                crate::log_and_convert!(AppError::database, "session.http_audit_metrics.take", e)
+            })?
+            .ok_or_else(|| AppError::database("http audit metrics for session returned no row"))?;
+        Ok(row.into())
     }
 
     async fn get_session_for_user(&self, id: &str, user_id: &str) -> Result<Session, AppError> {

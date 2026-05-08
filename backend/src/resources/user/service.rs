@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use shared::api::ListQuery;
 use shared::blob::CreateBlob;
-use shared::user::User;
+use shared::user::{HttpAuditMetrics, User};
 use tracing::instrument;
 
 use crate::auth::AuthorizationContext;
@@ -43,6 +43,14 @@ impl<R: UserRepository, T: TeamRepository> UserService<R, T> {
     #[instrument(level = "debug", err, skip(self))]
     pub async fn get_user(&self, id: &str) -> Result<User, AppError> {
         self.repo.get_user(id).await
+    }
+
+    #[instrument(level = "debug", err, skip(self))]
+    pub async fn get_http_audit_metrics_for_user(
+        &self,
+        user_id: &str,
+    ) -> Result<HttpAuditMetrics, AppError> {
+        self.repo.get_http_audit_metrics_for_user(user_id).await
     }
 
     #[instrument(level = "debug", err, skip(self))]
@@ -287,7 +295,7 @@ mod tests {
 
     use shared::api::ListQuery;
     use shared::team::Team;
-    use shared::user::{Role, User};
+    use shared::user::{HttpAuditMetrics, Role, User};
 
     use crate::database::record_id_string;
     use crate::error::AppError;
@@ -346,6 +354,13 @@ mod tests {
         }
 
         async fn get_user(&self, _id: &str) -> Result<User, AppError> {
+            unreachable!("not used in these tests")
+        }
+
+        async fn get_http_audit_metrics_for_user(
+            &self,
+            _user_id: &str,
+        ) -> Result<HttpAuditMetrics, AppError> {
             unreachable!("not used in these tests")
         }
 

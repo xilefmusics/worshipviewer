@@ -654,6 +654,34 @@ mod user_admin_gates {
         assert_eq!(body["email"], user.email);
     }
 
+    /// BLC-USER-005: `User` JSON omits audit metrics; `GET /users/me/metrics` returns them.
+    #[actix_web::test]
+    async fn blc_user_005_me_response_omits_metrics_get_metrics_ok() {
+        let db = test_db().await.unwrap();
+        let user = create_user(&db, "me-metrics-split@test.local")
+            .await
+            .unwrap();
+        let token = create_session_token(&db, user).await.unwrap();
+        let app = test::init_service(build_app(db.clone())).await;
+
+        let req_me = test::TestRequest::get()
+            .uri("/api/v1/users/me")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let body: serde_json::Value = test::call_and_read_body_json(&app, req_me).await;
+        let obj = body.as_object().expect("user object");
+        assert!(!obj.contains_key("request_count"));
+        assert!(!obj.contains_key("last_used_at"));
+
+        let req_m = test::TestRequest::get()
+            .uri("/api/v1/users/me/metrics")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let m: serde_json::Value = test::call_and_read_body_json(&app, req_m).await;
+        assert!(m.get("request_count").is_some());
+        assert!(m.get("last_used_at").is_some());
+    }
+
     /// BLC-USER-005: two different users each see their own record via /users/me.
     #[actix_web::test]
     async fn blc_user_005_different_users_see_own_record() {
@@ -881,7 +909,33 @@ mod session_admin_gates {
         assert_eq!(body.as_array().expect("array").len(), 1);
     }
 
-    /// BLC-SESS-004: DELETE /users/me/sessions/{own_id} succeeds.
+    /// BLC-SESS-003: `SessionBody` omits audit metrics; `GET /users/me/session/metrics` returns them.
+    #[actix_web::test]
+    async fn blc_sess_003_current_session_omits_metrics_get_metrics_ok() {
+        let db = test_db().await.unwrap();
+        let user = create_user(&db, "sess-metrics-split@test.local")
+            .await
+            .unwrap();
+        let token = create_session_token(&db, user).await.unwrap();
+        let app = test::init_service(build_app(db.clone())).await;
+
+        let req_s = test::TestRequest::get()
+            .uri("/api/v1/users/me/session")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let body: serde_json::Value = test::call_and_read_body_json(&app, req_s).await;
+        let obj = body.as_object().expect("session object");
+        assert!(!obj.contains_key("request_count"));
+        assert!(!obj.contains_key("last_used_at"));
+
+        let req_m = test::TestRequest::get()
+            .uri("/api/v1/users/me/session/metrics")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let m: serde_json::Value = test::call_and_read_body_json(&app, req_m).await;
+        assert!(m.get("request_count").is_some());
+        assert!(m.get("last_used_at").is_some());
+    }
     #[actix_web::test]
     async fn blc_sess_004_delete_own_session_succeeds() {
         let db = test_db().await.unwrap();

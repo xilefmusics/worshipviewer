@@ -37,7 +37,7 @@ use shared::team::{
     CreateTeam, PatchTeam, Team, TeamInvitation, TeamMember, TeamMemberInput, TeamRole, TeamUser,
     TeamUserRef, UpdateTeam,
 };
-use shared::user::{SessionBody, SessionUserBody};
+use shared::user::{HttpAuditMetrics, SessionBody, SessionUserBody};
 
 pub mod rest {
     use super::{Settings, openapi_document};
@@ -100,7 +100,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
             **Breaking 2.0:** See `docs/api-breaking-2-0.md` for migration (`PlayerItem`, `Song.blobs` as link objects, `Session` wire model, `Problem` without `error`, PUT bodies use `Update*` types in the spec).\n\n\
             **Timestamps:** All timestamps are UTC and use RFC 3339 with a `Z` suffix (e.g. `2026-04-18T12:00:00Z`).\n\n\
             **Identifiers:** Resource IDs are opaque printable strings returned by the API; treat them as opaque and do not parse their internal structure.\n\n\
-            **References & expand:** Cross-resource links use objects such as `BlobLink` (`{ \"id\": \"…\" }`) instead of bare id strings where noted. Session list/detail responses default to a narrow `user` link (`id` + `email`); pass `expand=user` (comma-separated with other tokens as added) to embed the full `User`.\n\n\
+            **References & expand:** Cross-resource links use objects such as `BlobLink` (`{ \"id\": \"…\" }`) instead of bare id strings where noted. Session list/detail responses default to a narrow `user` link (`id` + `email`); pass `expand=user` (comma-separated with other tokens as added) to embed the full `User`. HTTP audit request counts and last-used timestamps for a single user or session are available from `GET .../metrics` routes next to each single-resource user/session endpoint, not on the `User` / `SessionBody` objects themselves.\n\n\
             **JSON naming:** Object keys use `snake_case`. Enum wire values use the casing shown in each schema (broader enum casing standardization is planned).\n\n\
             **Pagination:** List endpoints accept `page` (0-based) and `page_size` (1–500, default 50). Responses include `X-Total-Count` with the total matching rows before pagination and RFC 5988 `Link` headers (relations: first, prev, next, last) where applicable.\n\n\
             **Rate limiting:** Versioned `/api/v1/*` routes use token-bucket limits per client IP (`Retry-After`, `X-RateLimit-*` on **429**; configurable via server settings).\n\n\
@@ -120,6 +120,8 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
         crate::auth::otp::rest::otp_request,
         crate::auth::otp::rest::otp_verify,
         crate::auth::rest::logout,
+        crate::resources::user::rest::get_users_me_metrics,
+        crate::resources::user::rest::get_user_metrics,
         crate::resources::user::rest::get_users_me,
         crate::resources::user::rest::put_profile_picture,
         crate::resources::user::rest::delete_profile_picture,
@@ -127,11 +129,14 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
         crate::resources::user::rest::get_user,
         crate::resources::user::rest::create_user,
         crate::resources::user::rest::delete_user,
+        crate::resources::user::session::rest::get_current_session_metrics,
         crate::resources::user::session::rest::get_current_session_for_user,
         crate::resources::user::session::rest::get_sessions_for_current_user,
+        crate::resources::user::session::rest::get_session_for_current_user_metrics,
         crate::resources::user::session::rest::get_session_for_current_user,
         crate::resources::user::session::rest::delete_session_for_current_user,
         crate::resources::user::session::rest::get_sessions_for_user,
+        crate::resources::user::session::rest::get_session_for_user_metrics,
         crate::resources::user::session::rest::get_session_for_user,
         crate::resources::user::session::rest::create_session_for_user,
         crate::resources::user::session::rest::delete_session_for_user,
@@ -191,6 +196,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
     components(
         schemas(
             AboutResponse,
+            HttpAuditMetrics,
             User,
             SessionBody,
             SessionUserBody,

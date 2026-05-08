@@ -633,6 +633,31 @@
         ],
         "type": "object"
       },
+      "HttpAuditMetrics": {
+        "description": "HTTP request audit aggregates for a user or session (`GET .../metrics`).",
+        "example": {
+          "last_used_at": "2026-01-01T12:00:00Z",
+          "request_count": 42
+        },
+        "properties": {
+          "last_used_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "request_count": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "request_count"
+        ],
+        "type": "object"
+      },
       "IdLike404Metrics": {
         "properties": {
           "id_like_404_count": {
@@ -1553,8 +1578,6 @@
           "created_at": "2024-01-01T12:00:00Z",
           "expires_at": "2025-01-01T12:00:00Z",
           "id": "550e8400-e29b-41d4-a716-446655440000",
-          "last_used_at": null,
-          "request_count": 0,
           "user": {
             "email": "singer@example.com",
             "id": "user-1"
@@ -1571,18 +1594,6 @@
           },
           "id": {
             "type": "string"
-          },
-          "last_used_at": {
-            "format": "date-time",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "request_count": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
           },
           "user": {
             "$ref": "#/components/schemas/SessionUserBody"
@@ -2274,10 +2285,8 @@
           "default_collection": null,
           "email": "singer@example.com",
           "id": "usr_example",
-          "last_used_at": null,
           "oauth_avatar_blob_id": null,
           "oauth_picture_url": null,
-          "request_count": 0,
           "role": "default"
         },
         "properties": {
@@ -2304,14 +2313,6 @@
           "id": {
             "type": "string"
           },
-          "last_used_at": {
-            "description": "Latest `http_request_audit.created_at` for this user (none if no audited requests were linked).",
-            "format": "date-time",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "oauth_avatar_blob_id": {
             "description": "Backend-cached OAuth profile image (`GET /api/v1/blobs/{id}/data`).",
             "type": [
@@ -2325,12 +2326,6 @@
               "string",
               "null"
             ]
-          },
-          "request_count": {
-            "description": "Count of `http_request_audit` rows linked to this user.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
           },
           "role": {
             "$ref": "#/components/schemas/Role"
@@ -2361,7 +2356,7 @@
     }
   },
   "info": {
-    "description": "Versioned REST API under `/api/v1`. Authentication flows live at `/auth/*` (unversioned); clients should treat that split as stable for this major API generation. Public deployment metadata is available at `GET /api/v1/about` (no authentication).\n\n**Breaking 2.0:** See `docs/api-breaking-2-0.md` for migration (`PlayerItem`, `Song.blobs` as link objects, `Session` wire model, `Problem` without `error`, PUT bodies use `Update*` types in the spec).\n\n**Timestamps:** All timestamps are UTC and use RFC 3339 with a `Z` suffix (e.g. `2026-04-18T12:00:00Z`).\n\n**Identifiers:** Resource IDs are opaque printable strings returned by the API; treat them as opaque and do not parse their internal structure.\n\n**References & expand:** Cross-resource links use objects such as `BlobLink` (`{ \"id\": \"…\" }`) instead of bare id strings where noted. Session list/detail responses default to a narrow `user` link (`id` + `email`); pass `expand=user` (comma-separated with other tokens as added) to embed the full `User`.\n\n**JSON naming:** Object keys use `snake_case`. Enum wire values use the casing shown in each schema (broader enum casing standardization is planned).\n\n**Pagination:** List endpoints accept `page` (0-based) and `page_size` (1–500, default 50). Responses include `X-Total-Count` with the total matching rows before pagination and RFC 5988 `Link` headers (relations: first, prev, next, last) where applicable.\n\n**Rate limiting:** Versioned `/api/v1/*` routes use token-bucket limits per client IP (`Retry-After`, `X-RateLimit-*` on **429**; configurable via server settings).\n\n**Errors:** Failed requests return `Content-Type: application/problem+json` ([RFC 7807](https://www.rfc-editor.org/rfc/rfc7807)) with a `Problem` body (`type`, `title`, `status`, `code`, optional `detail` / `instance`). Use `detail` for human-readable text; stable machine-readable `code` values include: `unauthorized`, `forbidden`, `not_found`, `invalid_request`, `invalid_page_size`, `conflict`, `too_many_requests`, `not_acceptable`, `precondition_failed`, `internal`. Legacy schemas `ErrorResponse` and `ProblemDetails` remain listed for one release but are deprecated in favor of `Problem`.\n\n**CSRF:** Cookie sessions use `SameSite=Lax`; state-changing methods are `POST`/`PUT`/`PATCH`/`DELETE` (not `GET`). Cross-site simple requests cannot mutate state via cookies under typical browser rules. Browser `fetch` from the SPA should use `credentials: 'same-origin'` (or include cookies only on same-site requests). API clients using bearer tokens should still avoid exposing tokens to third-party origins.\n\n**Examples:** See schema `example` fields on core DTOs in the components section.",
+    "description": "Versioned REST API under `/api/v1`. Authentication flows live at `/auth/*` (unversioned); clients should treat that split as stable for this major API generation. Public deployment metadata is available at `GET /api/v1/about` (no authentication).\n\n**Breaking 2.0:** See `docs/api-breaking-2-0.md` for migration (`PlayerItem`, `Song.blobs` as link objects, `Session` wire model, `Problem` without `error`, PUT bodies use `Update*` types in the spec).\n\n**Timestamps:** All timestamps are UTC and use RFC 3339 with a `Z` suffix (e.g. `2026-04-18T12:00:00Z`).\n\n**Identifiers:** Resource IDs are opaque printable strings returned by the API; treat them as opaque and do not parse their internal structure.\n\n**References & expand:** Cross-resource links use objects such as `BlobLink` (`{ \"id\": \"…\" }`) instead of bare id strings where noted. Session list/detail responses default to a narrow `user` link (`id` + `email`); pass `expand=user` (comma-separated with other tokens as added) to embed the full `User`. HTTP audit request counts and last-used timestamps for a single user or session are available from `GET .../metrics` routes next to each single-resource user/session endpoint, not on the `User` / `SessionBody` objects themselves.\n\n**JSON naming:** Object keys use `snake_case`. Enum wire values use the casing shown in each schema (broader enum casing standardization is planned).\n\n**Pagination:** List endpoints accept `page` (0-based) and `page_size` (1–500, default 50). Responses include `X-Total-Count` with the total matching rows before pagination and RFC 5988 `Link` headers (relations: first, prev, next, last) where applicable.\n\n**Rate limiting:** Versioned `/api/v1/*` routes use token-bucket limits per client IP (`Retry-After`, `X-RateLimit-*` on **429**; configurable via server settings).\n\n**Errors:** Failed requests return `Content-Type: application/problem+json` ([RFC 7807](https://www.rfc-editor.org/rfc/rfc7807)) with a `Problem` body (`type`, `title`, `status`, `code`, optional `detail` / `instance`). Use `detail` for human-readable text; stable machine-readable `code` values include: `unauthorized`, `forbidden`, `not_found`, `invalid_request`, `invalid_page_size`, `conflict`, `too_many_requests`, `not_acceptable`, `precondition_failed`, `internal`. Legacy schemas `ErrorResponse` and `ProblemDetails` remain listed for one release but are deprecated in favor of `Problem`.\n\n**CSRF:** Cookie sessions use `SameSite=Lax`; state-changing methods are `POST`/`PUT`/`PATCH`/`DELETE` (not `GET`). Cross-site simple requests cannot mutate state via cookies under typical browser rules. Browser `fetch` from the SPA should use `credentials: 'same-origin'` (or include cookies only on same-site requests). API clients using bearer tokens should still avoid exposing tokens to third-party origins.\n\n**Examples:** See schema `example` fields on core DTOs in the components section.",
     "license": {
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
@@ -7847,6 +7842,64 @@
         ]
       }
     },
+    "/api/v1/users/me/metrics": {
+      "get": {
+        "operationId": "get_users_me_metrics",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpAuditMetrics"
+                }
+              }
+            },
+            "description": "HTTP audit aggregates for the current user"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Failed to load metrics"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
     "/api/v1/users/me/profile-picture": {
       "delete": {
         "operationId": "delete_profile_picture",
@@ -7982,6 +8035,74 @@
               }
             },
             "description": "Server error"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/me/session/metrics": {
+      "get": {
+        "operationId": "get_current_session_metrics",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpAuditMetrics"
+                }
+              }
+            },
+            "description": "HTTP audit aggregates for the credential session"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Session not found"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Failed to fetch metrics"
           }
         },
         "security": [
@@ -8355,6 +8476,85 @@
         ]
       }
     },
+    "/api/v1/users/me/sessions/{id}/metrics": {
+      "get": {
+        "operationId": "get_session_for_current_user_metrics",
+        "parameters": [
+          {
+            "description": "Session identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpAuditMetrics"
+                }
+              }
+            },
+            "description": "HTTP audit aggregates for the session"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Session not found for current user"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Failed to fetch metrics"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
     "/api/v1/users/{id}": {
       "delete": {
         "operationId": "delete_user",
@@ -8509,6 +8709,105 @@
               }
             },
             "description": "Failed to fetch user"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/metrics": {
+      "get": {
+        "operationId": "get_user_metrics",
+        "parameters": [
+          {
+            "description": "User identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpAuditMetrics"
+                }
+              }
+            },
+            "description": "HTTP audit aggregates for the user"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid user identifier"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Admin role required"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "User not found"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Failed to fetch metrics"
           }
         },
         "security": [
@@ -8931,6 +9230,104 @@
               }
             },
             "description": "Failed to fetch session"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}/sessions/{id}/metrics": {
+      "get": {
+        "operationId": "get_session_for_user_metrics",
+        "parameters": [
+          {
+            "description": "User identifier",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Session identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpAuditMetrics"
+                }
+              }
+            },
+            "description": "HTTP audit aggregates for the session"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Admin role required"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Session not found for specified user"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Failed to fetch metrics"
           }
         },
         "security": [

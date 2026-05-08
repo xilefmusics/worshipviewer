@@ -6,7 +6,7 @@ use actix_web::{
 use serde::Deserialize;
 
 use shared::api::{ListQuery, PAGE_SIZE_DEFAULT};
-use shared::user::{Session, SessionBody};
+use shared::user::{HttpAuditMetrics, Session, SessionBody};
 
 use crate::auth::AuthorizationContext;
 #[allow(unused_imports)]
@@ -30,6 +30,32 @@ struct SessionsPageQuery {
 struct ExpandQuery {
     /// Comma-separated relations to expand (`user` → full user object on `user`).
     expand: Option<String>,
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/users/me/session/metrics",
+    responses(
+        (status = 200, description = "HTTP audit aggregates for the credential session", body = HttpAuditMetrics),
+        (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
+        (status = 404, description = "Session not found", body = Problem, content_type = "application/problem+json"),
+        (status = 429, description = "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers", body = Problem, content_type = "application/problem+json"),
+        (status = 500, description = "Failed to fetch metrics", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Users",
+    security(
+        ("SessionCookie" = []),
+        ("SessionToken" = [])
+    )
+)]
+#[get("/me/session/metrics")]
+pub async fn get_current_session_metrics(
+    svc: Data<SessionServiceHandle>,
+    ctx: ReqData<AuthorizationContext>,
+) -> Result<HttpResponse, AppError> {
+    let session_id = ctx.session.id.clone();
+    svc.get_session_for_user(&session_id, &ctx.user.id).await?;
+    Ok(HttpResponse::Ok().json(svc.get_http_audit_metrics_for_session(&session_id).await?))
 }
 
 #[utoipa::path(
@@ -131,6 +157,35 @@ pub async fn get_sessions_for_current_user(
             ),
         ))
         .json(sessions_page))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/users/me/sessions/{id}/metrics",
+    params(
+        ("id" = String, Path, description = "Session identifier"),
+    ),
+    responses(
+        (status = 200, description = "HTTP audit aggregates for the session", body = HttpAuditMetrics),
+        (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
+        (status = 429, description = "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers", body = Problem, content_type = "application/problem+json"),
+        (status = 404, description = "Session not found for current user", body = Problem, content_type = "application/problem+json"),
+        (status = 500, description = "Failed to fetch metrics", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Users",
+    security(
+        ("SessionCookie" = []),
+        ("SessionToken" = [])
+    )
+)]
+#[get("/me/sessions/{id}/metrics")]
+pub async fn get_session_for_current_user_metrics(
+    svc: Data<SessionServiceHandle>,
+    ctx: ReqData<AuthorizationContext>,
+    path: Path<SessionPath>,
+) -> Result<HttpResponse, AppError> {
+    svc.get_session_for_user(&path.id, &ctx.user.id).await?;
+    Ok(HttpResponse::Ok().json(svc.get_http_audit_metrics_for_session(&path.id).await?))
 }
 
 #[utoipa::path(
@@ -301,6 +356,36 @@ pub async fn get_sessions_for_user(
             ),
         ))
         .json(sessions_page))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/users/{user_id}/sessions/{id}/metrics",
+    params(
+        ("user_id" = String, Path, description = "User identifier"),
+        ("id" = String, Path, description = "Session identifier"),
+    ),
+    responses(
+        (status = 200, description = "HTTP audit aggregates for the session", body = HttpAuditMetrics),
+        (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
+        (status = 403, description = "Admin role required", body = Problem, content_type = "application/problem+json"),
+        (status = 404, description = "Session not found for specified user", body = Problem, content_type = "application/problem+json"),
+        (status = 429, description = "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers", body = Problem, content_type = "application/problem+json"),
+        (status = 500, description = "Failed to fetch metrics", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Users",
+    security(
+        ("SessionCookie" = []),
+        ("SessionToken" = [])
+    )
+)]
+#[get("/{user_id}/sessions/{id}/metrics")]
+pub async fn get_session_for_user_metrics(
+    svc: Data<SessionServiceHandle>,
+    path: Path<UserSessionPath>,
+) -> Result<HttpResponse, AppError> {
+    svc.get_session_for_user(&path.id, &path.user_id).await?;
+    Ok(HttpResponse::Ok().json(svc.get_http_audit_metrics_for_session(&path.id).await?))
 }
 
 #[utoipa::path(

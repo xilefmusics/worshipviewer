@@ -1,8 +1,10 @@
+mod metrics;
 mod request;
 mod role;
 mod session;
 mod user;
 
+pub use metrics::HttpAuditMetrics;
 pub use request::CreateUser;
 #[cfg(feature = "backend")]
 pub use request::CreateUserError;

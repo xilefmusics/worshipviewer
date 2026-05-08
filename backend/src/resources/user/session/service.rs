@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use shared::user::Session;
+use shared::user::{HttpAuditMetrics, Session};
 use tracing::instrument;
 
 use crate::database::Database;
@@ -33,6 +33,16 @@ impl<S: SessionRepository, U: UserRepository> SessionService<S, U> {
     #[instrument(level = "debug", err, skip(self))]
     pub async fn get_session_for_user(&self, id: &str, user_id: &str) -> Result<Session, AppError> {
         self.repo.get_session_for_user(id, user_id).await
+    }
+
+    #[instrument(level = "debug", err, skip(self))]
+    pub async fn get_http_audit_metrics_for_session(
+        &self,
+        session_id: &str,
+    ) -> Result<HttpAuditMetrics, AppError> {
+        self.repo
+            .get_http_audit_metrics_for_session(session_id)
+            .await
     }
 
     #[instrument(level = "debug", err, skip(self, session))]
@@ -100,7 +110,7 @@ mod tests {
     use std::sync::Mutex;
 
     use shared::api::ListQuery;
-    use shared::user::{Session, User};
+    use shared::user::{HttpAuditMetrics, Session, User};
 
     use crate::error::AppError;
     use crate::resources::user::repository::UserRepository;
@@ -161,6 +171,16 @@ mod tests {
                 .find(|s| s.id == id)
                 .cloned()
                 .ok_or_else(|| AppError::NotFound("session not found".into()))
+        }
+
+        async fn get_http_audit_metrics_for_session(
+            &self,
+            _session_id: &str,
+        ) -> Result<HttpAuditMetrics, AppError> {
+            Ok(HttpAuditMetrics {
+                request_count: 0,
+                last_used_at: None,
+            })
         }
 
         async fn get_session_for_user(&self, id: &str, user_id: &str) -> Result<Session, AppError> {
@@ -233,6 +253,13 @@ mod tests {
             self.user
                 .clone()
                 .ok_or_else(|| AppError::NotFound("user not found".into()))
+        }
+
+        async fn get_http_audit_metrics_for_user(
+            &self,
+            _user_id: &str,
+        ) -> Result<HttpAuditMetrics, AppError> {
+            unreachable!("not used in session tests")
         }
 
         async fn get_users(&self, _pagination: ListQuery) -> Result<Vec<User>, AppError> {

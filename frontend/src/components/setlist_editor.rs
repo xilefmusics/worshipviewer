@@ -128,10 +128,7 @@ pub fn setlist_editor(props: &Props) -> Html {
         let items = items.clone();
         let api = api.clone();
         let items_req_id = items_req_id.clone();
-        let deps = (
-            props.setlist_id.clone(),
-            props.setlist.songs.clone(),
-        );
+        let deps = (props.setlist_id.clone(), props.setlist.songs.clone());
         use_effect_with(deps, move |(setlist_id, setlist_songs)| {
             let items = items.clone();
             let api = api.clone();

@@ -13,9 +13,11 @@ use actix_web::{
     web::{self, Bytes, Data, Json, Path, Query, ReqData},
 };
 use shared::api::{ListQuery, PAGE_SIZE_DEFAULT};
+use shared::user::HttpAuditMetrics;
 
 pub fn scope(avatar_upload_max_bytes: usize) -> Scope {
     web::scope("/users")
+        .service(get_users_me_metrics)
         .service(get_users_me)
         .service(
             web::resource("/me/profile-picture")
@@ -23,8 +25,10 @@ pub fn scope(avatar_upload_max_bytes: usize) -> Scope {
                 .route(web::put().to(put_profile_picture))
                 .route(web::delete().to(delete_profile_picture)),
         )
+        .service(session::rest::get_current_session_metrics)
         .service(session::rest::get_current_session_for_user)
         .service(session::rest::get_sessions_for_current_user)
+        .service(session::rest::get_session_for_current_user_metrics)
         .service(session::rest::get_session_for_current_user)
         .service(session::rest::delete_session_for_current_user)
         .service(
@@ -32,13 +36,38 @@ pub fn scope(avatar_upload_max_bytes: usize) -> Scope {
                 .wrap(RequireAdmin)
                 .service(create_user)
                 .service(delete_user)
+                .service(get_user_metrics)
                 .service(get_user)
                 .service(get_users)
                 .service(session::rest::get_sessions_for_user)
+                .service(session::rest::get_session_for_user_metrics)
                 .service(session::rest::get_session_for_user)
                 .service(session::rest::create_session_for_user)
                 .service(session::rest::delete_session_for_user),
         )
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/users/me/metrics",
+    responses(
+        (status = 200, description = "HTTP audit aggregates for the current user", body = HttpAuditMetrics),
+        (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
+        (status = 429, description = "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers", body = Problem, content_type = "application/problem+json"),
+        (status = 500, description = "Failed to load metrics", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Users",
+    security(
+        ("SessionCookie" = []),
+        ("SessionToken" = [])
+    )
+)]
+#[get("/me/metrics")]
+async fn get_users_me_metrics(
+    ctx: ReqData<AuthorizationContext>,
+    svc: Data<UserServiceHandle>,
+) -> Result<HttpResponse, AppError> {
+    Ok(HttpResponse::Ok().json(svc.get_http_audit_metrics_for_user(&ctx.user.id).await?))
 }
 
 #[utoipa::path(
@@ -131,6 +160,37 @@ async fn delete_profile_picture(
         .clear_uploaded_profile_picture(blob_svc.get_ref(), &ctx)
         .await?;
     Ok(HttpResponse::Ok().json(updated))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/users/{id}/metrics",
+    params(
+        ("id" = String, Path, description = "User identifier")
+    ),
+    responses(
+        (status = 200, description = "HTTP audit aggregates for the user", body = HttpAuditMetrics),
+        (status = 400, description = "Invalid user identifier", body = Problem, content_type = "application/problem+json"),
+        (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
+        (status = 429, description = "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers", body = Problem, content_type = "application/problem+json"),
+        (status = 403, description = "Admin role required", body = Problem, content_type = "application/problem+json"),
+        (status = 404, description = "User not found", body = Problem, content_type = "application/problem+json"),
+        (status = 500, description = "Failed to fetch metrics", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Users",
+    security(
+        ("SessionCookie" = []),
+        ("SessionToken" = [])
+    )
+)]
+#[get("/{id}/metrics")]
+async fn get_user_metrics(
+    svc: Data<UserServiceHandle>,
+    id: Path<String>,
+) -> Result<HttpResponse, AppError> {
+    let id_str = id.into_inner();
+    svc.get_user(&id_str).await?;
+    Ok(HttpResponse::Ok().json(svc.get_http_audit_metrics_for_user(&id_str).await?))
 }
 
 #[utoipa::path(

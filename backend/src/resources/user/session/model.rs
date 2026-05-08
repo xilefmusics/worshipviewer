@@ -11,11 +11,6 @@ pub struct SessionRecord {
     pub user: UserRecord,
     pub created_at: Datetime,
     pub expires_at: Datetime,
-    /// Computed metric may deserialize as Surreal NONE; use [`Option`] for `take()`.
-    #[serde(default)]
-    pub request_count: Option<u64>,
-    #[serde(default)]
-    pub last_used_at: Option<Datetime>,
 }
 
 impl SessionRecord {
@@ -25,8 +20,6 @@ impl SessionRecord {
             user: self.user.into_user(),
             created_at: self.created_at.into(),
             expires_at: self.expires_at.into(),
-            request_count: self.request_count.unwrap_or(0),
-            last_used_at: self.last_used_at.map(Into::into),
         }
     }
 }

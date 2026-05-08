@@ -68,8 +68,6 @@ impl CreateUser {
             role: self.role,
             default_collection: self.default_collection,
             created_at: Utc::now(),
-            last_used_at: None,
-            request_count: 0,
             oauth_picture_url: None,
             oauth_avatar_blob_id: None,
             avatar_blob_id: None,

@@ -138,8 +138,6 @@ impl AuthorizationContext {
             role: self.user.role.clone(),
             default_collection: self.user.default_collection.clone(),
             created_at: Utc::now(),
-            last_used_at: None,
-            request_count: 0,
             oauth_picture_url: self.user.oauth_picture_url.clone(),
             oauth_avatar_blob_id: self.user.oauth_avatar_blob_id.clone(),
             avatar_blob_id: self.user.avatar_blob_id.clone(),
