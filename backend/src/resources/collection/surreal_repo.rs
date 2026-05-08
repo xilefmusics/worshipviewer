@@ -125,11 +125,12 @@ impl CollectionRepository for SurrealCollectionRepo {
         id: &str,
     ) -> Result<Vec<SongLinkOwned>, AppError> {
         let db = self.inner();
-        let resource = resource_id("collection", id)?;
+        let (tb, sid) = resource_id("collection", id)?;
         let mut response = db
             .db
-            .query("SELECT owner, songs FROM collection WHERE id = $id")
-            .bind(("id", RecordId::new(resource.0.clone(), resource.1.clone())))
+            .query("SELECT owner, songs FROM type::record($tb, $sid)")
+            .bind(("tb", tb))
+            .bind(("sid", sid))
             .await?;
 
         let record = response

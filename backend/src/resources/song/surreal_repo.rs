@@ -116,7 +116,7 @@ async fn songs_by_ids(
     }
     let mut response = db
         .db
-        .query("SELECT * FROM song WHERE id INSIDE $ids")
+        .query("SELECT * FROM $ids")
         .bind(("ids", ids))
         .await?;
     let records: Vec<SongRecord> = response.take(0)?;
