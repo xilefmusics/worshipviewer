@@ -11,7 +11,7 @@ use actix_web::{Error, HttpMessage, HttpResponse, HttpResponseBuilder};
 use futures_util::future::LocalBoxFuture;
 use shared::error::Problem;
 
-use crate::resources::User;
+use crate::auth::AuthorizationContext;
 
 /// Problem Details body for actix-governor 429 responses (retry headers already on `response`).
 pub fn rate_limit_problem_response(
@@ -76,7 +76,10 @@ where
             .match_pattern()
             .map(|p| p.to_string())
             .unwrap_or_else(|| req.path().to_string());
-        let user_id = req.extensions().get::<User>().map(|u| u.id.clone());
+        let user_id = req
+            .extensions()
+            .get::<AuthorizationContext>()
+            .map(|ctx| ctx.user.id.clone());
         let client_ip = req
             .peer_addr()
             .map(|a| a.ip().to_string())

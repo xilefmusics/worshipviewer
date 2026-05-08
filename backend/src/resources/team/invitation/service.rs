@@ -7,11 +7,12 @@ use surrealdb::types::RecordId;
 
 use shared::api::ListQuery;
 use shared::team::{Team, TeamInvitation};
-use shared::user::User;
 use tracing::instrument;
 
 use crate::database::{Database, record_id_string};
 use crate::error::AppError;
+
+use crate::auth::AuthorizationContext;
 
 use super::model::{invitation_thing, team_things_match};
 use super::repository::TeamInvitationRepository;
@@ -50,31 +51,31 @@ impl<R, IR> InvitationService<R, IR> {
 }
 
 impl<R: TeamRepository, IR: TeamInvitationRepository> InvitationService<R, IR> {
-    #[instrument(level = "debug", err, skip(self, user))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn create_invitation_for_user(
         &self,
-        user: &User,
+        ctx: &AuthorizationContext,
         team_id: &str,
     ) -> Result<TeamInvitation, AppError> {
         let team_thing = self
-            .assert_team_admin_for_invitations(&user.id, team_id)
+            .assert_team_admin_for_invitations(&ctx.user.id, team_id)
             .await?;
         let inv_id = Uuid::new_v4().to_string();
         self.inv_repo
-            .create_invitation(team_thing, user_thing(&user.id), &inv_id)
+            .create_invitation(team_thing, user_thing(&ctx.user.id), &inv_id)
             .await?;
-        self.get_invitation_for_user(user, team_id, &inv_id).await
+        self.get_invitation_for_user(ctx, team_id, &inv_id).await
     }
 
-    #[instrument(level = "debug", err, skip(self, user, pagination))]
+    #[instrument(level = "debug", err, skip(self, ctx, pagination))]
     pub async fn list_invitations_for_user(
         &self,
-        user: &User,
+        ctx: &AuthorizationContext,
         team_id: &str,
         pagination: ListQuery,
     ) -> Result<(Vec<TeamInvitation>, u64), AppError> {
         let team_thing = self
-            .assert_team_admin_for_invitations(&user.id, team_id)
+            .assert_team_admin_for_invitations(&ctx.user.id, team_id)
             .await?;
         let rows = self.inv_repo.list_invitations(team_thing).await?;
         let invitations: Vec<TeamInvitation> = rows
@@ -85,15 +86,15 @@ impl<R: TeamRepository, IR: TeamInvitationRepository> InvitationService<R, IR> {
         Ok((page, total))
     }
 
-    #[instrument(level = "debug", err, skip(self, user))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn get_invitation_for_user(
         &self,
-        user: &User,
+        ctx: &AuthorizationContext,
         team_id: &str,
         invitation_id: &str,
     ) -> Result<TeamInvitation, AppError> {
         let team_thing = self
-            .assert_team_admin_for_invitations(&user.id, team_id)
+            .assert_team_admin_for_invitations(&ctx.user.id, team_id)
             .await?;
         let inv_thing = invitation_thing(invitation_id)?;
         let inv_id_key = record_id_string(&inv_thing);
@@ -110,15 +111,15 @@ impl<R: TeamRepository, IR: TeamInvitationRepository> InvitationService<R, IR> {
         row.into_invitation()
     }
 
-    #[instrument(level = "debug", err, skip(self, user))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn delete_invitation_for_user(
         &self,
-        user: &User,
+        ctx: &AuthorizationContext,
         team_id: &str,
         invitation_id: &str,
     ) -> Result<(), AppError> {
         let team_thing = self
-            .assert_team_admin_for_invitations(&user.id, team_id)
+            .assert_team_admin_for_invitations(&ctx.user.id, team_id)
             .await?;
         let inv_thing = invitation_thing(invitation_id)?;
         let inv_id_key = record_id_string(&inv_thing);
@@ -139,10 +140,10 @@ impl<R: TeamRepository, IR: TeamInvitationRepository> InvitationService<R, IR> {
         Ok(())
     }
 
-    #[instrument(level = "debug", err, skip(self, user))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn accept_invitation_for_user(
         &self,
-        user: &User,
+        ctx: &AuthorizationContext,
         invitation_id: &str,
     ) -> Result<Team, AppError> {
         let inv_thing = invitation_thing(invitation_id)?;
@@ -164,14 +165,14 @@ impl<R: TeamRepository, IR: TeamInvitationRepository> InvitationService<R, IR> {
         let stored = team_fetched_to_stored(&team_row)?;
 
         let team_id_str = crate::database::record_id_string(&team_row.id);
-        let uid = user.id.clone();
+        let uid = ctx.user.id.clone();
 
         // Personal team owner is not listed in `members`; accept is idempotent (same as for admin).
         if let Some(ref o) = stored.owner
             && thing_user_id(o) == uid
         {
             let team = self.team_repo.load_team_display(&team_id_str).await?;
-            audit_invitation_accepted(&team_id_str, invitation_id, &user.id);
+            audit_invitation_accepted(&team_id_str, invitation_id, &ctx.user.id);
             return Ok(team);
         }
 
@@ -187,7 +188,7 @@ impl<R: TeamRepository, IR: TeamInvitationRepository> InvitationService<R, IR> {
 
         if !needs_guest {
             let team = self.team_repo.load_team_display(&team_id_str).await?;
-            audit_invitation_accepted(&team_id_str, invitation_id, &user.id);
+            audit_invitation_accepted(&team_id_str, invitation_id, &ctx.user.id);
             return Ok(team);
         }
 
@@ -208,19 +209,19 @@ impl<R: TeamRepository, IR: TeamInvitationRepository> InvitationService<R, IR> {
             .await?;
 
         let team = self.team_repo.load_team_display(&team_id_str).await?;
-        audit_invitation_accepted(&team_id_str, invitation_id, &user.id);
+        audit_invitation_accepted(&team_id_str, invitation_id, &ctx.user.id);
         Ok(team)
     }
 
     /// Like [`accept_invitation_for_user`], but ensures the invitation belongs to `team_id`.
-    #[instrument(level = "debug", err, skip(self, user))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn accept_invitation_for_user_on_team(
         &self,
-        user: &User,
+        ctx: &AuthorizationContext,
         team_id: &str,
         invitation_id: &str,
     ) -> Result<Team, AppError> {
-        let team = self.accept_invitation_for_user(user, invitation_id).await?;
+        let team = self.accept_invitation_for_user(ctx, invitation_id).await?;
         if team.id != team_id {
             return Err(AppError::NotFound("invitation not found".into()));
         }
@@ -534,7 +535,12 @@ mod tests {
             MockTeamRepo::with(team),
             MockInvRepo::with_inv(inv_row("any", "t1")),
         );
-        let r = svc.create_invitation_for_user(&user, "t1").await;
+        let r = svc
+            .create_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+            )
+            .await;
         assert!(r.is_ok());
     }
 
@@ -547,7 +553,12 @@ mod tests {
             MockTeamRepo::with(team),
             MockInvRepo::with_inv(inv_row("any", "t1")),
         );
-        let r = svc.create_invitation_for_user(&user, "t1").await;
+        let r = svc
+            .create_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+            )
+            .await;
         assert!(r.is_ok());
     }
 
@@ -556,7 +567,12 @@ mod tests {
     async fn blc_tinv_001_create_public_team_rejected() {
         let user = make_user("u1");
         let svc = make_svc(MockTeamRepo::missing(), MockInvRepo::empty());
-        let r = svc.create_invitation_for_user(&user, "public").await;
+        let r = svc
+            .create_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "public",
+            )
+            .await;
         assert!(matches!(r, Err(AppError::NotFound(_))));
     }
 
@@ -566,7 +582,12 @@ mod tests {
         let user = make_user("u1");
         let team = shared_team("t1", vec![member_fetched("u1", "content_maintainer")]);
         let svc = make_svc(MockTeamRepo::with(team), MockInvRepo::empty());
-        let r = svc.create_invitation_for_user(&user, "t1").await;
+        let r = svc
+            .create_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+            )
+            .await;
         assert!(matches!(r, Err(AppError::Forbidden)));
     }
 
@@ -576,7 +597,12 @@ mod tests {
         let user = make_user("u1");
         let team = shared_team("t1", vec![member_fetched("u1", "guest")]);
         let svc = make_svc(MockTeamRepo::with(team), MockInvRepo::empty());
-        let r = svc.create_invitation_for_user(&user, "t1").await;
+        let r = svc
+            .create_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+            )
+            .await;
         assert!(matches!(r, Err(AppError::Forbidden)));
     }
 
@@ -586,7 +612,12 @@ mod tests {
         let user = make_user("u1");
         let team = shared_team("t1", vec![member_fetched("u2", "admin")]);
         let svc = make_svc(MockTeamRepo::with(team), MockInvRepo::empty());
-        let r = svc.create_invitation_for_user(&user, "t1").await;
+        let r = svc
+            .create_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+            )
+            .await;
         assert!(matches!(r, Err(AppError::NotFound(_))));
     }
 
@@ -600,7 +631,11 @@ mod tests {
             MockInvRepo::with_list(vec![inv_row("inv1", "t1")]),
         );
         let r = svc
-            .list_invitations_for_user(&user, "t1", ListQuery::default())
+            .list_invitations_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+                ListQuery::default(),
+            )
             .await;
         assert!(r.is_ok());
         assert_eq!(r.unwrap().0.len(), 1);
@@ -613,7 +648,11 @@ mod tests {
         let team = shared_team("t1", vec![member_fetched("u1", "guest")]);
         let svc = make_svc(MockTeamRepo::with(team), MockInvRepo::empty());
         let r = svc
-            .list_invitations_for_user(&user, "t1", ListQuery::default())
+            .list_invitations_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+                ListQuery::default(),
+            )
             .await;
         assert!(matches!(r, Err(AppError::Forbidden)));
     }
@@ -627,7 +666,13 @@ mod tests {
             MockTeamRepo::with(team),
             MockInvRepo::with_inv(inv_row("inv1", "t1")),
         );
-        let r = svc.get_invitation_for_user(&user, "t1", "inv1").await;
+        let r = svc
+            .get_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+                "inv1",
+            )
+            .await;
         assert!(r.is_ok());
     }
 
@@ -640,7 +685,13 @@ mod tests {
             MockTeamRepo::with(team),
             MockInvRepo::with_inv(inv_row("inv1", "t2")),
         );
-        let r = svc.get_invitation_for_user(&user, "t1", "inv1").await;
+        let r = svc
+            .get_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+                "inv1",
+            )
+            .await;
         assert!(matches!(r, Err(AppError::NotFound(_))));
     }
 
@@ -650,7 +701,13 @@ mod tests {
         let user = make_user("u1");
         let team = shared_team("t1", vec![member_fetched("u1", "admin")]);
         let svc = make_svc(MockTeamRepo::with(team), MockInvRepo::empty());
-        let r = svc.get_invitation_for_user(&user, "t1", "inv1").await;
+        let r = svc
+            .get_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+                "inv1",
+            )
+            .await;
         assert!(matches!(r, Err(AppError::NotFound(_))));
     }
 
@@ -663,7 +720,13 @@ mod tests {
             MockTeamRepo::with(team),
             MockInvRepo::with_inv(inv_row("inv1", "t1")),
         );
-        let r = svc.delete_invitation_for_user(&user, "t1", "inv1").await;
+        let r = svc
+            .delete_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+                "inv1",
+            )
+            .await;
         assert!(r.is_ok());
     }
 
@@ -673,7 +736,13 @@ mod tests {
         let user = make_user("u1");
         let team = shared_team("t1", vec![member_fetched("u1", "admin")]);
         let svc = make_svc(MockTeamRepo::with(team), MockInvRepo::empty());
-        let r = svc.delete_invitation_for_user(&user, "t1", "inv1").await;
+        let r = svc
+            .delete_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+                "inv1",
+            )
+            .await;
         assert!(matches!(r, Err(AppError::NotFound(_))));
     }
 
@@ -683,7 +752,13 @@ mod tests {
         let user = make_user("u1");
         let team = shared_team("t1", vec![member_fetched("u1", "guest")]);
         let svc = make_svc(MockTeamRepo::with(team), MockInvRepo::empty());
-        let r = svc.delete_invitation_for_user(&user, "t1", "inv1").await;
+        let r = svc
+            .delete_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "t1",
+                "inv1",
+            )
+            .await;
         assert!(matches!(r, Err(AppError::Forbidden)));
     }
 
@@ -699,7 +774,12 @@ mod tests {
         let mock_team = MockTeamRepo::with(shared_team("t1", vec![member_fetched("u2", "admin")]));
         let update_called = mock_team.update_members_called.clone();
         let svc = make_svc(mock_team, MockInvRepo::with_accept(accept_row));
-        let r = svc.accept_invitation_for_user(&user, "inv1").await;
+        let r = svc
+            .accept_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "inv1",
+            )
+            .await;
         assert!(r.is_ok());
         assert!(
             *update_called.lock().unwrap(),
@@ -716,7 +796,12 @@ mod tests {
             MockTeamRepo::missing(),
             MockInvRepo::with_accept(accept_row),
         );
-        let r = svc.accept_invitation_for_user(&user, "inv1").await;
+        let r = svc
+            .accept_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "inv1",
+            )
+            .await;
         assert!(matches!(r, Err(AppError::NotFound(_))));
     }
 
@@ -729,7 +814,12 @@ mod tests {
         let mock_team = MockTeamRepo::with(personal_team("t1", "owner1"));
         let update_called = mock_team.update_members_called.clone();
         let svc = make_svc(mock_team, MockInvRepo::with_accept(accept_row));
-        let r = svc.accept_invitation_for_user(&user, "inv1").await;
+        let r = svc
+            .accept_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "inv1",
+            )
+            .await;
         assert!(r.is_ok());
         assert!(
             *update_called.lock().unwrap(),
@@ -746,7 +836,12 @@ mod tests {
         let mock_team = MockTeamRepo::with(team);
         let update_called = mock_team.update_members_called.clone();
         let svc = make_svc(mock_team, MockInvRepo::with_accept(accept_row));
-        let r = svc.accept_invitation_for_user(&user, "inv1").await;
+        let r = svc
+            .accept_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "inv1",
+            )
+            .await;
         assert!(r.is_ok());
         assert!(
             !*update_called.lock().unwrap(),
@@ -769,7 +864,12 @@ mod tests {
         let mock_team = MockTeamRepo::with(shared_team("t1", vec![member_fetched("u2", "admin")]));
         let update_called = mock_team.update_members_called.clone();
         let svc = make_svc(mock_team, MockInvRepo::with_accept(accept_row));
-        let r = svc.accept_invitation_for_user(&user, "inv1").await;
+        let r = svc
+            .accept_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "inv1",
+            )
+            .await;
         assert!(r.is_ok());
         assert!(
             !*update_called.lock().unwrap(),
@@ -786,7 +886,12 @@ mod tests {
         let mock_team = MockTeamRepo::with(shared_team("t1", vec![member_fetched("u1", "admin")]));
         let update_called = mock_team.update_members_called.clone();
         let svc = make_svc(mock_team, MockInvRepo::with_accept(accept_row));
-        let r = svc.accept_invitation_for_user(&user, "inv1").await;
+        let r = svc
+            .accept_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "inv1",
+            )
+            .await;
         assert!(r.is_ok());
         assert!(
             !*update_called.lock().unwrap(),
@@ -806,7 +911,12 @@ mod tests {
         let mock_team = MockTeamRepo::with(shared_team("t1", vec![member_fetched("u2", "admin")]));
         let update_called = mock_team.update_members_called.clone();
         let svc = make_svc(mock_team, MockInvRepo::with_accept(accept_row));
-        let r = svc.accept_invitation_for_user(&user, "inv1").await;
+        let r = svc
+            .accept_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "inv1",
+            )
+            .await;
         assert!(r.is_ok());
         assert!(
             !*update_called.lock().unwrap(),
@@ -819,7 +929,12 @@ mod tests {
     async fn blc_tinv_014_accept_nonexistent_not_found() {
         let user = make_user("u1");
         let svc = make_svc(MockTeamRepo::missing(), MockInvRepo::empty());
-        let r = svc.accept_invitation_for_user(&user, "inv1").await;
+        let r = svc
+            .accept_invitation_for_user(
+                &crate::test_helpers::auth_ctx_test_personal_team(&user),
+                "inv1",
+            )
+            .await;
         assert!(matches!(r, Err(AppError::NotFound(_))));
     }
 
@@ -837,7 +952,12 @@ mod tests {
             let fx = TeamFixture::build(&db).await.expect("fixture");
             let svc = invitation_service(&db);
             let inv = svc
-                .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await
                 .expect("create");
             assert!(!inv.id.is_empty());
@@ -851,7 +971,12 @@ mod tests {
             let fx = TeamFixture::build(&db).await.expect("fixture");
             let svc = invitation_service(&db);
             let inv = svc
-                .create_invitation_for_user(&fx.owner, &fx.personal_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.owner)
+                        .await
+                        .expect("auth"),
+                    &fx.personal_team_id,
+                )
                 .await
                 .expect("create");
             assert_eq!(inv.team_id, fx.personal_team_id);
@@ -864,11 +989,21 @@ mod tests {
             let fx = TeamFixture::build(&db).await.expect("fixture");
             let svc = invitation_service(&db);
             let inv = svc
-                .create_invitation_for_user(&fx.owner, &fx.personal_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.owner)
+                        .await
+                        .expect("auth"),
+                    &fx.personal_team_id,
+                )
                 .await
                 .expect("create");
             let team = svc
-                .accept_invitation_for_user(&fx.guest, &inv.id)
+                .accept_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.guest)
+                        .await
+                        .expect("auth"),
+                    &inv.id,
+                )
                 .await
                 .expect("accept");
             assert_eq!(team.id, fx.personal_team_id);
@@ -886,7 +1021,12 @@ mod tests {
             let fx = TeamFixture::build(&db).await.expect("fixture");
             let svc = invitation_service(&db);
             let r = svc
-                .create_invitation_for_user(&fx.writer, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.writer)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await;
             assert!(matches!(r, Err(AppError::Forbidden)));
         }
@@ -897,11 +1037,22 @@ mod tests {
             let db = test_db().await.expect("db");
             let fx = TeamFixture::build(&db).await.expect("fixture");
             let svc = invitation_service(&db);
-            svc.create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
-                .await
-                .expect("create");
+            svc.create_invitation_for_user(
+                &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                    .await
+                    .expect("auth"),
+                &fx.shared_team_id,
+            )
+            .await
+            .expect("create");
             let (list, _) = svc
-                .list_invitations_for_user(&fx.admin_user, &fx.shared_team_id, ListQuery::default())
+                .list_invitations_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                    ListQuery::default(),
+                )
                 .await
                 .expect("list");
             assert_eq!(list.len(), 1);
@@ -914,11 +1065,22 @@ mod tests {
             let fx = TeamFixture::build(&db).await.expect("fixture");
             let svc = invitation_service(&db);
             let inv = svc
-                .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await
                 .expect("create");
             let fetched = svc
-                .get_invitation_for_user(&fx.admin_user, &fx.shared_team_id, &inv.id)
+                .get_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                    &inv.id,
+                )
                 .await
                 .expect("get");
             assert_eq!(fetched.id, inv.id);
@@ -931,7 +1093,12 @@ mod tests {
             let fx = TeamFixture::build(&db).await.expect("fixture");
             let svc = invitation_service(&db);
             let inv = svc
-                .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await
                 .expect("create");
             let team_svc = team_service(&db);
@@ -946,7 +1113,13 @@ mod tests {
                 .await
                 .expect("other team");
             let r = svc
-                .get_invitation_for_user(&fx.admin_user, &other_team.id, &inv.id)
+                .get_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &other_team.id,
+                    &inv.id,
+                )
                 .await;
             assert!(matches!(r, Err(AppError::NotFound(_))));
         }
@@ -958,14 +1131,31 @@ mod tests {
             let fx = TeamFixture::build(&db).await.expect("fixture");
             let svc = invitation_service(&db);
             let inv = svc
-                .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await
                 .expect("create");
-            svc.delete_invitation_for_user(&fx.admin_user, &fx.shared_team_id, &inv.id)
-                .await
-                .expect("delete");
+            svc.delete_invitation_for_user(
+                &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                    .await
+                    .expect("auth"),
+                &fx.shared_team_id,
+                &inv.id,
+            )
+            .await
+            .expect("delete");
             let r = svc
-                .get_invitation_for_user(&fx.admin_user, &fx.shared_team_id, &inv.id)
+                .get_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                    &inv.id,
+                )
                 .await;
             assert!(matches!(r, Err(AppError::NotFound(_))));
         }
@@ -977,16 +1167,34 @@ mod tests {
             let fx = TeamFixture::build(&db).await.expect("fixture");
             let svc = invitation_service(&db);
             let inv = svc
-                .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await
                 .expect("create");
-            svc.delete_invitation_for_user(&fx.admin_user, &fx.shared_team_id, &inv.id)
-                .await
-                .expect("delete");
+            svc.delete_invitation_for_user(
+                &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                    .await
+                    .expect("auth"),
+                &fx.shared_team_id,
+                &inv.id,
+            )
+            .await
+            .expect("delete");
             let new_user = create_user(&db, "tinv004accept@test.local")
                 .await
                 .expect("u");
-            let r = svc.accept_invitation_for_user(&new_user, &inv.id).await;
+            let r = svc
+                .accept_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &new_user)
+                        .await
+                        .expect("auth"),
+                    &inv.id,
+                )
+                .await;
             assert!(matches!(r, Err(AppError::NotFound(_))));
         }
 
@@ -998,11 +1206,21 @@ mod tests {
             let svc = invitation_service(&db);
             let new_user = create_user(&db, "tinv010@test.local").await.expect("u");
             let inv = svc
-                .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await
                 .expect("create");
             let team = svc
-                .accept_invitation_for_user(&new_user, &inv.id)
+                .accept_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &new_user)
+                        .await
+                        .expect("auth"),
+                    &inv.id,
+                )
                 .await
                 .expect("accept");
             let is_guest = team
@@ -1020,14 +1238,30 @@ mod tests {
             let svc = invitation_service(&db);
             let new_user = create_user(&db, "tinv005@test.local").await.expect("u");
             let inv = svc
-                .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await
                 .expect("create");
-            svc.accept_invitation_for_user(&new_user, &inv.id)
-                .await
-                .expect("accept");
+            svc.accept_invitation_for_user(
+                &crate::test_helpers::auth_ctx_for_user(&db, &new_user)
+                    .await
+                    .expect("auth"),
+                &inv.id,
+            )
+            .await
+            .expect("accept");
             let fetched = svc
-                .get_invitation_for_user(&fx.admin_user, &fx.shared_team_id, &inv.id)
+                .get_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                    &inv.id,
+                )
                 .await
                 .expect("still exists");
             assert_eq!(fetched.id, inv.id);
@@ -1040,11 +1274,21 @@ mod tests {
             let fx = TeamFixture::build(&db).await.expect("fixture");
             let svc = invitation_service(&db);
             let inv = svc
-                .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await
                 .expect("create");
             let team = svc
-                .accept_invitation_for_user(&fx.writer, &inv.id)
+                .accept_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.writer)
+                        .await
+                        .expect("auth"),
+                    &inv.id,
+                )
                 .await
                 .expect("accept");
             let role = team
@@ -1067,14 +1311,29 @@ mod tests {
             let svc = invitation_service(&db);
             let new_user = create_user(&db, "tinv012@test.local").await.expect("u");
             let inv = svc
-                .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await
                 .expect("create");
-            svc.accept_invitation_for_user(&new_user, &inv.id)
-                .await
-                .expect("accept 1");
+            svc.accept_invitation_for_user(
+                &crate::test_helpers::auth_ctx_for_user(&db, &new_user)
+                    .await
+                    .expect("auth"),
+                &inv.id,
+            )
+            .await
+            .expect("accept 1");
             let team = svc
-                .accept_invitation_for_user(&new_user, &inv.id)
+                .accept_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &new_user)
+                        .await
+                        .expect("auth"),
+                    &inv.id,
+                )
                 .await
                 .expect("accept 2");
             let count = team
@@ -1094,14 +1353,29 @@ mod tests {
             let user_a = create_user(&db, "tinv013a@test.local").await.expect("a");
             let user_b = create_user(&db, "tinv013b@test.local").await.expect("b");
             let inv = svc
-                .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await
                 .expect("create");
-            svc.accept_invitation_for_user(&user_a, &inv.id)
-                .await
-                .expect("a accept");
+            svc.accept_invitation_for_user(
+                &crate::test_helpers::auth_ctx_for_user(&db, &user_a)
+                    .await
+                    .expect("auth"),
+                &inv.id,
+            )
+            .await
+            .expect("a accept");
             let team = svc
-                .accept_invitation_for_user(&user_b, &inv.id)
+                .accept_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &user_b)
+                        .await
+                        .expect("auth"),
+                    &inv.id,
+                )
                 .await
                 .expect("b accept");
             assert!(team.members.iter().any(|m| m.user.id == user_a.id));
@@ -1115,11 +1389,21 @@ mod tests {
             let fx = TeamFixture::build(&db).await.expect("fixture");
             let svc = invitation_service(&db);
             let inv1 = svc
-                .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await
                 .expect("inv1");
             let inv2 = svc
-                .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+                .create_invitation_for_user(
+                    &crate::test_helpers::auth_ctx_for_user(&db, &fx.admin_user)
+                        .await
+                        .expect("auth"),
+                    &fx.shared_team_id,
+                )
                 .await
                 .expect("inv2");
             assert_ne!(inv1.id, inv2.id);

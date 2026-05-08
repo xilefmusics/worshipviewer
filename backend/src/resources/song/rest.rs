@@ -5,18 +5,17 @@ use actix_web::{
 };
 
 use crate::accept::accepts_worship_player_json;
+use crate::auth::AuthorizationContext;
 #[allow(unused_imports)]
 use crate::docs::Problem;
 use crate::error::AppError;
 use crate::http_cache::{check_if_match, if_none_match_matches, weak_etag_json};
-use crate::resources::User;
 use crate::resources::song::PatchSong;
 #[allow(unused_imports)]
 use crate::resources::song::Song;
 use crate::resources::song::SongUpsertOutcome;
 use crate::resources::song::service::SongServiceHandle;
 use crate::resources::song::{CreateSong, UpdateSong};
-use crate::resources::team::UserPermissions;
 use shared::MoveOwner;
 use shared::api::{PAGE_SIZE_DEFAULT, SongListQuery};
 use shared::like::LikeStatus;
@@ -66,16 +65,15 @@ pub fn scope() -> Scope {
 async fn get_songs(
     req: HttpRequest,
     svc: Data<SongServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     query: Query<SongListQuery>,
 ) -> Result<HttpResponse, AppError> {
     let query = query
         .into_inner()
         .validate()
         .map_err(crate::error::map_list_query_error)?;
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
-    let songs = svc.list_songs_for_user(&perms, query.clone()).await?;
-    let total = svc.count_songs_for_user(&perms, &query).await?;
+    let songs = svc.list_songs_for_user(&ctx, query.clone()).await?;
+    let total = svc.count_songs_for_user(&ctx, &query).await?;
     let page = query.page.unwrap_or(0);
     let page_size = query.page_size.unwrap_or(PAGE_SIZE_DEFAULT);
     let q_for_link = query.clone();
@@ -122,11 +120,10 @@ async fn get_songs(
 async fn get_song(
     req: HttpRequest,
     svc: Data<SongServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
-    let song = svc.get_song_for_user(&perms, &id).await?;
+    let song = svc.get_song_for_user(&ctx, &id).await?;
     let etag = weak_etag_json(&song).map_err(|e| AppError::internal_from_err("song.rest", e))?;
     if if_none_match_matches(&req, &etag) {
         return Ok(HttpResponse::NotModified()
@@ -163,7 +160,7 @@ async fn get_song(
 async fn get_song_player(
     req: HttpRequest,
     svc: Data<SongServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
     if !accepts_worship_player_json(&req) {
@@ -171,8 +168,7 @@ async fn get_song_player(
             "supported Accept values include application/json, application/vnd.worship.player+json, and */*",
         ));
     }
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
-    Ok(HttpResponse::Ok().json(svc.song_player_for_user(&perms, &id).await?))
+    Ok(HttpResponse::Ok().json(svc.song_player_for_user(&ctx, &id).await?))
 }
 
 #[utoipa::path(
@@ -196,13 +192,12 @@ async fn get_song_player(
 #[post("")]
 async fn create_song(
     svc: Data<SongServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     payload: Json<CreateSong>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let payload = payload.into_inner();
     payload.validate().map_err(AppError::invalid_request)?;
-    Ok(HttpResponse::Created().json(svc.create_song_for_user(&perms, payload).await?))
+    Ok(HttpResponse::Created().json(svc.create_song_for_user(&ctx, payload).await?))
 }
 
 #[utoipa::path(
@@ -232,17 +227,16 @@ async fn create_song(
 async fn update_song(
     req: HttpRequest,
     svc: Data<SongServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
     payload: Json<UpdateSong>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let payload = payload.into_inner();
     payload.validate().map_err(AppError::invalid_request)?;
     let owner = payload.owner.clone();
     let payload = CreateSong::from(payload);
     let id = id.into_inner();
-    match svc.get_song_for_user(&perms, &id).await {
+    match svc.get_song_for_user(&ctx, &id).await {
         Ok(song) => {
             let etag =
                 weak_etag_json(&song).map_err(|e| AppError::internal_from_err("song.rest", e))?;
@@ -251,10 +245,7 @@ async fn update_song(
         Err(AppError::NotFound(_)) => {}
         Err(e) => return Err(e),
     }
-    match svc
-        .update_song_for_user(&perms, &id, payload, owner)
-        .await?
-    {
+    match svc.update_song_for_user(&ctx, &id, payload, owner).await? {
         SongUpsertOutcome::Created(song) => Ok(HttpResponse::Created()
             .insert_header((header::LOCATION, format!("/api/v1/songs/{}", song.id)))
             .json(song)),
@@ -288,17 +279,16 @@ async fn update_song(
 async fn patch_song(
     req: HttpRequest,
     svc: Data<SongServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
     payload: Json<PatchSong>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let id = id.into_inner();
-    let song = svc.get_song_for_user(&perms, &id).await?;
+    let song = svc.get_song_for_user(&ctx, &id).await?;
     let etag = weak_etag_json(&song).map_err(|e| AppError::internal_from_err("song.rest", e))?;
     check_if_match(&req, &etag)?;
     Ok(HttpResponse::Ok().json(
-        svc.patch_song_for_user(&perms, &id, payload.into_inner())
+        svc.patch_song_for_user(&ctx, &id, payload.into_inner())
             .await?,
     ))
 }
@@ -327,13 +317,12 @@ async fn patch_song(
 #[post("/{id}/move")]
 async fn move_song(
     svc: Data<SongServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
     payload: Json<MoveOwner>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     Ok(HttpResponse::Ok().json(
-        svc.move_song_for_user(&perms, &id.into_inner(), payload.into_inner())
+        svc.move_song_for_user(&ctx, &id.into_inner(), payload.into_inner())
             .await?,
     ))
 }
@@ -363,15 +352,14 @@ async fn move_song(
 async fn delete_song(
     req: HttpRequest,
     svc: Data<SongServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let id = id.into_inner();
-    let song = svc.get_song_for_user(&perms, &id).await?;
+    let song = svc.get_song_for_user(&ctx, &id).await?;
     let etag = weak_etag_json(&song).map_err(|e| AppError::internal_from_err("song.rest", e))?;
     check_if_match(&req, &etag)?;
-    svc.delete_song_for_user(&perms, &id).await?;
+    svc.delete_song_for_user(&ctx, &id).await?;
     Ok(HttpResponse::NoContent().finish())
 }
 
@@ -398,11 +386,10 @@ async fn delete_song(
 #[get("/{id}/like")]
 async fn get_song_like_status(
     svc: Data<SongServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
-    Ok(HttpResponse::Ok().json(svc.song_like_status_for_user(&perms, &id).await?))
+    Ok(HttpResponse::Ok().json(svc.song_like_status_for_user(&ctx, &id).await?))
 }
 
 #[utoipa::path(
@@ -428,11 +415,10 @@ async fn get_song_like_status(
 #[put("/{id}/like")]
 async fn put_song_like(
     svc: Data<SongServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
-    svc.set_song_like_status_for_user(&perms, &id, true).await?;
+    svc.set_song_like_status_for_user(&ctx, &id, true).await?;
     Ok(HttpResponse::NoContent().finish())
 }
 
@@ -459,11 +445,9 @@ async fn put_song_like(
 #[delete("/{id}/like")]
 async fn delete_song_like(
     svc: Data<SongServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
-    svc.set_song_like_status_for_user(&perms, &id, false)
-        .await?;
+    svc.set_song_like_status_for_user(&ctx, &id, false).await?;
     Ok(HttpResponse::NoContent().finish())
 }

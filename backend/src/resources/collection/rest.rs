@@ -5,11 +5,11 @@ use actix_web::{
 };
 
 use crate::accept::accepts_worship_player_json;
+use crate::auth::AuthorizationContext;
 #[allow(unused_imports)]
 use crate::docs::Problem;
 use crate::error::AppError;
 use crate::http_cache::{check_if_match, if_none_match_matches, weak_etag_json};
-use crate::resources::User;
 #[allow(unused_imports)]
 use crate::resources::collection::Collection;
 use crate::resources::collection::PatchCollection;
@@ -17,7 +17,6 @@ use crate::resources::collection::service::CollectionServiceHandle;
 use crate::resources::collection::{CreateCollection, UpdateCollection};
 #[allow(unused_imports)]
 use crate::resources::song::Song;
-use crate::resources::team::UserPermissions;
 use shared::MoveOwner;
 use shared::api::{ListQuery, PAGE_SIZE_DEFAULT, PageQuery};
 #[allow(unused_imports)]
@@ -61,21 +60,20 @@ pub fn scope() -> Scope {
 async fn get_collections(
     req: HttpRequest,
     svc: Data<CollectionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     query: Query<ListQuery>,
 ) -> Result<HttpResponse, AppError> {
     let query = query
         .into_inner()
         .validate()
         .map_err(crate::error::map_list_query_error)?;
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let q_ref = query.q.clone();
     let q_link = query.clone();
     let page = query.page.unwrap_or(0);
     let page_size = query.page_size.unwrap_or(PAGE_SIZE_DEFAULT);
-    let collections = svc.list_collections_for_user(&perms, query).await?;
+    let collections = svc.list_collections_for_user(&ctx, query).await?;
     let total = svc
-        .count_collections_for_user(&perms, q_ref.as_deref())
+        .count_collections_for_user(&ctx, q_ref.as_deref())
         .await?;
     Ok(HttpResponse::Ok()
         .insert_header((
@@ -120,11 +118,10 @@ async fn get_collections(
 async fn get_collection(
     req: HttpRequest,
     svc: Data<CollectionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
-    let collection = svc.get_collection_for_user(&perms, &id).await?;
+    let collection = svc.get_collection_for_user(&ctx, &id).await?;
     let etag = weak_etag_json(&collection)
         .map_err(|e| AppError::internal_from_err("collection.rest", e))?;
     if if_none_match_matches(&req, &etag) {
@@ -162,7 +159,7 @@ async fn get_collection(
 async fn get_collection_player(
     req: HttpRequest,
     svc: Data<CollectionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
     if !accepts_worship_player_json(&req) {
@@ -170,8 +167,7 @@ async fn get_collection_player(
             "supported Accept values include application/json, application/vnd.worship.player+json, and */*",
         ));
     }
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
-    Ok(HttpResponse::Ok().json(svc.collection_player_for_user(&perms, &id).await?))
+    Ok(HttpResponse::Ok().json(svc.collection_player_for_user(&ctx, &id).await?))
 }
 
 #[utoipa::path(
@@ -200,7 +196,7 @@ async fn get_collection_player(
 async fn get_collection_songs(
     req: HttpRequest,
     svc: Data<CollectionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
     query: Query<PageQuery>,
 ) -> Result<HttpResponse, AppError> {
@@ -208,12 +204,11 @@ async fn get_collection_songs(
         .into_inner()
         .validate()
         .map_err(crate::error::map_list_query_error)?;
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let q_link = query.clone();
     let page = query.page.unwrap_or(0);
     let page_size = query.page_size.unwrap_or(PAGE_SIZE_DEFAULT);
     let (songs, total) = svc
-        .collection_songs_for_user(&perms, &id, query.as_list_query())
+        .collection_songs_for_user(&ctx, &id, query.as_list_query())
         .await?;
     Ok(HttpResponse::Ok()
         .insert_header((
@@ -254,12 +249,11 @@ async fn get_collection_songs(
 #[post("")]
 async fn create_collection(
     svc: Data<CollectionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     payload: Json<CreateCollection>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     Ok(HttpResponse::Created().json(
-        svc.create_collection_for_user(&perms, payload.into_inner())
+        svc.create_collection_for_user(&ctx, payload.into_inner())
             .await?,
     ))
 }
@@ -290,13 +284,12 @@ async fn create_collection(
 async fn update_collection(
     req: HttpRequest,
     svc: Data<CollectionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
     payload: Json<UpdateCollection>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let id = id.into_inner();
-    let collection = svc.get_collection_for_user(&perms, &id).await?;
+    let collection = svc.get_collection_for_user(&ctx, &id).await?;
     let etag = weak_etag_json(&collection)
         .map_err(|e| AppError::internal_from_err("collection.rest", e))?;
     check_if_match(&req, &etag)?;
@@ -304,7 +297,7 @@ async fn update_collection(
     let owner = payload.owner.clone();
     let payload = CreateCollection::from(payload);
     Ok(HttpResponse::Ok().json(
-        svc.update_collection_for_user(&perms, &id, payload, owner)
+        svc.update_collection_for_user(&ctx, &id, payload, owner)
             .await?,
     ))
 }
@@ -335,18 +328,17 @@ async fn update_collection(
 async fn patch_collection(
     req: HttpRequest,
     svc: Data<CollectionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
     payload: Json<PatchCollection>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let id = id.into_inner();
-    let collection = svc.get_collection_for_user(&perms, &id).await?;
+    let collection = svc.get_collection_for_user(&ctx, &id).await?;
     let etag = weak_etag_json(&collection)
         .map_err(|e| AppError::internal_from_err("collection.rest", e))?;
     check_if_match(&req, &etag)?;
     Ok(HttpResponse::Ok().json(
-        svc.patch_collection_for_user(&perms, &id, payload.into_inner())
+        svc.patch_collection_for_user(&ctx, &id, payload.into_inner())
             .await?,
     ))
 }
@@ -375,13 +367,12 @@ async fn patch_collection(
 #[post("/{id}/move")]
 async fn move_collection(
     svc: Data<CollectionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
     payload: Json<MoveOwner>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     Ok(HttpResponse::Ok().json(
-        svc.move_collection_for_user(&perms, &id.into_inner(), payload.into_inner())
+        svc.move_collection_for_user(&ctx, &id.into_inner(), payload.into_inner())
             .await?,
     ))
 }
@@ -411,15 +402,14 @@ async fn move_collection(
 async fn delete_collection(
     req: HttpRequest,
     svc: Data<CollectionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let id = id.into_inner();
-    let collection = svc.get_collection_for_user(&perms, &id).await?;
+    let collection = svc.get_collection_for_user(&ctx, &id).await?;
     let etag = weak_etag_json(&collection)
         .map_err(|e| AppError::internal_from_err("collection.rest", e))?;
     check_if_match(&req, &etag)?;
-    svc.delete_collection_for_user(&perms, &id).await?;
+    svc.delete_collection_for_user(&ctx, &id).await?;
     Ok(HttpResponse::NoContent().finish())
 }

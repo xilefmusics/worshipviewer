@@ -2,15 +2,20 @@ use std::sync::Arc;
 
 use anyhow::Result as AnyResult;
 use chordlib::types::Song as SongData;
+use surrealdb::types::RecordId;
 
+use crate::auth::context::{
+    AuthorizationContext, AuthorizedSession, AuthorizedTeam, AuthorizedTeamRole, AuthorizedUser,
+};
+use crate::auth::load_authorization_context;
 use crate::database::Database;
 use crate::resources::User;
 use crate::resources::blob::service::BlobServiceHandle;
 use crate::resources::collection::service::CollectionServiceHandle;
 use crate::resources::setlist::{SetlistService, SetlistServiceHandle, SurrealSetlistRepo};
 use crate::resources::song::service::SongServiceHandle;
+use crate::resources::team::TeamServiceHandle;
 use crate::resources::team::invitation::InvitationServiceHandle;
-use crate::resources::team::{SurrealTeamResolver, TeamServiceHandle, UserPermissions};
 use crate::resources::user::service::UserServiceHandle;
 use crate::resources::user::session::service::SessionServiceHandle;
 use shared::setlist::CreateSetlist;
@@ -63,8 +68,51 @@ pub async fn create_song_with_title(
         data,
     };
     let svc = song_service(db);
-    let perms = UserPermissions::from_ref(user, &svc.teams);
-    Ok(svc.create_song_for_user(&perms, create).await?)
+    let ctx = auth_ctx_for_user(db, user).await?;
+    Ok(svc.create_song_for_user(&ctx, create).await?)
+}
+
+pub async fn auth_ctx_for_user(db: &Arc<Database>, user: &User) -> AnyResult<AuthorizationContext> {
+    let sess = session_service(db)
+        .create_session_for_user_by_id(&user.id, 3600)
+        .await
+        .map_err(|e| anyhow::anyhow!("session: {e}"))?;
+    load_authorization_context(db.as_ref(), &sess.id)
+        .await
+        .map_err(|e| anyhow::anyhow!("auth ctx: {e}"))?
+        .filter(|c| !c.session.expired)
+        .ok_or_else(|| anyhow::anyhow!("authorization context missing"))
+}
+
+pub fn auth_ctx_with_teams(user: &User, teams: Vec<AuthorizedTeam>) -> AuthorizationContext {
+    AuthorizationContext {
+        session: AuthorizedSession {
+            id: "test-session".into(),
+            expired: false,
+        },
+        user: AuthorizedUser {
+            id: user.id.clone(),
+            email: user.email.clone(),
+            role: user.role.clone(),
+            default_collection: user.default_collection.clone(),
+            oauth_picture_url: user.oauth_picture_url.clone(),
+            oauth_avatar_blob_id: user.oauth_avatar_blob_id.clone(),
+            avatar_blob_id: user.avatar_blob_id.clone(),
+        },
+        teams: teams.into_boxed_slice().into(),
+    }
+}
+
+pub fn auth_ctx_test_personal_team(user: &User) -> AuthorizationContext {
+    let tid = RecordId::new("team", user.id.clone());
+    auth_ctx_with_teams(
+        user,
+        vec![AuthorizedTeam {
+            id: tid,
+            owner_user_id: Some(user.id.clone()),
+            role: AuthorizedTeamRole::Admin,
+        }],
+    )
 }
 
 /// Adds non-owner members to the owner's personal team.
@@ -111,11 +159,7 @@ pub fn song_service(db: &Arc<Database>) -> SongServiceHandle {
 
 /// Setlist application service (same wiring as HTTP `main`).
 pub fn setlist_service(db: &Arc<Database>) -> SetlistServiceHandle {
-    SetlistService::new(
-        SurrealSetlistRepo::new(db.clone()),
-        Arc::new(SurrealTeamResolver::new(db.clone())),
-        db.clone(),
-    )
+    SetlistService::new(SurrealSetlistRepo::new(db.clone()), db.clone())
 }
 
 /// Team application service (same wiring as HTTP `main`).

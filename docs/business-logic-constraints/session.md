@@ -17,3 +17,4 @@
 
 - **BLC-SESS-008:** WHEN a **user** account IS removed (**`DELETE /users/{id}`**) THEN **all** sessions for that user stop working immediately: **`GET /users/me`** (and other authenticated calls with only that session) THEN **401**.
 - **BLC-SESS-009:** WHEN a session IS **DELETE**d (by its user via **`/users/me/sessions/{id}`** or by admin) THEN that session id MUST NOT authenticate again.
+- **BLC-SESS-010:** WHEN a session row exists but **`expires_at`** IS in the past THEN **`RequireUser`** responds **401**; the row remains in the database until explicitly removed (**`/auth/logout`**, **`DELETE …/sessions/{id}`**, or related flows). Expired sessions MAY still appear in session listing endpoints until deleted.

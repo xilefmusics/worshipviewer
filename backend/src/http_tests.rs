@@ -207,6 +207,49 @@ mod auth_middleware {
         assert_eq!(call_status!(app, req), StatusCode::UNAUTHORIZED);
     }
 
+    #[actix_web::test]
+    async fn expired_session_returns_401_and_row_remains() {
+        let db = test_db().await.unwrap();
+        let user = create_user(&db, "auth-expired@test.local").await.unwrap();
+        let token = create_session_token(&db, user).await.unwrap();
+
+        db.db
+            .query(
+                r"
+LET $sid = type::record('session', $id);
+UPDATE $sid SET expires_at = time::now() - 1h;
+RETURN (SELECT id FROM ONLY $sid).id != NONE;
+",
+            )
+            .bind(("id", token.clone()))
+            .await
+            .unwrap()
+            .take::<Vec<bool>>(2)
+            .unwrap();
+
+        let app = test::init_service(build_app(db.clone())).await;
+        let req = test::TestRequest::get()
+            .uri("/api/v1/songs")
+            .insert_header(("Authorization", format!("Bearer {token}")));
+        assert_eq!(call_status!(app, req), StatusCode::UNAUTHORIZED);
+
+        let still_there: bool = db
+            .db
+            .query("RETURN (SELECT id FROM ONLY type::record('session', $id)).id != NONE")
+            .bind(("id", token.clone()))
+            .await
+            .unwrap()
+            .take::<Vec<bool>>(0)
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap_or(false);
+        assert!(
+            still_there,
+            "expired session row must remain until explicitly deleted"
+        );
+    }
+
     /// BLC-AUTH-001: valid Bearer token is accepted (passes through to resource, not 401).
     #[actix_web::test]
     async fn blc_auth_001_valid_bearer_token_passes_auth() {

@@ -960,25 +960,25 @@ testcases:
           - result.statuscode ShouldEqual 400
 
   # BLC: BLC-LP-007
-  - name: get-songs-page-only-admin
+  - name: get-songs-page-only-owner
     steps:
       - type: http
         method: GET
         url: "{{.base_url}}/api/v1/songs?page=0"
         headers:
-          Authorization: "Bearer {{.token_admin}}"
+          Authorization: "Bearer {{.create-song-owner-session.sessionid}}"
         assertions:
           - result.statuscode ShouldEqual 200
           - result.bodyjson.__Len__ ShouldBeGreaterThanOrEqualTo 2
 
   # BLC: BLC-LP-007
-  - name: get-songs-page-size-only-admin
+  - name: get-songs-page-size-only-owner
     steps:
       - type: http
         method: GET
         url: "{{.base_url}}/api/v1/songs?page_size=1"
         headers:
-          Authorization: "Bearer {{.token_admin}}"
+          Authorization: "Bearer {{.create-song-owner-session.sessionid}}"
         assertions:
           - result.statuscode ShouldEqual 200
           - result.bodyjson ShouldHaveLength 1

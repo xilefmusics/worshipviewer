@@ -211,7 +211,7 @@ testcases:
           - result.bodyjson ShouldHaveLength 3
 
   # BLC: BLC-TEAM-007
-  - name: team-platform-admin-lists-all-teams
+  - name: team-platform-admin-sees-only-own-teams
     steps:
       - type: http
         method: GET
@@ -220,10 +220,10 @@ testcases:
           Authorization: "Bearer {{.token_admin}}"
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.bodyjson ShouldHaveLength 5
-          - result.body ShouldContainSubstring "{{.team-lead-create-shared-a.shared_team_a_id}}"
-          - result.body ShouldContainSubstring "{{.team-lead-create-shared-b-same-name.shared_team_b_id}}"
-          - result.body ShouldContainSubstring "{{.team-solo-sees-personal-only.solo_personal_team_id}}"
+          - result.bodyjson ShouldHaveLength 1
+          - result.body ShouldNotContainSubstring "{{.team-lead-create-shared-a.shared_team_a_id}}"
+          - result.body ShouldNotContainSubstring "{{.team-lead-create-shared-b-same-name.shared_team_b_id}}"
+          - result.body ShouldNotContainSubstring "{{.team-solo-sees-personal-only.solo_personal_team_id}}"
 
   # BLC: BLC-LP-003, BLC-LP-005, BLC-LP-009
   - name: team-list-q-match-name
@@ -232,7 +232,7 @@ testcases:
         method: GET
         url: "{{.base_url}}/api/v1/teams?q=Duplicate"
         headers:
-          Authorization: "Bearer {{.token_admin}}"
+          Authorization: "Bearer {{.team-create-lead-session.sessionid}}"
         assertions:
           - result.statuscode ShouldEqual 200
           - result.bodyjson ShouldHaveLength 2
@@ -244,7 +244,7 @@ testcases:
         method: GET
         url: "{{.base_url}}/api/v1/teams?q=Duplicate&page=0&page_size=1"
         headers:
-          Authorization: "Bearer {{.token_admin}}"
+          Authorization: "Bearer {{.team-create-lead-session.sessionid}}"
         assertions:
           - result.statuscode ShouldEqual 200
           - result.bodyjson ShouldHaveLength 1
@@ -256,7 +256,7 @@ testcases:
         method: GET
         url: "{{.base_url}}/api/v1/teams?q={{.team-lead-create-shared-a.shared_team_a_id}}"
         headers:
-          Authorization: "Bearer {{.token_admin}}"
+          Authorization: "Bearer {{.team-create-lead-session.sessionid}}"
         assertions:
           - result.statuscode ShouldEqual 200
           - result.bodyjson ShouldHaveLength 1
@@ -281,13 +281,13 @@ testcases:
         method: GET
         url: "{{.base_url}}/api/v1/teams?q=%20"
         headers:
-          Authorization: "Bearer {{.token_admin}}"
+          Authorization: "Bearer {{.team-create-lead-session.sessionid}}"
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.bodyjson ShouldHaveLength 5
+          - result.bodyjson ShouldHaveLength 3
 
   # BLC: BLC-TEAM-007
-  - name: team-platform-admin-gets-shared-without-membership
+  - name: team-platform-admin-cannot-get-foreign-shared-team
     steps:
       - type: http
         method: GET
@@ -295,8 +295,7 @@ testcases:
         headers:
           Authorization: "Bearer {{.token_admin}}"
         assertions:
-          - result.statuscode ShouldEqual 200
-          - result.bodyjson.name ShouldEqual "Shared Duplicate Name"
+          - result.statuscode ShouldEqual 404
 
   # BLC: BLC-USER-003
   - name: team-create-guest-user

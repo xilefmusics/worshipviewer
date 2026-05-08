@@ -87,30 +87,4 @@ impl SessionRepository for SurrealSessionRepo {
             .map(|record| record.into_session())
             .collect())
     }
-
-    async fn validate_session_and_update_metrics(
-        &self,
-        id: &str,
-    ) -> Result<Option<Session>, AppError> {
-        let raw = self
-            .inner()
-            .db
-            .query(
-                r#"
-            LET $sid = type::record("session", $id);
-                        
-            DELETE $sid
-            WHERE expires_at != NONE
-              AND expires_at <= time::now();
-                        
-            RETURN (SELECT * FROM $sid FETCH user)[0];
-                "#,
-            )
-            .bind(("id", id.to_owned()))
-            .await
-            .map_err(|e| crate::log_and_convert!(AppError::database, "session.validate.query", e))?
-            .take::<Option<SessionRecord>>(2)
-            .map_err(|e| crate::log_and_convert!(AppError::database, "session.validate.take", e))?;
-        Ok(raw.map(SessionRecord::into_session))
-    }
 }

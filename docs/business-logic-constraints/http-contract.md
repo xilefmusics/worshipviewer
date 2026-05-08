@@ -26,6 +26,6 @@ Rules that apply across several **`/api/v1`** resources (path validation, idempo
 
 - **BLC-HTTP-006:** Requests to unrecognized paths under **`/api/**`** or **`/auth/**`** that are handled by the API return **`application/problem+json`** (not an HTML SPA fallback).
 
-## Platform admin vs team library writes
+## Platform admin and team library ACL
 
 - See [platform-admin-content.md](./platform-admin-content.md) (**BLC-ADMIN-001**, **BLC-ADMIN-002**).

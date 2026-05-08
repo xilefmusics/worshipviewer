@@ -1,7 +1,7 @@
+use crate::auth::AuthorizationContext;
 #[allow(unused_imports)]
 use crate::docs::Problem;
 use crate::error::AppError;
-use crate::resources::User;
 use actix_web::http::header;
 use actix_web::{
     HttpRequest, HttpResponse, Scope, delete, get, patch, post, put,
@@ -51,9 +51,10 @@ pub fn scope() -> Scope {
 async fn get_teams(
     req: HttpRequest,
     svc: Data<TeamServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     query: Query<ListQuery>,
 ) -> Result<HttpResponse, AppError> {
+    let acting = ctx.acting_user();
     let query = query
         .into_inner()
         .validate()
@@ -61,7 +62,7 @@ async fn get_teams(
     let q_link = query.clone();
     let cur_page = query.page.unwrap_or(0);
     let page_size = query.page_size.unwrap_or(PAGE_SIZE_DEFAULT);
-    let teams = filter_teams_by_q(svc.list_teams_for_user(&user).await?, &query);
+    let teams = filter_teams_by_q(svc.list_teams_for_user(&acting).await?, &query);
     let (teams_page, total) = ListQuery::paginate_vec(teams, &query);
     Ok(HttpResponse::Ok()
         .insert_header((
@@ -103,10 +104,11 @@ async fn get_teams(
 #[get("/{id}")]
 async fn get_team(
     svc: Data<TeamServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    Ok(HttpResponse::Ok().json(svc.get_team_for_user(&user, &id).await?))
+    let acting = ctx.acting_user();
+    Ok(HttpResponse::Ok().json(svc.get_team_for_user(&acting, &id).await?))
 }
 
 #[utoipa::path(
@@ -129,12 +131,13 @@ async fn get_team(
 #[post("")]
 async fn create_team(
     svc: Data<TeamServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     payload: Json<CreateTeam>,
 ) -> Result<HttpResponse, AppError> {
+    let acting = ctx.acting_user();
     let payload = payload.into_inner();
     payload.validate().map_err(AppError::invalid_request)?;
-    Ok(HttpResponse::Created().json(svc.create_shared_team_for_user(&user, payload).await?))
+    Ok(HttpResponse::Created().json(svc.create_shared_team_for_user(&acting, payload).await?))
 }
 
 #[utoipa::path(
@@ -163,13 +166,14 @@ async fn create_team(
 #[put("/{id}")]
 async fn update_team(
     svc: Data<TeamServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
     payload: Json<UpdateTeam>,
 ) -> Result<HttpResponse, AppError> {
+    let acting = ctx.acting_user();
     let payload = payload.into_inner();
     payload.validate().map_err(AppError::invalid_request)?;
-    Ok(HttpResponse::Ok().json(svc.update_team_for_user(&user, &id, payload).await?))
+    Ok(HttpResponse::Ok().json(svc.update_team_for_user(&acting, &id, payload).await?))
 }
 
 #[utoipa::path(
@@ -198,12 +202,13 @@ async fn update_team(
 #[patch("/{id}")]
 async fn patch_team(
     svc: Data<TeamServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
     payload: Json<PatchTeam>,
 ) -> Result<HttpResponse, AppError> {
+    let acting = ctx.acting_user();
     Ok(HttpResponse::Ok().json(
-        svc.patch_team_for_user(&user, &id, payload.into_inner())
+        svc.patch_team_for_user(&acting, &id, payload.into_inner())
             .await?,
     ))
 }
@@ -231,10 +236,10 @@ async fn patch_team(
 #[delete("/{id}")]
 async fn delete_team(
     svc: Data<TeamServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    svc.delete_team_for_user(&user, &id).await?;
+    svc.delete_team_for_user(&ctx, &id).await?;
     Ok(HttpResponse::NoContent().finish())
 }
 

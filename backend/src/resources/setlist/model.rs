@@ -47,7 +47,6 @@ mod tests {
     use shared::song::Link as SongLink;
 
     use super::*;
-    use crate::test_helpers::{seed_user, test_db};
 
     #[test]
     fn setlist_record_from_payload_into_setlist() {
@@ -77,19 +76,15 @@ mod tests {
     #[tokio::test]
     async fn smoke_create_and_read_setlist() {
         use crate::resources::setlist::{SetlistService, SurrealSetlistRepo};
-        use crate::resources::team::{SurrealTeamResolver, UserPermissions};
+        use crate::test_helpers::{auth_ctx_for_user, seed_user, test_db};
 
         let db = test_db().await.expect("test db");
-        let svc = SetlistService::new(
-            SurrealSetlistRepo::new(db.clone()),
-            std::sync::Arc::new(SurrealTeamResolver::new(db.clone())),
-            db.clone(),
-        );
+        let svc = SetlistService::new(SurrealSetlistRepo::new(db.clone()), db.clone());
         let user = seed_user(&db).await.expect("seed user");
-        let perms = UserPermissions::from_ref(&user, &svc.teams);
+        let ctx = auth_ctx_for_user(&db, &user).await.expect("auth ctx");
         let created = svc
             .create_setlist_for_user(
-                &perms,
+                &ctx,
                 CreateSetlist {
                     owner: None,
                     title: "Smoke".to_string(),
@@ -99,7 +94,7 @@ mod tests {
             .await
             .expect("create setlist");
         let fetched = svc
-            .get_setlist_for_user(&perms, &created.id)
+            .get_setlist_for_user(&ctx, &created.id)
             .await
             .expect("get setlist");
         assert_eq!(fetched.title, "Smoke");

@@ -23,8 +23,8 @@ use crate::mail::MailService;
 use crate::request_id::WorshipRootSpan;
 use crate::settings::{CookieConfig, OtpConfig};
 use crate::test_helpers::{
-    TeamFixture, create_user, invitation_service, session_service, team_service, test_db,
-    user_service,
+    TeamFixture, auth_ctx_for_user, create_user, invitation_service, session_service, team_service,
+    test_db, user_service,
 };
 use crate::{auth, http_tests};
 
@@ -186,15 +186,17 @@ async fn audit_team_role_changed_emits_event() {
 async fn audit_invitation_accepted_emits_event() {
     let db = test_db().await.expect("db");
     let fx = TeamFixture::build(&db).await.expect("fixture");
+    let admin_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
     let inv = invitation_service(&db)
-        .create_invitation_for_user(&fx.admin_user, &fx.shared_team_id)
+        .create_invitation_for_user(&admin_ctx, &fx.shared_team_id)
         .await
         .expect("invitation");
     let invitee = create_user(&db, "audit-invitee@test.local")
         .await
         .expect("invitee");
+    let invitee_ctx = auth_ctx_for_user(&db, &invitee).await.expect("auth");
     invitation_service(&db)
-        .accept_invitation_for_user(&invitee, &inv.id)
+        .accept_invitation_for_user(&invitee_ctx, &inv.id)
         .await
         .expect("accept");
     assert!(logs_contain("audit.team.invitation.accepted"));

@@ -7,11 +7,10 @@ use actix_web::{Error, HttpMessage};
 use futures_util::future::LocalBoxFuture;
 
 use super::authorization_bearer;
+use super::{AuthorizationContext, load_authorization_context};
+use crate::database::Database;
 use crate::error::AppError;
 use crate::http_audit::AuditSessionId;
-use crate::resources::User;
-use crate::resources::user::Role as UserRole;
-use crate::resources::user::session::service::SessionServiceHandle;
 use crate::settings::CookieConfig;
 use tracing::debug;
 
@@ -52,10 +51,10 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let svc = req
-            .app_data::<Data<SessionServiceHandle>>()
+        let db = req
+            .app_data::<Data<Database>>()
             .cloned()
-            .ok_or_else(|| AppError::Internal("session service handle missing".into()))
+            .ok_or_else(|| AppError::Internal("database handle missing".into()))
             .map_err(Error::from);
 
         let cookie_cfg = req
@@ -66,7 +65,7 @@ where
         let service = Rc::clone(&self.service);
 
         Box::pin(async move {
-            let svc = match svc {
+            let db = match db {
                 Ok(data) => data,
                 Err(err) => return Err(err),
             };
@@ -86,18 +85,23 @@ where
                 }
             };
 
-            let user = match svc.validate_session_and_update_metrics(&session_id).await {
-                Ok(Some(session)) => session.user,
+            let ctx = match load_authorization_context(db.get_ref(), &session_id).await {
+                Ok(Some(ctx)) => ctx,
                 Ok(None) => {
-                    debug!(reason = "expired_session", "session not found or expired");
+                    debug!(reason = "unknown_session", "session not found");
                     return Err(AppError::unauthorized().into());
                 }
                 Err(err) => return Err(err.into()),
             };
 
-            tracing::Span::current().record("user_id", tracing::field::display(&user.id));
+            if ctx.session.expired {
+                debug!(reason = "expired_session", "session expired");
+                return Err(AppError::unauthorized().into());
+            }
+
+            tracing::Span::current().record("user_id", tracing::field::display(&ctx.user.id));
             req.extensions_mut().insert(AuditSessionId(session_id));
-            req.extensions_mut().insert(user);
+            req.extensions_mut().insert(ctx);
 
             let response = service.call(req).await?;
             Ok(response)
@@ -147,23 +151,23 @@ where
         Box::pin(async move {
             let is_admin = req
                 .extensions()
-                .get::<User>()
-                .map(|user| user.role == UserRole::Admin)
+                .get::<AuthorizationContext>()
+                .map(|ctx| ctx.is_app_admin())
                 .unwrap_or(false);
 
             if !is_admin {
-                match req.extensions().get::<User>() {
-                    Some(user) => {
+                match req.extensions().get::<AuthorizationContext>() {
+                    Some(ctx) => {
                         debug!(
                             reason = "require_admin_forbidden",
-                            user_id = %user.id,
+                            user_id = %ctx.user.id,
                             "forbidden: admin role required"
                         );
                     }
                     None => {
                         debug!(
                             reason = "require_admin_forbidden",
-                            "forbidden: admin role required (no user in extensions)"
+                            "forbidden: admin role required (no authorization context in extensions)"
                         );
                     }
                 }

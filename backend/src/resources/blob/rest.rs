@@ -4,19 +4,18 @@ use actix_web::{
     web::{self, Bytes, Data, Json, Path as PathParam, Query, ReqData},
 };
 
+use crate::auth::AuthorizationContext;
 #[allow(unused_imports)]
 use crate::docs::Problem;
 use crate::error::AppError;
 use crate::http_cache::{
     check_if_match, if_none_match_matches, weak_etag_from_bytes, weak_etag_json,
 };
-use crate::resources::User;
 #[allow(unused_imports)]
 use crate::resources::blob::Blob;
 use crate::resources::blob::PatchBlob;
 use crate::resources::blob::service::BlobServiceHandle;
 use crate::resources::blob::{CreateBlob, UpdateBlob};
-use crate::resources::team::UserPermissions;
 use shared::MoveOwner;
 use shared::api::{ListQuery, PAGE_SIZE_DEFAULT};
 
@@ -62,19 +61,18 @@ pub fn scope(blob_upload_max_bytes: usize) -> Scope {
 async fn get_blobs(
     req: HttpRequest,
     svc: Data<BlobServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     query: Query<ListQuery>,
 ) -> Result<HttpResponse, AppError> {
     let query = query
         .into_inner()
         .validate()
         .map_err(crate::error::map_list_query_error)?;
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let q_link = query.clone();
     let page = query.page.unwrap_or(0);
     let page_size = query.page_size.unwrap_or(PAGE_SIZE_DEFAULT);
-    let blobs = svc.list_blobs_for_user(&perms, query.clone()).await?;
-    let total = svc.count_blobs_for_user(&perms, &query).await?;
+    let blobs = svc.list_blobs_for_user(&ctx, query.clone()).await?;
+    let total = svc.count_blobs_for_user(&ctx, &query).await?;
     Ok(HttpResponse::Ok()
         .insert_header((
             header::HeaderName::from_static("x-total-count"),
@@ -118,11 +116,10 @@ async fn get_blobs(
 async fn get_blob(
     req: HttpRequest,
     svc: Data<BlobServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: PathParam<String>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
-    let blob = svc.get_blob_for_user(&perms, &id).await?;
+    let blob = svc.get_blob_for_user(&ctx, &id).await?;
     let etag = weak_etag_json(&blob).map_err(|e| AppError::internal_from_err("blob.rest", e))?;
     if if_none_match_matches(&req, &etag) {
         return Ok(HttpResponse::NotModified()
@@ -155,14 +152,10 @@ async fn get_blob(
 #[post("")]
 async fn create_blob(
     svc: Data<BlobServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     payload: Json<CreateBlob>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
-    Ok(HttpResponse::Created().json(
-        svc.create_blob_for_user(&perms, payload.into_inner())
-            .await?,
-    ))
+    Ok(HttpResponse::Created().json(svc.create_blob_for_user(&ctx, payload.into_inner()).await?))
 }
 
 #[utoipa::path(
@@ -191,17 +184,16 @@ async fn create_blob(
 async fn update_blob(
     req: HttpRequest,
     svc: Data<BlobServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: PathParam<String>,
     payload: Json<UpdateBlob>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let id = id.into_inner();
-    let blob = svc.get_blob_for_user(&perms, &id).await?;
+    let blob = svc.get_blob_for_user(&ctx, &id).await?;
     let etag = weak_etag_json(&blob).map_err(|e| AppError::internal_from_err("blob.rest", e))?;
     check_if_match(&req, &etag)?;
     let payload = CreateBlob::from(payload.into_inner());
-    Ok(HttpResponse::Ok().json(svc.update_blob_for_user(&perms, &id, payload).await?))
+    Ok(HttpResponse::Ok().json(svc.update_blob_for_user(&ctx, &id, payload).await?))
 }
 
 #[utoipa::path(
@@ -230,17 +222,16 @@ async fn update_blob(
 async fn patch_blob(
     req: HttpRequest,
     svc: Data<BlobServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: PathParam<String>,
     payload: Json<PatchBlob>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let id = id.into_inner();
-    let blob = svc.get_blob_for_user(&perms, &id).await?;
+    let blob = svc.get_blob_for_user(&ctx, &id).await?;
     let etag = weak_etag_json(&blob).map_err(|e| AppError::internal_from_err("blob.rest", e))?;
     check_if_match(&req, &etag)?;
     Ok(HttpResponse::Ok().json(
-        svc.patch_blob_for_user(&perms, &id, payload.into_inner())
+        svc.patch_blob_for_user(&ctx, &id, payload.into_inner())
             .await?,
     ))
 }
@@ -269,13 +260,12 @@ async fn patch_blob(
 #[post("/{id}/move")]
 async fn move_blob(
     svc: Data<BlobServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: PathParam<String>,
     payload: Json<MoveOwner>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     Ok(HttpResponse::Ok().json(
-        svc.move_blob_for_user(&perms, &id.into_inner(), payload.into_inner())
+        svc.move_blob_for_user(&ctx, &id.into_inner(), payload.into_inner())
             .await?,
     ))
 }
@@ -305,15 +295,14 @@ async fn move_blob(
 async fn delete_blob(
     req: HttpRequest,
     svc: Data<BlobServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: PathParam<String>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let id = id.into_inner();
-    let blob = svc.get_blob_for_user(&perms, &id).await?;
+    let blob = svc.get_blob_for_user(&ctx, &id).await?;
     let etag = weak_etag_json(&blob).map_err(|e| AppError::internal_from_err("blob.rest", e))?;
     check_if_match(&req, &etag)?;
-    svc.delete_blob_for_user(&perms, &id).await?;
+    svc.delete_blob_for_user(&ctx, &id).await?;
     Ok(HttpResponse::NoContent().finish())
 }
 
@@ -348,12 +337,11 @@ async fn delete_blob(
 async fn download_blob_image(
     req: HttpRequest,
     svc: Data<BlobServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: PathParam<String>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let id = id.into_inner();
-    let (blob, file) = svc.open_blob_data_file_for_user(&perms, &id).await?;
+    let (blob, file) = svc.open_blob_data_file_for_user(&ctx, &id).await?;
     let filename = blob
         .file_name()
         .unwrap_or_else(|| format!("blob-{}", blob.id));
@@ -419,15 +407,14 @@ async fn download_blob_image(
 async fn upload_blob_data(
     req: HttpRequest,
     svc: Data<BlobServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     id: PathParam<String>,
     body: Bytes,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::from_ref(&user, &svc.teams);
     let id = id.into_inner();
-    let blob = svc.get_blob_for_user(&perms, &id).await?;
+    let blob = svc.get_blob_for_user(&ctx, &id).await?;
     let etag = weak_etag_json(&blob).map_err(|e| AppError::internal_from_err("blob.rest", e))?;
     check_if_match(&req, &etag)?;
-    svc.upload_blob_data_for_user(&perms, &id, &body).await?;
+    svc.upload_blob_data_for_user(&ctx, &id, &body).await?;
     Ok(HttpResponse::NoContent().finish())
 }

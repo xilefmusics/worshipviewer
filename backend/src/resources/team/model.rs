@@ -327,10 +327,17 @@ fn role_str(r: &TeamRole) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use shared::team::{TeamMemberInput, TeamRole, TeamUserRef};
+    use shared::user::User;
+    use surrealdb::types::RecordId;
 
     use super::*;
+    use crate::auth::load_authorization_context_for_user;
+    use crate::database::Database;
     use crate::error::AppError;
+    use crate::test_helpers::{seed_user, test_db};
 
     fn make_member(user_id: &str, role: &str) -> DbTeamMember {
         DbTeamMember {
@@ -737,5 +744,97 @@ mod tests {
     fn parse_role_empty_err() {
         let err = parse_role("").unwrap_err();
         assert!(matches!(err, AppError::InvalidRequest(_)));
+    }
+
+    fn auth_acl_thing_key_set(things: &[RecordId]) -> BTreeSet<String> {
+        things.iter().map(thing_record_key).collect()
+    }
+
+    async fn auth_acl_naive_read_teams(
+        db: &Database,
+        user: &User,
+    ) -> Result<Vec<RecordId>, AppError> {
+        let public_thing = public_team_thing();
+        let rows = db
+            .db
+            .query("SELECT * FROM team WHERE id != $public FETCH owner, members.user")
+            .bind(("public", public_thing.clone()))
+            .await?
+            .take::<Vec<TeamFetched>>(0)?;
+
+        let mut out: Vec<RecordId> = Vec::new();
+        let mut seen: BTreeSet<String> = BTreeSet::new();
+        let mut push = |t: RecordId| {
+            let key = thing_record_key(&t);
+            if seen.insert(key) {
+                out.push(t);
+            }
+        };
+        push(public_thing);
+        for row in rows {
+            let stored = team_fetched_to_stored(&row)?;
+            if can_read_team(&user.id, &stored, false) {
+                push(row.id.clone());
+            }
+        }
+        Ok(out)
+    }
+
+    async fn auth_acl_naive_write_teams(
+        db: &Database,
+        user: &User,
+    ) -> Result<Vec<RecordId>, AppError> {
+        let public_thing = public_team_thing();
+        let rows = db
+            .db
+            .query("SELECT * FROM team WHERE id != $public FETCH owner, members.user")
+            .bind(("public", public_thing))
+            .await?
+            .take::<Vec<TeamFetched>>(0)?;
+
+        let mut out: Vec<RecordId> = Vec::new();
+        let mut seen: BTreeSet<String> = BTreeSet::new();
+        for row in rows {
+            let stored = team_fetched_to_stored(&row)?;
+            if team_content_writable(&user.id, &stored) {
+                let key = thing_record_key(&row.id);
+                if seen.insert(key) {
+                    out.push(row.id.clone());
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    #[tokio::test]
+    async fn auth_ctx_read_teams_matches_naive_rust_filter() {
+        let db = test_db().await.expect("test db");
+        let user = seed_user(&db).await.expect("user");
+        let ctx = load_authorization_context_for_user(db.as_ref(), &user.id)
+            .await
+            .expect("auth ctx query")
+            .expect("auth ctx");
+        let dbref: &Database = db.as_ref();
+        let a = ctx.read_teams();
+        let b = auth_acl_naive_read_teams(dbref, &user)
+            .await
+            .expect("rust read");
+        assert_eq!(auth_acl_thing_key_set(&a), auth_acl_thing_key_set(&b));
+    }
+
+    #[tokio::test]
+    async fn auth_ctx_write_teams_matches_naive_rust_filter() {
+        let db = test_db().await.expect("test db");
+        let user = seed_user(&db).await.expect("user");
+        let ctx = load_authorization_context_for_user(db.as_ref(), &user.id)
+            .await
+            .expect("auth ctx query")
+            .expect("auth ctx");
+        let dbref: &Database = db.as_ref();
+        let a = ctx.write_teams();
+        let b = auth_acl_naive_write_teams(dbref, &user)
+            .await
+            .expect("rust write");
+        assert_eq!(auth_acl_thing_key_set(&a), auth_acl_thing_key_set(&b));
     }
 }

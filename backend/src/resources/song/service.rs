@@ -11,14 +11,13 @@ use shared::song::{
     CreateSong, Link as SongLink, LinkOwned as SongLinkOwned, PatchSong, PatchSongData, Song,
 };
 
+use crate::auth::AuthorizationContext;
 use crate::database::Database;
 use crate::error::AppError;
 use crate::resources::collection::CollectionRepository;
 use crate::resources::common::resolve_owner_team;
 
-use crate::resources::team::{
-    TeamResolver, UserPermissions, parse_owner_record_id, thing_record_key,
-};
+use crate::resources::team::{parse_owner_record_id, thing_record_key};
 use crate::resources::user::SurrealUserRepo;
 use crate::resources::user::UserRepository;
 use shared::collection::CreateCollection;
@@ -57,21 +56,18 @@ impl UserCollectionUpdater for Arc<SurrealUserRepo> {
     }
 }
 
-/// Application service: team resolution, authorization, and orchestration for songs.
 #[derive(Clone)]
-pub struct SongService<R, T, L, C, U> {
+pub struct SongService<R, L, C, U> {
     pub repo: R,
-    pub teams: Arc<T>,
     pub likes: L,
     pub collections: C,
     pub user_updater: U,
 }
 
-impl<R, T, L, C, U> SongService<R, T, L, C, U> {
-    pub fn new(repo: R, teams: Arc<T>, likes: L, collections: C, user_updater: U) -> Self {
+impl<R, L, C, U> SongService<R, L, C, U> {
+    pub fn new(repo: R, likes: L, collections: C, user_updater: U) -> Self {
         Self {
             repo,
-            teams,
             likes,
             collections,
             user_updater,
@@ -79,13 +75,8 @@ impl<R, T, L, C, U> SongService<R, T, L, C, U> {
     }
 }
 
-impl<
-    R: SongRepository,
-    T: TeamResolver,
-    L: LikedSongIds,
-    C: CollectionRepository,
-    U: UserCollectionUpdater,
-> SongService<R, T, L, C, U>
+impl<R: SongRepository, L: LikedSongIds, C: CollectionRepository, U: UserCollectionUpdater>
+    SongService<R, L, C, U>
 {
     fn merge_song_data(
         mut current: chordlib::types::Song,
@@ -134,18 +125,18 @@ impl<
         current
     }
 
-    #[instrument(level = "debug", err, skip(self, perms, query))]
+    #[instrument(level = "debug", err, skip(self, ctx, query))]
     pub async fn list_songs_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         query: SongListQuery,
     ) -> Result<Vec<Song>, AppError> {
-        let user_id = perms.user().id.clone();
-        let (liked_set, read_teams) =
-            tokio::try_join!(self.likes.liked_song_ids(&user_id), perms.read_teams())?;
+        let user_id = ctx.user.id.clone();
+        let liked_set = self.likes.liked_song_ids(&user_id).await?;
+        let read_teams = ctx.read_teams();
         Ok(self
             .repo
-            .get_songs(read_teams, query)
+            .get_songs(&read_teams, query)
             .await?
             .into_iter()
             .map(|mut song| {
@@ -155,60 +146,60 @@ impl<
             .collect())
     }
 
-    #[instrument(level = "debug", err, skip(self, perms, query))]
+    #[instrument(level = "debug", err, skip(self, ctx, query))]
     pub async fn count_songs_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         query: &SongListQuery,
     ) -> Result<u64, AppError> {
-        let read_teams = perms.read_teams().await?;
-        self.repo.count_songs(read_teams, query).await
+        let read_teams = ctx.read_teams();
+        self.repo.count_songs(&read_teams, query).await
     }
 
-    #[instrument(level = "debug", err, skip(self, perms))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn get_song_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
     ) -> Result<Song, AppError> {
-        let user_id = perms.user().id.clone();
-        let (liked_set, read_teams) =
-            tokio::try_join!(self.likes.liked_song_ids(&user_id), perms.read_teams())?;
-        let mut song = self.repo.get_song(read_teams, id).await?;
+        let user_id = ctx.user.id.clone();
+        let liked_set = self.likes.liked_song_ids(&user_id).await?;
+        let read_teams = ctx.read_teams();
+        let mut song = self.repo.get_song(&read_teams, id).await?;
         song.user_specific_addons.liked = liked_set.contains(&song.id);
         Ok(song)
     }
 
-    #[instrument(level = "debug", err, skip(self, perms))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn song_player_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
     ) -> Result<Player, AppError> {
-        let read_teams = perms.read_teams().await?;
+        let read_teams = ctx.read_teams();
         Ok(Player::from(SongLinkOwned {
-            song: self.repo.get_song(read_teams, id).await?,
+            song: self.repo.get_song(&read_teams, id).await?,
             nr: None,
             key: None,
             liked: self
                 .repo
-                .get_song_like(read_teams, &perms.user().id, id)
+                .get_song_like(&read_teams, &ctx.user.id, id)
                 .await?,
         }))
     }
 
-    #[instrument(level = "debug", err, skip(self, perms, song))]
+    #[instrument(level = "debug", err, skip(self, ctx, song))]
     pub async fn create_song_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         mut song: CreateSong,
     ) -> Result<Song, AppError> {
-        let personal = perms.personal_team().await?;
+        let personal = ctx.personal_team()?;
         let (owner, use_default_collection_flow) = match song.owner.take() {
             None => (personal.clone(), true),
             Some(ref s) => {
                 let rid = parse_owner_record_id(s)?;
-                perms.require_write_access_to_owner(&rid).await?;
+                ctx.require_write_access_to_owner(&rid)?;
                 let same_as_personal = thing_record_key(&rid) == thing_record_key(&personal);
                 (rid, same_as_personal)
             }
@@ -220,15 +211,15 @@ impl<
             return Ok(created);
         }
 
-        let mut default_id = perms.user().default_collection.clone();
+        let mut default_id = ctx.user.default_collection.clone();
 
         loop {
-            let write_teams = perms.write_teams().await?;
+            let write_teams = ctx.write_teams();
             if let Some(collection_id) = default_id.as_ref() {
                 match self
                     .collections
                     .add_song_to_collection(
-                        write_teams,
+                        &write_teams,
                         collection_id,
                         SongLink {
                             id: created.id.clone(),
@@ -241,7 +232,7 @@ impl<
                     Ok(()) => break,
                     Err(e) if matches!(&e, AppError::NotFound(_) | AppError::Conflict(_)) => {
                         self.user_updater
-                            .clear_default_collection(&perms.user().id)
+                            .clear_default_collection(&ctx.user.id)
                             .await?;
                         default_id = None;
                     }
@@ -265,7 +256,7 @@ impl<
                     )
                     .await?;
                 self.user_updater
-                    .set_default_collection(&perms.user().id, &collection.id)
+                    .set_default_collection(&ctx.user.id, &collection.id)
                     .await?;
                 break;
             }
@@ -274,30 +265,30 @@ impl<
         Ok(created)
     }
 
-    #[instrument(level = "debug", err, skip(self, perms, song))]
+    #[instrument(level = "debug", err, skip(self, ctx, song))]
     pub async fn update_song_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
         song: CreateSong,
         owner: Option<String>,
     ) -> Result<SongUpsertOutcome, AppError> {
-        let write_teams = perms.write_teams().await?;
-        let owner = resolve_owner_team(write_teams, owner)?;
+        let write_teams = ctx.write_teams();
+        let owner = resolve_owner_team(&write_teams, owner)?;
         self.repo
-            .update_song(write_teams, &perms.user().id, id, song, owner)
+            .update_song(&write_teams, &ctx.user.id, id, song, owner)
             .await
     }
 
-    #[instrument(level = "debug", err, skip(self, perms, patch))]
+    #[instrument(level = "debug", err, skip(self, ctx, patch))]
     pub async fn patch_song_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
         patch: PatchSong,
     ) -> Result<Song, AppError> {
         let owner = patch.owner.clone();
-        let current = self.get_song_for_user(perms, id).await?;
+        let current = self.get_song_for_user(ctx, id).await?;
         let merged = CreateSong {
             owner: None,
             not_a_song: patch.not_a_song.unwrap_or(current.not_a_song),
@@ -307,65 +298,65 @@ impl<
                 .map(|song_data_patch| Self::merge_song_data(current.data.clone(), song_data_patch))
                 .unwrap_or(current.data),
         };
-        self.update_song_for_user(perms, id, merged, owner)
+        self.update_song_for_user(ctx, id, merged, owner)
             .await
             .map(SongUpsertOutcome::into_song)
     }
 
-    #[instrument(level = "debug", err, skip(self, perms, payload))]
+    #[instrument(level = "debug", err, skip(self, ctx, payload))]
     pub async fn move_song_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
         payload: MoveOwner,
     ) -> Result<Song, AppError> {
-        let song = self.get_song_for_user(perms, id).await?;
+        let song = self.get_song_for_user(ctx, id).await?;
         let current = parse_owner_record_id(&song.owner)?;
         let dest = parse_owner_record_id(&payload.owner)?;
         if thing_record_key(&current) == thing_record_key(&dest) {
             return Ok(song);
         }
-        perms.require_write_access_to_owner(&current).await?;
-        perms.require_write_access_to_owner(&dest).await?;
-        let write_teams = perms.write_teams().await?;
-        self.repo.move_song_owner(write_teams, id, dest).await
+        ctx.require_write_access_to_owner(&current)?;
+        ctx.require_write_access_to_owner(&dest)?;
+        let write_teams = ctx.write_teams();
+        self.repo.move_song_owner(&write_teams, id, dest).await
     }
 
-    #[instrument(level = "debug", err, skip(self, perms))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn delete_song_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
     ) -> Result<Song, AppError> {
-        let write_teams = perms.write_teams().await?;
-        self.repo.delete_song(write_teams, id).await
+        let write_teams = ctx.write_teams();
+        self.repo.delete_song(&write_teams, id).await
     }
 
-    #[instrument(level = "debug", err, skip(self, perms))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn song_like_status_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
     ) -> Result<LikeStatus, AppError> {
-        let read_teams = perms.read_teams().await?;
+        let read_teams = ctx.read_teams();
         let liked = self
             .repo
-            .get_song_like(read_teams, &perms.user().id, id)
+            .get_song_like(&read_teams, &ctx.user.id, id)
             .await?;
         Ok(LikeStatus { liked })
     }
 
-    #[instrument(level = "debug", err, skip(self, perms))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn set_song_like_status_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
         liked: bool,
     ) -> Result<LikeStatus, AppError> {
-        let read_teams = perms.read_teams().await?;
+        let read_teams = ctx.read_teams();
         let liked = self
             .repo
-            .set_song_like(read_teams, &perms.user().id, id, liked)
+            .set_song_like(&read_teams, &ctx.user.id, id, liked)
             .await?;
         Ok(LikeStatus { liked })
     }
@@ -374,7 +365,6 @@ impl<
 /// Production type alias used in HTTP wiring.
 pub type SongServiceHandle = SongService<
     SurrealSongRepo,
-    crate::resources::team::SurrealTeamResolver,
     Arc<Database>,
     crate::resources::collection::SurrealCollectionRepo,
     Arc<SurrealUserRepo>,
@@ -382,19 +372,8 @@ pub type SongServiceHandle = SongService<
 
 impl SongServiceHandle {
     pub fn build(db: Arc<Database>) -> Self {
-        Self::build_with_team_resolver(
-            db.clone(),
-            Arc::new(crate::resources::team::SurrealTeamResolver::new(db.clone())),
-        )
-    }
-
-    pub fn build_with_team_resolver(
-        db: Arc<Database>,
-        teams: Arc<crate::resources::team::SurrealTeamResolver>,
-    ) -> Self {
         SongService::new(
             SurrealSongRepo::new(db.clone()),
-            teams,
             db.clone(),
             crate::resources::collection::SurrealCollectionRepo::new(db.clone()),
             Arc::new(SurrealUserRepo::new(db.clone())),
@@ -406,10 +385,10 @@ impl SongServiceHandle {
 mod tests {
     use shared::blob::BlobLink;
 
-    use crate::resources::team::UserPermissions;
     use crate::test_helpers::{
-        TeamFixture, configure_personal_team_members, create_song_with_title, create_user,
-        personal_team_id, setlist_service, setlist_with_songs, test_db, two_shared_teams_for_user,
+        TeamFixture, auth_ctx_for_user, configure_personal_team_members, create_song_with_title,
+        create_user, personal_team_id, setlist_service, setlist_with_songs, test_db,
+        two_shared_teams_for_user,
     };
     use shared::MoveOwner;
     use shared::api::ListQuery;
@@ -442,8 +421,8 @@ mod tests {
             .await
             .expect("s2");
 
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
-        let other_p = UserPermissions::from_ref(&other, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let other_p = auth_ctx_for_user(&db, &other).await.expect("auth");
 
         let list = svc
             .list_songs_for_user(&owner_p, ListQuery::default().into())
@@ -522,8 +501,8 @@ mod tests {
     async fn blc_song_002_non_member_read_not_found() {
         let (db, owner, _cm, _guest, nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
-        let nm_p = UserPermissions::from_ref(&nm, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let nm_p = auth_ctx_for_user(&db, &nm).await.expect("auth");
         let song = create_song_with_title(&db, &owner, "NMSong")
             .await
             .expect("song");
@@ -541,8 +520,8 @@ mod tests {
         use shared::song::CreateSong;
         let (db, owner, _cm, guest_u, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let _owner_p = UserPermissions::from_ref(&owner, &svc.teams);
-        let guest_p = UserPermissions::from_ref(&guest_u, &svc.teams);
+        let _owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let guest_p = auth_ctx_for_user(&db, &guest_u).await.expect("auth");
         let song = create_song_with_title(&db, &owner, "GuestPUTSong")
             .await
             .expect("song");
@@ -563,8 +542,8 @@ mod tests {
     async fn blc_song_007_guest_cannot_delete() {
         let (db, owner, _cm, guest_u, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
-        let guest_p = UserPermissions::from_ref(&guest_u, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let guest_p = auth_ctx_for_user(&db, &guest_u).await.expect("auth");
         let song = create_song_with_title(&db, &owner, "GuestDELSong")
             .await
             .expect("song");
@@ -582,8 +561,8 @@ mod tests {
         use shared::song::CreateSong;
         let (db, owner, cm, _guest, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let _owner_p = UserPermissions::from_ref(&owner, &svc.teams);
-        let cm_p = UserPermissions::from_ref(&cm, &svc.teams);
+        let _owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let cm_p = auth_ctx_for_user(&db, &cm).await.expect("auth");
         let song = create_song_with_title(&db, &owner, "CMUpdateSong")
             .await
             .expect("song");
@@ -607,7 +586,7 @@ mod tests {
         use shared::song::CreateSong;
         let (db, owner, _cm, _guest, _nm, tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let song = create_song_with_title(&db, &owner, "OwnerSong")
             .await
             .expect("song");
@@ -637,7 +616,7 @@ mod tests {
         let db = test_db().await.expect("db");
         let fx = TeamFixture::build(&db).await.expect("fixture");
         let svc = SongServiceHandle::build(db.clone());
-        let admin_p = UserPermissions::from_ref(&fx.admin_user, &svc.teams);
+        let admin_p = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
         let song = create_song_with_title(&db, &fx.admin_user, "MoveMeSong")
             .await
             .expect("song");
@@ -666,7 +645,7 @@ mod tests {
         use shared::song::CreateSong;
         let (db, owner, _cm, _guest, nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let nm_pt = personal_team_id(&db, &nm).await.expect("nm personal");
         let song = create_song_with_title(&db, &owner, "StayMine")
             .await
@@ -689,7 +668,7 @@ mod tests {
         use shared::api::ListQuery;
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
 
         let mut data_with_artist = crate::test_helpers::minimal_song_data();
         data_with_artist.titles = vec!["SongByArtist".into()];
@@ -729,7 +708,7 @@ mod tests {
     async fn blc_song_012_liked_true_when_liked() {
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let song = create_song_with_title(&db, &owner, "LikeSong")
             .await
             .expect("song");
@@ -748,7 +727,7 @@ mod tests {
     async fn blc_song_012_liked_false_when_not_liked() {
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let song = create_song_with_title(&db, &owner, "UnlikedSong")
             .await
             .expect("song");
@@ -764,8 +743,8 @@ mod tests {
     async fn blc_song_004_like_state_independent_per_user() {
         let (db, owner, _cm, guest_u, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
-        let guest_p = UserPermissions::from_ref(&guest_u, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let guest_p = auth_ctx_for_user(&db, &guest_u).await.expect("auth");
         let song = create_song_with_title(&db, &owner, "IndependentLike")
             .await
             .expect("song");
@@ -792,8 +771,8 @@ mod tests {
     async fn blc_song_004_like_unreadable_song_not_found() {
         let (db, owner, _cm, _guest, nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let _owner_p = UserPermissions::from_ref(&owner, &svc.teams);
-        let nm_p = UserPermissions::from_ref(&nm, &svc.teams);
+        let _owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let nm_p = auth_ctx_for_user(&db, &nm).await.expect("auth");
         let song = create_song_with_title(&db, &owner, "SecretLikeSong")
             .await
             .expect("song");
@@ -809,7 +788,7 @@ mod tests {
         use shared::song::CreateSong;
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let data = crate::test_helpers::minimal_song_data();
         let create = CreateSong {
             owner: None,
@@ -832,7 +811,7 @@ mod tests {
         use shared::song::PatchSong;
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
 
         let song = create_song_with_title(&db, &owner, "OriginalTitle")
             .await
@@ -869,7 +848,7 @@ mod tests {
         use shared::song::PatchSong;
         let (db, owner, _cm, guest_u, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let guest_p = UserPermissions::from_ref(&guest_u, &svc.teams);
+        let guest_p = auth_ctx_for_user(&db, &guest_u).await.expect("auth");
         let song = create_song_with_title(&db, &owner, "GuestPatchSong")
             .await
             .expect("song");
@@ -894,7 +873,7 @@ mod tests {
         use shared::song::PatchSong;
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let r = svc
             .patch_song_for_user(
                 &owner_p,
@@ -916,7 +895,7 @@ mod tests {
         use shared::song::PatchSong;
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let song = create_song_with_title(&db, &owner, "NoopSong")
             .await
             .expect("song");
@@ -943,7 +922,7 @@ mod tests {
 
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
 
         let mut base_data = crate::test_helpers::minimal_song_data();
         base_data.titles = vec!["BaseTitle".into()];
@@ -1218,7 +1197,7 @@ mod tests {
         use shared::song::CreateSong;
         let (db, _owner, _cm, guest_u, _nm, _tid) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let guest_p = UserPermissions::from_ref(&guest_u, &svc.teams);
+        let guest_p = auth_ctx_for_user(&db, &guest_u).await.expect("auth");
         let data = crate::test_helpers::minimal_song_data();
         let create = CreateSong {
             owner: None,
@@ -1245,7 +1224,7 @@ mod tests {
         use shared::song::CreateSong;
         let (db, owner, cm, _guest, _nm, team_id) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
-        let cm_p = UserPermissions::from_ref(&cm, &svc.teams);
+        let cm_p = auth_ctx_for_user(&db, &cm).await.expect("auth");
         let user_svc = crate::test_helpers::user_service(&db);
         let cm_before = user_svc.get_user(&cm.id).await.expect("cm user");
         assert!(
@@ -1274,7 +1253,7 @@ mod tests {
         );
 
         // Owner should still get default-collection behavior on their own POST (regression anchor).
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let _ = svc
             .create_song_for_user(
                 &owner_p,
@@ -1305,7 +1284,7 @@ mod tests {
             "new user must have no default_collection"
         );
         let svc = SongServiceHandle::build(db.clone());
-        let perms = UserPermissions::from_ref(&u, &svc.teams);
+        let perms = auth_ctx_for_user(&db, &u).await.expect("auth");
         let song = svc
             .create_song_for_user(
                 &perms,
@@ -1321,7 +1300,7 @@ mod tests {
 
         // A "Default" collection must have been created.
         let coll_svc = crate::test_helpers::collection_service(&db);
-        let fresh_perms = UserPermissions::from_ref(&u, &coll_svc.teams);
+        let fresh_perms = auth_ctx_for_user(&db, &u).await.expect("auth");
         let collections = coll_svc
             .list_collections_for_user(&fresh_perms, ListQuery::default())
             .await
@@ -1363,7 +1342,7 @@ mod tests {
             .await
             .expect("u");
         let svc = SongServiceHandle::build(db.clone());
-        let perms = UserPermissions::from_ref(&u, &svc.teams);
+        let perms = auth_ctx_for_user(&db, &u).await.expect("auth");
         let song1 = svc
             .create_song_for_user(
                 &perms,
@@ -1391,7 +1370,7 @@ mod tests {
 
         // Create a second song using the updated user (whose default_collection is set).
         let svc2 = SongServiceHandle::build(db.clone());
-        let perms2 = UserPermissions::from_ref(&updated_u, &svc2.teams);
+        let perms2 = auth_ctx_for_user(&db, &updated_u).await.expect("auth");
         let song2 = svc2
             .create_song_for_user(
                 &perms2,
@@ -1410,7 +1389,7 @@ mod tests {
             .expect("song2");
 
         let coll_svc = crate::test_helpers::collection_service(&db);
-        let fresh_perms = UserPermissions::from_ref(&updated_u, &coll_svc.teams);
+        let fresh_perms = auth_ctx_for_user(&db, &updated_u).await.expect("auth");
         let collections = coll_svc
             .list_collections_for_user(&fresh_perms, ListQuery::default())
             .await
@@ -1445,7 +1424,7 @@ mod tests {
             .await
             .expect("song");
         let sl_svc = setlist_service(&db);
-        let u_p = UserPermissions::from_ref(&u, &sl_svc.teams);
+        let u_p = auth_ctx_for_user(&db, &u).await.expect("auth");
         let sl = sl_svc
             .create_setlist_for_user(
                 &u_p,
@@ -1453,12 +1432,12 @@ mod tests {
             )
             .await
             .expect("setlist");
-        let song_p = UserPermissions::from_ref(&u, &svc.teams);
+        let song_p = auth_ctx_for_user(&db, &u).await.expect("auth");
         svc.delete_song_for_user(&song_p, &song.id)
             .await
             .expect("del song");
         let sl_svc2 = setlist_service(&db);
-        let u_p2 = UserPermissions::from_ref(&u, &sl_svc2.teams);
+        let u_p2 = auth_ctx_for_user(&db, &u).await.expect("auth");
         let g = sl_svc2
             .get_setlist_for_user(&u_p2, &sl.id)
             .await
@@ -1476,7 +1455,7 @@ mod tests {
         let (team_a, team_b) = two_shared_teams_for_user(&db, &mover).await.expect("teams");
 
         let svc = SongServiceHandle::build(db.clone());
-        let p = UserPermissions::from_ref(&mover, &svc.teams);
+        let p = auth_ctx_for_user(&db, &mover).await.expect("auth");
 
         let song = svc
             .create_song_for_user(

@@ -1,7 +1,7 @@
+use crate::auth::AuthorizationContext;
 #[allow(unused_imports)]
 use crate::docs::Problem;
 use crate::error::AppError;
-use crate::resources::User;
 use actix_web::http::header;
 use actix_web::{
     HttpRequest, HttpResponse, Scope, delete, get, post,
@@ -52,11 +52,11 @@ pub fn invitations_accept_scope() -> Scope {
 #[post("")]
 async fn create_team_invitation(
     svc: Data<InvitationServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     team_id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
     Ok(HttpResponse::Created().json(
-        svc.create_invitation_for_user(&user, team_id.as_str())
+        svc.create_invitation_for_user(&ctx, team_id.as_str())
             .await?,
     ))
 }
@@ -88,7 +88,7 @@ async fn create_team_invitation(
 async fn list_team_invitations(
     req: HttpRequest,
     svc: Data<InvitationServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     team_id: Path<String>,
     query: Query<PageQuery>,
 ) -> Result<HttpResponse, AppError> {
@@ -100,7 +100,7 @@ async fn list_team_invitations(
     let page = query.page.unwrap_or(0);
     let page_size = query.page_size.unwrap_or(PAGE_SIZE_DEFAULT);
     let (invitations, total) = svc
-        .list_invitations_for_user(&user, team_id.as_str(), query.as_list_query())
+        .list_invitations_for_user(&ctx, team_id.as_str(), query.as_list_query())
         .await?;
     Ok(HttpResponse::Ok()
         .insert_header((
@@ -144,12 +144,12 @@ async fn list_team_invitations(
 #[get("/{invitation_id}")]
 async fn get_team_invitation(
     svc: Data<InvitationServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     path: Path<(String, String)>,
 ) -> Result<HttpResponse, AppError> {
     let (team_id, invitation_id) = path.into_inner();
     Ok(HttpResponse::Ok().json(
-        svc.get_invitation_for_user(&user, &team_id, &invitation_id)
+        svc.get_invitation_for_user(&ctx, &team_id, &invitation_id)
             .await?,
     ))
 }
@@ -178,11 +178,11 @@ async fn get_team_invitation(
 #[delete("/{invitation_id}")]
 async fn delete_team_invitation(
     svc: Data<InvitationServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     path: Path<(String, String)>,
 ) -> Result<HttpResponse, AppError> {
     let (team_id, invitation_id) = path.into_inner();
-    svc.delete_invitation_for_user(&user, &team_id, &invitation_id)
+    svc.delete_invitation_for_user(&ctx, &team_id, &invitation_id)
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }
@@ -210,12 +210,12 @@ async fn delete_team_invitation(
 #[post("/{invitation_id}/accept")]
 async fn accept_team_invitation_under_team(
     svc: Data<InvitationServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     path: Path<(String, String)>,
 ) -> Result<HttpResponse, AppError> {
     let (team_id, invitation_id) = path.into_inner();
     Ok(HttpResponse::Ok().json(
-        svc.accept_invitation_for_user_on_team(&user, &team_id, &invitation_id)
+        svc.accept_invitation_for_user_on_team(&ctx, &team_id, &invitation_id)
             .await?,
     ))
 }
@@ -242,7 +242,7 @@ async fn accept_team_invitation_under_team(
 #[post("/{invitation_id}/accept")]
 async fn accept_team_invitation(
     svc: Data<InvitationServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     invitation_id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
     tracing::warn!(
@@ -256,7 +256,7 @@ async fn accept_team_invitation(
             "Sat, 01 Nov 2026 00:00:00 GMT",
         ))
         .json(
-            svc.accept_invitation_for_user(&user, invitation_id.as_str())
+            svc.accept_invitation_for_user(&ctx, invitation_id.as_str())
                 .await?,
         ))
 }
