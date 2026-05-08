@@ -55,9 +55,7 @@ pub async fn get_current_session_metrics(
 ) -> Result<HttpResponse, AppError> {
     let session_id = ctx.session.id.clone();
     svc.get_session_for_user(&session_id, &ctx.user.id).await?;
-    Ok(HttpResponse::Ok().json(
-        svc.get_http_audit_metrics_for_session(&session_id).await?,
-    ))
+    Ok(HttpResponse::Ok().json(svc.get_http_audit_metrics_for_session(&session_id).await?))
 }
 
 #[utoipa::path(
@@ -187,9 +185,7 @@ pub async fn get_session_for_current_user_metrics(
     path: Path<SessionPath>,
 ) -> Result<HttpResponse, AppError> {
     svc.get_session_for_user(&path.id, &ctx.user.id).await?;
-    Ok(HttpResponse::Ok().json(
-        svc.get_http_audit_metrics_for_session(&path.id).await?,
-    ))
+    Ok(HttpResponse::Ok().json(svc.get_http_audit_metrics_for_session(&path.id).await?))
 }
 
 #[utoipa::path(
@@ -389,9 +385,7 @@ pub async fn get_session_for_user_metrics(
     path: Path<UserSessionPath>,
 ) -> Result<HttpResponse, AppError> {
     svc.get_session_for_user(&path.id, &path.user_id).await?;
-    Ok(HttpResponse::Ok().json(
-        svc.get_http_audit_metrics_for_session(&path.id).await?,
-    ))
+    Ok(HttpResponse::Ok().json(svc.get_http_audit_metrics_for_session(&path.id).await?))
 }
 
 #[utoipa::path(

@@ -67,9 +67,7 @@ async fn get_users_me_metrics(
     ctx: ReqData<AuthorizationContext>,
     svc: Data<UserServiceHandle>,
 ) -> Result<HttpResponse, AppError> {
-    Ok(HttpResponse::Ok().json(
-        svc.get_http_audit_metrics_for_user(&ctx.user.id).await?,
-    ))
+    Ok(HttpResponse::Ok().json(svc.get_http_audit_metrics_for_user(&ctx.user.id).await?))
 }
 
 #[utoipa::path(
@@ -192,9 +190,7 @@ async fn get_user_metrics(
 ) -> Result<HttpResponse, AppError> {
     let id_str = id.into_inner();
     svc.get_user(&id_str).await?;
-    Ok(HttpResponse::Ok().json(
-        svc.get_http_audit_metrics_for_user(&id_str).await?,
-    ))
+    Ok(HttpResponse::Ok().json(svc.get_http_audit_metrics_for_user(&id_str).await?))
 }
 
 #[utoipa::path(

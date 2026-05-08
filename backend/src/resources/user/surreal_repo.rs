@@ -129,7 +129,10 @@ impl UserRepository for SurrealUserRepo {
             .ok_or(AppError::NotFound("user not found".into()))
     }
 
-    async fn get_http_audit_metrics_for_user(&self, user_id: &str) -> Result<HttpAuditMetrics, AppError> {
+    async fn get_http_audit_metrics_for_user(
+        &self,
+        user_id: &str,
+    ) -> Result<HttpAuditMetrics, AppError> {
         let mut response = self
             .inner()
             .db
@@ -141,7 +144,9 @@ impl UserRepository for SurrealUserRepo {
             .map_err(|e| crate::log_and_convert!(AppError::database, "user.http_audit_metrics.query", e))?;
         let row = response
             .take::<Option<HttpAuditMetricsRow>>(0)
-            .map_err(|e| crate::log_and_convert!(AppError::database, "user.http_audit_metrics.take", e))?
+            .map_err(|e| {
+                crate::log_and_convert!(AppError::database, "user.http_audit_metrics.take", e)
+            })?
             .ok_or_else(|| AppError::database("http audit metrics for user returned no row"))?;
         Ok(row.into())
     }

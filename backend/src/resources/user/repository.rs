@@ -12,7 +12,10 @@ pub trait UserRepository: Send + Sync {
     /// Count users matching the same optional `q` filter as [`get_users`](Self::get_users) (ignores page).
     async fn count_users(&self, query: ListQuery) -> Result<u64, AppError>;
     async fn get_user(&self, id: &str) -> Result<User, AppError>;
-    async fn get_http_audit_metrics_for_user(&self, user_id: &str) -> Result<HttpAuditMetrics, AppError>;
+    async fn get_http_audit_metrics_for_user(
+        &self,
+        user_id: &str,
+    ) -> Result<HttpAuditMetrics, AppError>;
     async fn get_user_by_email(&self, email: &str) -> Result<Option<User>, AppError>;
     /// Insert a user record. Does NOT create a personal team — service layer handles that.
     async fn create_user_record(&self, user: User) -> Result<User, AppError>;

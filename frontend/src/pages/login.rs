@@ -41,10 +41,7 @@ pub fn login() -> Html {
             if *otp_requested {
                 let code = otp.trim().to_string();
                 if code.is_empty() {
-                    show_error(
-                        "Code required",
-                        "Enter the one-time code from your email.",
-                    );
+                    show_error("Code required", "Enter the one-time code from your email.");
                     return;
                 }
                 let api = api.clone();

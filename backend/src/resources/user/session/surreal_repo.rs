@@ -55,7 +55,10 @@ impl SessionRepository for SurrealSessionRepo {
             .ok_or(AppError::NotFound("session not found".into()))
     }
 
-    async fn get_http_audit_metrics_for_session(&self, session_id: &str) -> Result<HttpAuditMetrics, AppError> {
+    async fn get_http_audit_metrics_for_session(
+        &self,
+        session_id: &str,
+    ) -> Result<HttpAuditMetrics, AppError> {
         let mut response = self
             .inner()
             .db
