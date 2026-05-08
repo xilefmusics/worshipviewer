@@ -128,7 +128,7 @@ impl<C: HttpClient> ApiClient<C> {
     pub async fn get_my_current_session(&self) -> Result<SessionBody, NetworkClientError> {
         self.client
             .get(&append_query_param(
-                "api/v1/users/me/session".to_string(),
+                "api/v1/users/me/sessions/current".to_string(),
                 "expand",
                 "user",
             ))

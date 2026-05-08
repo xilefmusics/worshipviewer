@@ -34,7 +34,7 @@ struct ExpandQuery {
 
 #[utoipa::path(
     get,
-    path = "/api/v1/users/me/session",
+    path = "/api/v1/users/me/sessions/current",
     params(
         ("expand" = Option<String>, Query, description = "Optional `user` to embed full user (default: `id`+`email` link)."),
     ),
@@ -51,7 +51,7 @@ struct ExpandQuery {
         ("SessionToken" = [])
     )
 )]
-#[get("/me/session")]
+#[get("/me/sessions/current")]
 pub async fn get_current_session_for_user(
     req: HttpRequest,
     svc: Data<SessionServiceHandle>,
