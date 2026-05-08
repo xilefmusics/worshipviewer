@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use actix_files::NamedFile;
 use tracing::instrument;
 
@@ -7,77 +5,70 @@ use shared::MoveOwner;
 use shared::api::ListQuery;
 use shared::blob::{Blob, CreateBlob, PatchBlob};
 
+use crate::auth::AuthorizationContext;
 use crate::database::Database;
 use crate::error::AppError;
-use crate::resources::team::{
-    TeamResolver, UserPermissions, parse_owner_record_id, thing_record_key,
-};
+use crate::resources::team::{parse_owner_record_id, thing_record_key};
 
 use super::repository::BlobRepository;
 use super::storage::BlobStorage;
 use super::storage::FsBlobStorage;
 use super::surreal_repo::SurrealBlobRepo;
 
-/// Application service: team resolution, authorization, and orchestration for blobs.
 #[derive(Clone)]
-pub struct BlobService<R, T, S> {
+pub struct BlobService<R, S> {
     pub repo: R,
-    pub teams: Arc<T>,
     pub storage: S,
 }
 
-impl<R, T, S> BlobService<R, T, S> {
-    pub fn new(repo: R, teams: Arc<T>, storage: S) -> Self {
-        Self {
-            repo,
-            teams,
-            storage,
-        }
+impl<R, S> BlobService<R, S> {
+    pub fn new(repo: R, storage: S) -> Self {
+        Self { repo, storage }
     }
 }
 
-impl<R: BlobRepository, T: TeamResolver, S: BlobStorage> BlobService<R, T, S> {
-    #[instrument(level = "debug", err, skip(self, perms))]
+impl<R: BlobRepository, S: BlobStorage> BlobService<R, S> {
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn list_blobs_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         pagination: ListQuery,
     ) -> Result<Vec<Blob>, AppError> {
-        let read_teams = perms.read_teams().await?;
-        self.repo.get_blobs(read_teams, pagination).await
+        let read_teams = ctx.read_teams();
+        self.repo.get_blobs(&read_teams, pagination).await
     }
 
-    #[instrument(level = "debug", err, skip(self, perms))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn count_blobs_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         pagination: &ListQuery,
     ) -> Result<u64, AppError> {
-        let read_teams = perms.read_teams().await?;
-        self.repo.count_blobs(read_teams, pagination).await
+        let read_teams = ctx.read_teams();
+        self.repo.count_blobs(&read_teams, pagination).await
     }
 
-    #[instrument(level = "debug", err, skip(self, perms))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn get_blob_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
     ) -> Result<Blob, AppError> {
-        let read_teams = perms.read_teams().await?;
-        self.repo.get_blob(read_teams, id).await
+        let read_teams = ctx.read_teams();
+        self.repo.get_blob(&read_teams, id).await
     }
 
-    #[instrument(level = "debug", err, skip(self, perms, blob))]
+    #[instrument(level = "debug", err, skip(self, ctx, blob))]
     pub async fn create_blob_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         mut blob: CreateBlob,
     ) -> Result<Blob, AppError> {
         let owner = match blob.owner.take() {
-            None => perms.personal_team().await?,
+            None => ctx.personal_team()?,
             Some(ref s) => {
                 let rid = parse_owner_record_id(s)?;
-                perms.require_write_access_to_owner(&rid).await?;
+                ctx.require_write_access_to_owner(&rid)?;
                 rid
             }
         };
@@ -86,27 +77,27 @@ impl<R: BlobRepository, T: TeamResolver, S: BlobStorage> BlobService<R, T, S> {
         Ok(created)
     }
 
-    #[instrument(level = "debug", err, skip(self, perms, blob))]
+    #[instrument(level = "debug", err, skip(self, ctx, blob))]
     pub async fn update_blob_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
         blob: CreateBlob,
     ) -> Result<Blob, AppError> {
-        let write_teams = perms.write_teams().await?;
-        let updated = self.repo.update_blob(write_teams, id, blob).await?;
+        let write_teams = ctx.write_teams();
+        let updated = self.repo.update_blob(&write_teams, id, blob).await?;
         self.storage.write_blob_file(&updated)?;
         Ok(updated)
     }
 
-    #[instrument(level = "debug", err, skip(self, perms, patch))]
+    #[instrument(level = "debug", err, skip(self, ctx, patch))]
     pub async fn patch_blob_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
         patch: PatchBlob,
     ) -> Result<Blob, AppError> {
-        let current = self.get_blob_for_user(perms, id).await?;
+        let current = self.get_blob_for_user(ctx, id).await?;
         let merged = CreateBlob {
             owner: None,
             file_type: patch.file_type.unwrap_or(current.file_type),
@@ -114,92 +105,78 @@ impl<R: BlobRepository, T: TeamResolver, S: BlobStorage> BlobService<R, T, S> {
             height: patch.height.unwrap_or(current.height),
             ocr: patch.ocr.unwrap_or(current.ocr),
         };
-        self.update_blob_for_user(perms, id, merged).await
+        self.update_blob_for_user(ctx, id, merged).await
     }
 
-    #[instrument(level = "debug", err, skip(self, perms, payload))]
+    #[instrument(level = "debug", err, skip(self, ctx, payload))]
     pub async fn move_blob_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
         payload: MoveOwner,
     ) -> Result<Blob, AppError> {
-        let blob = self.get_blob_for_user(perms, id).await?;
+        let blob = self.get_blob_for_user(ctx, id).await?;
         let current = parse_owner_record_id(&blob.owner)?;
         let dest = parse_owner_record_id(&payload.owner)?;
         if thing_record_key(&current) == thing_record_key(&dest) {
             return Ok(blob);
         }
-        perms.require_write_access_to_owner(&current).await?;
-        perms.require_write_access_to_owner(&dest).await?;
-        let write_teams = perms.write_teams().await?;
-        self.repo.move_blob_owner(write_teams, id, dest).await
+        ctx.require_write_access_to_owner(&current)?;
+        ctx.require_write_access_to_owner(&dest)?;
+        let write_teams = ctx.write_teams();
+        self.repo.move_blob_owner(&write_teams, id, dest).await
     }
 
-    #[instrument(level = "debug", err, skip(self, perms))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn delete_blob_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
     ) -> Result<Blob, AppError> {
-        let write_teams = perms.write_teams().await?;
-        let deleted = self.repo.delete_blob(write_teams, id).await?;
+        let write_teams = ctx.write_teams();
+        let deleted = self.repo.delete_blob(&write_teams, id).await?;
         self.storage.delete_blob_file(&deleted);
         Ok(deleted)
     }
 
-    #[instrument(level = "debug", err, skip(self, perms, data))]
+    #[instrument(level = "debug", err, skip(self, ctx, data))]
     pub async fn upload_blob_data_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
         data: &[u8],
     ) -> Result<(), AppError> {
         // Reuse update_blob for the permission check: it scopes by write_teams and returns
         // 404 if the caller has no write access, which is exactly the right behavior here.
-        let write_teams = perms.write_teams().await?;
+        let write_teams = ctx.write_teams();
         let blob = self
             .repo
-            .get_blob(write_teams, id)
+            .get_blob(&write_teams, id)
             .await
             .map_err(|_| AppError::NotFound("blob not found or write access denied".into()))?;
         self.storage.write_blob_bytes(&blob, data)
     }
 
-    #[instrument(level = "debug", err, skip(self, perms))]
+    #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn open_blob_data_file_for_user(
         &self,
-        perms: &UserPermissions<T>,
+        ctx: &AuthorizationContext,
         id: &str,
     ) -> Result<(Blob, NamedFile), AppError> {
-        let read_teams = perms.read_teams().await?;
-        let blob = self.repo.get_blob(read_teams, id).await?;
+        let read_teams = ctx.read_teams();
+        let blob = self.repo.get_blob(&read_teams, id).await?;
         let file = self.storage.open_blob_data_file(&blob)?;
         Ok((blob, file))
     }
 }
 
 /// Production type alias used in HTTP wiring.
-pub type BlobServiceHandle =
-    BlobService<SurrealBlobRepo, crate::resources::team::SurrealTeamResolver, FsBlobStorage>;
+pub type BlobServiceHandle = BlobService<SurrealBlobRepo, FsBlobStorage>;
 
 impl BlobServiceHandle {
-    pub fn build(db: Arc<Database>, blob_dir: String) -> Self {
-        Self::build_with_team_resolver(
-            db.clone(),
-            blob_dir,
-            Arc::new(crate::resources::team::SurrealTeamResolver::new(db.clone())),
-        )
-    }
-
-    pub fn build_with_team_resolver(
-        db: Arc<Database>,
-        blob_dir: String,
-        teams: Arc<crate::resources::team::SurrealTeamResolver>,
-    ) -> Self {
+    pub fn build(db: std::sync::Arc<Database>, blob_dir: String) -> Self {
         BlobService::new(
             SurrealBlobRepo::new(db.clone()),
-            teams,
             FsBlobStorage::new(blob_dir),
         )
     }
@@ -207,8 +184,6 @@ impl BlobServiceHandle {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use async_trait::async_trait;
     use surrealdb::types::RecordId;
 
@@ -217,7 +192,7 @@ mod tests {
 
     use crate::error::AppError;
     use crate::resources::User;
-    use crate::resources::team::{TeamResolver, UserPermissions};
+    use crate::test_helpers::{auth_ctx_for_user, auth_ctx_test_personal_team};
 
     use super::super::repository::BlobRepository;
     use super::super::storage::BlobStorage;
@@ -296,21 +271,6 @@ mod tests {
         }
     }
 
-    struct MockTeams;
-
-    #[async_trait]
-    impl TeamResolver for MockTeams {
-        async fn content_read_teams(&self, _user: &User) -> Result<Vec<RecordId>, AppError> {
-            Ok(vec![])
-        }
-        async fn content_write_teams(&self, _user: &User) -> Result<Vec<RecordId>, AppError> {
-            Ok(vec![])
-        }
-        async fn personal_team(&self, user_id: &str) -> Result<RecordId, AppError> {
-            Ok(RecordId::new("team", user_id.to_owned()))
-        }
-    }
-
     struct NullStorage;
 
     impl BlobStorage for NullStorage {
@@ -333,28 +293,20 @@ mod tests {
     #[tokio::test]
     async fn get_returns_not_found_when_empty() {
         let user = test_user();
-        let svc = BlobService::new(
-            MockBlobRepo { blobs: vec![] },
-            Arc::new(MockTeams),
-            NullStorage,
-        );
-        let perms = UserPermissions::from_ref(&user, &svc.teams);
-        let r = svc.get_blob_for_user(&perms, "b1").await;
+        let svc = BlobService::new(MockBlobRepo { blobs: vec![] }, NullStorage);
+        let ctx = auth_ctx_test_personal_team(&user);
+        let r = svc.get_blob_for_user(&ctx, "b1").await;
         assert!(matches!(r, Err(AppError::NotFound(_))));
     }
 
     #[tokio::test]
     async fn create_calls_storage_write() {
         let user = test_user();
-        let svc = BlobService::new(
-            MockBlobRepo { blobs: vec![] },
-            Arc::new(MockTeams),
-            NullStorage,
-        );
-        let perms = UserPermissions::from_ref(&user, &svc.teams);
+        let svc = BlobService::new(MockBlobRepo { blobs: vec![] }, NullStorage);
+        let ctx = auth_ctx_test_personal_team(&user);
         let r = svc
             .create_blob_for_user(
-                &perms,
+                &ctx,
                 CreateBlob {
                     owner: None,
                     file_type: FileType::PNG,
@@ -370,13 +322,9 @@ mod tests {
     #[tokio::test]
     async fn delete_not_found_propagates() {
         let user = test_user();
-        let svc = BlobService::new(
-            MockBlobRepo { blobs: vec![] },
-            Arc::new(MockTeams),
-            NullStorage,
-        );
-        let perms = UserPermissions::from_ref(&user, &svc.teams);
-        let r = svc.delete_blob_for_user(&perms, "missing").await;
+        let svc = BlobService::new(MockBlobRepo { blobs: vec![] }, NullStorage);
+        let ctx = auth_ctx_test_personal_team(&user);
+        let r = svc.delete_blob_for_user(&ctx, "missing").await;
         assert!(matches!(r, Err(AppError::NotFound(_))));
     }
 
@@ -404,8 +352,8 @@ mod tests {
         .await
         .expect("acl");
 
-        let owner_perms = UserPermissions::from_ref(&owner, &svc.teams);
-        let other_perms = UserPermissions::from_ref(&other, &svc.teams);
+        let owner_perms = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let other_perms = auth_ctx_for_user(&db, &other).await.expect("auth");
 
         let b = svc
             .create_blob_for_user(
@@ -489,8 +437,8 @@ mod tests {
         let (db, owner, _cm, _guest, non_member, _tid) = four_user_blob_fixture().await;
         let svc =
             crate::test_helpers::blob_service(&db, blob_dir.path().to_string_lossy().into_owned());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
-        let nm_p = UserPermissions::from_ref(&non_member, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let nm_p = auth_ctx_for_user(&db, &non_member).await.expect("auth");
         let b = svc
             .create_blob_for_user(
                 &owner_p,
@@ -515,8 +463,8 @@ mod tests {
         let (db, owner, cm, _guest, _nm, _tid) = four_user_blob_fixture().await;
         let svc =
             crate::test_helpers::blob_service(&db, blob_dir.path().to_string_lossy().into_owned());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
-        let cm_p = UserPermissions::from_ref(&cm, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let cm_p = auth_ctx_for_user(&db, &cm).await.expect("auth");
         let b = svc
             .create_blob_for_user(
                 &owner_p,
@@ -552,8 +500,8 @@ mod tests {
         let (db, owner, _cm, guest, _nm, _tid) = four_user_blob_fixture().await;
         let svc =
             crate::test_helpers::blob_service(&db, blob_dir.path().to_string_lossy().into_owned());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
-        let guest_p = UserPermissions::from_ref(&guest, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let guest_p = auth_ctx_for_user(&db, &guest).await.expect("auth");
         let b = svc
             .create_blob_for_user(
                 &owner_p,
@@ -590,8 +538,8 @@ mod tests {
         let (db, owner, _cm, guest, _nm, _tid) = four_user_blob_fixture().await;
         let svc =
             crate::test_helpers::blob_service(&db, blob_dir.path().to_string_lossy().into_owned());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
-        let guest_p = UserPermissions::from_ref(&guest, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let guest_p = auth_ctx_for_user(&db, &guest).await.expect("auth");
         let b = svc
             .create_blob_for_user(
                 &owner_p,
@@ -616,7 +564,7 @@ mod tests {
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_blob_fixture().await;
         let svc =
             crate::test_helpers::blob_service(&db, blob_dir.path().to_string_lossy().into_owned());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let b = svc
             .create_blob_for_user(
                 &owner_p,
@@ -652,7 +600,7 @@ mod tests {
         let (db, owner, _cm, _guest, _nm, tid) = four_user_blob_fixture().await;
         let svc =
             crate::test_helpers::blob_service(&db, blob_dir.path().to_string_lossy().into_owned());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let b = svc
             .create_blob_for_user(
                 &owner_p,
@@ -691,7 +639,7 @@ mod tests {
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_blob_fixture().await;
         let svc =
             crate::test_helpers::blob_service(&db, blob_dir.path().to_string_lossy().into_owned());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let b = svc
             .create_blob_for_user(
                 &owner_p,
@@ -715,7 +663,7 @@ mod tests {
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_blob_fixture().await;
         let svc =
             crate::test_helpers::blob_service(&db, blob_dir.path().to_string_lossy().into_owned());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let b = svc
             .create_blob_for_user(
                 &owner_p,
@@ -739,7 +687,7 @@ mod tests {
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_blob_fixture().await;
         let svc =
             crate::test_helpers::blob_service(&db, blob_dir.path().to_string_lossy().into_owned());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let b = svc
             .create_blob_for_user(
                 &owner_p,
@@ -764,8 +712,8 @@ mod tests {
         let (db, owner, _cm, _guest, non_member, _tid) = four_user_blob_fixture().await;
         let svc =
             crate::test_helpers::blob_service(&db, blob_dir.path().to_string_lossy().into_owned());
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
-        let nm_p = UserPermissions::from_ref(&non_member, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let nm_p = auth_ctx_for_user(&db, &non_member).await.expect("auth");
         let b = svc
             .create_blob_for_user(
                 &owner_p,
@@ -811,7 +759,7 @@ mod tests {
             .await
             .expect("acl");
 
-        let owner_p = UserPermissions::from_ref(&owner, &svc.teams);
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let blob = svc
             .create_blob_for_user(
                 &owner_p,
@@ -855,15 +803,11 @@ mod tests {
         use shared::blob::PatchBlob;
 
         let user = test_user();
-        let svc = BlobService::new(
-            MockBlobRepo { blobs: vec![] },
-            Arc::new(MockTeams),
-            NullStorage,
-        );
-        let perms = UserPermissions::from_ref(&user, &svc.teams);
+        let svc = BlobService::new(MockBlobRepo { blobs: vec![] }, NullStorage);
+        let ctx = auth_ctx_test_personal_team(&user);
         let r = svc
             .patch_blob_for_user(
-                &perms,
+                &ctx,
                 "missing",
                 PatchBlob {
                     file_type: None,
@@ -878,7 +822,7 @@ mod tests {
 
     #[tokio::test]
     async fn patch_blob_all_field_combinations() {
-        use crate::test_helpers::{blob_service, create_user, test_db};
+        use crate::test_helpers::{auth_ctx_for_user, blob_service, create_user, test_db};
         use shared::blob::{FileType, PatchBlob};
 
         let blob_dir = tempfile::tempdir().expect("tempdir");
@@ -887,7 +831,7 @@ mod tests {
         let owner = create_user(&db, "blob-patch-combos@test.local")
             .await
             .expect("owner");
-        let perms = UserPermissions::from_ref(&owner, &svc.teams);
+        let perms = auth_ctx_for_user(&db, &owner).await.expect("auth");
 
         for mask in 0u8..16 {
             let include_file_type = (mask & 0b0001) != 0;
@@ -950,7 +894,9 @@ mod tests {
     /// BLC-BLOB-017–018: move between shared teams and idempotent same-owner.
     #[tokio::test]
     async fn blc_blob_017_move_between_teams_and_idempotent() {
-        use crate::test_helpers::{blob_service, create_user, test_db, two_shared_teams_for_user};
+        use crate::test_helpers::{
+            auth_ctx_for_user, blob_service, create_user, test_db, two_shared_teams_for_user,
+        };
         use shared::MoveOwner;
 
         let blob_dir = tempfile::tempdir().expect("tempdir");
@@ -960,7 +906,7 @@ mod tests {
             .await
             .expect("mover");
         let (team_a, team_b) = two_shared_teams_for_user(&db, &mover).await.expect("teams");
-        let p = UserPermissions::from_ref(&mover, &svc.teams);
+        let p = auth_ctx_for_user(&db, &mover).await.expect("auth");
 
         let b = svc
             .create_blob_for_user(

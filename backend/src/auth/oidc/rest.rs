@@ -16,6 +16,7 @@ use tracing::instrument;
 use utoipa::IntoParams;
 
 use super::{Model as OidcModel, OidcClients, OidcProvider, PendingOidc};
+use crate::auth::load_authorization_context_for_user;
 use crate::database::Database;
 #[allow(unused_imports)]
 use crate::docs::Problem;
@@ -227,10 +228,14 @@ async fn callback(
         }
     };
 
+    let auth_ctx = load_authorization_context_for_user(db.get_ref(), &user.id)
+        .await?
+        .ok_or_else(|| AppError::database("bootstrap authorization context missing"))?;
+
     let _ = user_svc
         .cache_oauth_profile_picture_if_needed(
             blob_svc.get_ref(),
-            &user,
+            &auth_ctx,
             picture_url,
             pic_limits.max_bytes,
         )

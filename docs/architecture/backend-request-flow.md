@@ -53,10 +53,10 @@ Use these names on new spans and structured log lines so aggregators and grep st
 └──────────┬──────────────────────────────────────────────────────────────────────┘
            │
            ▼
-┌──────────────────────┐
-│  RequireUser          │  auth middleware — validates session, injects ReqData<User>
-│  middleware            │
-└──────────┬───────────┘
+┌────────────────────────────┐
+│  RequireUser middleware    │  loads session + user + teams in one DB round-trip,
+│                            │  injects ReqData<AuthorizationContext>
+└──────────┬─────────────────┘
            │
            ▼
 ┌──────────────────────────────────────────────────────────────────────────────────┐
@@ -72,32 +72,34 @@ Use these names on new spans and structured log lines so aggregators and grep st
         │              │               │          │        │        │
         ▼              ▼               ▼          ▼        ▼        ▼
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│  Service Layer  (generic structs, e.g. SongService<R, T, L, C, U>)               │
+│  Service Layer  (e.g. SongService<R, L, C, U>, BlobService<R, S>, …)             │
 │                                                                                  │
 │  ┌───────────┐ ┌─────────────────┐ ┌────────────────┐ ┌───────────┐             │
 │  │BlobService│ │CollectionService│ │SetlistService  │ │SongService│  ...         │
-│  │ <R, T, S> │ │ <R, T, L>      │ │ <R, T, L>      │ │<R,T,L,C,U>│             │
-│  └──┬──┬──┬──┘ └──┬──┬──┬───────┘ └──┬──┬──┬───────┘ └┬──┬──┬─┬─┘             │
-│     │  │  │       │  │  │            │  │  │          │  │  │ │               │
-└─────┼──┼──┼───────┼──┼──┼────────────┼──┼──┼──────────┼──┼──┼─┼───────────────┘
-      │  │  │       │  │  │            │  │  │          │  │  │ │
-      │  │  │       │  │  │            │  │  │          │  │  │ └─► UserRepository
-      │  │  │       │  │  │            │  │  │          │  │  └──► CollectionRepository
-      │  │  │       │  │  └────────────┼──┼──┘          │  │
-      │  │  │       │  │               │  │             │  └──────► LikedSongIds
-      │  │  │       │  └───────────────┼──┘             │
-      │  │  │       │                  │                └─────────► *Repository trait
-      │  │  └───────┼──────────────────┼──► BlobStorage trait
-      │  └──────────┴──────────────────┴──► TeamResolver trait
-      └─────────────────────────────────► *Repository trait
-                                          │
-                                          ▼
+│  │ <R, S>    │ │ <R, L>          │ │ <R, L>         │ │<R,L,C,U>  │             │
+│  └──┬──┬─────┘ └──┬──┬────────────┘ └──┬──┬──────────┘ └┬──┬──┬─┬─┘             │
+│     │  │          │  │               │  │           │  │  │ │               │
+└─────┼──┼──────────┼──┼───────────────┼──┼───────────┼──┼──┼─┼───────────────┘
+      │  │          │  │               │  │           │  │  │ │
+      │  │          │  │               │  │           │  │  │ └─► UserRepository / UserCollectionUpdater
+      │  │          │  │               │  │           │  │  └──► CollectionRepository
+      │  │          │  │               │  │           │  └──────► LikedSongIds
+      │  │          │  │               │  └───────────┼────────► SetlistRepository / …
+      │  │          │  └───────────────┼───────────────┘        └──► *Repository trait
+      │  └──────────┼──────────────────┼────────────────────────────► BlobStorage trait
+      └─────────────┴──────────────────┴────────────────────────────► *Repository trait
+                                                                    │
+                                          AuthorizationContext      │
+                                          (read_teams / write_teams│
+                                           from handler — no extra │
+                                           team service in stack)   │
+                                                                    ▼
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │  Repository Layer  (trait objects + SurrealDB implementations)                    │
 │                                                                                  │
 │  SurrealBlobRepo   SurrealCollectionRepo   SurrealSetlistRepo   SurrealSongRepo  │
 │  SurrealTeamRepo   SurrealTeamInvitationRepo   SurrealUserRepo  SurrealSessionRepo│
-│  SurrealTeamResolver   FsBlobStorage                                             │
+│  FsBlobStorage                                                                   │
 └──────────┬───────────────────────────────────────────────────────────────────────┘
            │
            ▼
@@ -117,9 +119,9 @@ and mounts `resources::rest::scope()` under `/api/v1`.
 
 ### 2. `RequireUser` middleware
 
-Validates the session cookie/token and injects `ReqData<User>` into the
-request extensions. If validation fails, the request is rejected before
-reaching any handler.
+Extracts the session id from the **`Authorization: Bearer …`** header or session cookie, calls [`load_authorization_context`](../../backend/src/auth/surreal_repo.rs) (single SurrealQL round-trip: session row, user profile slice, and membership-derived team rows). If there is no session row, or `session.expired` is true, the middleware returns **401** — expired sessions are **not** deleted automatically.
+
+On success it inserts **`ReqData<AuthorizationContext>`** into request extensions (plus audit/session extensions). **`RequireAdmin`** reads the same type and checks `AuthorizationContext::is_app_admin()`.
 
 ### 3. `resources/rest.rs` routes to a resource scope
 
@@ -139,47 +141,39 @@ web::scope("/api/v1")
 
 ### 4. Resource `rest.rs` handler
 
-The handler extracts typed data from the request, constructs a
-`UserPermissions` wrapper, and makes a single service call:
+The handler extracts **`ReqData<AuthorizationContext>`** (and service `Data`, paths, JSON, etc.) and passes **`&ctx`** into the service. There is no separate per-request team resolver: team ids come from the context loaded in middleware.
 
 ```rust
 #[get("/{id}")]
 async fn get_one(
     svc: Data<XxxServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     path: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    let perms = UserPermissions::new(&user, &svc.teams);
-    let result = svc.get_one(&perms, &path).await?;
+    let result = svc.get_one_for_user(&ctx, &path).await?;
     Ok(HttpResponse::Ok().json(result))
 }
 ```
 
-`UserPermissions` is a lightweight struct defined in `team/resolver.rs`
-that wraps `&User` and `&T: TeamResolver` with three `tokio::sync::OnceCell`
-fields. Team lists are resolved lazily on first access and cached for the
-lifetime of the struct (one per HTTP request).
+**`GET /users/me`** is special: the context carries only the authorization slice; the handler loads the full **`User`** via **`UserService::get_user`** for timestamps and counters.
 
-### 5. `UserPermissions` resolves ACL via `TeamResolver`
+### 5. `AuthorizationContext` team helpers (in-memory)
 
-The service receives `&UserPermissions<T>` and calls its lazy accessor
-methods to get the teams the user is allowed to read from or write to:
+[`AuthorizationContext`](../../backend/src/auth/context.rs) holds **`AuthorizedSession`**, **`AuthorizedUser`**, and an **`Arc<[AuthorizedTeam]>`**. Library services call synchronous helpers (no extra DB hit):
 
-| Operation | `UserPermissions` method | Underlying `TeamResolver` call | Returns |
-|---|---|---|---|
-| List / Get | `perms.read_teams().await?` | `content_read_teams(&user)` | `[team:public, team:<personal>, team:<memberships...>]` |
-| Create | `perms.user().id` | — (no team resolution needed) | User's ID string |
-| Update / Delete | `perms.write_teams().await?` | `content_write_teams(&user)` | `[team:<personal>, team:<admin/maintainer memberships>]` |
-| Delete personal team | `perms.personal_team().await?` | `personal_team(&user_id)` | Single `Thing` for the user's personal team |
+| Operation | Method | Notes |
+|---|---|---|
+| List / Get | `ctx.read_teams()` | `team:public` plus every team the user owns or is a member of (no platform-admin shortcut). |
+| Update / Delete / moves | `ctx.write_teams()` | Subset where team role is admin or content_maintainer; excludes `team:public`. |
+| Personal team id | `ctx.personal_team()` | Finds the row whose owner is the current user. |
+| Owner write check | `ctx.require_write_access_to_owner(&owner_team_record)` | Aligns with historical **404** behavior when the caller cannot write that owner team. |
 
-Each method resolves the value on first call and returns a cached clone
-on subsequent calls within the same request, eliminating duplicate
-database round-trips.
+OIDC bootstrap before a session exists uses **`load_authorization_context_for_user`** ([`auth/surreal_repo.rs`](../../backend/src/auth/surreal_repo.rs)) to build the same shape with a synthetic session id (`bootstrap:<user_id>`).
 
 ### 6. Repository executes the query
 
-The service delegates to the repository trait method with the resolved
-teams. The SurrealDB implementation runs a query like:
+The service delegates to the repository trait method with **`&[RecordId]`**
+read-team or write-team slices derived from the context. The SurrealDB implementation runs a query like:
 
 ```sql
 SELECT * FROM xxx WHERE owner IN $teams
@@ -213,40 +207,27 @@ status code:
 HTTP request
   │
   ▼
-RequireUser middleware ─── validates session cookie/token, injects ReqData<User>
+RequireUser middleware
+  │  load_authorization_context(db, session_id)
+  │  → 401 if missing session row OR session.expired == true (row kept)
   │
   ▼
-rest.rs handler
-  │  constructs UserPermissions::new(&user, &svc.teams)
+ReqData<AuthorizationContext> in extensions
+  │
+  ├── ctx.read_teams() / ctx.write_teams() / ctx.personal_team()
+  │      (in-memory from middleware payload — no per-handler team queries)
   │
   ▼
-UserPermissions<T>  (per-request caching wrapper in team/resolver.rs)
-  │
-  ├── .read_teams()  ─── lazy, cached via OnceCell ──► TeamResolver.content_read_teams(&user)
-  │                      first call: DB query          returns Vec<Thing>:
-  │                      subsequent: cached clone      [team:public, team:<personal>, team:<memberships...>]
-  │
-  ├── .write_teams() ─── lazy, cached via OnceCell ──► TeamResolver.content_write_teams(&user)
-  │                      first call: DB query          returns Vec<Thing>:
-  │                      subsequent: cached clone      [team:<personal>, team:<admin/maintainer memberships>]
-  │
-  └── .personal_team() ─ lazy, cached via OnceCell ──► TeamResolver.personal_team(&user_id)
-                         first call: DB query          returns single Thing
-                         subsequent: cached clone
+rest.rs handler ─── passes &ctx into service
   │
   ▼
-Service method(perms, ...)
+Service method(&ctx, ...)
   │
-  └── Repository method(teams, ...)
+  └── Repository method(&[RecordId], ...)
       └─ SurrealQL: WHERE owner IN $teams
 ```
 
-`TeamResolver` is implemented by `SurrealTeamResolver` in
-`team/resolver.rs`. The free functions `content_read_team_things()` and
-`content_write_team_things()` are convenience wrappers used internally.
-`UserPermissions` is the public API that handlers and services use — it
-provides lazy caching so a team-list DB query is only executed once per
-request even if multiple service methods call the same accessor.
+ACL regression coverage: **`team::model` tests** **`auth_ctx_*_matches_naive_rust_filter`** compare **`AuthorizationContext::read_teams` / `write_teams`** (from **`load_authorization_context_for_user`**) against a naive **`TeamFetched`** walk using **`can_read_team(..., false)`** / **`team_content_writable`**.
 
 ---
 
@@ -278,7 +259,7 @@ Shared helper functions and DB record types used by multiple resources.
 |---|---|
 | `resource_id(table, id)` | Parse/validate a SurrealDB record ID string |
 | `belongs_to(owner, teams)` | Rust-side ownership check for single-record SELECTs |
-| `song_thing(id)` / `blob_thing(id)` | Coerce a string into a typed `Thing` |
+| `song_thing(id)` / `blob_thing(id)` | Coerce a string into a typed `RecordId` |
 | `player_from_song_links(liked, links)` | Build a `Player` from fetched song links |
 | `SongLinkRecord` | DB record shape for embedded song references |
 | `FetchedSongRecord` | Fully-fetched song record (via SurrealDB `FETCH`) |
@@ -295,11 +276,11 @@ Shared helper functions and DB record types used by multiple resources.
 | `repository.rs` | `trait BlobRepository` |
 | `surreal_repo.rs` | `SurrealBlobRepo` |
 | `storage.rs` | `trait BlobStorage`, `FsBlobStorage` |
-| `service.rs` | `BlobService<R, T, S>` where `S: BlobStorage` |
+| `service.rs` | `BlobService<R, S>` where `S: BlobStorage` |
 | `rest.rs` | `/blobs` scope; file download returns `NamedFile` |
 
-Unique: takes a `BlobStorage` backend in addition to the standard repo +
-team resolver. The download handler returns `actix_files::NamedFile`
+Unique: takes a `BlobStorage` backend in addition to the repository.
+The download handler returns `actix_files::NamedFile`
 rather than JSON.
 
 ### `song/` — Song sheets with chords/lyrics
@@ -310,7 +291,7 @@ rather than JSON.
 | `repository.rs` | `trait SongRepository` |
 | `surreal_repo.rs` | `SurrealSongRepo` |
 | `liked.rs` | `trait LikedSongIds` |
-| `service.rs` | `SongService<R, T, L, C, U>` |
+| `service.rs` | `SongService<R, L, C, U>` |
 | `rest.rs` | `/songs` scope |
 
 Most interconnected service: creating a song auto-adds it to the user's
@@ -323,7 +304,7 @@ default collection via `CollectionRepository` and `UserCollectionUpdater`.
 | `model.rs` | `CollectionRecord`, `CollectionSongsRecord` |
 | `repository.rs` | `trait CollectionRepository` (includes `add_song_to_collection`) |
 | `surreal_repo.rs` | `SurrealCollectionRepo` |
-| `service.rs` | `CollectionService<R, T, L>` |
+| `service.rs` | `CollectionService<R, L>` |
 | `rest.rs` | `/collections` scope |
 
 `CollectionRepository` is also a dependency of `SongService` for the
@@ -336,11 +317,11 @@ default-collection auto-add. Uses `LikedSongIds`.
 | `model.rs` | `SetlistRecord`, `SetlistSongsRecord` |
 | `repository.rs` | `trait SetlistRepository` |
 | `surreal_repo.rs` | `SurrealSetlistRepo` |
-| `service.rs` | `SetlistService<R, T, L>` |
+| `service.rs` | `SetlistService<R, L>` |
 | `rest.rs` | `/setlists` scope |
 
-Structurally identical to collection. Depends on `SetlistRepository`,
-`TeamResolver`, and `LikedSongIds`.
+Structurally similar to collection. Depends on `SetlistRepository`
+and `LikedSongIds`.
 
 ### `team/` — Teams, membership, and ACL
 
@@ -349,16 +330,13 @@ Structurally identical to collection. Depends on `SetlistRepository`,
 | `model.rs` | `TeamCreatePayload`, `DbTeamMember`, `TeamFetched`, ACL helpers |
 | `repository.rs` | `trait TeamRepository` |
 | `surreal_repo.rs` | `SurrealTeamRepo` |
-| `resolver.rs` | `trait TeamResolver`, `SurrealTeamResolver`, `UserPermissions`, `content_read_team_things()`, `content_write_team_things()` |
 | `invitation_model.rs` | `InvitationRow`, `InvitationAcceptRow`, helpers |
 | `invitation_repository.rs` | `trait TeamInvitationRepository` |
 | `invitation_surreal_repo.rs` | `SurrealTeamInvitationRepo` |
-| `service.rs` | `TeamService<R, IR, TR>` |
+| `service.rs` | `TeamService<R>` |
 | `rest.rs` | `/teams` scope + `/invitations/{id}/accept` |
 
-`TeamResolver` is the most depended-upon trait — every content service
-requires it. `UserService` depends on `TeamRepository` to create personal
-teams on user registration.
+Team listing uses **`fetch_teams_for_user(..., platform_admin_shortcut: false)`** — platform **`User.role == Admin`** does not expand visibility beyond membership (same rule as library reads).
 
 ### `user/` — User accounts (admin-only CRUD)
 
@@ -387,11 +365,13 @@ teams on user registration.
 ## Cross-Resource Dependency Graph
 
 ```
-                    ┌──────────────┐
-                    │ TeamResolver │ (resolver.rs)
-                    └──────┬───────┘
-          ┌────────────────┼────────────────┬────────────────┐
-          ▼                ▼                ▼                ▼
+RequireUser / `load_authorization_context`
+          │
+          ▼
+   AuthorizationContext  (auth/context.rs — session + user slice + teams[])
+          │
+          ├──────────────────────────────────────────────┐
+          ▼                ▼                ▼            ▼
    ┌─────────────┐  ┌───────────┐  ┌──────────────┐  ┌───────────┐
    │ BlobService │  │SongService│  │CollectionSvc │  │SetlistSvc │
    └──────┬──────┘  └─────┬─────┘  └──────┬───────┘  └─────┬─────┘
@@ -433,10 +413,10 @@ teams on user registration.
 | **Shared DTO** | yes | yes | yes | yes | yes | yes | yes |
 | **Repository trait** | `BlobRepository` | `SongRepository` | `CollectionRepository` | `SetlistRepository` | `TeamRepository` + `TeamInvitationRepository` | `UserRepository` | `SessionRepository` |
 | **Surreal impl** | `SurrealBlobRepo` | `SurrealSongRepo` | `SurrealCollectionRepo` | `SurrealSetlistRepo` | `SurrealTeamRepo` + `SurrealTeamInvitationRepo` | `SurrealUserRepo` | `SurrealSessionRepo` |
-| **Service** | `BlobService<R,T,S>` | `SongService<R,T,L,C,U>` | `CollectionService<R,T,L>` | `SetlistService<R,T,L>` | `TeamService<R,IR,TR>` | `UserService<R,T>` | `SessionService<S,U>` |
+| **Service** | `BlobService<R,S>` | `SongService<R,L,C,U>` | `CollectionService<R,L>` | `SetlistService<R,L>` | `TeamService<R>` | `UserService<R,T>` | `SessionService<S,U>` |
 | **Team-scoped** | yes | yes | yes | yes | own ACL | no | no |
-| **Extra files** | `storage.rs` | `liked.rs` | — | — | `resolver.rs`, `invitation_model.rs`, `invitation_repository.rs`, `invitation_surreal_repo.rs` | — | — |
-| **Extra dependencies** | `BlobStorage` | `LikedSongIds`, `CollectionRepo`, `UserCollectionUpdater` | `LikedSongIds` | `LikedSongIds` | `TeamResolver` | `TeamRepository` | `UserRepository` |
+| **Extra files** | `storage.rs` | `liked.rs` | — | — | `invitation_model.rs`, `invitation_repository.rs`, `invitation_surreal_repo.rs` | — | — |
+| **Extra dependencies** | `BlobStorage` | `LikedSongIds`, `CollectionRepo`, `UserCollectionUpdater` | `LikedSongIds` | `LikedSongIds` | — | `TeamRepository` | `UserRepository` |
 
 ---
 

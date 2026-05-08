@@ -11,7 +11,7 @@
 
 ## When / then
 
-- **BLC-TEAM-007:** WHEN listing or reading teams THEN the team IS visible IF the caller is in **`members`**, OR is **`owner`** of a personal team, OR is platform **admin** (**except** the reserved catalog team used for public-readable content never appears in **GET /teams** or **GET /teams/{id}**—THEN **404** for everyone including admins).
+- **BLC-TEAM-007:** WHEN listing or reading teams THEN the team IS visible IF the caller is in **`members`**, OR is **`owner`** of that personal team (**except** the reserved catalog team used for public-readable content never appears in **GET /teams** or **GET /teams/{id}**—THEN **404** for everyone). Platform **`admin`** alone does **not** grant access to teams the user does not belong to.
 - **BLC-TEAM-008:** WHEN **POST /teams** creates a team THEN it creates a **shared** team; the creator becomes **admin**; optional **`members`** MAY be supplied (creator stays admin if duplicated).
 - **BLC-TEAM-009:** WHEN **POST** is used to create a personal team THEN it MUST NOT apply—personal teams come from **user creation** only.
 - **BLC-TEAM-010:** WHEN any **guest** or stronger member reads a team THEN read IS allowed.

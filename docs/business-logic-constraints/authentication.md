@@ -5,11 +5,11 @@ Applies to routes under **`/api/v1`** that require an authenticated user session
 ## When / then
 
 - **BLC-AUTH-001:** WHEN a caller uses a route that **requires authentication** without an **`Authorization`** header whose value is interpreted as a **Bearer** session token (**BLC-USER-006**) THEN the API responds **401**.
-- **BLC-AUTH-002:** WHEN **`Authorization: Bearer <token>`** is present but **`<token>`** IS NOT a valid, active session THEN the API responds **401** before evaluating resource rules that would yield **403** or **404**.
+- **BLC-AUTH-002:** WHEN **`Authorization: Bearer <token>`** is present but **`<token>`** IS NOT a valid, active session (**missing row**, **expired `expires_at`**, or **revoked**) THEN the API responds **401** before evaluating resource rules that would yield **403** or **404**.
 
 ## Relation to sessions
 
-Session lifecycle and **404**/**403** on **`/users/.../sessions`** are in [session.md](./session.md). **BLC-AUTH-002** applies when the token never identifies a session at all; after **BLC-SESS-008**/**BLC-SESS-009**, a once-valid token MAY also yield **401** on subsequent calls.
+Session lifecycle (including **BLC-SESS-010** expired rows that stay in the DB until deleted), **404**/**403** on **`/users/.../sessions`**, and **BLC-SESS-008**/**BLC-SESS-009** are in [session.md](./session.md). **BLC-AUTH-002** applies when the token never identifies a usable session; after **BLC-SESS-008**/**BLC-SESS-009**, a once-valid token MAY also yield **401** on subsequent calls.
 
 ## OIDC (browser login)
 

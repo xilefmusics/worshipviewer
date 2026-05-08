@@ -8,12 +8,12 @@ use serde::Deserialize;
 use shared::api::{ListQuery, PAGE_SIZE_DEFAULT};
 use shared::user::{Session, SessionBody};
 
+use crate::auth::AuthorizationContext;
 #[allow(unused_imports)]
 use crate::docs::Problem;
 use crate::error::AppError;
 use crate::expand::expand_includes_user;
 use crate::http_audit::AuditSessionId;
-use crate::resources::User;
 use crate::settings::CookieConfig;
 
 use super::service::SessionServiceHandle;
@@ -55,7 +55,7 @@ struct ExpandQuery {
 pub async fn get_current_session_for_user(
     req: HttpRequest,
     svc: Data<SessionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     expand: Query<ExpandQuery>,
 ) -> Result<HttpResponse, AppError> {
     let session_id = req
@@ -65,7 +65,7 @@ pub async fn get_current_session_for_user(
         .ok_or_else(|| {
             AppError::Internal("authenticated request missing credential session identifier".into())
         })?;
-    let session = svc.get_session_for_user(&session_id, &user.id).await?;
+    let session = svc.get_session_for_user(&session_id, &ctx.user.id).await?;
     Ok(HttpResponse::Ok().json(SessionBody::from_session(
         session,
         expand_includes_user(&expand.expand),
@@ -98,7 +98,7 @@ pub async fn get_current_session_for_user(
 pub async fn get_sessions_for_current_user(
     req: HttpRequest,
     svc: Data<SessionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     query: Query<SessionsPageQuery>,
 ) -> Result<HttpResponse, AppError> {
     let SessionsPageQuery { list, expand } = query.into_inner();
@@ -109,7 +109,7 @@ pub async fn get_sessions_for_current_user(
     let q_link = list.clone();
     let cur_page = list.page.unwrap_or(0);
     let page_size = list.page_size.unwrap_or(PAGE_SIZE_DEFAULT);
-    let sessions = filter_sessions_by_q(svc.get_sessions_by_user_id(&user.id).await?, &list);
+    let sessions = filter_sessions_by_q(svc.get_sessions_by_user_id(&ctx.user.id).await?, &list);
     let (sessions_page, total) = ListQuery::paginate_vec(sessions, &list);
     let sessions_page: Vec<SessionBody> = sessions_page
         .into_iter()
@@ -156,11 +156,11 @@ pub async fn get_sessions_for_current_user(
 #[get("/me/sessions/{id}")]
 pub async fn get_session_for_current_user(
     svc: Data<SessionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     path: Path<SessionPath>,
     expand: Query<ExpandQuery>,
 ) -> Result<HttpResponse, AppError> {
-    let session = svc.get_session_for_user(&path.id, &user.id).await?;
+    let session = svc.get_session_for_user(&path.id, &ctx.user.id).await?;
     Ok(HttpResponse::Ok().json(SessionBody::from_session(
         session,
         expand_includes_user(&expand.expand),
@@ -189,16 +189,15 @@ pub async fn get_session_for_current_user(
 #[delete("/me/sessions/{id}")]
 pub async fn delete_session_for_current_user(
     svc: Data<SessionServiceHandle>,
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     path: Path<SessionPath>,
 ) -> Result<HttpResponse, AppError> {
-    let user = user.into_inner();
-    let deleted = svc.delete_session_for_user(&path.id, &user.id).await?;
+    let deleted = svc.delete_session_for_user(&path.id, &ctx.user.id).await?;
     crate::audit!(
         "audit.session.revoked",
         session_id = tracing::field::display(&deleted.id),
         user_id = tracing::field::display(&deleted.user.id),
-        actor_user_id = tracing::field::display(&user.id)
+        actor_user_id = tracing::field::display(&ctx.user.id)
         ; "session revoked"
     );
     Ok(HttpResponse::NoContent().finish())
@@ -363,16 +362,15 @@ pub async fn get_session_for_user(
 #[delete("/{user_id}/sessions/{id}")]
 pub async fn delete_session_for_user(
     svc: Data<SessionServiceHandle>,
-    actor: ReqData<User>,
+    actor: ReqData<AuthorizationContext>,
     path: Path<UserSessionPath>,
 ) -> Result<HttpResponse, AppError> {
-    let actor = actor.into_inner();
     let deleted = svc.delete_session_for_user(&path.id, &path.user_id).await?;
     crate::audit!(
         "audit.session.revoked",
         session_id = tracing::field::display(&deleted.id),
         user_id = tracing::field::display(&deleted.user.id),
-        actor_user_id = tracing::field::display(&actor.id)
+        actor_user_id = tracing::field::display(&actor.user.id)
         ; "session revoked"
     );
     Ok(HttpResponse::NoContent().finish())

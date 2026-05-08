@@ -56,10 +56,5 @@ imagesize = "0.14"
 
 [dev-dependencies]
 anyhow = "1"
-criterion = { version = "0.8", features = ["html_reports"] }
 tempfile = "3"
 tracing-test = "0.2.6"
-
-[[bench]]
-name = "repo_perf"
-harness = false

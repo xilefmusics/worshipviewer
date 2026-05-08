@@ -68,14 +68,6 @@ impl<S: SessionRepository, U: UserRepository> SessionService<S, U> {
         self.repo.get_sessions_by_user_id(user_id).await
     }
 
-    #[instrument(level = "debug", err, skip(self))]
-    pub async fn validate_session_and_update_metrics(
-        &self,
-        id: &str,
-    ) -> Result<Option<Session>, AppError> {
-        self.repo.validate_session_and_update_metrics(id).await
-    }
-
     /// Look up a user by ID and create a session for them with the given TTL.
     #[instrument(level = "debug", err, skip(self))]
     pub async fn create_session_for_user_by_id(
@@ -105,6 +97,7 @@ impl SessionServiceHandle {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use std::sync::Mutex;
 
     use shared::api::ListQuery;
     use shared::user::{Session, User};
@@ -141,22 +134,19 @@ mod tests {
     // ── MockSessionRepo ───────────────────────────────────────────────────────
 
     struct MockSessionRepo {
-        sessions: Vec<Session>,
-        validate_returns: Option<Session>,
+        sessions: Mutex<Vec<Session>>,
     }
 
     impl MockSessionRepo {
         fn empty() -> Self {
             Self {
-                sessions: vec![],
-                validate_returns: None,
+                sessions: Mutex::new(vec![]),
             }
         }
 
         fn with_sessions(sessions: Vec<Session>) -> Self {
             Self {
-                sessions,
-                validate_returns: None,
+                sessions: Mutex::new(sessions),
             }
         }
     }
@@ -165,6 +155,8 @@ mod tests {
     impl SessionRepository for MockSessionRepo {
         async fn get_session(&self, id: &str) -> Result<Session, AppError> {
             self.sessions
+                .lock()
+                .expect("mock sessions lock")
                 .iter()
                 .find(|s| s.id == id)
                 .cloned()
@@ -173,6 +165,8 @@ mod tests {
 
         async fn get_session_for_user(&self, id: &str, user_id: &str) -> Result<Session, AppError> {
             self.sessions
+                .lock()
+                .expect("mock sessions lock")
                 .iter()
                 .find(|s| s.id == id && s.user.id == user_id)
                 .cloned()
@@ -184,11 +178,12 @@ mod tests {
         }
 
         async fn delete_session(&self, id: &str) -> Result<Session, AppError> {
-            self.sessions
+            let mut sessions = self.sessions.lock().expect("mock sessions lock");
+            let pos = sessions
                 .iter()
-                .find(|s| s.id == id)
-                .cloned()
-                .ok_or_else(|| AppError::NotFound("session not found".into()))
+                .position(|s| s.id == id)
+                .ok_or_else(|| AppError::NotFound("session not found".into()))?;
+            Ok(sessions.remove(pos))
         }
 
         async fn delete_session_for_user(
@@ -196,27 +191,23 @@ mod tests {
             id: &str,
             user_id: &str,
         ) -> Result<Session, AppError> {
-            self.sessions
+            let mut sessions = self.sessions.lock().expect("mock sessions lock");
+            let pos = sessions
                 .iter()
-                .find(|s| s.id == id && s.user.id == user_id)
-                .cloned()
-                .ok_or_else(|| AppError::NotFound("session not found".into()))
+                .position(|s| s.id == id && s.user.id == user_id)
+                .ok_or_else(|| AppError::NotFound("session not found".into()))?;
+            Ok(sessions.remove(pos))
         }
 
         async fn get_sessions_by_user_id(&self, user_id: &str) -> Result<Vec<Session>, AppError> {
             Ok(self
                 .sessions
+                .lock()
+                .expect("mock sessions lock")
                 .iter()
                 .filter(|s| s.user.id == user_id)
                 .cloned()
                 .collect())
-        }
-
-        async fn validate_session_and_update_metrics(
-            &self,
-            _id: &str,
-        ) -> Result<Option<Session>, AppError> {
-            Ok(self.validate_returns.clone())
         }
     }
 
@@ -325,9 +316,8 @@ mod tests {
         assert!(matches!(result, Err(AppError::NotFound(_))));
     }
 
-    /// BLC-SESS-009: after deleting a session, validate_session_and_update_metrics returns None.
     #[tokio::test]
-    async fn blc_sess_009_deleted_session_validates_as_none() {
+    async fn blc_sess_009_deleted_session_is_not_found() {
         let session = make_session("s1", "u1");
         let svc = SessionService::new(
             MockSessionRepo::with_sessions(vec![session.clone()]),
@@ -335,13 +325,8 @@ mod tests {
         );
         let delete_result = svc.delete_session("s1").await;
         assert!(delete_result.is_ok());
-        // validate_returns is None by default — simulates a deleted/expired session
-        let validate_result = svc.validate_session_and_update_metrics("s1").await;
-        assert!(validate_result.is_ok());
-        assert!(
-            validate_result.unwrap().is_none(),
-            "deleted session must not authenticate"
-        );
+        let get_result = svc.get_session("s1").await;
+        assert!(matches!(get_result, Err(AppError::NotFound(_))));
     }
 
     /// BLC-SESS-003: get_sessions_by_user_id returns only sessions belonging to that user.

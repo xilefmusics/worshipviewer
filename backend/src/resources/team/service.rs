@@ -6,9 +6,10 @@ use surrealdb::types::RecordId;
 
 use shared::patch::Patch;
 use shared::team::{CreateTeam, PatchTeam, Team, UpdateTeam};
-use shared::user::{Role as UserRole, User};
+use shared::user::User;
 use tracing::instrument;
 
+use crate::auth::AuthorizationContext;
 use crate::database::Database;
 use crate::error::AppError;
 
@@ -19,7 +20,6 @@ use super::model::{
     thing_user_id, validate_personal_members_not_owner,
 };
 use super::repository::TeamRepository;
-use super::resolver::{TeamResolver, UserPermissions};
 use super::surreal_repo::SurrealTeamRepo;
 
 fn audit_team_member_role_changes(
@@ -52,22 +52,20 @@ fn audit_team_member_role_changes(
 
 /// Application service: authorization and orchestration for teams.
 #[derive(Clone)]
-pub struct TeamService<R, TR> {
+pub struct TeamService<R> {
     pub repo: R,
-    pub resolver: Arc<TR>,
 }
 
-impl<R, TR> TeamService<R, TR> {
-    pub fn new(repo: R, resolver: Arc<TR>) -> Self {
-        Self { repo, resolver }
+impl<R> TeamService<R> {
+    pub fn new(repo: R) -> Self {
+        Self { repo }
     }
 }
 
-impl<R: TeamRepository, TR: TeamResolver> TeamService<R, TR> {
+impl<R: TeamRepository> TeamService<R> {
     #[instrument(level = "debug", err, skip(self, user))]
     pub async fn list_teams_for_user(&self, user: &User) -> Result<Vec<Team>, AppError> {
-        let app_admin = user.role == UserRole::Admin;
-        let rows = self.repo.fetch_teams_for_user(&user.id, app_admin).await?;
+        let rows = self.repo.fetch_teams_for_user(&user.id, false).await?;
         let mut by_id: BTreeMap<String, Team> = BTreeMap::new();
         for row in rows {
             let team = row.into_team()?;
@@ -84,14 +82,13 @@ impl<R: TeamRepository, TR: TeamResolver> TeamService<R, TR> {
 
     #[instrument(level = "debug", err, skip(self, user))]
     pub async fn get_team_for_user(&self, user: &User, id: &str) -> Result<Team, AppError> {
-        let app_admin = user.role == UserRole::Admin;
         let row = self
             .repo
             .fetch_team(id)
             .await?
             .ok_or_else(|| AppError::NotFound("team not found".into()))?;
         let stored = team_fetched_to_stored(&row)?;
-        if !can_read_team(&user.id, &stored, app_admin) {
+        if !can_read_team(&user.id, &stored, false) {
             return Err(AppError::NotFound("team not found".into()));
         }
         row.into_team()
@@ -230,9 +227,12 @@ impl<R: TeamRepository, TR: TeamResolver> TeamService<R, TR> {
             .await
     }
 
-    #[instrument(level = "debug", err, skip(self, user))]
-    pub async fn delete_team_for_user(&self, user: &User, id: &str) -> Result<Team, AppError> {
-        let perms = UserPermissions::from_ref(user, &self.resolver);
+    #[instrument(level = "debug", err, skip(self, ctx))]
+    pub async fn delete_team_for_user(
+        &self,
+        ctx: &AuthorizationContext,
+        id: &str,
+    ) -> Result<Team, AppError> {
         let resource = team_resource_or_reject_public(id)?;
 
         let row = self
@@ -245,12 +245,12 @@ impl<R: TeamRepository, TR: TeamResolver> TeamService<R, TR> {
         if stored.owner.is_some() {
             return Err(AppError::forbidden());
         }
-        if !effective_admin(&perms.user().id, &stored) {
+        if !effective_admin(&ctx.user.id, &stored) {
             return Err(AppError::forbidden());
         }
 
         let team = row.into_team()?;
-        let personal = perms.personal_team().await?;
+        let personal = ctx.personal_team()?;
         let from = RecordId::new(resource.0.clone(), resource.1.clone());
         self.repo.reassign_content(from, personal).await?;
         self.repo.delete_team_record(resource).await?;
@@ -260,21 +260,11 @@ impl<R: TeamRepository, TR: TeamResolver> TeamService<R, TR> {
 }
 
 /// Production type alias used in HTTP wiring.
-pub type TeamServiceHandle = TeamService<SurrealTeamRepo, super::resolver::SurrealTeamResolver>;
+pub type TeamServiceHandle = TeamService<SurrealTeamRepo>;
 
 impl TeamServiceHandle {
     pub fn build(db: Arc<Database>) -> Self {
-        Self::build_with_team_resolver(
-            db.clone(),
-            Arc::new(super::resolver::SurrealTeamResolver::new(db.clone())),
-        )
-    }
-
-    pub fn build_with_team_resolver(
-        db: Arc<Database>,
-        resolver: Arc<super::resolver::SurrealTeamResolver>,
-    ) -> Self {
-        TeamService::new(SurrealTeamRepo::new(db.clone()), resolver)
+        TeamService::new(SurrealTeamRepo::new(db.clone()))
     }
 }
 
@@ -283,10 +273,9 @@ mod tests {
     use shared::team::{CreateTeam, TeamMemberInput, TeamRole, TeamUserRef, UpdateTeam};
 
     use crate::error::AppError;
-    use crate::resources::team::UserPermissions;
     use crate::test_helpers::{
-        TeamFixture, collection_service, create_song_with_title, create_user, personal_team_id,
-        team_service as mk_team_svc, test_db,
+        TeamFixture, auth_ctx_for_user, collection_service, create_song_with_title, create_user,
+        personal_team_id, team_service as mk_team_svc, test_db,
     };
 
     use super::*;
@@ -332,7 +321,8 @@ mod tests {
             .iter()
             .find(|t| t.owner.as_ref().map(|o| o.id == u.id).unwrap_or(false))
             .expect("personal");
-        let err = svc.delete_team_for_user(&u, &personal.id).await;
+        let ctx = auth_ctx_for_user(&db, &u).await.expect("auth");
+        let err = svc.delete_team_for_user(&ctx, &personal.id).await;
         assert!(matches!(err, Err(AppError::Forbidden)));
     }
 
@@ -351,7 +341,8 @@ mod tests {
             )
             .await
             .expect("shared");
-        svc.delete_team_for_user(&u, &shared.id)
+        let ctx = auth_ctx_for_user(&db, &u).await.expect("auth");
+        svc.delete_team_for_user(&ctx, &shared.id)
             .await
             .expect("delete");
     }
@@ -418,9 +409,8 @@ mod tests {
         );
     }
 
-    /// BLC-TEAM-007: platform admin can see all teams (except team:public catalog).
     #[tokio::test]
-    async fn blc_team_007_platform_admin_sees_all() {
+    async fn blc_team_007_platform_admin_without_membership_sees_only_own_teams() {
         let db = test_db().await.expect("db");
         let fx = TeamFixture::build(&db).await.expect("fixture");
         let svc = team_service(&db);
@@ -433,8 +423,8 @@ mod tests {
             .map(|t| t.id)
             .collect();
         assert!(
-            admin_teams.contains(&fx.shared_team_id),
-            "platform admin must see the shared team"
+            !admin_teams.contains(&fx.shared_team_id),
+            "platform admin must not see teams they are not a member of"
         );
         assert!(
             !admin_teams.iter().any(|id| id == "public"),
@@ -768,15 +758,16 @@ mod tests {
             .await
             .expect("song");
 
-        svc.delete_team_for_user(&fx.admin_user, &fx.shared_team_id)
+        let admin_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
+        svc.delete_team_for_user(&admin_ctx, &fx.shared_team_id)
             .await
             .expect("delete shared team");
 
         // admin_user's personal team now owns the song.
         let admin_personal = personal_team_id(&db, &fx.admin_user).await.expect("pt");
-        let song_perms = UserPermissions::from_ref(&fx.admin_user, &song_svc.teams);
+        let song_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
         let fetched = song_svc
-            .get_song_for_user(&song_perms, &song.id)
+            .get_song_for_user(&song_ctx, &song.id)
             .await
             .expect("get song");
         assert_eq!(
@@ -794,10 +785,10 @@ mod tests {
         let coll_svc = collection_service(&db);
 
         // admin_user creates a collection (owned by their personal team).
-        let admin_perms_coll = UserPermissions::from_ref(&fx.admin_user, &coll_svc.teams);
+        let admin_ctx_coll = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
         let coll = coll_svc
             .create_collection_for_user(
-                &admin_perms_coll,
+                &admin_ctx_coll,
                 shared::collection::CreateCollection {
                     owner: None,
                     title: "SharedColl".into(),
@@ -808,13 +799,14 @@ mod tests {
             .await
             .expect("coll");
 
-        svc.delete_team_for_user(&fx.admin_user, &fx.shared_team_id)
+        let admin_ctx_del = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
+        svc.delete_team_for_user(&admin_ctx_del, &fx.shared_team_id)
             .await
             .expect("delete");
 
         let admin_personal = personal_team_id(&db, &fx.admin_user).await.expect("pt");
         let fetched = coll_svc
-            .get_collection_for_user(&admin_perms_coll, &coll.id)
+            .get_collection_for_user(&admin_ctx_coll, &coll.id)
             .await
             .expect("get coll");
         assert_eq!(fetched.owner, admin_personal);
@@ -827,7 +819,10 @@ mod tests {
         let fx = TeamFixture::build(&db).await.expect("fixture");
         let svc = mk_team_svc(&db);
         let r = svc
-            .delete_team_for_user(&fx.guest, &fx.shared_team_id)
+            .delete_team_for_user(
+                &auth_ctx_for_user(&db, &fx.guest).await.expect("auth"),
+                &fx.shared_team_id,
+            )
             .await;
         assert!(matches!(r, Err(AppError::Forbidden)));
     }
@@ -839,7 +834,8 @@ mod tests {
         let fx = TeamFixture::build(&db).await.expect("fixture");
         let svc = mk_team_svc(&db);
 
-        svc.delete_team_for_user(&fx.admin_user, &fx.shared_team_id)
+        let admin_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
+        svc.delete_team_for_user(&admin_ctx, &fx.shared_team_id)
             .await
             .expect("delete");
 

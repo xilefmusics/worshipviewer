@@ -12,10 +12,10 @@ use futures_util::future::LocalBoxFuture;
 use tracing::error;
 use uuid::Uuid;
 
+use crate::auth::AuthorizationContext;
 use crate::client_attribution::{self, X_WORSHIP_CLIENT};
 use crate::database::Database;
 use crate::request_id::ApiRequestTarget;
-use crate::resources::User;
 
 /// Session id string for the authenticated request (set by [`crate::auth::middleware::RequireUser`]).
 #[derive(Clone)]
@@ -118,7 +118,10 @@ where
                         .get::<ApiRequestTarget>()
                         .map(|t| t.0.clone())
                         .unwrap_or_else(|| api_path.clone());
-                    let user_id = r.extensions().get::<User>().map(|u| u.id.clone());
+                    let user_id = r
+                        .extensions()
+                        .get::<AuthorizationContext>()
+                        .map(|ctx| ctx.user.id.clone());
                     let session_id = r.extensions().get::<AuditSessionId>().map(|s| s.0.clone());
                     (resp.status().as_u16() as i64, user_id, session_id, path)
                 }

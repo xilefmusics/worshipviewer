@@ -20,8 +20,8 @@ use backend::resources::blob::service::BlobServiceHandle;
 use backend::resources::collection::service::CollectionServiceHandle;
 use backend::resources::setlist::{SetlistService, SurrealSetlistRepo};
 use backend::resources::song::service::SongServiceHandle;
+use backend::resources::team::TeamServiceHandle;
 use backend::resources::team::invitation::InvitationServiceHandle;
-use backend::resources::team::{SurrealTeamResolver, TeamServiceHandle};
 use backend::resources::user::service::UserServiceHandle;
 use backend::resources::user::session::service::SessionServiceHandle;
 use backend::resources::user::{Role as UserRole, User};
@@ -161,24 +161,11 @@ async fn main() -> AnyResult<()> {
         "backend starting"
     );
 
-    let team_resolver = Arc::new(SurrealTeamResolver::new(db.clone()));
-    let blob_service = BlobServiceHandle::build_with_team_resolver(
-        db.clone(),
-        settings.blob_dir.clone(),
-        team_resolver.clone(),
-    );
-    let collection_service =
-        CollectionServiceHandle::build_with_team_resolver(db.clone(), team_resolver.clone());
-    let song_service =
-        SongServiceHandle::build_with_team_resolver(db.clone(), team_resolver.clone());
-    let setlist_service = SetlistService::new(
-        SurrealSetlistRepo::new(db.clone()),
-        team_resolver.clone(),
-        db.clone(),
-    );
-    let team_service =
-        TeamServiceHandle::build_with_team_resolver(db.clone(), team_resolver.clone());
-    let team_resolver_data = Data::new(team_resolver);
+    let blob_service = BlobServiceHandle::build(db.clone(), settings.blob_dir.clone());
+    let collection_service = CollectionServiceHandle::build(db.clone());
+    let song_service = SongServiceHandle::build(db.clone());
+    let setlist_service = SetlistService::new(SurrealSetlistRepo::new(db.clone()), db.clone());
+    let team_service = TeamServiceHandle::build(db.clone());
     let invitation_service = InvitationServiceHandle::build(db.clone());
     let db_data = Data::from(db);
 
@@ -200,7 +187,6 @@ async fn main() -> AnyResult<()> {
             .app_data(Data::new(collection_service.clone()))
             .app_data(Data::new(song_service.clone()))
             .app_data(Data::new(setlist_service.clone()))
-            .app_data(team_resolver_data.clone())
             .app_data(Data::new(team_service.clone()))
             .app_data(Data::new(invitation_service.clone()))
             .app_data(Data::new(user_service.clone()))

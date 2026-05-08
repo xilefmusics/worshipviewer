@@ -1,4 +1,5 @@
 use super::{CreateUser, User, session};
+use crate::auth::AuthorizationContext;
 use crate::auth::middleware::RequireAdmin;
 #[allow(unused_imports)]
 use crate::docs::Problem;
@@ -56,8 +57,11 @@ pub fn scope(avatar_upload_max_bytes: usize) -> Scope {
     )
 )]
 #[get("/me")]
-async fn get_users_me(user: ReqData<User>) -> HttpResponse {
-    HttpResponse::Ok().json(user.into_inner())
+async fn get_users_me(
+    ctx: ReqData<AuthorizationContext>,
+    svc: Data<UserServiceHandle>,
+) -> Result<HttpResponse, AppError> {
+    Ok(HttpResponse::Ok().json(svc.get_user(&ctx.user.id).await?))
 }
 
 #[utoipa::path(
@@ -79,7 +83,7 @@ async fn get_users_me(user: ReqData<User>) -> HttpResponse {
     )
 )]
 async fn put_profile_picture(
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     svc: Data<UserServiceHandle>,
     blob_svc: Data<BlobServiceHandle>,
     limits: Data<ProfilePictureLimits>,
@@ -94,7 +98,7 @@ async fn put_profile_picture(
     let updated = svc
         .upload_profile_picture(
             blob_svc.get_ref(),
-            &user.into_inner(),
+            &ctx,
             ct,
             body.as_ref(),
             limits.max_bytes,
@@ -119,12 +123,12 @@ async fn put_profile_picture(
     )
 )]
 async fn delete_profile_picture(
-    user: ReqData<User>,
+    ctx: ReqData<AuthorizationContext>,
     svc: Data<UserServiceHandle>,
     blob_svc: Data<BlobServiceHandle>,
 ) -> Result<HttpResponse, AppError> {
     let updated = svc
-        .clear_uploaded_profile_picture(blob_svc.get_ref(), &user.into_inner())
+        .clear_uploaded_profile_picture(blob_svc.get_ref(), &ctx)
         .await?;
     Ok(HttpResponse::Ok().json(updated))
 }
@@ -262,15 +266,14 @@ async fn create_user(
 #[delete("/{id}")]
 async fn delete_user(
     svc: Data<UserServiceHandle>,
-    actor: ReqData<User>,
+    actor: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
     let deleted = svc.delete_user(&id).await?;
-    let actor = actor.into_inner();
     crate::audit!(
         "audit.user.deleted",
         user_id = tracing::field::display(&deleted.id),
-        actor_user_id = tracing::field::display(&actor.id)
+        actor_user_id = tracing::field::display(&actor.user.id)
         ; "user deleted"
     );
     Ok(HttpResponse::NoContent().finish())

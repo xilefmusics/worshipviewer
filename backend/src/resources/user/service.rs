@@ -5,12 +5,11 @@ use shared::blob::CreateBlob;
 use shared::user::User;
 use tracing::instrument;
 
+use crate::auth::AuthorizationContext;
 use crate::database::Database;
 use crate::error::AppError;
 use crate::resources::blob::service::BlobServiceHandle;
-use crate::resources::team::{
-    SurrealTeamRepo, TeamCreatePayload, TeamRepository, UserPermissions, user_thing,
-};
+use crate::resources::team::{SurrealTeamRepo, TeamCreatePayload, TeamRepository, user_thing};
 
 use super::CreateUser;
 use super::profile_picture;
@@ -116,21 +115,19 @@ impl UserServiceHandle {
         )
     }
 
-    /// Fetch OIDC `picture` URL and store as `oauth_avatar_blob` when the URL changed or cache missing.
-    /// Logs and returns `Ok(())` on fetch/validation failures (keeps existing cache).
-    #[instrument(level = "debug", skip(self, blob_svc, user), fields(user_id = %user.id))]
+    #[instrument(level = "debug", skip(self, blob_svc, ctx), fields(user_id = %ctx.user.id))]
     pub async fn cache_oauth_profile_picture_if_needed(
         &self,
         blob_svc: &BlobServiceHandle,
-        user: &User,
+        ctx: &AuthorizationContext,
         picture_url: Option<String>,
         max_bytes: usize,
     ) -> Result<(), AppError> {
         let Some(ref url) = picture_url else {
             return Ok(());
         };
-        if user.oauth_picture_url.as_deref() == Some(url.as_str())
-            && user.oauth_avatar_blob_id.is_some()
+        if ctx.user.oauth_picture_url.as_deref() == Some(url.as_str())
+            && ctx.user.oauth_avatar_blob_id.is_some()
         {
             return Ok(());
         }
@@ -141,7 +138,7 @@ impl UserServiceHandle {
             Ok(b) => b,
             Err(e) => {
                 tracing::warn!(
-                    user_id = %user.id,
+                    user_id = %ctx.user.id,
                     error = %e,
                     "oauth profile picture fetch failed"
                 );
@@ -152,7 +149,7 @@ impl UserServiceHandle {
             Ok(t) => t,
             Err(e) => {
                 tracing::warn!(
-                    user_id = %user.id,
+                    user_id = %ctx.user.id,
                     error = %e,
                     "oauth profile picture validation failed"
                 );
@@ -163,7 +160,7 @@ impl UserServiceHandle {
             Ok(d) => d,
             Err(e) => {
                 tracing::warn!(
-                    user_id = %user.id,
+                    user_id = %ctx.user.id,
                     error = %e,
                     "oauth profile picture dimensions failed"
                 );
@@ -171,12 +168,11 @@ impl UserServiceHandle {
             }
         };
 
-        let perms = UserPermissions::from_ref(user, &blob_svc.teams);
-        if let Some(ref old) = user.oauth_avatar_blob_id
-            && let Err(e) = blob_svc.delete_blob_for_user(&perms, old).await
+        if let Some(ref old) = ctx.user.oauth_avatar_blob_id
+            && let Err(e) = blob_svc.delete_blob_for_user(ctx, old).await
         {
             tracing::warn!(
-                user_id = %user.id,
+                user_id = %ctx.user.id,
                 blob_id = %old,
                 error = %e,
                 "failed to delete previous oauth avatar blob"
@@ -185,7 +181,7 @@ impl UserServiceHandle {
 
         let created = blob_svc
             .create_blob_for_user(
-                &perms,
+                ctx,
                 CreateBlob {
                     owner: None,
                     file_type,
@@ -197,25 +193,25 @@ impl UserServiceHandle {
             .await?;
 
         if let Err(e) = blob_svc
-            .upload_blob_data_for_user(&perms, &created.id, &bytes)
+            .upload_blob_data_for_user(ctx, &created.id, &bytes)
             .await
         {
             tracing::warn!(
-                user_id = %user.id,
+                user_id = %ctx.user.id,
                 error = %e,
                 "failed to write oauth avatar bytes; cleaning up blob"
             );
-            let _ = blob_svc.delete_blob_for_user(&perms, &created.id).await;
+            let _ = blob_svc.delete_blob_for_user(ctx, &created.id).await;
             return Ok(());
         }
 
         if let Err(e) = self
             .repo
-            .set_oauth_picture_and_oauth_avatar_blob(&user.id, url, &created.id)
+            .set_oauth_picture_and_oauth_avatar_blob(&ctx.user.id, url, &created.id)
             .await
         {
             tracing::warn!(
-                user_id = %user.id,
+                user_id = %ctx.user.id,
                 error = %e,
                 "failed to link oauth avatar on user"
             );
@@ -223,11 +219,11 @@ impl UserServiceHandle {
         Ok(())
     }
 
-    #[instrument(level = "debug", err, skip(self, blob_svc, user, body))]
+    #[instrument(level = "debug", err, skip(self, blob_svc, ctx, body))]
     pub async fn upload_profile_picture(
         &self,
         blob_svc: &BlobServiceHandle,
-        user: &User,
+        ctx: &AuthorizationContext,
         content_type: &str,
         body: &[u8],
         max_bytes: usize,
@@ -241,15 +237,13 @@ impl UserServiceHandle {
         profile_picture::assert_magic_matches_content_type(body, &file_type)?;
         let (w, h) = profile_picture::avatar_dimensions(body)?;
 
-        let perms = UserPermissions::from_ref(user, &blob_svc.teams);
-
-        if let Some(ref old) = user.avatar_blob_id {
-            let _ = blob_svc.delete_blob_for_user(&perms, old).await;
+        if let Some(ref old) = ctx.user.avatar_blob_id {
+            let _ = blob_svc.delete_blob_for_user(ctx, old).await;
         }
 
         let created = blob_svc
             .create_blob_for_user(
-                &perms,
+                ctx,
                 CreateBlob {
                     owner: None,
                     file_type,
@@ -261,27 +255,26 @@ impl UserServiceHandle {
             .await?;
 
         blob_svc
-            .upload_blob_data_for_user(&perms, &created.id, body)
+            .upload_blob_data_for_user(ctx, &created.id, body)
             .await?;
 
         self.repo
-            .set_avatar_blob(&user.id, Some(&created.id))
+            .set_avatar_blob(&ctx.user.id, Some(&created.id))
             .await?;
-        self.repo.get_user(&user.id).await
+        self.repo.get_user(&ctx.user.id).await
     }
 
-    #[instrument(level = "debug", err, skip(self, blob_svc, user))]
+    #[instrument(level = "debug", err, skip(self, blob_svc, ctx))]
     pub async fn clear_uploaded_profile_picture(
         &self,
         blob_svc: &BlobServiceHandle,
-        user: &User,
+        ctx: &AuthorizationContext,
     ) -> Result<User, AppError> {
-        if let Some(ref old) = user.avatar_blob_id {
-            let perms = UserPermissions::from_ref(user, &blob_svc.teams);
-            let _ = blob_svc.delete_blob_for_user(&perms, old).await;
-            self.repo.set_avatar_blob(&user.id, None).await?;
+        if let Some(ref old) = ctx.user.avatar_blob_id {
+            let _ = blob_svc.delete_blob_for_user(ctx, old).await;
+            self.repo.set_avatar_blob(&ctx.user.id, None).await?;
         }
-        self.repo.get_user(&user.id).await
+        self.repo.get_user(&ctx.user.id).await
     }
 }
 
