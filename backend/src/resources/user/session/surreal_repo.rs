@@ -45,10 +45,11 @@ impl SurrealSessionRepo {
 #[async_trait]
 impl SessionRepository for SurrealSessionRepo {
     async fn get_session(&self, id: &str) -> Result<Session, AppError> {
+        let rid = RecordId::new("session", id.to_string());
         self.inner()
             .db
-            .query("SELECT * FROM session WHERE id = $id FETCH user")
-            .bind(("id", RecordId::new("session", id.to_string())))
+            .query("SELECT * FROM $rid FETCH user")
+            .bind(("rid", rid))
             .await?
             .take::<Option<SessionRecord>>(0)?
             .map(SessionRecord::into_session)
@@ -80,10 +81,11 @@ impl SessionRepository for SurrealSessionRepo {
     }
 
     async fn get_session_for_user(&self, id: &str, user_id: &str) -> Result<Session, AppError> {
+        let rid = RecordId::new("session", id.to_string());
         self.inner()
             .db
-            .query("SELECT * FROM session WHERE id = $id AND user = $user FETCH user")
-            .bind(("id", RecordId::new("session", id.to_string())))
+            .query("SELECT * FROM $rid WHERE user = $user FETCH user")
+            .bind(("rid", rid))
             .bind(("user", RecordId::new("user", user_id.to_owned())))
             .await?
             .take::<Option<SessionRecord>>(0)?

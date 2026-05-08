@@ -99,12 +99,12 @@ testcases:
           - result.statuscode ShouldEqual 200
           - result.bodyjson.id ShouldEqual "admin"
 
-  # Matches `get-me-session-admin` via GET /users/me/session (credential used on the wire).
+  # Matches `get-me-session-admin` via GET /users/me/sessions/current (credential used on the wire).
   - name: get-me-current-session-admin
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/users/me/session"
+        url: "{{.base_url}}/api/v1/users/me/sessions/current"
         headers:
           Authorization: "Bearer {{.token_admin}}"
         assertions:

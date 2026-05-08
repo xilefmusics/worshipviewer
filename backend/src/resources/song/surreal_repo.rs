@@ -114,11 +114,7 @@ async fn songs_by_ids(
     if ids.is_empty() {
         return Ok(HashMap::new());
     }
-    let mut response = db
-        .db
-        .query("SELECT * FROM song WHERE id INSIDE $ids")
-        .bind(("ids", ids))
-        .await?;
+    let mut response = db.db.query("SELECT * FROM $ids").bind(("ids", ids)).await?;
     let records: Vec<SongRecord> = response.take(0)?;
     let mut by_id = HashMap::with_capacity(records.len());
     for r in records {

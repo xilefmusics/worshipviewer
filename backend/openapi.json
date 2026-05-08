@@ -8050,85 +8050,6 @@
         ]
       }
     },
-    "/api/v1/users/me/session": {
-      "get": {
-        "operationId": "get_current_session_for_user",
-        "parameters": [
-          {
-            "description": "Optional `user` to embed full user (default: `id`+`email` link).",
-            "in": "query",
-            "name": "expand",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionBody"
-                }
-              }
-            },
-            "description": "Returns the session credential used for this request"
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Authentication required"
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Session not found"
-          },
-          "429": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers"
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Failed to fetch session"
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          },
-          {
-            "SessionToken": []
-          }
-        ],
-        "tags": [
-          "Users"
-        ]
-      }
-    },
     "/api/v1/users/me/session/metrics": {
       "get": {
         "operationId": "get_current_session_metrics",
@@ -8303,6 +8224,85 @@
               }
             },
             "description": "Failed to list sessions for current user"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/me/sessions/current": {
+      "get": {
+        "operationId": "get_current_session_for_user",
+        "parameters": [
+          {
+            "description": "Optional `user` to embed full user (default: `id`+`email` link).",
+            "in": "query",
+            "name": "expand",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionBody"
+                }
+              }
+            },
+            "description": "Returns the session credential used for this request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Session not found"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Failed to fetch session"
           }
         },
         "security": [
