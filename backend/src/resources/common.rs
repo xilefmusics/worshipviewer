@@ -130,7 +130,7 @@ pub struct SongLinkListRow {
 
 /// Load full [`Song`] values for setlist/collection link rows (`array<object>` with `id: record<song>`).
 ///
-/// SurrealDB 3.0.x does not apply multi-part `FETCH` paths per array element the way 2.x did, so we batch `song` rows.
+/// SurrealDB 3.0.x does not apply multi-part `FETCH` paths per array element the way 2.x did, so we batch-load `song` rows by record-id array (`SELECT * FROM $ids`).
 pub async fn song_links_to_owned(
     db: &Surreal<Any>,
     links: Vec<SongLinkRecord>,
@@ -140,7 +140,7 @@ pub async fn song_links_to_owned(
     }
     let ids: Vec<RecordId> = links.iter().map(|l| l.id.clone()).collect();
     let mut response = db
-        .query("SELECT * FROM song WHERE id INSIDE $ids")
+        .query("SELECT * FROM $ids")
         .bind(("ids", ids))
         .await
         .map_err(|e| crate::log_and_convert!(AppError::database, "song.batch_by_id", e))?;
