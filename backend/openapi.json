@@ -6526,7 +6526,7 @@
             }
           },
           {
-            "description": "Optional case-insensitive substring on team name or id. Whitespace-only is treated as absent.",
+            "description": "Optional search: full-text on team name; case-insensitive substring on team id, personal owner email, and member emails. Whitespace-only is treated as absent.",
             "in": "query",
             "name": "q",
             "required": false,

@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use surrealdb::types::RecordId;
+use serde::Deserialize;
+use surrealdb::types::{RecordId, SurrealValue};
 
+use shared::api::ListQuery;
 use shared::team::Team;
 
 use crate::database::Database;
@@ -13,6 +15,14 @@ use super::model::{
     user_thing,
 };
 use super::repository::TeamRepository;
+
+/// Match `q` against name (full-text), id, personal owner email, or any member email.
+const TEAM_SEARCH_PREDICATE: &str = "(
+    name @0@ $q
+    OR string::contains(string::lowercase(type::string(id)), $needle)
+    OR (owner != NONE AND string::contains(string::lowercase((SELECT VALUE email FROM ONLY $this.owner)), $needle))
+    OR array::len(members[WHERE string::contains(string::lowercase((SELECT VALUE email FROM ONLY $this.user)), $needle)]) > 0
+)";
 
 #[derive(Clone)]
 pub struct SurrealTeamRepo {
@@ -70,6 +80,118 @@ impl TeamRepository for SurrealTeamRepo {
                 .await?
                 .take::<Vec<TeamFetched>>(0)?)
         }
+    }
+
+    async fn count_teams_for_user_search(
+        &self,
+        user_id: &str,
+        is_admin: bool,
+        q_trimmed: &str,
+    ) -> Result<u64, AppError> {
+        #[derive(Deserialize, SurrealValue)]
+        struct CountResult {
+            count: u64,
+        }
+
+        let public_thing = super::model::public_team_thing();
+        let db = self.inner();
+
+        let mut sql = String::from("SELECT count() FROM team WHERE ");
+        if is_admin {
+            sql.push_str("id != $public AND ");
+        } else {
+            let ut = user_thing(user_id);
+            sql.push_str(
+                "id != $public AND (owner = $user OR array::len(members[WHERE user = $user]) > 0) AND ",
+            );
+            sql.push_str(TEAM_SEARCH_PREDICATE);
+            sql.push_str(" GROUP ALL");
+            let mut response = db
+                .db
+                .query(&sql)
+                .bind(("public", public_thing))
+                .bind(("user", ut))
+                .bind(("q", q_trimmed.to_owned()))
+                .bind(("needle", q_trimmed.to_lowercase()))
+                .await?;
+            crate::database::surreal_take_errors(
+                "team.count_teams_for_user_search",
+                &mut response,
+            )?;
+            return Ok(response
+                .take::<Vec<CountResult>>(0)?
+                .into_iter()
+                .next()
+                .map(|r| r.count)
+                .unwrap_or(0));
+        }
+        sql.push_str(TEAM_SEARCH_PREDICATE);
+        sql.push_str(" GROUP ALL");
+        let mut response = db
+            .db
+            .query(&sql)
+            .bind(("public", public_thing))
+            .bind(("q", q_trimmed.to_owned()))
+            .bind(("needle", q_trimmed.to_lowercase()))
+            .await?;
+        crate::database::surreal_take_errors("team.count_teams_for_user_search", &mut response)?;
+        Ok(response
+            .take::<Vec<CountResult>>(0)?
+            .into_iter()
+            .next()
+            .map(|r| r.count)
+            .unwrap_or(0))
+    }
+
+    async fn fetch_teams_for_user_search(
+        &self,
+        user_id: &str,
+        is_admin: bool,
+        pagination: &ListQuery,
+        q_trimmed: &str,
+    ) -> Result<Vec<TeamFetched>, AppError> {
+        let public_thing = super::model::public_team_thing();
+        let db = self.inner();
+        let (offset, limit) = pagination.effective_offset_limit();
+
+        let mut sql = String::from("SELECT *, (search::score(0) ?? 0) AS score FROM team WHERE ");
+        if is_admin {
+            sql.push_str("id != $public AND ");
+        } else {
+            let ut = user_thing(user_id);
+            sql.push_str(
+                "id != $public AND (owner = $user OR array::len(members[WHERE user = $user]) > 0) AND ",
+            );
+            sql.push_str(TEAM_SEARCH_PREDICATE);
+            sql.push_str(
+                " ORDER BY score DESC, id ASC LIMIT $limit START $start FETCH owner, members.user",
+            );
+            return Ok(db
+                .db
+                .query(&sql)
+                .bind(("public", public_thing))
+                .bind(("user", ut))
+                .bind(("q", q_trimmed.to_owned()))
+                .bind(("needle", q_trimmed.to_lowercase()))
+                .bind(("limit", limit))
+                .bind(("start", offset))
+                .await?
+                .take::<Vec<TeamFetched>>(0)?);
+        }
+        sql.push_str(TEAM_SEARCH_PREDICATE);
+        sql.push_str(
+            " ORDER BY score DESC, id ASC LIMIT $limit START $start FETCH owner, members.user",
+        );
+        Ok(db
+            .db
+            .query(&sql)
+            .bind(("public", public_thing))
+            .bind(("q", q_trimmed.to_owned()))
+            .bind(("needle", q_trimmed.to_lowercase()))
+            .bind(("limit", limit))
+            .bind(("start", offset))
+            .await?
+            .take::<Vec<TeamFetched>>(0)?)
     }
 
     async fn fetch_team(&self, id: &str) -> Result<Option<TeamFetched>, AppError> {

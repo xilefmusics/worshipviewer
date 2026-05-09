@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use surrealdb::types::RecordId;
 
+use shared::api::ListQuery;
 use shared::team::Team;
 
 use crate::error::AppError;
@@ -19,6 +20,23 @@ pub trait TeamRepository: Send + Sync {
         &self,
         user_id: &str,
         is_admin: bool,
+    ) -> Result<Vec<TeamFetched>, AppError>;
+
+    /// Count teams visible to the user matching `q_trimmed` (full-text name + substring on id and related user emails).
+    async fn count_teams_for_user_search(
+        &self,
+        user_id: &str,
+        is_admin: bool,
+        q_trimmed: &str,
+    ) -> Result<u64, AppError>;
+
+    /// Search teams visible to the user; `q_trimmed` must be non-empty. Paging via `pagination`.
+    async fn fetch_teams_for_user_search(
+        &self,
+        user_id: &str,
+        is_admin: bool,
+        pagination: &ListQuery,
+        q_trimmed: &str,
     ) -> Result<Vec<TeamFetched>, AppError>;
 
     /// Fetch a single team by ID (accepts plain ID or `team:id` format), with FETCHed users.

@@ -32,7 +32,7 @@ pub fn scope() -> Scope {
     params(
         ("page" = Option<u32>, Query, description = "Page index, zero-based; defaults to 0.", minimum = 0, nullable = true),
         ("page_size" = Option<u32>, Query, description = "Items per page. Must be 1–500. Defaults to 50 when omitted.", minimum = 1, maximum = 500, example = 50, nullable = true),
-        ("q" = Option<String>, Query, description = "Optional case-insensitive substring on team name or id. Whitespace-only is treated as absent."),
+        ("q" = Option<String>, Query, description = "Optional search: full-text on team name; case-insensitive substring on team id, personal owner email, and member emails. Whitespace-only is treated as absent."),
     ),
     responses(
         (status = 200, description = "Teams readable by the current user; platform admins receive all teams (except internal public). `X-Total-Count` is the total before paging.", body = [Team]),
@@ -62,8 +62,15 @@ async fn get_teams(
     let q_link = query.clone();
     let cur_page = query.page.unwrap_or(0);
     let page_size = query.page_size.unwrap_or(PAGE_SIZE_DEFAULT);
-    let teams = filter_teams_by_q(svc.list_teams_for_user(&acting).await?, &query);
-    let (teams_page, total) = ListQuery::paginate_vec(teams, &query);
+    let q_trimmed = query.q.as_ref().map(|s| s.trim()).filter(|s| !s.is_empty());
+    let (teams_page, total) = if let Some(qt) = q_trimmed {
+        let total = svc.count_teams_for_user_search(&acting, qt).await?;
+        let teams = svc.list_teams_for_user_search(&acting, &query, qt).await?;
+        (teams, total)
+    } else {
+        let teams = svc.list_teams_for_user(&acting).await?;
+        ListQuery::paginate_vec(teams, &query)
+    };
     Ok(HttpResponse::Ok()
         .insert_header((
             header::HeaderName::from_static("x-total-count"),
@@ -241,21 +248,4 @@ async fn delete_team(
 ) -> Result<HttpResponse, AppError> {
     svc.delete_team_for_user(&ctx, &id).await?;
     Ok(HttpResponse::NoContent().finish())
-}
-
-fn filter_teams_by_q(mut teams: Vec<Team>, query: &ListQuery) -> Vec<Team> {
-    let Some(needle) = query.q.as_ref().and_then(|s| {
-        let t = s.trim();
-        if t.is_empty() {
-            None
-        } else {
-            Some(t.to_lowercase())
-        }
-    }) else {
-        return teams;
-    };
-    teams.retain(|t| {
-        t.name.to_lowercase().contains(&needle) || t.id.to_lowercase().contains(&needle)
-    });
-    teams
 }
