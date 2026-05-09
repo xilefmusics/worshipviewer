@@ -910,6 +910,7 @@ mod session_admin_gates {
     }
 
     /// BLC-SESS-003: `SessionBody` omits audit metrics; `GET /users/me/session/metrics` returns them.
+    /// Current session is exposed as `GET /users/me/sessions/current` (credential on the wire).
     #[actix_web::test]
     async fn blc_sess_003_current_session_omits_metrics_get_metrics_ok() {
         let db = test_db().await.unwrap();
@@ -920,7 +921,7 @@ mod session_admin_gates {
         let app = test::init_service(build_app(db.clone())).await;
 
         let req_s = test::TestRequest::get()
-            .uri("/api/v1/users/me/session")
+            .uri("/api/v1/users/me/sessions/current")
             .insert_header(("Authorization", format!("Bearer {token}")))
             .to_request();
         let body: serde_json::Value = test::call_and_read_body_json(&app, req_s).await;

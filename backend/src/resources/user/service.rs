@@ -442,6 +442,25 @@ mod tests {
             unreachable!("not used in user tests")
         }
 
+        async fn count_teams_for_user_search(
+            &self,
+            _user_id: &str,
+            _is_admin: bool,
+            _q_trimmed: &str,
+        ) -> Result<u64, AppError> {
+            unreachable!("not used in user tests")
+        }
+
+        async fn fetch_teams_for_user_search(
+            &self,
+            _user_id: &str,
+            _is_admin: bool,
+            _pagination: &shared::api::ListQuery,
+            _q_trimmed: &str,
+        ) -> Result<Vec<TeamFetched>, AppError> {
+            unreachable!("not used in user tests")
+        }
+
         async fn fetch_team(&self, _id: &str) -> Result<Option<TeamFetched>, AppError> {
             unreachable!("not used in user tests")
         }

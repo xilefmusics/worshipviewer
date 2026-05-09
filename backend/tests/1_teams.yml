@@ -262,6 +262,18 @@ testcases:
           - result.bodyjson ShouldHaveLength 1
           - result.bodyjson.bodyjson0.id ShouldEqual "{{.team-lead-create-shared-a.shared_team_a_id}}"
 
+  # BLC: BLC-LP-003 — substring on owner / member user emails (database search)
+  - name: team-list-q-match-owner-and-member-email
+    steps:
+      - type: http
+        method: GET
+        url: "{{.base_url}}/api/v1/teams?q=team-lead@test.com"
+        headers:
+          Authorization: "Bearer {{.team-create-lead-session.sessionid}}"
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson ShouldHaveLength 3
+
   # BLC: BLC-LP-003, BLC-LP-008
   - name: team-list-q-no-matches
     steps:

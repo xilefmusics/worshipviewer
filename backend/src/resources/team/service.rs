@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use surrealdb::types::RecordId;
 
+use shared::api::ListQuery;
 use shared::patch::Patch;
 use shared::team::{CreateTeam, PatchTeam, Team, UpdateTeam};
 use shared::user::User;
@@ -78,6 +79,36 @@ impl<R: TeamRepository> TeamService<R> {
             _ => a.id.cmp(&b.id),
         });
         Ok(list)
+    }
+
+    /// `q_trimmed` must be non-empty. Uses database search and pagination (see [`TeamRepository::fetch_teams_for_user_search`]).
+    #[instrument(level = "debug", err, skip(self, user, pagination))]
+    pub async fn list_teams_for_user_search(
+        &self,
+        user: &User,
+        pagination: &ListQuery,
+        q_trimmed: &str,
+    ) -> Result<Vec<Team>, AppError> {
+        let rows = self
+            .repo
+            .fetch_teams_for_user_search(&user.id, false, pagination, q_trimmed)
+            .await?;
+        let mut list = Vec::with_capacity(rows.len());
+        for row in rows {
+            list.push(row.into_team()?);
+        }
+        Ok(list)
+    }
+
+    #[instrument(level = "debug", err, skip(self, user))]
+    pub async fn count_teams_for_user_search(
+        &self,
+        user: &User,
+        q_trimmed: &str,
+    ) -> Result<u64, AppError> {
+        self.repo
+            .count_teams_for_user_search(&user.id, false, q_trimmed)
+            .await
     }
 
     #[instrument(level = "debug", err, skip(self, user))]
@@ -270,6 +301,7 @@ impl TeamServiceHandle {
 
 #[cfg(test)]
 mod tests {
+    use shared::api::ListQuery;
     use shared::team::{CreateTeam, TeamMemberInput, TeamRole, TeamUserRef, UpdateTeam};
 
     use crate::error::AppError;
@@ -1097,5 +1129,37 @@ mod tests {
             new_path_ids, old_path_ids,
             "DB-filtered list must match Rust-side filter"
         );
+    }
+
+    /// `q` with email substring finds teams via owner (personal) and member `user` records (shared).
+    #[tokio::test]
+    async fn team_search_db_email_substring_matches_personal_and_shared_membership() {
+        let db = test_db().await.expect("db");
+        let u = create_user(&db, "team-search-email@test.local")
+            .await
+            .expect("u");
+        let svc = team_service(&db);
+        svc.create_shared_team_for_user(
+            &u,
+            CreateTeam {
+                name: "OnlyShared".into(),
+                members: vec![],
+            },
+        )
+        .await
+        .expect("shared");
+
+        let needle = "team-search-email@test.local";
+        let query = ListQuery::default().with_q(needle);
+        let total = svc
+            .count_teams_for_user_search(&u, needle)
+            .await
+            .expect("count");
+        let page = svc
+            .list_teams_for_user_search(&u, &query, needle)
+            .await
+            .expect("search");
+        assert_eq!(page.len() as u64, total);
+        assert_eq!(total, 2, "personal (owner email) + shared (member email)");
     }
 }
