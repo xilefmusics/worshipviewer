@@ -284,4 +284,65 @@ impl HttpClient for WasmHttpClient {
         let value = serde_json::from_str::<T>(&text)?;
         Ok(value)
     }
+
+    async fn put_bytes_no_content(
+        &self,
+        path: &str,
+        content_type: &str,
+        body: &[u8],
+    ) -> Result<(), NetworkClientError> {
+        let url = self.make_url(path);
+
+        let buf = Uint8Array::new_with_length(body.len() as u32);
+        buf.copy_from(body);
+
+        let response = self
+            .with_client(gloo_net::http::Request::put(&url).header("Content-Type", content_type))
+            .credentials(RequestCredentials::Include)
+            .body(JsValue::from(buf))?
+            .send()
+            .await?;
+
+        let status = response.status();
+
+        if !(200..300).contains(&status) {
+            let text = response.text().await.unwrap_or_default();
+            return Err(NetworkClientError::RequestFailed {
+                status: Some(status as u16),
+                message: text,
+            });
+        }
+
+        Ok(())
+    }
+
+    async fn get_bytes(&self, path: &str) -> Result<Vec<u8>, NetworkClientError> {
+        let url = self.make_url(path);
+
+        let response = self
+            .with_client(gloo_net::http::Request::get(&url))
+            .credentials(RequestCredentials::Include)
+            .send()
+            .await?;
+
+        let status = response.status();
+
+        if !(200..300).contains(&status) {
+            let text = response.text().await.unwrap_or_default();
+            return Err(NetworkClientError::RequestFailed {
+                status: Some(status as u16),
+                message: text,
+            });
+        }
+
+        let buf: Vec<u8> =
+            response
+                .binary()
+                .await
+                .map_err(|e| NetworkClientError::RequestFailed {
+                    status: Some(status as u16),
+                    message: e.to_string(),
+                })?;
+        Ok(buf)
+    }
 }

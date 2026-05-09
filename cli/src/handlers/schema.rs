@@ -68,39 +68,77 @@ fn map_cli_command_to_openapi_operation(
     let action = action.to_ascii_lowercase();
 
     let mapped = match (domain.as_str(), action.as_str()) {
+        ("about", "get") | ("about", "") => ("get", "/api/v1/about"),
         ("auth", "otp-request") => ("post", "/auth/otp/request"),
         ("auth", "otp-verify") => ("post", "/auth/otp/verify"),
         ("auth", "logout") => ("post", "/auth/logout"),
         ("users", "list") => ("get", "/api/v1/users"),
         ("users", "get") => ("get", "/api/v1/users/{id}"),
+        ("users", "me") => ("get", "/api/v1/users/me"),
+        ("users", "me-metrics") => ("get", "/api/v1/users/me/metrics"),
+        ("users", "metrics") => ("get", "/api/v1/users/{id}/metrics"),
+        ("users", "profile-picture-put") => ("put", "/api/v1/users/me/profile-picture"),
+        ("users", "profile-picture-delete") => ("delete", "/api/v1/users/me/profile-picture"),
         ("users", "create") => ("post", "/api/v1/users"),
         ("users", "delete") => ("delete", "/api/v1/users/{id}"),
         ("sessions", "list-mine") => ("get", "/api/v1/users/me/sessions"),
         ("sessions", "get-mine") => ("get", "/api/v1/users/me/sessions/{id}"),
+        ("sessions", "get-current-mine") => ("get", "/api/v1/users/me/sessions/current"),
+        ("sessions", "current-session-metrics") => ("get", "/api/v1/users/me/session/metrics"),
+        ("sessions", "get-mine-metrics") => ("get", "/api/v1/users/me/sessions/{id}/metrics"),
         ("sessions", "delete-mine") => ("delete", "/api/v1/users/me/sessions/{id}"),
         ("sessions", "create-for-user") => ("post", "/api/v1/users/{user_id}/sessions"),
         ("sessions", "list-for-user") => ("get", "/api/v1/users/{user_id}/sessions"),
         ("sessions", "get-for-user") => ("get", "/api/v1/users/{user_id}/sessions/{id}"),
+        ("sessions", "get-for-user-metrics") => {
+            ("get", "/api/v1/users/{user_id}/sessions/{id}/metrics")
+        }
         ("sessions", "delete-for-user") => ("delete", "/api/v1/users/{user_id}/sessions/{id}"),
         ("teams", "list") => ("get", "/api/v1/teams"),
         ("teams", "get") => ("get", "/api/v1/teams/{id}"),
         ("teams", "create") => ("post", "/api/v1/teams"),
         ("teams", "update") => ("put", "/api/v1/teams/{id}"),
+        ("teams", "patch") => ("patch", "/api/v1/teams/{id}"),
         ("teams", "delete") => ("delete", "/api/v1/teams/{id}"),
+        ("team-invitations", "list") => ("get", "/api/v1/teams/{team_id}/invitations"),
+        ("team-invitations", "create") => ("post", "/api/v1/teams/{team_id}/invitations"),
+        ("team-invitations", "get") => {
+            ("get", "/api/v1/teams/{team_id}/invitations/{invitation_id}")
+        }
+        ("team-invitations", "delete") => (
+            "delete",
+            "/api/v1/teams/{team_id}/invitations/{invitation_id}",
+        ),
+        ("team-invitations", "accept") => (
+            "post",
+            "/api/v1/teams/{team_id}/invitations/{invitation_id}/accept",
+        ),
+        ("team-invitations", "accept-legacy") => {
+            ("post", "/api/v1/invitations/{invitation_id}/accept")
+        }
         ("songs", "list") => ("get", "/api/v1/songs"),
         ("songs", "get") => ("get", "/api/v1/songs/{id}"),
         ("songs", "player") => ("get", "/api/v1/songs/{id}/player"),
         ("songs", "create") => ("post", "/api/v1/songs"),
         ("songs", "update") => ("put", "/api/v1/songs/{id}"),
+        ("songs", "patch") => ("patch", "/api/v1/songs/{id}"),
+        ("songs", "move") => ("post", "/api/v1/songs/{id}/move"),
         ("songs", "delete") => ("delete", "/api/v1/songs/{id}"),
         ("songs", "like-status") => ("get", "/api/v1/songs/{id}/like"),
-        ("songs", "update-like-status") => ("put", "/api/v1/songs/{id}/like"),
+        ("songs", "like-put") | ("songs", "update-like-status") => {
+            ("put", "/api/v1/songs/{id}/like")
+        }
+        ("songs", "like-delete") | ("songs", "update-unlike-status") => {
+            ("delete", "/api/v1/songs/{id}/like")
+        }
         ("collections", "list") => ("get", "/api/v1/collections"),
         ("collections", "get") => ("get", "/api/v1/collections/{id}"),
         ("collections", "songs") => ("get", "/api/v1/collections/{id}/songs"),
         ("collections", "player") => ("get", "/api/v1/collections/{id}/player"),
         ("collections", "create") => ("post", "/api/v1/collections"),
         ("collections", "update") => ("put", "/api/v1/collections/{id}"),
+        ("collections", "patch") => ("patch", "/api/v1/collections/{id}"),
+        ("collections", "move") => ("post", "/api/v1/collections/{id}/move"),
         ("collections", "delete") => ("delete", "/api/v1/collections/{id}"),
         ("setlists", "list") => ("get", "/api/v1/setlists"),
         ("setlists", "get") => ("get", "/api/v1/setlists/{id}"),
@@ -108,13 +146,22 @@ fn map_cli_command_to_openapi_operation(
         ("setlists", "player") => ("get", "/api/v1/setlists/{id}/player"),
         ("setlists", "create") => ("post", "/api/v1/setlists"),
         ("setlists", "update") => ("put", "/api/v1/setlists/{id}"),
+        ("setlists", "patch") => ("patch", "/api/v1/setlists/{id}"),
+        ("setlists", "move") => ("post", "/api/v1/setlists/{id}/move"),
         ("setlists", "delete") => ("delete", "/api/v1/setlists/{id}"),
         ("blobs", "list") => ("get", "/api/v1/blobs"),
         ("blobs", "get") => ("get", "/api/v1/blobs/{id}"),
         ("blobs", "create") => ("post", "/api/v1/blobs"),
         ("blobs", "update") => ("put", "/api/v1/blobs/{id}"),
+        ("blobs", "patch") => ("patch", "/api/v1/blobs/{id}"),
+        ("blobs", "move") => ("post", "/api/v1/blobs/{id}/move"),
         ("blobs", "delete") => ("delete", "/api/v1/blobs/{id}"),
-        ("blobs", "download-url") => ("get", "/api/v1/blobs/{id}/data"),
+        ("blobs", "download-url") | ("blobs", "download-data") => {
+            ("get", "/api/v1/blobs/{id}/data")
+        }
+        ("blobs", "upload-data") => ("put", "/api/v1/blobs/{id}/data"),
+        ("monitoring", "audit-logs") => ("get", "/api/v1/monitoring/http-audit-logs"),
+        ("monitoring", "metrics") => ("get", "/api/v1/monitoring/metrics"),
         _ => return Err(format!("Unknown CLI command: {domain} {action}").into()),
     };
 

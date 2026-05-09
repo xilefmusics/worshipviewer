@@ -3,6 +3,8 @@ use crate::blob::{Blob, CreateBlob, UpdateBlob};
 use crate::collection::{Collection, CreateCollection, UpdateCollection};
 use crate::error::NetworkClientError;
 use crate::like::LikeStatus;
+use crate::monitoring::{HttpAuditLog, MonitoringMetricsQuery};
+use crate::move_owner::MoveOwner;
 use crate::net::HttpClient;
 #[cfg(any(
     all(feature = "cli", not(target_arch = "wasm32")),
@@ -12,8 +14,9 @@ use crate::net::{DefaultHttpClient, HttpClientConfig};
 use crate::player::Player;
 use crate::setlist::{CreateSetlist, Setlist, UpdateSetlist};
 use crate::song::{CreateSong, Song, UpdateSong};
-use crate::team::{CreateTeam, Team, UpdateTeam};
-use crate::user::{CreateUser, SessionBody, User};
+use crate::team::{CreateTeam, Team, TeamInvitation, UpdateTeam};
+use crate::user::{CreateUser, HttpAuditMetrics, SessionBody, User};
+use crate::AboutResponse;
 use std::vec::Vec;
 
 mod list_query;
@@ -60,6 +63,10 @@ impl<C: HttpClient> ApiClient<C> {
         self.client.get("api/docs/openapi.json").await
     }
 
+    pub async fn get_about(&self) -> Result<AboutResponse, NetworkClientError> {
+        self.client.get("api/v1/about").await
+    }
+
     pub async fn logout(&self) -> Result<(), NetworkClientError> {
         self.client
             .post_no_response("auth/logout", &serde_json::json!({}))
@@ -101,6 +108,14 @@ impl<C: HttpClient> ApiClient<C> {
         self.client
             .delete_no_content(&format!("api/v1/users/{id}"))
             .await
+    }
+
+    pub async fn get_users_me_metrics(&self) -> Result<HttpAuditMetrics, NetworkClientError> {
+        self.client.get("api/v1/users/me/metrics").await
+    }
+
+    pub async fn get_user_metrics(&self, id: &str) -> Result<HttpAuditMetrics, NetworkClientError> {
+        self.client.get(&format!("api/v1/users/{id}/metrics")).await
     }
 
     pub async fn list_my_sessions(
@@ -190,6 +205,31 @@ impl<C: HttpClient> ApiClient<C> {
             .await
     }
 
+    pub async fn get_current_session_metrics(
+        &self,
+    ) -> Result<HttpAuditMetrics, NetworkClientError> {
+        self.client.get("api/v1/users/me/session/metrics").await
+    }
+
+    pub async fn get_session_for_current_user_metrics(
+        &self,
+        id: &str,
+    ) -> Result<HttpAuditMetrics, NetworkClientError> {
+        self.client
+            .get(&format!("api/v1/users/me/sessions/{id}/metrics"))
+            .await
+    }
+
+    pub async fn get_session_for_user_metrics(
+        &self,
+        user_id: &str,
+        id: &str,
+    ) -> Result<HttpAuditMetrics, NetworkClientError> {
+        self.client
+            .get(&format!("api/v1/users/{user_id}/sessions/{id}/metrics"))
+            .await
+    }
+
     pub async fn list_teams(&self, query: ListQuery) -> Result<Vec<Team>, NetworkClientError> {
         let path = format!("api/v1/teams{}", query.to_query_string());
         self.client.get(&path).await
@@ -226,6 +266,80 @@ impl<C: HttpClient> ApiClient<C> {
     ) -> Result<Team, NetworkClientError> {
         self.client
             .patch(&format!("api/v1/teams/{id}"), &payload)
+            .await
+    }
+
+    pub async fn create_team_invitation(
+        &self,
+        team_id: &str,
+    ) -> Result<TeamInvitation, NetworkClientError> {
+        self.client
+            .post(
+                &format!("api/v1/teams/{team_id}/invitations"),
+                &serde_json::json!({}),
+            )
+            .await
+    }
+
+    pub async fn list_team_invitations(
+        &self,
+        team_id: &str,
+        query: PageQuery,
+    ) -> Result<Vec<TeamInvitation>, NetworkClientError> {
+        let path = format!(
+            "api/v1/teams/{team_id}/invitations{}",
+            query.as_list_query().to_query_string()
+        );
+        self.client.get(&path).await
+    }
+
+    pub async fn get_team_invitation(
+        &self,
+        team_id: &str,
+        invitation_id: &str,
+    ) -> Result<TeamInvitation, NetworkClientError> {
+        self.client
+            .get(&format!(
+                "api/v1/teams/{team_id}/invitations/{invitation_id}"
+            ))
+            .await
+    }
+
+    pub async fn delete_team_invitation(
+        &self,
+        team_id: &str,
+        invitation_id: &str,
+    ) -> Result<(), NetworkClientError> {
+        self.client
+            .delete_no_content(&format!(
+                "api/v1/teams/{team_id}/invitations/{invitation_id}"
+            ))
+            .await
+    }
+
+    pub async fn accept_team_invitation(
+        &self,
+        team_id: &str,
+        invitation_id: &str,
+    ) -> Result<Team, NetworkClientError> {
+        self.client
+            .post(
+                &format!("api/v1/teams/{team_id}/invitations/{invitation_id}/accept"),
+                &serde_json::json!({}),
+            )
+            .await
+    }
+
+    /// Deprecated server path; prefer [`accept_team_invitation`].
+    pub async fn accept_team_invitation_legacy(
+        &self,
+        invitation_id: &str,
+    ) -> Result<Team, NetworkClientError> {
+        self.client
+            .post(
+                &format!("api/v1/invitations/{invitation_id}/accept"),
+                &serde_json::json!({}),
+            )
             .await
     }
 
@@ -269,6 +383,16 @@ impl<C: HttpClient> ApiClient<C> {
     ) -> Result<Song, NetworkClientError> {
         self.client
             .patch(&format!("api/v1/songs/{id}"), &payload)
+            .await
+    }
+
+    pub async fn move_song(
+        &self,
+        id: &str,
+        payload: MoveOwner,
+    ) -> Result<Song, NetworkClientError> {
+        self.client
+            .post(&format!("api/v1/songs/{id}/move"), &payload)
             .await
     }
 
@@ -355,6 +479,16 @@ impl<C: HttpClient> ApiClient<C> {
             .await
     }
 
+    pub async fn move_collection(
+        &self,
+        id: &str,
+        payload: MoveOwner,
+    ) -> Result<Collection, NetworkClientError> {
+        self.client
+            .post(&format!("api/v1/collections/{id}/move"), &payload)
+            .await
+    }
+
     pub async fn list_setlists(
         &self,
         query: ListQuery,
@@ -415,6 +549,16 @@ impl<C: HttpClient> ApiClient<C> {
             .await
     }
 
+    pub async fn move_setlist(
+        &self,
+        id: &str,
+        payload: MoveOwner,
+    ) -> Result<Setlist, NetworkClientError> {
+        self.client
+            .post(&format!("api/v1/setlists/{id}/move"), &payload)
+            .await
+    }
+
     pub async fn list_blobs(&self, query: ListQuery) -> Result<Vec<Blob>, NetworkClientError> {
         let path = format!("api/v1/blobs{}", query.to_query_string());
         self.client.get(&path).await
@@ -454,7 +598,53 @@ impl<C: HttpClient> ApiClient<C> {
             .await
     }
 
-    pub async fn download_blob_image_url(&self, id: &str) -> String {
+    pub async fn move_blob(
+        &self,
+        id: &str,
+        payload: MoveOwner,
+    ) -> Result<Blob, NetworkClientError> {
+        self.client
+            .post(&format!("api/v1/blobs/{id}/move"), &payload)
+            .await
+    }
+
+    pub async fn upload_blob_data(
+        &self,
+        id: &str,
+        content_type: &str,
+        body: &[u8],
+    ) -> Result<(), NetworkClientError> {
+        self.client
+            .put_bytes_no_content(&format!("api/v1/blobs/{id}/data"), content_type, body)
+            .await
+    }
+
+    pub async fn download_blob_data(&self, id: &str) -> Result<Vec<u8>, NetworkClientError> {
+        self.client
+            .get_bytes(&format!("api/v1/blobs/{id}/data"))
+            .await
+    }
+
+    pub async fn list_http_audit_logs(
+        &self,
+        query: PageQuery,
+    ) -> Result<Vec<HttpAuditLog>, NetworkClientError> {
+        let path = format!(
+            "api/v1/monitoring/http-audit-logs{}",
+            query.as_list_query().to_query_string()
+        );
+        self.client.get(&path).await
+    }
+
+    pub async fn get_monitoring_metrics(
+        &self,
+        query: MonitoringMetricsQuery,
+    ) -> Result<serde_json::Value, NetworkClientError> {
+        let path = format!("api/v1/monitoring/metrics{}", query.to_query_string());
+        self.client.get(&path).await
+    }
+
+    pub fn download_blob_image_url(&self, id: &str) -> String {
         format!("api/v1/blobs/{id}/data")
     }
 }

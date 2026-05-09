@@ -2,7 +2,7 @@
   "components": {
     "schemas": {
       "AboutResponse": {
-        "description": "JSON body for [`get_about`].",
+        "description": "JSON body for the about endpoint.",
         "properties": {
           "git_commit": {
             "description": "Git revision if `GIT_COMMIT_SHA` was set during `cargo build`.",
@@ -12,7 +12,7 @@
             ]
           },
           "production": {
-            "description": "`true` when [`observability::is_production`] is satisfied.",
+            "description": "`true` when the deployment considers itself production.",
             "type": "boolean"
           },
           "service": {

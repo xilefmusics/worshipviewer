@@ -1,4 +1,5 @@
 use shared::api::{ApiClient, ListQuery};
+use shared::move_owner::MoveOwner;
 use shared::net::DefaultHttpClient;
 use shared::song::{CreateSong, UpdateSong};
 
@@ -68,8 +69,8 @@ pub async fn handle_songs(
             output::print_json(&song, &output)
         }
         SongsCommand::Patch { id, json } => {
-            validate_resource_id(&id)?;
-            let payload: serde_json::Value = serde_json::from_str(&json)?;
+            validate_resource_id(id)?;
+            let payload: serde_json::Value = serde_json::from_str(json)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "PATCH",
@@ -79,7 +80,22 @@ pub async fn handle_songs(
                 output::print_json(&planned, &output)?;
                 return Ok(());
             }
-            let song = client.patch_song(&id, payload).await?;
+            let song = client.patch_song(id, payload).await?;
+            output::print_json(&song, &output)
+        }
+        SongsCommand::Move { id, json } => {
+            validate_resource_id(id)?;
+            let payload: MoveOwner = serde_json::from_str(json)?;
+            if dry_run {
+                let planned = serde_json::json!({
+                    "method": "POST",
+                    "path": format!("api/v1/songs/{id}/move"),
+                    "body": payload,
+                });
+                output::print_json(&planned, &output)?;
+                return Ok(());
+            }
+            let song = client.move_song(id, payload).await?;
             output::print_json(&song, &output)
         }
         SongsCommand::Delete { id } => {
