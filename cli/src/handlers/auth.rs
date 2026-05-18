@@ -13,7 +13,7 @@ pub async fn handle_auth(
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         AuthCommand::OtpRequest { json } => {
-            let payload: OtpRequest = serde_json::from_str(&json)?;
+            let payload: OtpRequest = serde_json::from_str(json)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "POST",
@@ -27,7 +27,7 @@ pub async fn handle_auth(
             output::print_json(&serde_json::json!({"status": "ok"}), &output)
         }
         AuthCommand::OtpVerify { json } => {
-            let payload: OtpVerify = serde_json::from_str(&json)?;
+            let payload: OtpVerify = serde_json::from_str(json)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "POST",
