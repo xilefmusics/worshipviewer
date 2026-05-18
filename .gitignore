@@ -3,7 +3,10 @@ target
 dist
 Cargo.lock
 backend/blobs
-backend/static
+backend/static/*
+!backend/static/.gitkeep
 .cursor
 venom*.log
 0000_migration_test
+node_modules/
+.env.development.local
