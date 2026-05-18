@@ -46,10 +46,8 @@ impl Player {
     pub fn song_id(&self) -> Option<String> {
         self.toc
             .iter()
-            .filter(|item| item.idx <= self.index())
-            .last()
-            .map(|item| item.id.clone())
-            .flatten()
+            .rfind(|item| item.idx <= self.index())
+            .and_then(|item| item.id.clone())
     }
 
     pub fn set_like_mut(&mut self, id: &str, liked: bool) {
@@ -91,7 +89,7 @@ impl Player {
         new.between_items = false;
 
         if let ScrollType::Book = new.scroll_type {
-            if new.index() % 2 == 0 {
+            if new.index().is_multiple_of(2) {
                 new.decrement();
             }
         }
@@ -112,15 +110,15 @@ impl Player {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.items.len() == 0
+        self.items.is_empty()
     }
 
     pub fn orientation(&self) -> Orientation {
-        self.orientation.clone()
+        self.orientation
     }
 
     pub fn item(&self) -> (&PlayerItem, Option<&PlayerItem>) {
-        if self.items.len() == 0 {
+        if self.items.is_empty() {
             return (empty_item(), None);
         }
         let current = match self.scroll_type {
@@ -128,7 +126,7 @@ impl Player {
                 &self.items[self.index]
             }
             ScrollType::TwoHalfPage => {
-                if self.index % 2 == 0 && self.index != 0 && self.index < self.max_index() {
+                if self.index.is_multiple_of(2) && self.index != 0 && self.index < self.max_index() {
                     &self.items[self.index + 1]
                 } else {
                     &self.items[self.index]
@@ -243,7 +241,7 @@ impl Player {
             index = new.max_index();
         }
         new.index = index;
-        if new.scroll_type == ScrollType::Book && new.index % 2 == 0 {
+        if new.scroll_type == ScrollType::Book && new.index.is_multiple_of(2) {
             new.decrement();
         }
         new
@@ -257,7 +255,7 @@ impl Player {
         let mut new = self.clone();
 
         let new_scroll_type = new.scroll_type_cache_other_orientation;
-        new.scroll_type_cache_other_orientation = new.scroll_type.clone();
+        new.scroll_type_cache_other_orientation = new.scroll_type;
         new = new.set_scroll_type(new_scroll_type);
         new.orientation = orientation;
 
@@ -269,30 +267,27 @@ impl Add for Player {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        if self.items.len() == 0 {
+        if self.items.is_empty() {
             return other;
         }
-        let last_self_item = self.items[self.items.len() - 1].clone();
+        let self_len = self.items.len();
+        let last_self_item = self.items.last().expect("non-empty").clone();
         Self {
             toc: self
                 .toc
                 .into_iter()
-                .chain(other.toc.iter().map(|item| {
-                    let item = TocItem {
-                        idx: if self.items.len() > 0
-                            && other.items.len() > 0
-                            && self.items[self.items.len() - 1] == other.items[0]
-                        {
-                            item.idx + self.items.len() - 1
-                        } else {
-                            item.idx + self.items.len()
-                        },
-                        title: item.title.clone(),
-                        id: item.id.clone(),
-                        nr: item.nr.clone(),
-                        liked: item.liked,
-                    };
-                    item
+                .chain(other.toc.iter().map(|item| TocItem {
+                    idx: if !other.items.is_empty()
+                        && self.items.last() == other.items.first()
+                    {
+                        item.idx + self_len.saturating_sub(1)
+                    } else {
+                        item.idx + self_len
+                    },
+                    title: item.title.clone(),
+                    id: item.id.clone(),
+                    nr: item.nr.clone(),
+                    liked: item.liked,
                 }))
                 .collect::<Vec<TocItem>>(),
             items: self
@@ -328,12 +323,12 @@ impl From<SongLinkOwned> for Player {
                         })
                     })
                     .collect::<Vec<PlayerItem>>();
-                if link.song.data.sections.len() > 0 || items.len() == 0 {
+                if !link.song.data.sections.is_empty() || items.is_empty() {
                     let mut song = link.song.clone();
                     if let Some(key) = link.key {
                         song.data.transpose(key);
                     }
-                    items.push(PlayerItem::Chords(super::PlayerChordsItem { song }))
+                    items.push(PlayerItem::Chords(Box::new(super::PlayerChordsItem { song })))
                 }
                 items
             },

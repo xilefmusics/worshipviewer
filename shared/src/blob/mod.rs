@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 mod blob;
 mod file_type;
 

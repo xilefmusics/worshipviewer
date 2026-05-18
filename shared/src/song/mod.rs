@@ -1,4 +1,5 @@
 mod link;
+#[allow(clippy::module_inception)]
 mod song;
 #[cfg(feature = "backend")]
 mod song_data_schema;

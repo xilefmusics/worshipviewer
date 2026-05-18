@@ -1,4 +1,5 @@
 mod orientation;
+#[allow(clippy::module_inception)]
 mod player;
 mod player_item;
 mod scroll_type;
