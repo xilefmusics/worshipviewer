@@ -144,7 +144,7 @@ pub fn settings(props: &SettingsProps) -> Html {
                         oninput={Callback::from(move |e: InputEvent| {
                             let input: HtmlInputElement = e.target_unchecked_into();
                             if let Ok(value) = input.value().parse::<u8>() {
-                                if value >= 1 && value <= 10 {
+                                if (1..=10).contains(&value) {
                                     set_max_lines_per_slide.emit(value);
                                 }
                             }

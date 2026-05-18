@@ -1,5 +1,6 @@
 mod data;
 mod outline;
+#[allow(clippy::module_inception)]
 mod presenter;
 mod query;
 mod settings;

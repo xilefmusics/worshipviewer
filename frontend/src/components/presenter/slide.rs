@@ -13,7 +13,7 @@ pub enum SlideTextOrientation {
 }
 
 impl SlideTextOrientation {
-    pub fn to_str(&self) -> &'static str {
+    pub fn to_str(self) -> &'static str {
         match self {
             Self::Top => "text-orientation-top",
             Self::Center => "text-orientation-center",
@@ -21,7 +21,7 @@ impl SlideTextOrientation {
         }
     }
 
-    pub fn to_select_value(&self) -> &'static str {
+    pub fn to_select_value(self) -> &'static str {
         match self {
             Self::Top => "top",
             Self::Center => "center",
@@ -51,7 +51,7 @@ pub enum HorizontalContainerAlignment {
 }
 
 impl HorizontalContainerAlignment {
-    pub fn to_str(&self) -> &'static str {
+    pub fn to_str(self) -> &'static str {
         match self {
             Self::Left => "container-align-left",
             Self::Center => "container-align-center",
@@ -59,7 +59,7 @@ impl HorizontalContainerAlignment {
         }
     }
 
-    pub fn to_select_value(&self) -> &'static str {
+    pub fn to_select_value(self) -> &'static str {
         match self {
             Self::Left => "left",
             Self::Center => "center",
@@ -89,7 +89,7 @@ pub enum TextAlignment {
 }
 
 impl TextAlignment {
-    pub fn to_str(&self) -> &'static str {
+    pub fn to_str(self) -> &'static str {
         match self {
             Self::Left => "text-align-left",
             Self::Center => "text-align-center",
@@ -97,7 +97,7 @@ impl TextAlignment {
         }
     }
 
-    pub fn to_select_value(&self) -> &'static str {
+    pub fn to_select_value(self) -> &'static str {
         match self {
             Self::Left => "left",
             Self::Center => "center",
@@ -128,7 +128,7 @@ pub enum TextShadow {
 }
 
 impl TextShadow {
-    pub fn to_str(&self) -> &'static str {
+    pub fn to_str(self) -> &'static str {
         match self {
             Self::None => "text-shadow-none",
             Self::Subtle => "text-shadow-subtle",
@@ -137,7 +137,7 @@ impl TextShadow {
         }
     }
 
-    pub fn to_select_value(&self) -> &'static str {
+    pub fn to_select_value(self) -> &'static str {
         match self {
             Self::None => "none",
             Self::Subtle => "subtle",
@@ -170,7 +170,7 @@ pub enum TextTransform {
 }
 
 impl TextTransform {
-    pub fn to_str(&self) -> &'static str {
+    pub fn to_str(self) -> &'static str {
         match self {
             Self::None => "text-transform-none",
             Self::Uppercase => "text-transform-uppercase",
@@ -179,7 +179,7 @@ impl TextTransform {
         }
     }
 
-    pub fn to_select_value(&self) -> &'static str {
+    pub fn to_select_value(self) -> &'static str {
         match self {
             Self::None => "none",
             Self::Uppercase => "uppercase",

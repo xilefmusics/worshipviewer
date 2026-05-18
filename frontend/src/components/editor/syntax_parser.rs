@@ -46,16 +46,16 @@ impl<'a> SyntaxParserBuilder<'a> {
             .entry(label)
             .and_modify(|existing_value| {
                 existing_value.push_str(key);
-                existing_value.push_str(":");
+                existing_value.push(':');
                 existing_value.push_str(value);
-                existing_value.push_str(";");
+                existing_value.push(';');
             })
             .or_insert_with(|| {
                 let mut new_value = String::new();
                 new_value.push_str(key);
-                new_value.push_str(":");
+                new_value.push(':');
                 new_value.push_str(value);
-                new_value.push_str(";");
+                new_value.push(';');
                 new_value
             });
         self

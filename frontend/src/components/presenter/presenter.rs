@@ -23,15 +23,15 @@ pub struct PresenterProps {
 pub fn presenter(props: &PresenterProps) -> Html {
     // Always start with defaults - don't load from localStorage
     // This ensures defaults are always respected on page load
-    let settings = use_state(|| SettingsData::default());
+    let settings = use_state(SettingsData::default);
     let song_data = use_state(|| None::<SongData>);
     let is_black = use_state(|| false);
     let current_outline_idx = use_state(|| 0);
     let current_text_idx = use_state(|| 0);
-    let current_text = use_state(|| String::new());
+    let current_text = use_state(String::new);
     let current_song_idx = use_state(|| 0);
     let current_song = use_state(|| None::<Song>);
-    let slide_sync = use_mut_ref(|| SlideSync::new());
+    let slide_sync = use_mut_ref(SlideSync::new);
 
     // Broadcast default settings on mount to overwrite any old localStorage values
     {
@@ -64,7 +64,7 @@ pub fn presenter(props: &PresenterProps) -> Html {
         let song_data = song_data.clone();
         let current_song = current_song.clone();
         move |(songs, settings)| {
-            if let Some(first_song) = songs.get(0) {
+            if let Some(first_song) = songs.first() {
                 song_data.set(Some(SongData::new(
                     first_song,
                     settings.max_lines_per_slide,
@@ -358,7 +358,7 @@ pub fn presenter(props: &PresenterProps) -> Html {
                     let liked = song.user_specific_addons.liked;
                     let api = api.clone();
                     wasm_bindgen_futures::spawn_local(async move {
-                        let _ = api.update_song_like_status(&id, !liked).await.unwrap();
+                        api.update_song_like_status(&id, !liked).await.unwrap();
                     });
                 }
             }

@@ -120,7 +120,7 @@ impl Component for Editor {
 
             self.code_mirror_wrapper = Some(
                 CodeMirrorWrapper::new()
-                    .define_mode("generated", &ctx.props().syntax_parser.transactions())
+                    .define_mode("generated", ctx.props().syntax_parser.transactions())
                     .draw(
                         &self.editor_name,
                         self.onsave.as_ref(),

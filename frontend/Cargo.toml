@@ -3,6 +3,13 @@ name = "frontend"
 version = "0.1.0"
 edition = "2021"
 
+# WASM binaries cannot be executed by the native `cargo test` harness.
+[[bin]]
+name = "frontend"
+path = "src/main.rs"
+test = false
+bench = false
+
 [dependencies]
 shared = { path = "../shared", features = ["frontend"] }
 yew = { version = "0.23.0", features = ["csr"] }

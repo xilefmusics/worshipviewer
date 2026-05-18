@@ -22,7 +22,7 @@ pub fn song_viewer(props: &Props) -> Html {
         props.override_key.as_ref(),
         props.override_representation.as_ref(),
         None,
-        Some(scale as f32),
+        Some(scale),
     );
     html! {
         <div

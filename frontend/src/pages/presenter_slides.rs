@@ -12,7 +12,7 @@ pub fn presenter_page() -> Html {
         expand: true,
     });
 
-    let slide_sync_ref = use_mut_ref(|| SlideSync::new());
+    let slide_sync_ref = use_mut_ref(SlideSync::new);
 
     use_effect_with((), {
         let slide_sync_ref = slide_sync_ref.clone();
@@ -45,10 +45,10 @@ pub fn presenter_page() -> Html {
             ondblclick={ondblclick}
         >
             <Slide
-                text={(*slide_props).text.clone()}
-                settings={(*slide_props).settings.clone()}
-                is_black={(*slide_props).is_black}
-                expand={(*slide_props).expand}
+                text={slide_props.text.clone()}
+                settings={slide_props.settings.clone()}
+                is_black={slide_props.is_black}
+                expand={slide_props.expand}
             />
         </div>
     }
