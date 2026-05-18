@@ -849,13 +849,34 @@ testcases:
             "title": "Updated Collection",
             "cover": "cover-updated",
             "songs": [
+              { "id": "{{.create-collection-song-one.songid}}", "nr": "1" },
               { "id": "{{.create-collection-song-two.songid}}", "nr": "10" }
             ]
           }
         assertions:
           - result.statuscode ShouldEqual 200
           - result.bodyjson.title ShouldEqual "Updated Collection"
-          - result.bodyjson.songs ShouldHaveLength 1
+          - result.bodyjson.songs ShouldHaveLength 2
+
+  # BLC: BLC-COLL-024
+  - name: put-collection-remove-song-rejected
+    steps:
+      - type: http
+        method: PUT
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "title": "Updated Collection",
+            "cover": "cover-updated",
+            "songs": [
+              { "id": "{{.create-collection-song-two.songid}}", "nr": "10" }
+            ]
+          }
+        assertions:
+          - result.statuscode ShouldEqual 409
 
   # BLC: BLC-COLL-008, BLC-COLL-003
   - name: put-collection-success-write-user

@@ -25,6 +25,7 @@
 - **BLC-COLL-023:** WHEN **PATCH /collections/{id}** runs THEN only fields present in the body are updated; omitted fields are unchanged; unknown fields are rejected (**`deny_unknown_fields`**), matching **BLC-SONG-019**. Optimistic concurrency uses **`If-Match`** with the resource **ETag**.
 - **BLC-COLL-015:** WHEN **DELETE** succeeds THEN the collection no longer appears under the same rules as other reads.
 - **BLC-COLL-016:** WHEN a song IS appended to a collection automatically (e.g. after creating a song with a default collection) THEN the caller MUST be allowed to **edit** that collection’s owning team’s library.
+- **BLC-COLL-024:** WHEN **PUT** or **PATCH** would drop a **song** id that is currently in the collection’s **`songs`** list (same id regardless of **nr** / **key**) THEN the API responds **409 Conflict**. Callers MAY add songs, reorder entries, or change **nr** / **key** on existing ids. Removing a song from collections MUST be done by **DELETE** `/songs/{id}` (server cascade updates collection **`songs`**).
 
 ## Cascading deletes
 
