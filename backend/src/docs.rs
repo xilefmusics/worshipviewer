@@ -32,9 +32,8 @@ use shared::player::{
     Orientation, Player, PlayerBlobItem, PlayerChordsItem, PlayerItem, ScrollType, TocItem,
 };
 use shared::song::{
-    ChordKindSchema, ChordSchema, LineSchema, Link as SongLink, PartSchema,
-    RootSpellingHintSchema, SectionSchema, SimpleChordSchema, SongDataSchema,
-    SongUserSpecificAddons,
+    ChordKindSchema, ChordSchema, LineSchema, Link as SongLink, PartSchema, RootSpellingHintSchema,
+    SectionSchema, SimpleChordSchema, SongDataSchema, SongUserSpecificAddons,
 };
 use shared::team::{
     CreateTeam, PatchTeam, Team, TeamInvitation, TeamMember, TeamMemberInput, TeamRole, TeamUser,
