@@ -45,7 +45,7 @@ describe('buildSetlistPatchBody', () => {
     ).toEqual({
       songs: [
         { id: 'y', key: null },
-        { id: 'x', key: { level: 3 } },
+        { id: 'x', key: { level: 0 } },
       ],
     })
   })
@@ -56,7 +56,7 @@ describe('buildSetlistPatchBody', () => {
         {
           title: 'A',
           owner: ownerA,
-          songs: [{ id: 'x', key: { level: 3 } } as unknown as SongLink],
+          songs: [{ id: 'x', key: { level: 0 } } as unknown as SongLink],
         },
         { title: 'A', owner: ownerA, songs: [{ id: 'x', key: 'C' }] },
       ),
@@ -93,7 +93,7 @@ describe('buildSetlistPatchBody', () => {
         owner: ownerA,
         songs: [{ id: 'x', key: { name: 'F' } } as unknown as SongLink],
       }),
-    ).toEqual({ songs: [{ id: 'x', key: { level: 8 } }] })
+    ).toEqual({ songs: [{ id: 'x', key: { level: 5 } }] })
   })
 
   it('stringifies numeric song ids for PATCH bodies', () => {
@@ -108,7 +108,7 @@ describe('buildSetlistPatchBody', () => {
         owner: ownerA,
         songs: [{ id: '7', key: 'C' }],
       }),
-    ).toEqual({ songs: [{ id: '7', key: { level: 3 } }] })
+    ).toEqual({ songs: [{ id: '7', key: { level: 0 } }] })
   })
 
   it('sends owner when changed', () => {

@@ -117,6 +117,22 @@ export interface paths {
         patch: operations["patch_collection"];
         trace?: never;
     };
+    "/api/v1/collections/{id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["put_collection_cover"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/collections/{id}/move": {
         parameters: {
             query?: never;
@@ -761,11 +777,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description JSON body for [`get_about`]. */
+        /** @description JSON body for the about endpoint. */
         AboutResponse: {
             /** @description Git revision if `GIT_COMMIT_SHA` was set during `cargo build`. */
             git_commit?: string | null;
-            /** @description `true` when [`observability::is_production`] is satisfied. */
+            /** @description `true` when the deployment considers itself production. */
             production: boolean;
             /** @description Identifies this server binary. */
             service: string;
@@ -814,6 +830,21 @@ export interface components {
         /** @description Cross-resource reference to a blob (opaque `id` as returned by the API). */
         BlobLink: {
             id: string;
+        };
+        /** @description Structured chord attached to a lyric [`PartSchema`]. */
+        Chord: {
+            base?: null | components["schemas"]["SimpleChord"];
+            /**
+             * Format: int32
+             * @description Duration in milliclicks (1000 per ChordPro click in `{chord:…:N}`).
+             */
+            duration?: number | null;
+            kind: components["schemas"]["Kind"];
+            main: components["schemas"]["SimpleChord"];
+            optional: boolean;
+            root_spelling_hint: components["schemas"]["RootSpellingHint"];
+            /** @description Extensions and figures after the quality (e.g. `7`, `add9`, `sus4`). */
+            var: string;
         };
         /**
          * @example {
@@ -1042,6 +1073,11 @@ export interface components {
             /** Format: int64 */
             total_404_count: number;
         };
+        /**
+         * @description Chord quality on the wire (`kind` field of [`ChordSchema`]).
+         * @enum {string}
+         */
+        Kind: "Major" | "Minor" | "Diminished" | "Augmented" | "Suspended2" | "Suspended4";
         LatencyMetrics: {
             by_method: components["schemas"]["MethodLatency"][];
             by_route_family: components["schemas"]["FamilyLatency"][];
@@ -1052,6 +1088,10 @@ export interface components {
         };
         LikeStatus: {
             liked: boolean;
+        };
+        /** @description A single lyric line made of aligned [`PartSchema`] fragments. */
+        Line: {
+            parts: components["schemas"]["Part"][];
         };
         MethodLatency: {
             method: string;
@@ -1146,6 +1186,14 @@ export interface components {
             code: string;
             email: string;
         };
+        /** @description One lyric/chord fragment on a line. */
+        Part: {
+            chord?: null | components["schemas"]["Chord"];
+            /** @description When true, `languages` holds a ChordPro comment line, not lyrics. */
+            comment: boolean;
+            /** @description Lyric text per language **track** (index aligns with song-level `languages`; not BCP 47 codes). */
+            languages: string[];
+        };
         /** @description Partial update for a blob. Absent fields are left unchanged. */
         PatchBlob: {
             file_type?: null | components["schemas"]["FileType"];
@@ -1193,10 +1241,10 @@ export interface components {
         PatchSongData: {
             artists?: string[] | null;
             copyright?: string | null;
-            key?: string | null;
+            key?: null | components["schemas"]["SimpleChord"];
             /** @description BCP 47 language tags (e.g. `en`, `de-CH`). */
             languages?: string[] | null;
-            sections?: Record<string, never>[] | null;
+            sections?: components["schemas"]["Section"][] | null;
             subtitle?: string | null;
             tags?: Record<string, never> | null;
             /**
@@ -1323,10 +1371,26 @@ export interface components {
         };
         /** @enum {string} */
         Role: "default" | "admin";
+        /**
+         * @description Accidental spelling hint from the parsed root token (`#` vs `b`).
+         * @enum {string}
+         */
+        RootSpellingHint: "default" | "prefer_sharp" | "prefer_flat";
         /** @enum {string} */
         RouteFamily: "api_v1" | "auth" | "docs" | "other";
         /** @enum {string} */
         ScrollType: "one_page" | "half_page" | "two_page" | "book" | "two_half_page";
+        /** @description Verse, chorus, bridge, etc. */
+        Section: {
+            lines: components["schemas"]["Line"][];
+            /**
+             * Format: int32
+             * @description Times this section repeats (`{repeat}` / `{repeat: N}`). Default 1 when omitted on input.
+             * @example 1
+             */
+            repeat_count?: number | null;
+            title: string;
+        };
         /**
          * @description Wire representation of a session. `user` is a [`TeamUser`] link unless the client
          *     passes `expand=user`, in which case it is the full [`User`] object.
@@ -1369,6 +1433,15 @@ export interface components {
             songs: components["schemas"]["SongLink"][];
             title: string;
         };
+        /** @description Chromatic pitch class (song key, chord root, or slash bass). */
+        SimpleChord: {
+            /**
+             * Format: int32
+             * @description Pitch class: 0 = C, 1 = C#/Db, …, 11 = B.
+             * @example 7
+             */
+            level: number;
+        };
         Song: {
             /** @description Linked blob assets (`id` is the blob resource identifier). */
             blobs: components["schemas"]["BlobLink"][];
@@ -1386,11 +1459,41 @@ export interface components {
          * @example {
          *       "artists": [],
          *       "copyright": null,
-         *       "key": null,
+         *       "key": {
+         *         "level": 7
+         *       },
          *       "languages": [
          *         "en"
          *       ],
-         *       "sections": [],
+         *       "sections": [
+         *         {
+         *           "lines": [
+         *             {
+         *               "parts": [
+         *                 {
+         *                   "chord": {
+         *                     "base": null,
+         *                     "duration": null,
+         *                     "kind": "Major",
+         *                     "main": {
+         *                       "level": 0
+         *                     },
+         *                     "optional": false,
+         *                     "root_spelling_hint": "default",
+         *                     "var": ""
+         *                   },
+         *                   "comment": false,
+         *                   "languages": [
+         *                     "Amazing grace"
+         *                   ]
+         *                 }
+         *               ]
+         *             }
+         *           ],
+         *           "repeat_count": 1,
+         *           "title": "Verse"
+         *         }
+         *       ],
          *       "subtitle": null,
          *       "tags": {},
          *       "tempo": null,
@@ -1401,27 +1504,23 @@ export interface components {
          *     }
          */
         SongDataSchema: {
-            artists: string[];
+            artists?: string[] | null;
             copyright?: string | null;
+            key?: null | components["schemas"]["SimpleChord"];
             /**
-             * @description Musical key; chord symbols use ChordPro conventions.
-             * @example G
-             */
-            key?: string | null;
-            /**
-             * @description BCP 47 language tags (e.g. `en`, `de-CH`).
+             * @description BCP 47 language tags for lyric tracks (e.g. `en`, `de-CH`). Empty string when unset.
              * @example [
              *       "en"
              *     ]
              */
-            languages: string[];
+            languages?: string[] | null;
             /** @description Structured sections (verse, chorus, etc.) with lyric lines and chords. */
-            sections: Record<string, never>[];
+            sections: components["schemas"]["Section"][];
             subtitle?: string | null;
-            /** @description Custom meta tags from ChordPro `{meta: name value}` pairs. */
-            tags: {
+            /** @description Custom meta tags from ChordPro `{meta: name value}` pairs. Omitted on the wire when empty. */
+            tags?: {
                 [key: string]: unknown;
-            };
+            } | null;
             /**
              * Format: int32
              * @description Tempo in BPM (beats per minute).
@@ -1441,13 +1540,12 @@ export interface components {
              *       "Example Hymn"
              *     ]
              */
-            titles: string[];
+            titles?: string[] | null;
         };
         SongLink: {
             /** @description Song record id. */
             id: string;
-            /** @description Musical key for this slot. Write bodies (e.g. PATCH) use `{ level }` (0–11, tonic pitch class from A). Responses may return `{ level }` or a legacy chord string (e.g. `G`, `Am`). */
-            key?: null | string | components["schemas"]["PitchClassKeySlot"];
+            key?: null | components["schemas"]["SimpleChord"];
             /** @description Optional display position in the parent list (e.g. `1`, `2a`). */
             nr?: string | null;
         };
@@ -1634,10 +1732,6 @@ export interface components {
             /** @description Last `picture` claim URL seen from OIDC (used to detect when to re-fetch the cached avatar). */
             oauth_picture_url?: string | null;
             role: components["schemas"]["Role"];
-        };
-        PitchClassKeySlot: {
-            /** @description Pitch-class index for the slot key tonic (0=A, 1=Bb, … 11=Ab); matches `Song.data.key` structured form. */
-            level: number;
         };
     };
     responses: never;
@@ -2613,6 +2707,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Request would remove a song from the collection (BLC-COLL-024) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description `If-Match` does not match current weak ETag */
             412: {
                 headers: {
@@ -2681,6 +2784,15 @@ export interface operations {
             };
             /** @description Collection not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Collection still contains songs (BLC-COLL-025) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2769,6 +2881,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Request would remove a song from the collection (BLC-COLL-024) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description `If-Match` does not match current weak ETag */
             412: {
                 headers: {
@@ -2788,6 +2909,88 @@ export interface operations {
                 };
             };
             /** @description Failed to patch collection */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_collection_cover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Collection identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Raw JPEG or PNG cover image */
+        requestBody: {
+            content: {
+                "image/jpeg": number[];
+            };
+        };
+        responses: {
+            /** @description Cover uploaded; creates a blob and sets `cover` to its id. Returns updated `Collection`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Collection"];
+                };
+            };
+            /** @description Invalid Content-Type or image */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Collection not found or caller lacks library write access */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Payload too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description API rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Failed to upload collection cover */
             500: {
                 headers: {
                     [name: string]: unknown;
@@ -4718,7 +4921,7 @@ export interface operations {
                  * @example 50
                  */
                 page_size?: number | null;
-                /** @description Optional case-insensitive substring on team name or id. Whitespace-only is treated as absent. */
+                /** @description Optional search: full-text on team name; case-insensitive substring on team id, personal owner email, and member emails. Whitespace-only is treated as absent. */
                 q?: string;
             };
             header?: never;

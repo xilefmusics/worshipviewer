@@ -2,10 +2,10 @@ import type { components } from '@/api/schema'
 
 export type SongLink = components['schemas']['SongLink']
 
-export type PitchClassKeySlot = components['schemas']['PitchClassKeySlot']
+export type SimpleChord = components['schemas']['SimpleChord']
 
-/** Pitch-class index on `Song.data.key`: `level` 0 = A, then chromatically … 11 = Ab (flat spellings). */
-const PITCH_CLASS_TO_SYMBOL = ['A', 'Bb', 'B', 'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab'] as const
+/** Pitch-class index on wire (`SimpleChord.level`): 0 = C, then chromatically … 11 = B (flat spellings). */
+const PITCH_CLASS_TO_SYMBOL = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const
 
 /** Longest-symbol-first match (`Eb` wins over `E`), same order as `[level] → symbol`. */
 const PITCH_CLASS_ROOT_ENTRIES = [...PITCH_CLASS_TO_SYMBOL].map((sym, level) => ({ sym, level }))
@@ -38,7 +38,7 @@ function finalizeCoercedKey(s: string | null): string | null {
   return t.length ? preferFlatEnharmonicSpelling(t) : null
 }
 
-/** Map API `key.level` (0–11) to a letter: **0 = A**, then chromatically with flat spellings (**11 = Ab**). */
+/** Map API `key.level` (0–11) to a letter: **0 = C**, then chromatically with flat spellings (**11 = B**). */
 export function pitchClassLevelToKeySymbol(level: unknown): string | null {
   if (typeof level !== 'number' || !Number.isFinite(level)) return null
   const pc = ((Math.round(level) % 12) + 12) % 12
@@ -47,7 +47,7 @@ export function pitchClassLevelToKeySymbol(level: unknown): string | null {
 
 /**
  * Inverse of `pitchClassLevelToKeySymbol`: map a chord / key symbol (flat spellings preferred) to
- * `level` (`0=A` … `11=Ab`) for PATCH/POST bodies.
+ * `level` (`0=C` … `11=B`) for PATCH/POST bodies.
  */
 export function chordSymbolToPitchLevel(symbol: string): number | null {
   const flat = finalizeCoercedKey(symbol.trim())
@@ -74,7 +74,7 @@ function chordTailKeepsMatchedRoot(_root: string, tail: string): boolean {
 }
 
 /** Map editor slot key (string chord symbol after coercion, or inputs `coerceMusicalKeyString` accepts). */
-export function songLinkKeyEditorToWire(key: unknown): PitchClassKeySlot | null {
+export function songLinkKeyEditorToWire(key: unknown): SimpleChord | null {
   const coerced = coerceMusicalKeyString(key)
   if (coerced == null) return null
   const level = chordSymbolToPitchLevel(coerced)
