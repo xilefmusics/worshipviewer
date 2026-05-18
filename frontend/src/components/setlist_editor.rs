@@ -84,7 +84,7 @@ pub struct Item {
 
 fn item_from_link_and_song(link: &SongLink, song: &Song) -> Item {
     let title = song.data.title().to_string();
-    let original_key_label = song.data.key.as_ref().map(|key| format_key_label(key));
+    let original_key_label = song.data.key.as_ref().map(format_key_label);
     let key = link
         .key
         .clone()
@@ -114,9 +114,9 @@ fn move_item_to(mut items: Vec<Item>, from_idx: usize, target_idx: usize) -> Vec
 pub fn setlist_editor(props: &Props) -> Html {
     let title = use_state(|| props.setlist.title.clone());
 
-    let library_songs = use_state(|| vec![]);
+    let library_songs = use_state(std::vec::Vec::new);
     let library_loading = use_state(|| false);
-    let items = use_state(|| vec![]);
+    let items = use_state(std::vec::Vec::new);
     let search_query = use_state(String::new);
     let drag_index = use_state(|| None::<usize>);
     let drag_over_index = use_state(|| None::<usize>);
@@ -198,7 +198,7 @@ pub fn setlist_editor(props: &Props) -> Html {
                 *g = g.wrapping_add(1);
                 *g
             };
-            let query = song_library_query(&search);
+            let query = song_library_query(search);
             library_loading.set(true);
             wasm_bindgen_futures::spawn_local(async move {
                 let fetched = api.get_songs_query(query).await.unwrap_or_default();
@@ -408,9 +408,8 @@ pub fn setlist_editor(props: &Props) -> Html {
                                 <ul class="setlist">
                                     {
                                         for (*items).iter().enumerate().map(|(idx, item)| {
-                                            let total_items = total_items;
-                                            let current_drag_index = (*drag_index).clone();
-                                            let current_drag_over = (*drag_over_index).clone();
+                                            let current_drag_index = *drag_index ;
+                                            let current_drag_over = *drag_over_index ;
                                             let drag_index_handle = drag_index.clone();
                                             let drag_over_handle = drag_over_index.clone();
                                             let can_move_up = idx > 0;
@@ -465,7 +464,7 @@ pub fn setlist_editor(props: &Props) -> Html {
                                             let user_override = item
                                                 .key
                                                 .as_ref()
-                                                .map(|key| format_key_label(key));
+                                                .map(format_key_label);
                                             let select_value = user_override.clone().unwrap_or_else(|| default_key_value.clone());
                                             let onchange = {
                                                 let items = items.clone();
@@ -513,7 +512,7 @@ pub fn setlist_editor(props: &Props) -> Html {
                                             let on_drop = Callback::from(move |event: DragEvent| {
                                                 event.prevent_default();
                                                 event.stop_propagation();
-                                                if let Some(from_idx) = (*drag_index_for_drop).clone() {
+                                                if let Some(from_idx) = *drag_index_for_drop  {
                                                     let new_items = move_item_to((*items_for_drop).clone(), from_idx, index);
                                                     items_for_drop.set(new_items);
                                                 }
@@ -546,7 +545,7 @@ pub fn setlist_editor(props: &Props) -> Html {
                                             let drag_index_for_touch_end = drag_index_handle.clone();
                                             let drag_over_for_touch_end = drag_over_handle.clone();
                                             let on_touch_end = Callback::from(move |event: TouchEvent| {
-                                                if let Some(from_idx) = (*drag_index_for_touch_end).clone() {
+                                                if let Some(from_idx) = *drag_index_for_touch_end  {
                                                     let new_items = move_item_to((*items_for_touch_end).clone(), from_idx, index);
                                                     items_for_touch_end.set(new_items);
                                                 }
@@ -627,7 +626,7 @@ pub fn setlist_editor(props: &Props) -> Html {
                                     {
                                         if (*drag_index).is_some() {
                                             let target_idx = total_items;
-                                            let current_drag_over_end = (*drag_over_index).clone();
+                                            let current_drag_over_end = *drag_over_index ;
                                             let drag_over_for_over = drag_over_index.clone();
                                             let on_drag_over_end = Callback::from(move |event: DragEvent| {
                                                 event.prevent_default();
@@ -640,7 +639,7 @@ pub fn setlist_editor(props: &Props) -> Html {
                                             let on_drop_end = Callback::from(move |event: DragEvent| {
                                                 event.prevent_default();
                                                 event.stop_propagation();
-                                                if let Some(from_idx) = (*drag_index_for_drop).clone() {
+                                                if let Some(from_idx) = *drag_index_for_drop  {
                                                     let new_items = move_item_to((*items_for_drop).clone(), from_idx, target_idx);
                                                     items_for_drop.set(new_items);
                                                 }
@@ -657,7 +656,7 @@ pub fn setlist_editor(props: &Props) -> Html {
                                             let drag_over_for_touch_end = drag_over_index.clone();
                                             let items_for_touch_end = items.clone();
                                             let on_touch_end_end = Callback::from(move |event: TouchEvent| {
-                                                if let Some(from_idx) = (*drag_index_for_touch_end).clone() {
+                                                if let Some(from_idx) = *drag_index_for_touch_end  {
                                                     let new_items = move_item_to((*items_for_touch_end).clone(), from_idx, target_idx);
                                                     items_for_touch_end.set(new_items);
                                                 }
@@ -754,7 +753,7 @@ pub fn setlist_editor(props: &Props) -> Html {
                                                 .data
                                                 .key
                                                 .as_ref()
-                                                .map(|key| format_key_label(key));
+                                                .map(format_key_label);
                                             let key = song_key_label.clone().unwrap_or_else(|| "—".into());
                                             let occurrences = setlist_counts.get(&id).cloned().unwrap_or(0);
                                             let already_added = occurrences > 0;

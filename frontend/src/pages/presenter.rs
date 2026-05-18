@@ -11,7 +11,7 @@ pub fn presenter_page() -> Html {
         .query::<PresenterQuery>()
         .unwrap_or(PresenterQuery::default());
 
-    let songs = use_state(|| Vec::<Song>::new());
+    let songs = use_state(Vec::<Song>::new);
     let api = use_api();
     {
         let songs = songs.clone();

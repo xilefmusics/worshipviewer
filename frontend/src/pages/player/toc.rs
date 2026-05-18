@@ -60,7 +60,7 @@ pub fn table_of_contents_component(props: &Props) -> Html {
                 let idx = item.idx;
                 move |_: MouseEvent| select.emit(idx)
             };
-            if *filter_sort == FilterSort::Real && item.nr.len() > 0 {
+            if *filter_sort == FilterSort::Real && !item.nr.is_empty() {
                 html! {
                     <li onclick={onclick}>{format!("{}. {}", &item.nr, &item.title)}</li>
                 }

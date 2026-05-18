@@ -74,10 +74,7 @@ impl Navable for Route {
         html! {
             <Layout<Route>
                 nav_routes={Route::route_items()}
-                fullscreen={match route {
-                    Route::Player | Route::Editor | Route::SetlistEditor | Route::Login | Route::Logout | Route::Presenter | Route::PresenterSlides => true,
-                    _ => false,
-                }}
+                fullscreen={matches!(route, Route::Player | Route::Editor | Route::SetlistEditor | Route::Login | Route::Logout | Route::Presenter | Route::PresenterSlides)}
             >{
                 match route {
                     Route::Index => html! { <IndexPage /> },

@@ -52,7 +52,7 @@ pub fn pages_component(props: &Props) -> Html {
         props.half_page_scroll,
         props.item2.is_some(),
     );
-    let page_width = if props.half_page_scroll || !props.item2.is_some() {
+    let page_width = if props.half_page_scroll || props.item2.is_none() {
         content_dimensions.0
     } else {
         content_dimensions.0 / 2
@@ -76,7 +76,7 @@ pub fn pages_component(props: &Props) -> Html {
                         item={props.item.clone()}
                         font_size={font_size}
                         override_key={props.override_key.clone()}
-                        override_representation={props.override_representation.clone()}
+                        override_representation={props.override_representation}
                     />
                 </div>
                 if let Some(item) = props.item2.clone() {
@@ -88,7 +88,7 @@ pub fn pages_component(props: &Props) -> Html {
                             item={item}
                             font_size={font_size}
                             override_key={props.override_key.clone()}
-                            override_representation={props.override_representation.clone()}
+                            override_representation={props.override_representation}
                         />
                     </div>
                 }

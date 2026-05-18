@@ -9,7 +9,7 @@ use crate::api::use_api;
 
 #[function_component(CollectionsPage)]
 pub fn collection_page() -> Html {
-    let collections = use_state(|| Vec::<Collection>::new());
+    let collections = use_state(Vec::<Collection>::new);
     let api = use_api();
     let navigator = use_navigator().unwrap();
 

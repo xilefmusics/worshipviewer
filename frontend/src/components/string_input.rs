@@ -40,12 +40,12 @@ pub fn string_input(props: &Props) -> Html {
     };
     let value = (*props.bind_handle).clone();
 
-    if props.options.len() > 0 {
+    if !props.options.is_empty() {
         let mut options = props
             .options
             .iter()
+            .filter(|&s| *s != value)
             .cloned()
-            .filter(|s| *s != value)
             .collect::<Vec<String>>();
 
         options.push(value.clone());

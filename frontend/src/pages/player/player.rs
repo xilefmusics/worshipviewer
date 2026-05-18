@@ -4,7 +4,7 @@ use crate::components::{Topbar, TopbarButton, TopbarSelect, TopbarSelectOption, 
 use crate::route::Route;
 use gloo::timers::callback::Timeout;
 use serde::Deserialize;
-use shared::player::{Orientation, PlayerBlobItem, PlayerItem, TocItem};
+use shared::player::{Orientation, PlayerBlobItem, PlayerItem};
 use shared::song::{ChordRepresentation, SimpleChord};
 use std::collections::HashMap;
 use stylist::{css, yew::Global, Style};
@@ -133,7 +133,7 @@ pub fn player_page() -> Html {
         };
 
         move |_: MouseEvent| {
-            if &id == "" {
+            if id.is_empty() {
                 return;
             }
             navigator
@@ -150,7 +150,7 @@ pub fn player_page() -> Html {
         let id = query.setlist.clone().unwrap_or("".to_string());
 
         move |_: MouseEvent| {
-            if &id == "" {
+            if id.is_empty() {
                 return;
             }
             navigator
@@ -418,9 +418,9 @@ pub fn player_page() -> Html {
                     html! {
                         <PagesComponent
                             item={player.item().0.clone()}
-                            item2={player.item().1.map(|item| item.clone())}
+                            item2={player.item().1.cloned()}
                             override_key={(*override_key).clone()}
-                            override_representation={(*override_representation).clone()}
+                            override_representation={*override_representation }
                             half_page_scroll={player.is_half_page_scroll()}
                             active={*active}
                         />
@@ -434,7 +434,7 @@ pub fn player_page() -> Html {
                     class={if let PlayerItem::Chords(_) = player.item().0 { "visible" } else { "invisible" }}
                 >
                     {
-                        vec!["default", "nashville"]
+                        ["default", "nashville"]
                             .iter()
                             .map(|option| html! {
                                 <option
@@ -450,12 +450,12 @@ pub fn player_page() -> Html {
                     class={if let PlayerItem::Chords(_) = player.item().0 { "visible" } else { "invisible" }}
                 >
                     {
-                        vec!["default", "A", "Bb", "B", "C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab"]
+                        ["default", "A", "Bb", "B", "C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab"]
                             .iter()
                             .map(|option| html! {
                                 <option
                                     value={&**option}
-                                    selected={ *option == (*override_key).as_ref().map(|key| SimpleChord::default().format(&key, &ChordRepresentation::Default).as_ref()).unwrap_or("default") }>
+                                    selected={ *option == (*override_key).as_ref().map(|key| SimpleChord::default().format(key, &ChordRepresentation::Default)).unwrap_or("default") }>
                                     {option}
                                 </option>})
                             .collect::<Html>()
@@ -486,7 +486,7 @@ pub fn player_page() -> Html {
             </div>
             <div class={if *active && player.toc().len() > 1 {"toc active"}else{"toc"}}>
                 <TableOfContentsComponent
-                    list={player.toc().iter().map(|item| item.clone()).collect::<Vec<TocItem>>()}
+                    list={player.toc().to_vec()}
                     select={index_jump_callback}
                 />
             </div>

@@ -8,7 +8,7 @@ use yew_router::prelude::*;
 
 #[function_component(SongsPage)]
 pub fn songs_page() -> Html {
-    let songs = use_state(|| Vec::<Song>::new());
+    let songs = use_state(Vec::<Song>::new);
     let api = use_api();
 
     {

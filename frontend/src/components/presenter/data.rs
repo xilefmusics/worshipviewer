@@ -62,7 +62,7 @@ impl SongData {
                 slide_len_counter += 1;
                 slide_idx_counter += 1;
             }
-            if slide_len_counter > 0 && map.get(&section.title.clone()).is_none() {
+            if slide_len_counter > 0 && !map.contains_key(&section.title) {
                 map.insert(section.title.clone(), (current_idx, slide_len_counter));
             }
         }
@@ -87,9 +87,9 @@ impl SongData {
 
             outline.push(OutlineData {
                 title: section.title.clone(),
-                text_idx: text_idx,
-                outline_idx: outline_idx,
-                len: len,
+                text_idx,
+                outline_idx,
+                len,
                 duplicate: seen.contains(&section.title.clone()),
                 has_text: text_idx != usize::MAX,
             });
