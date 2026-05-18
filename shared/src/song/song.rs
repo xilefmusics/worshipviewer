@@ -15,7 +15,7 @@ use utoipa::ToSchema;
 
 #[cfg(feature = "backend")]
 #[allow(unused_imports)]
-use super::song_data_schema::SongDataSchema;
+use super::song_data_schema::{SectionSchema, SimpleChordSchema, SongDataSchema};
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
@@ -147,7 +147,7 @@ pub struct PatchSongData {
     #[cfg_attr(feature = "backend", schema(value_type = Option<String>))]
     pub copyright: Patch<String>,
     #[serde(default)]
-    #[cfg_attr(feature = "backend", schema(value_type = Option<String>))]
+    #[cfg_attr(feature = "backend", schema(value_type = Option<SimpleChordSchema>))]
     pub key: Patch<SimpleChord>,
     pub artists: Option<Vec<String>>,
     /// BCP 47 language tags (e.g. `en`, `de-CH`).
@@ -161,7 +161,7 @@ pub struct PatchSongData {
     pub time: Patch<(u32, u32)>,
     #[cfg_attr(feature = "backend", schema(value_type = Option<Object>, additional_properties = true))]
     pub tags: Option<BTreeMap<String, String>>,
-    #[cfg_attr(feature = "backend", schema(value_type = Option<Vec<Object>>))]
+    #[cfg_attr(feature = "backend", schema(value_type = Option<Vec<SectionSchema>>))]
     pub sections: Option<Vec<Section>>,
 }
 
