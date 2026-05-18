@@ -1,4 +1,5 @@
 mod invitation;
+#[allow(clippy::module_inception)]
 mod team;
 
 pub use invitation::TeamInvitation;

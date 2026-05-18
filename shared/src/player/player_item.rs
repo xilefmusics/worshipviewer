@@ -8,7 +8,7 @@ use utoipa::ToSchema;
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub enum PlayerItem {
     Blob(PlayerBlobItem),
-    Chords(PlayerChordsItem),
+    Chords(Box<PlayerChordsItem>),
 }
 
 /// Sheet-music or image item in a player sequence (`type`: `"blob"`).

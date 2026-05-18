@@ -7,17 +7,12 @@ use serde::{Deserialize, Deserializer};
 /// Use with `#[serde(default)]` on the field so that a missing JSON key deserializes
 /// to `Patch::Missing`, `null` becomes `Patch::Null`, and any other value becomes
 /// `Patch::Value(v)`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum Patch<T> {
+    #[default]
     Missing,
     Null,
     Value(T),
-}
-
-impl<T> Default for Patch<T> {
-    fn default() -> Self {
-        Self::Missing
-    }
 }
 
 impl<'de, T: Deserialize<'de>> Deserialize<'de> for Patch<T> {

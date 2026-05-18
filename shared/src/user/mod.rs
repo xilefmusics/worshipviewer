@@ -2,6 +2,7 @@ mod metrics;
 mod request;
 mod role;
 mod session;
+#[allow(clippy::module_inception)]
 mod user;
 
 pub use metrics::HttpAuditMetrics;

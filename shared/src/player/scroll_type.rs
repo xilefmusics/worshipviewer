@@ -80,7 +80,7 @@ impl ScrollType {
         }
     }
 
-    fn to_wire(&self) -> &'static str {
+    fn to_wire(self) -> &'static str {
         match self {
             Self::OnePage => "one_page",
             Self::HalfPage => "half_page",
