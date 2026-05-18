@@ -1,0 +1,4 @@
+[alias]
+# Build release backend + run Venom suites (requires `venom` on PATH).
+# Extra flags: `cargo venom -- --no-backend` or `cargo venom -- --port 9090`
+venom = "run --release --bin venom-test --"
