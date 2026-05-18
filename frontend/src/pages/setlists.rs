@@ -8,7 +8,7 @@ use yew_router::prelude::*;
 
 #[function_component(SetlistsPage)]
 pub fn setlists_page() -> Html {
-    let setlists = use_state(|| Vec::<Setlist>::new());
+    let setlists = use_state(Vec::<Setlist>::new);
     let api = use_api();
 
     {

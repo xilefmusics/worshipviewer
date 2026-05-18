@@ -6,8 +6,10 @@ use web_sys::window;
 
 const STORAGE_KEY: &str = "worshipviewer_slide_data";
 
+type StorageEventHandler = Rc<RefCell<Option<Closure<dyn FnMut(web_sys::StorageEvent)>>>>;
+
 pub struct SlideSync {
-    _closure: Rc<RefCell<Option<Closure<dyn FnMut(web_sys::StorageEvent)>>>>,
+    _closure: StorageEventHandler,
 }
 
 impl SlideSync {

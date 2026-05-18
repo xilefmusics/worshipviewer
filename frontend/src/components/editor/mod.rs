@@ -1,4 +1,5 @@
 mod code_mirror_wrapper;
+#[allow(clippy::module_inception)]
 mod editor;
 mod syntax_parser;
 

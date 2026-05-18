@@ -26,7 +26,7 @@ pub fn page_components(props: &Props) -> Html {
                 <SongViewer
                     song={c.song.clone()}
                     override_key={props.override_key.clone()}
-                    override_representation={props.override_representation.clone()}
+                    override_representation={props.override_representation}
                 />
             }
         }
