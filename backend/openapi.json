@@ -3736,6 +3736,16 @@
             },
             "description": "Collection not found"
           },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request would remove a song from the collection (BLC-COLL-024)"
+          },
           "412": {
             "content": {
               "application/problem+json": {
@@ -3842,6 +3852,16 @@
               }
             },
             "description": "Collection not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request would remove a song from the collection (BLC-COLL-024)"
           },
           "412": {
             "content": {

@@ -1,21 +1,40 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use shared::MoveOwner;
 use shared::api::ListQuery;
 use shared::collection::{Collection, CreateCollection, PatchCollection};
 use shared::player::Player;
-use shared::song::Song;
+use shared::song::{Link as SongLink, Song};
 use tracing::instrument;
 
 use crate::auth::AuthorizationContext;
 use crate::database::Database;
 use crate::error::AppError;
-use crate::resources::common::{player_from_song_links, resolve_owner_team};
+use crate::resources::common::{player_from_song_links, resolve_owner_team, song_thing};
 use crate::resources::song::LikedSongIds;
 use crate::resources::team::{parse_owner_record_id, thing_record_key};
 
 use super::repository::CollectionRepository;
 use super::surreal_repo::SurrealCollectionRepo;
+
+fn song_link_id_key(id: &str) -> String {
+    thing_record_key(&song_thing(id))
+}
+
+/// BLC-COLL-024: existing song ids must remain present (add/reorder/nr/key changes only).
+fn ensure_no_song_removals(current: &[SongLink], proposed: &[SongLink]) -> Result<(), AppError> {
+    let proposed_keys: HashSet<String> = proposed.iter().map(|l| song_link_id_key(&l.id)).collect();
+    let removes = current
+        .iter()
+        .any(|l| !proposed_keys.contains(&song_link_id_key(&l.id)));
+    if removes {
+        return Err(AppError::conflict(
+            "cannot remove songs from a collection via PUT or PATCH; delete the song instead",
+        ));
+    }
+    Ok(())
+}
 
 #[derive(Clone)]
 pub struct CollectionService<R, L> {
@@ -125,6 +144,8 @@ impl<R: CollectionRepository, L: LikedSongIds> CollectionService<R, L> {
         owner: Option<String>,
     ) -> Result<Collection, AppError> {
         let write_teams = ctx.write_teams();
+        let current = self.repo.get_collection(&write_teams, id).await?;
+        ensure_no_song_removals(&current.songs, &collection.songs)?;
         let owner = resolve_owner_team(&write_teams, owner)?;
         self.repo
             .update_collection(&write_teams, id, collection, owner)
@@ -702,6 +723,170 @@ mod tests {
         assert_eq!(patched.title, col.title, "title must be unchanged");
     }
 
+    /// BLC-COLL-024: PUT cannot drop an existing song id from `songs`.
+    #[tokio::test]
+    async fn blc_coll_024_put_cannot_remove_song() {
+        let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
+        let svc = CollectionServiceHandle::build(db.clone());
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let s1 = create_song_with_title(&db, &owner, "Keep Me")
+            .await
+            .expect("s1");
+        let s2 = create_song_with_title(&db, &owner, "Also Keep")
+            .await
+            .expect("s2");
+        let col = svc
+            .create_collection_for_user(
+                &owner_p,
+                CreateCollection {
+                    owner: None,
+                    title: "NoRemove".into(),
+                    cover: "mysongs".into(),
+                    songs: vec![
+                        shared::song::Link {
+                            id: s1.id.clone(),
+                            nr: Some("1".into()),
+                            key: None,
+                        },
+                        shared::song::Link {
+                            id: s2.id.clone(),
+                            nr: Some("2".into()),
+                            key: None,
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("create");
+
+        let r = svc
+            .update_collection_for_user(
+                &owner_p,
+                &col.id,
+                CreateCollection {
+                    owner: None,
+                    title: "NoRemove".into(),
+                    cover: "mysongs".into(),
+                    songs: vec![shared::song::Link {
+                        id: s2.id.clone(),
+                        nr: Some("2".into()),
+                        key: None,
+                    }],
+                },
+                None,
+            )
+            .await;
+        assert!(matches!(r, Err(AppError::Conflict(_))));
+
+        let still = svc
+            .get_collection_for_user(&owner_p, &col.id)
+            .await
+            .expect("unchanged");
+        assert_eq!(still.songs.len(), 2);
+    }
+
+    /// BLC-COLL-024: PATCH cannot drop an existing song id from `songs`.
+    #[tokio::test]
+    async fn blc_coll_024_patch_cannot_remove_song() {
+        use shared::collection::PatchCollection;
+
+        let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
+        let svc = CollectionServiceHandle::build(db.clone());
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let s1 = create_song_with_title(&db, &owner, "Patch Keep")
+            .await
+            .expect("s1");
+        let col = svc
+            .create_collection_for_user(
+                &owner_p,
+                CreateCollection {
+                    owner: None,
+                    title: "PatchNoRemove".into(),
+                    cover: "mysongs".into(),
+                    songs: vec![shared::song::Link {
+                        id: s1.id.clone(),
+                        nr: Some("1".into()),
+                        key: None,
+                    }],
+                },
+            )
+            .await
+            .expect("create");
+
+        let r = svc
+            .patch_collection_for_user(
+                &owner_p,
+                &col.id,
+                PatchCollection {
+                    title: None,
+                    cover: None,
+                    songs: Some(vec![]),
+                    owner: None,
+                },
+            )
+            .await;
+        assert!(matches!(r, Err(AppError::Conflict(_))));
+    }
+
+    /// BLC-COLL-024: PUT may add songs and update metadata on existing entries.
+    #[tokio::test]
+    async fn blc_coll_024_put_may_add_and_update_existing() {
+        let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
+        let svc = CollectionServiceHandle::build(db.clone());
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let s1 = create_song_with_title(&db, &owner, "First")
+            .await
+            .expect("s1");
+        let s2 = create_song_with_title(&db, &owner, "Second")
+            .await
+            .expect("s2");
+        let col = svc
+            .create_collection_for_user(
+                &owner_p,
+                CreateCollection {
+                    owner: None,
+                    title: "Grow".into(),
+                    cover: "mysongs".into(),
+                    songs: vec![shared::song::Link {
+                        id: s1.id.clone(),
+                        nr: Some("1".into()),
+                        key: None,
+                    }],
+                },
+            )
+            .await
+            .expect("create");
+
+        let updated = svc
+            .update_collection_for_user(
+                &owner_p,
+                &col.id,
+                CreateCollection {
+                    owner: None,
+                    title: "Grow".into(),
+                    cover: "mysongs".into(),
+                    songs: vec![
+                        shared::song::Link {
+                            id: s2.id.clone(),
+                            nr: Some("2".into()),
+                            key: None,
+                        },
+                        shared::song::Link {
+                            id: s1.id.clone(),
+                            nr: Some("1a".into()),
+                            key: None,
+                        },
+                    ],
+                },
+                None,
+            )
+            .await
+            .expect("add + reorder + nr update");
+        assert_eq!(updated.songs.len(), 2);
+        assert_eq!(updated.songs[0].id, s2.id);
+        assert_eq!(updated.songs[1].nr.as_deref(), Some("1a"));
+    }
+
     /// PATCH-COLL-003: PATCH on a non-existent collection returns NotFound.
     #[tokio::test]
     async fn patch_collection_not_found() {
@@ -760,21 +945,30 @@ mod tests {
             let include_cover = (mask & 0b010) != 0;
             let include_songs = (mask & 0b100) != 0;
 
+            let patch = PatchCollection {
+                title: include_title.then_some("PatchedTitle".into()),
+                cover: include_cover.then_some("newheart".into()),
+                songs: include_songs.then_some(vec![shared::song::Link {
+                    id: s2.id.clone(),
+                    nr: Some("9".into()),
+                    key: None,
+                }]),
+                owner: None,
+            };
+
+            if include_songs {
+                let r = svc
+                    .patch_collection_for_user(&owner_p, &created.id, patch)
+                    .await;
+                assert!(
+                    matches!(r, Err(AppError::Conflict(_))),
+                    "mask={mask:03b}: replacing songs must not remove existing ids"
+                );
+                continue;
+            }
+
             let patched = svc
-                .patch_collection_for_user(
-                    &owner_p,
-                    &created.id,
-                    PatchCollection {
-                        title: include_title.then_some("PatchedTitle".into()),
-                        cover: include_cover.then_some("newheart".into()),
-                        songs: include_songs.then_some(vec![shared::song::Link {
-                            id: s2.id.clone(),
-                            nr: Some("9".into()),
-                            key: None,
-                        }]),
-                        owner: None,
-                    },
-                )
+                .patch_collection_for_user(&owner_p, &created.id, patch)
                 .await
                 .expect("patch");
 
@@ -793,17 +987,10 @@ mod tests {
                 patched.cover, expected_cover,
                 "mask={mask:03b}: cover mismatch"
             );
-            if include_songs {
-                assert_eq!(
-                    patched.songs[0].id, s2.id,
-                    "mask={mask:03b}: songs mismatch"
-                );
-            } else {
-                assert_eq!(
-                    patched.songs[0].id, s1.id,
-                    "mask={mask:03b}: songs should remain unchanged"
-                );
-            }
+            assert_eq!(
+                patched.songs[0].id, s1.id,
+                "mask={mask:03b}: songs should remain unchanged"
+            );
         }
     }
 
