@@ -56,14 +56,6 @@ impl Api {
         Self { client, navigator }
     }
 
-    fn build_path(path: &str) -> String {
-        if path.starts_with('/') {
-            path.to_string()
-        } else {
-            format!("/{}", path)
-        }
-    }
-
     fn handle_error(&self, err: NetworkClientError) -> ApiError {
         let api_error: ApiError = err.into();
         match api_error {
