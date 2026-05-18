@@ -126,7 +126,8 @@ impl Player {
                 &self.items[self.index]
             }
             ScrollType::TwoHalfPage => {
-                if self.index.is_multiple_of(2) && self.index != 0 && self.index < self.max_index() {
+                if self.index.is_multiple_of(2) && self.index != 0 && self.index < self.max_index()
+                {
                     &self.items[self.index + 1]
                 } else {
                     &self.items[self.index]
@@ -277,9 +278,7 @@ impl Add for Player {
                 .toc
                 .into_iter()
                 .chain(other.toc.iter().map(|item| TocItem {
-                    idx: if !other.items.is_empty()
-                        && self.items.last() == other.items.first()
-                    {
+                    idx: if !other.items.is_empty() && self.items.last() == other.items.first() {
                         item.idx + self_len.saturating_sub(1)
                     } else {
                         item.idx + self_len
@@ -328,7 +327,9 @@ impl From<SongLinkOwned> for Player {
                     if let Some(key) = link.key {
                         song.data.transpose(key);
                     }
-                    items.push(PlayerItem::Chords(Box::new(super::PlayerChordsItem { song })))
+                    items.push(PlayerItem::Chords(Box::new(super::PlayerChordsItem {
+                        song,
+                    })))
                 }
                 items
             },
