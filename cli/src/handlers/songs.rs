@@ -30,17 +30,17 @@ pub async fn handle_songs(
             }
         }
         SongsCommand::Get { id } => {
-            validate_resource_id(&id)?;
-            let song = client.get_song(&id).await?;
+            validate_resource_id(id)?;
+            let song = client.get_song(id).await?;
             output::print_json(&song, &output)
         }
         SongsCommand::Player { id } => {
-            validate_resource_id(&id)?;
-            let player = client.get_song_player(&id).await?;
+            validate_resource_id(id)?;
+            let player = client.get_song_player(id).await?;
             output::print_json(&player, &output)
         }
         SongsCommand::Create { json } => {
-            let payload: CreateSong = serde_json::from_str(&json)?;
+            let payload: CreateSong = serde_json::from_str(json)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "POST",
@@ -54,8 +54,8 @@ pub async fn handle_songs(
             output::print_json(&song, &output)
         }
         SongsCommand::Update { id, json } => {
-            validate_resource_id(&id)?;
-            let payload: UpdateSong = serde_json::from_str(&json)?;
+            validate_resource_id(id)?;
+            let payload: UpdateSong = serde_json::from_str(json)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "PUT",
@@ -65,7 +65,7 @@ pub async fn handle_songs(
                 output::print_json(&planned, &output)?;
                 return Ok(());
             }
-            let song = client.update_song(&id, payload).await?;
+            let song = client.update_song(id, payload).await?;
             output::print_json(&song, &output)
         }
         SongsCommand::Patch { id, json } => {
@@ -99,7 +99,7 @@ pub async fn handle_songs(
             output::print_json(&song, &output)
         }
         SongsCommand::Delete { id } => {
-            validate_resource_id(&id)?;
+            validate_resource_id(id)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "DELETE",
@@ -108,16 +108,16 @@ pub async fn handle_songs(
                 output::print_json(&planned, &output)?;
                 return Ok(());
             }
-            client.delete_song(&id).await?;
+            client.delete_song(id).await?;
             output::print_json(&serde_json::json!({"deleted": true}), &output)
         }
         SongsCommand::LikeStatus { id } => {
-            validate_resource_id(&id)?;
-            let liked = client.get_song_like_status(&id).await?;
+            validate_resource_id(id)?;
+            let liked = client.get_song_like_status(id).await?;
             output::print_json(&serde_json::json!({ "liked": liked }), &output)
         }
         SongsCommand::UpdateLikeStatus { id, liked } => {
-            validate_resource_id(&id)?;
+            validate_resource_id(id)?;
             if dry_run {
                 let planned = if *liked {
                     serde_json::json!({
@@ -133,7 +133,7 @@ pub async fn handle_songs(
                 output::print_json(&planned, &output)?;
                 return Ok(());
             }
-            client.update_song_like_status(&id, *liked).await?;
+            client.update_song_like_status(id, *liked).await?;
             output::print_json(&serde_json::json!({ "liked": liked }), &output)
         }
     }

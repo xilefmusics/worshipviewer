@@ -176,7 +176,7 @@ fn get_operation<'a>(
     let paths = openapi
         .get("paths")
         .and_then(|v| v.as_object())
-        .ok_or_else(|| "OpenAPI document missing paths")?;
+        .ok_or("OpenAPI document missing paths")?;
 
     let path_item = paths
         .get(path)
