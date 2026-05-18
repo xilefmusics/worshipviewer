@@ -24,8 +24,8 @@ pub async fn handle_collections(
             }
         }
         CollectionsCommand::Get { id } => {
-            validate_resource_id(&id)?;
-            let collection = client.get_collection(&id).await?;
+            validate_resource_id(id)?;
+            let collection = client.get_collection(id).await?;
             output::print_json(&collection, &output)
         }
         CollectionsCommand::Songs {
@@ -42,12 +42,12 @@ pub async fn handle_collections(
             }
         }
         CollectionsCommand::Player { id } => {
-            validate_resource_id(&id)?;
-            let player = client.get_collection_player(&id).await?;
+            validate_resource_id(id)?;
+            let player = client.get_collection_player(id).await?;
             output::print_json(&player, &output)
         }
         CollectionsCommand::Create { json } => {
-            let payload: CreateCollection = serde_json::from_str(&json)?;
+            let payload: CreateCollection = serde_json::from_str(json)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "POST",
@@ -61,8 +61,8 @@ pub async fn handle_collections(
             output::print_json(&collection, &output)
         }
         CollectionsCommand::Update { id, json } => {
-            validate_resource_id(&id)?;
-            let payload: UpdateCollection = serde_json::from_str(&json)?;
+            validate_resource_id(id)?;
+            let payload: UpdateCollection = serde_json::from_str(json)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "PUT",
@@ -72,12 +72,12 @@ pub async fn handle_collections(
                 output::print_json(&planned, &output)?;
                 return Ok(());
             }
-            let collection = client.update_collection(&id, payload).await?;
+            let collection = client.update_collection(id, payload).await?;
             output::print_json(&collection, &output)
         }
         CollectionsCommand::Patch { id, json } => {
-            validate_resource_id(&id)?;
-            let payload: serde_json::Value = serde_json::from_str(&json)?;
+            validate_resource_id(id)?;
+            let payload: serde_json::Value = serde_json::from_str(json)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "PATCH",
@@ -106,7 +106,7 @@ pub async fn handle_collections(
             output::print_json(&collection, &output)
         }
         CollectionsCommand::Delete { id } => {
-            validate_resource_id(&id)?;
+            validate_resource_id(id)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "DELETE",
@@ -115,7 +115,7 @@ pub async fn handle_collections(
                 output::print_json(&planned, &output)?;
                 return Ok(());
             }
-            client.delete_collection(&id).await?;
+            client.delete_collection(id).await?;
             output::print_json(&serde_json::json!({"deleted": true}), &output)
         }
     }
