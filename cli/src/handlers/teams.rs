@@ -1,10 +1,10 @@
-use shared::api::{ApiClient, ListQuery};
+use shared::api::ApiClient;
 use shared::net::DefaultHttpClient;
 use shared::team::{CreateTeam, UpdateTeam};
 
-use crate::commands::TeamsCommand;
+use crate::commands::{TeamInvitationsCommand, TeamsCommand};
 use crate::output::{self, OutputFormat};
-use crate::validate::validate_resource_id;
+use crate::validate::{list_query_from_opts, page_query_from_opts, validate_resource_id};
 
 pub async fn handle_teams(
     client: &ApiClient<DefaultHttpClient>,
@@ -13,20 +13,24 @@ pub async fn handle_teams(
     cmd: &TeamsCommand,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
-        TeamsCommand::List => {
-            let teams = client.list_teams(ListQuery::default()).await?;
+        TeamsCommand::List { page, page_size } => {
+            let query = list_query_from_opts(*page, *page_size);
+            let teams = client.list_teams(query).await?;
             match output::effective_output_format(&output) {
                 OutputFormat::Ndjson => output::print_ndjson_list(&teams),
                 _ => output::print_json(&teams, &output),
             }
         }
+        TeamsCommand::Invitations { command } => {
+            handle_team_invitations(client, output.clone(), dry_run, command).await
+        }
         TeamsCommand::Get { id } => {
-            validate_resource_id(&id)?;
-            let team = client.get_team(&id).await?;
+            validate_resource_id(id)?;
+            let team = client.get_team(id).await?;
             output::print_json(&team, &output)
         }
         TeamsCommand::Create { json } => {
-            let payload: CreateTeam = serde_json::from_str(&json)?;
+            let payload: CreateTeam = serde_json::from_str(json)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "POST",
@@ -40,8 +44,8 @@ pub async fn handle_teams(
             output::print_json(&team, &output)
         }
         TeamsCommand::Update { id, json } => {
-            validate_resource_id(&id)?;
-            let payload: UpdateTeam = serde_json::from_str(&json)?;
+            validate_resource_id(id)?;
+            let payload: UpdateTeam = serde_json::from_str(json)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "PUT",
@@ -51,12 +55,12 @@ pub async fn handle_teams(
                 output::print_json(&planned, &output)?;
                 return Ok(());
             }
-            let team = client.update_team(&id, payload).await?;
+            let team = client.update_team(id, payload).await?;
             output::print_json(&team, &output)
         }
         TeamsCommand::Patch { id, json } => {
-            validate_resource_id(&id)?;
-            let payload: serde_json::Value = serde_json::from_str(&json)?;
+            validate_resource_id(id)?;
+            let payload: serde_json::Value = serde_json::from_str(json)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "PATCH",
@@ -66,11 +70,11 @@ pub async fn handle_teams(
                 output::print_json(&planned, &output)?;
                 return Ok(());
             }
-            let team = client.patch_team(&id, payload).await?;
+            let team = client.patch_team(id, payload).await?;
             output::print_json(&team, &output)
         }
         TeamsCommand::Delete { id } => {
-            validate_resource_id(&id)?;
+            validate_resource_id(id)?;
             if dry_run {
                 let planned = serde_json::json!({
                     "method": "DELETE",
@@ -79,8 +83,134 @@ pub async fn handle_teams(
                 output::print_json(&planned, &output)?;
                 return Ok(());
             }
-            client.delete_team(&id).await?;
+            client.delete_team(id).await?;
             output::print_json(&serde_json::json!({"deleted": true}), &output)
+        }
+    }
+}
+
+async fn handle_team_invitations(
+    client: &ApiClient<DefaultHttpClient>,
+    output: OutputFormat,
+    dry_run: bool,
+    cmd: &TeamInvitationsCommand,
+) -> Result<(), Box<dyn std::error::Error>> {
+    match cmd {
+        TeamInvitationsCommand::List {
+            team_id,
+            page,
+            page_size,
+        } => {
+            validate_resource_id(team_id)?;
+            let query = page_query_from_opts(*page, *page_size);
+            if dry_run {
+                output::print_json(
+                    &serde_json::json!({
+                        "method": "GET",
+                        "path": format!(
+                            "api/v1/teams/{team_id}/invitations{}",
+                            query.as_list_query().to_query_string()
+                        ),
+                    }),
+                    &output,
+                )?;
+                return Ok(());
+            }
+            let items = client.list_team_invitations(team_id, query).await?;
+            match output::effective_output_format(&output) {
+                OutputFormat::Ndjson => output::print_ndjson_list(&items),
+                _ => output::print_json(&items, &output),
+            }
+        }
+        TeamInvitationsCommand::Create { team_id } => {
+            validate_resource_id(team_id)?;
+            if dry_run {
+                output::print_json(
+                    &serde_json::json!({
+                        "method": "POST",
+                        "path": format!("api/v1/teams/{team_id}/invitations"),
+                        "body": {},
+                    }),
+                    &output,
+                )?;
+                return Ok(());
+            }
+            let inv = client.create_team_invitation(team_id).await?;
+            output::print_json(&inv, &output)
+        }
+        TeamInvitationsCommand::Get {
+            team_id,
+            invitation_id,
+        } => {
+            validate_resource_id(team_id)?;
+            validate_resource_id(invitation_id)?;
+            let inv = client.get_team_invitation(team_id, invitation_id).await?;
+            output::print_json(&inv, &output)
+        }
+        TeamInvitationsCommand::Delete {
+            team_id,
+            invitation_id,
+        } => {
+            validate_resource_id(team_id)?;
+            validate_resource_id(invitation_id)?;
+            if dry_run {
+                output::print_json(
+                    &serde_json::json!({
+                        "method": "DELETE",
+                        "path": format!(
+                            "api/v1/teams/{team_id}/invitations/{invitation_id}"
+                        ),
+                    }),
+                    &output,
+                )?;
+                return Ok(());
+            }
+            client
+                .delete_team_invitation(team_id, invitation_id)
+                .await?;
+            output::print_json(&serde_json::json!({"deleted": true}), &output)
+        }
+        TeamInvitationsCommand::Accept {
+            team_id,
+            invitation_id,
+        } => {
+            validate_resource_id(team_id)?;
+            validate_resource_id(invitation_id)?;
+            if dry_run {
+                output::print_json(
+                    &serde_json::json!({
+                        "method": "POST",
+                        "path": format!(
+                            "api/v1/teams/{team_id}/invitations/{invitation_id}/accept"
+                        ),
+                        "body": {},
+                    }),
+                    &output,
+                )?;
+                return Ok(());
+            }
+            let team = client
+                .accept_team_invitation(team_id, invitation_id)
+                .await?;
+            output::print_json(&team, &output)
+        }
+        TeamInvitationsCommand::AcceptLegacy { invitation_id } => {
+            validate_resource_id(invitation_id)?;
+            if dry_run {
+                output::print_json(
+                    &serde_json::json!({
+                        "method": "POST",
+                        "path": format!(
+                            "api/v1/invitations/{invitation_id}/accept"
+                        ),
+                        "body": {},
+                    }),
+                    &output,
+                )?;
+                return Ok(());
+            }
+            let team = client.accept_team_invitation_legacy(invitation_id).await?;
+            output::print_json(&team, &output)
         }
     }
 }

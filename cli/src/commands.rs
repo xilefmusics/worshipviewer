@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{Args, Parser, Subcommand};
 
 use crate::output::OutputFormat;
@@ -38,6 +40,8 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Public server metadata (no auth).
+    About,
     Schema(SchemaArgs),
     Auth {
         #[command(subcommand)]
@@ -70,6 +74,10 @@ pub enum Command {
     Teams {
         #[command(subcommand)]
         command: TeamsCommand,
+    },
+    Monitoring {
+        #[command(subcommand)]
+        command: MonitoringCommand,
     },
 }
 
@@ -113,6 +121,22 @@ pub enum UsersCommand {
     Get {
         id: String,
     },
+    /// Current user (`GET /api/v1/users/me`).
+    Me,
+    /// HTTP audit metrics for the current user.
+    MeMetrics,
+    /// HTTP audit metrics for a user (admin).
+    Metrics {
+        id: String,
+    },
+    /// Upload profile picture from a file (`PUT .../profile-picture`).
+    ProfilePicturePut {
+        file: PathBuf,
+        #[arg(long)]
+        content_type: Option<String>,
+    },
+    /// Remove profile picture.
+    ProfilePictureDelete,
     Create {
         #[arg(long)]
         json: String,
@@ -124,13 +148,49 @@ pub enum UsersCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum SessionsCommand {
-    ListMine,
-    GetMine { id: String },
-    DeleteMine { id: String },
-    CreateForUser { user_id: String },
-    ListForUser { user_id: String },
-    GetForUser { user_id: String, id: String },
-    DeleteForUser { user_id: String, id: String },
+    ListMine {
+        #[arg(long)]
+        page: Option<u32>,
+        #[arg(long)]
+        page_size: Option<u32>,
+    },
+    GetMine {
+        id: String,
+    },
+    /// `GET /api/v1/users/me/sessions/current`
+    GetCurrentMine,
+    /// `GET /api/v1/users/me/session/metrics`
+    CurrentSessionMetrics,
+    /// `GET /api/v1/users/me/sessions/{id}/metrics`
+    GetMineMetrics {
+        id: String,
+    },
+    DeleteMine {
+        id: String,
+    },
+    CreateForUser {
+        user_id: String,
+    },
+    ListForUser {
+        user_id: String,
+        #[arg(long)]
+        page: Option<u32>,
+        #[arg(long)]
+        page_size: Option<u32>,
+    },
+    GetForUser {
+        user_id: String,
+        id: String,
+    },
+    /// `GET /api/v1/users/{user_id}/sessions/{id}/metrics`
+    GetForUserMetrics {
+        user_id: String,
+        id: String,
+    },
+    DeleteForUser {
+        user_id: String,
+        id: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -163,6 +223,11 @@ pub enum SongsCommand {
         #[arg(long)]
         json: String,
     },
+    Move {
+        id: String,
+        #[arg(long)]
+        json: String,
+    },
     Delete {
         id: String,
     },
@@ -190,6 +255,10 @@ pub enum CollectionsCommand {
     },
     Songs {
         id: String,
+        #[arg(long)]
+        page: Option<u32>,
+        #[arg(long)]
+        page_size: Option<u32>,
     },
     Player {
         id: String,
@@ -204,6 +273,11 @@ pub enum CollectionsCommand {
         json: String,
     },
     Patch {
+        id: String,
+        #[arg(long)]
+        json: String,
+    },
+    Move {
         id: String,
         #[arg(long)]
         json: String,
@@ -228,9 +302,54 @@ pub enum SetlistsCommand {
     },
     Songs {
         id: String,
+        #[arg(long)]
+        page: Option<u32>,
+        #[arg(long)]
+        page_size: Option<u32>,
     },
     Player {
         id: String,
+    },
+    Create {
+        #[arg(long)]
+        json: String,
+    },
+    Update {
+        id: String,
+        #[arg(long)]
+        json: String,
+    },
+    Patch {
+        id: String,
+        #[arg(long)]
+        json: String,
+    },
+    Move {
+        id: String,
+        #[arg(long)]
+        json: String,
+    },
+    Delete {
+        id: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum TeamsCommand {
+    /// List teams visible to the current user.
+    List {
+        #[arg(long)]
+        page: Option<u32>,
+        #[arg(long)]
+        page_size: Option<u32>,
+    },
+    /// Get a team by id.
+    Get {
+        id: String,
+    },
+    Invitations {
+        #[command(subcommand)]
+        command: TeamInvitationsCommand,
     },
     Create {
         #[arg(long)]
@@ -252,29 +371,32 @@ pub enum SetlistsCommand {
 }
 
 #[derive(Debug, Subcommand)]
-pub enum TeamsCommand {
-    /// List teams visible to the current user.
-    List,
-    /// Get a team by id.
-    Get {
-        id: String,
+pub enum TeamInvitationsCommand {
+    List {
+        team_id: String,
+        #[arg(long)]
+        page: Option<u32>,
+        #[arg(long)]
+        page_size: Option<u32>,
     },
     Create {
-        #[arg(long)]
-        json: String,
+        team_id: String,
     },
-    Update {
-        id: String,
-        #[arg(long)]
-        json: String,
-    },
-    Patch {
-        id: String,
-        #[arg(long)]
-        json: String,
+    Get {
+        team_id: String,
+        invitation_id: String,
     },
     Delete {
-        id: String,
+        team_id: String,
+        invitation_id: String,
+    },
+    Accept {
+        team_id: String,
+        invitation_id: String,
+    },
+    /// `POST /api/v1/invitations/{invitation_id}/accept` (deprecated).
+    AcceptLegacy {
+        invitation_id: String,
     },
 }
 
@@ -305,10 +427,46 @@ pub enum BlobsCommand {
         #[arg(long)]
         json: String,
     },
+    Move {
+        id: String,
+        #[arg(long)]
+        json: String,
+    },
     Delete {
         id: String,
     },
     DownloadUrl {
         id: String,
+    },
+    /// Download raw bytes (`GET /api/v1/blobs/{id}/data`).
+    DownloadData {
+        id: String,
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
+    /// Upload raw bytes (`PUT /api/v1/blobs/{id}/data`).
+    UploadData {
+        id: String,
+        file: PathBuf,
+        #[arg(long)]
+        content_type: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum MonitoringCommand {
+    /// Admin: paginated HTTP audit log.
+    AuditLogs {
+        #[arg(long)]
+        page: Option<u32>,
+        #[arg(long)]
+        page_size: Option<u32>,
+    },
+    /// Admin: aggregated metrics for `[start, end)` (RFC 3339 UTC).
+    Metrics {
+        #[arg(long)]
+        start: String,
+        #[arg(long)]
+        end: String,
     },
 }

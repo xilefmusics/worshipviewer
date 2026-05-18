@@ -63,6 +63,17 @@ pub trait HttpClient: Send + Sync {
     ) -> Result<T, NetworkClientError>
     where
         T: DeserializeOwned + Send + 'static;
+
+    /// PUT raw bytes; treat a successful empty body (e.g. 204) as `Ok(())`.
+    async fn put_bytes_no_content(
+        &self,
+        path: &str,
+        content_type: &str,
+        body: &[u8],
+    ) -> Result<(), NetworkClientError>;
+
+    /// GET raw response body as bytes (e.g. blob download).
+    async fn get_bytes(&self, path: &str) -> Result<Vec<u8>, NetworkClientError>;
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -110,6 +121,17 @@ pub trait HttpClient: Send + Sync {
     ) -> Result<T, NetworkClientError>
     where
         T: DeserializeOwned + Send + 'static;
+
+    /// PUT raw bytes; treat a successful empty body (e.g. 204) as `Ok(())`.
+    async fn put_bytes_no_content(
+        &self,
+        path: &str,
+        content_type: &str,
+        body: &[u8],
+    ) -> Result<(), NetworkClientError>;
+
+    /// GET raw response body as bytes (e.g. blob download).
+    async fn get_bytes(&self, path: &str) -> Result<Vec<u8>, NetworkClientError>;
 }
 
 #[cfg(all(feature = "cli", not(target_arch = "wasm32")))]

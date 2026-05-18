@@ -1,3 +1,4 @@
+pub mod about;
 pub mod api;
 pub mod auth;
 pub mod blob;
@@ -6,6 +7,7 @@ pub use patch::Patch;
 pub mod collection;
 pub mod error;
 pub mod like;
+pub mod monitoring;
 pub mod move_owner;
 pub use move_owner::MoveOwner;
 pub mod net;
@@ -15,4 +17,5 @@ pub mod setlist;
 pub mod song;
 pub mod team;
 pub mod user;
+pub use about::AboutResponse;
 pub use chordlib::Error as ChordlibError;

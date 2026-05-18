@@ -3,9 +3,11 @@ use shared::net::DefaultHttpClient;
 
 use crate::commands::{Cli, Command, SchemaCommand};
 
+mod about;
 mod auth;
 mod blobs;
 mod collections;
+mod monitoring;
 mod schema;
 mod sessions;
 mod setlists;
@@ -19,6 +21,7 @@ pub async fn dispatch(
     effective_base_url: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match &cli.command {
+        Command::About => about::handle_about(client, cli.output.clone()).await,
         Command::Schema(args) => match &args.command {
             Some(SchemaCommand::Inspect { domain, action }) => {
                 schema::handle_schema_inspect(client, cli.output.clone(), domain, action).await
@@ -78,6 +81,9 @@ pub async fn dispatch(
         }
         Command::Teams { command } => {
             teams::handle_teams(client, cli.output.clone(), cli.dry_run, command).await
+        }
+        Command::Monitoring { command } => {
+            monitoring::handle_monitoring(client, cli.output.clone(), cli.dry_run, command).await
         }
     }
 }

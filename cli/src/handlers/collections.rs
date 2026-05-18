@@ -1,10 +1,11 @@
-use shared::api::{ApiClient, ListQuery};
+use shared::api::ApiClient;
 use shared::collection::{CreateCollection, UpdateCollection};
+use shared::move_owner::MoveOwner;
 use shared::net::DefaultHttpClient;
 
 use crate::commands::CollectionsCommand;
 use crate::output::{self, OutputFormat};
-use crate::validate::validate_resource_id;
+use crate::validate::{list_query_from_opts, validate_resource_id};
 
 pub async fn handle_collections(
     client: &ApiClient<DefaultHttpClient>,
@@ -15,13 +16,7 @@ pub async fn handle_collections(
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         CollectionsCommand::List { page, page_size } => {
-            let mut query = ListQuery::new();
-            if let Some(p) = *page {
-                query = query.with_page(p);
-            }
-            if let Some(ps) = *page_size {
-                query = query.with_page_size(ps);
-            }
+            let query = list_query_from_opts(*page, *page_size);
             let collections = client.list_collections(query).await?;
             match output::effective_output_format(&output) {
                 OutputFormat::Ndjson => output::print_ndjson_list(&collections),
@@ -33,11 +28,14 @@ pub async fn handle_collections(
             let collection = client.get_collection(&id).await?;
             output::print_json(&collection, &output)
         }
-        CollectionsCommand::Songs { id } => {
-            validate_resource_id(&id)?;
-            let songs = client
-                .get_collection_songs(&id, ListQuery::default())
-                .await?;
+        CollectionsCommand::Songs {
+            id,
+            page,
+            page_size,
+        } => {
+            validate_resource_id(id)?;
+            let query = list_query_from_opts(*page, *page_size);
+            let songs = client.get_collection_songs(id, query).await?;
             match output::effective_output_format(&output) {
                 OutputFormat::Ndjson => output::print_ndjson_list(&songs),
                 _ => output::print_json(&songs, &output),
@@ -89,7 +87,22 @@ pub async fn handle_collections(
                 output::print_json(&planned, &output)?;
                 return Ok(());
             }
-            let collection = client.patch_collection(&id, payload).await?;
+            let collection = client.patch_collection(id, payload).await?;
+            output::print_json(&collection, &output)
+        }
+        CollectionsCommand::Move { id, json } => {
+            validate_resource_id(id)?;
+            let payload: MoveOwner = serde_json::from_str(json)?;
+            if dry_run {
+                let planned = serde_json::json!({
+                    "method": "POST",
+                    "path": format!("api/v1/collections/{id}/move"),
+                    "body": payload,
+                });
+                output::print_json(&planned, &output)?;
+                return Ok(());
+            }
+            let collection = client.move_collection(id, payload).await?;
             output::print_json(&collection, &output)
         }
         CollectionsCommand::Delete { id } => {

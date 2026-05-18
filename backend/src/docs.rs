@@ -3,8 +3,8 @@ use utoipa::openapi::info::ContactBuilder;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::{Modify, OpenApi};
 
-use crate::about::AboutResponse;
 use crate::settings::Settings;
+use shared::AboutResponse;
 
 use crate::resources::blob::PatchBlob;
 use crate::resources::collection::PatchCollection;

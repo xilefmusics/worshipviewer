@@ -183,4 +183,35 @@ impl HttpClient for DesktopHttpClient {
 
         Ok(value)
     }
+
+    async fn put_bytes_no_content(
+        &self,
+        path: &str,
+        content_type: &str,
+        body: &[u8],
+    ) -> Result<(), NetworkClientError> {
+        let url = self.make_url(path);
+
+        let request = self.with_common_headers(
+            self.client
+                .put(url)
+                .header(reqwest::header::CONTENT_TYPE, content_type)
+                .body(body.to_vec()),
+        );
+
+        let response = request.send().await?;
+        response.error_for_status()?;
+        Ok(())
+    }
+
+    async fn get_bytes(&self, path: &str) -> Result<Vec<u8>, NetworkClientError> {
+        let url = self.make_url(path);
+
+        let request = self.with_common_headers(self.client.get(url));
+
+        let response = request.send().await?;
+        let response = response.error_for_status()?;
+        let bytes = response.bytes().await?.to_vec();
+        Ok(bytes)
+    }
 }
