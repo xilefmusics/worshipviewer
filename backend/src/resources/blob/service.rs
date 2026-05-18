@@ -77,6 +77,27 @@ impl<R: BlobRepository, S: BlobStorage> BlobService<R, S> {
         Ok(created)
     }
 
+    /// Create blob metadata and persist `data` in one step (no empty placeholder file).
+    #[instrument(level = "debug", err, skip(self, ctx, blob, data))]
+    pub async fn create_blob_with_data_for_user(
+        &self,
+        ctx: &AuthorizationContext,
+        mut blob: CreateBlob,
+        data: &[u8],
+    ) -> Result<Blob, AppError> {
+        let owner = match blob.owner.take() {
+            None => ctx.personal_team()?,
+            Some(ref s) => {
+                let rid = parse_owner_record_id(s)?;
+                ctx.require_write_access_to_owner(&rid)?;
+                rid
+            }
+        };
+        let created = self.repo.create_blob(owner, blob).await?;
+        self.storage.write_blob_bytes(&created, data)?;
+        Ok(created)
+    }
+
     #[instrument(level = "debug", err, skip(self, ctx, blob))]
     pub async fn update_blob_for_user(
         &self,

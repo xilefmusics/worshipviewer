@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use shared::MoveOwner;
 use shared::api::ListQuery;
+use shared::blob::CreateBlob;
 use shared::collection::{Collection, CreateCollection, PatchCollection};
 use shared::player::Player;
 use shared::song::{Link as SongLink, Song};
@@ -11,7 +12,9 @@ use tracing::instrument;
 use crate::auth::AuthorizationContext;
 use crate::database::Database;
 use crate::error::AppError;
+use crate::resources::blob::service::BlobServiceHandle;
 use crate::resources::common::{player_from_song_links, resolve_owner_team, song_thing};
+use crate::resources::user::profile_picture;
 use crate::resources::song::LikedSongIds;
 use crate::resources::team::{parse_owner_record_id, thing_record_key};
 
@@ -200,6 +203,62 @@ impl<R: CollectionRepository, L: LikedSongIds> CollectionService<R, L> {
         self.repo
             .move_collection_owner(&write_teams, id, dest)
             .await
+    }
+
+    #[instrument(level = "debug", err, skip(self, blob_svc, ctx, body))]
+    pub async fn upload_collection_cover_for_user(
+        &self,
+        blob_svc: &BlobServiceHandle,
+        ctx: &AuthorizationContext,
+        id: &str,
+        content_type: &str,
+        body: &[u8],
+        max_bytes: usize,
+    ) -> Result<Collection, AppError> {
+        if body.is_empty() {
+            return Err(AppError::invalid_request("cover image body is empty"));
+        }
+        if body.len() > max_bytes {
+            return Err(AppError::invalid_request("cover image exceeds size limit"));
+        }
+        let file_type = profile_picture::file_type_from_content_type(content_type)?;
+        profile_picture::assert_magic_matches_content_type(body, &file_type)?;
+        let (width, height) = profile_picture::avatar_dimensions(body)?;
+
+        let current = self.get_collection_for_user(ctx, id).await?;
+        let owner_rid = parse_owner_record_id(&current.owner)?;
+        ctx.require_write_access_to_owner(&owner_rid)?;
+
+        if !current.cover.is_empty() {
+            let _ = blob_svc.delete_blob_for_user(ctx, &current.cover).await;
+        }
+
+        let created = blob_svc
+            .create_blob_with_data_for_user(
+                ctx,
+                CreateBlob {
+                    owner: Some(current.owner.clone()),
+                    file_type,
+                    width,
+                    height,
+                    ocr: String::new(),
+                },
+                body,
+            )
+            .await?;
+
+        self.update_collection_for_user(
+            ctx,
+            id,
+            CreateCollection {
+                owner: None,
+                title: current.title,
+                cover: created.id.clone(),
+                songs: current.songs,
+            },
+            None,
+        )
+        .await
     }
 
     #[instrument(level = "debug", err, skip(self, ctx))]
@@ -806,6 +865,56 @@ mod tests {
 
         assert_eq!(patched.cover, "newheart");
         assert_eq!(patched.title, col.title, "title must be unchanged");
+    }
+
+    /// BLC-COLL-026: PUT cover uploads bytes, creates a blob, and updates `cover`.
+    #[tokio::test]
+    async fn upload_collection_cover_creates_blob_and_updates_cover() {
+        let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
+        let blob_dir = std::env::temp_dir()
+            .join(format!("worshipviewer_coll_cover_test_{}", uuid::Uuid::new_v4()))
+            .to_string_lossy()
+            .into_owned();
+        let blob_svc = crate::test_helpers::blob_service(&db, blob_dir);
+        let svc = CollectionServiceHandle::build(db.clone());
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+
+        let col = svc
+            .create_collection_for_user(&owner_p, make_collection("Title"))
+            .await
+            .expect("create");
+        assert_eq!(col.cover, "mysongs");
+
+        let jpeg_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../mysongs.jpeg");
+        let bytes = std::fs::read(jpeg_path).expect("mysongs.jpeg");
+
+        let updated = svc
+            .upload_collection_cover_for_user(
+                &blob_svc,
+                &owner_p,
+                &col.id,
+                "image/jpeg",
+                &bytes,
+                20 * 1024 * 1024,
+            )
+            .await
+            .expect("upload");
+
+        assert_ne!(updated.cover, "mysongs");
+        assert_eq!(updated.title, col.title);
+        assert_eq!(updated.songs, col.songs);
+        blob_svc
+            .get_blob_for_user(&owner_p, &updated.cover)
+            .await
+            .expect("cover blob exists");
+        let (_, file) = blob_svc
+            .open_blob_data_file_for_user(&owner_p, &updated.cover)
+            .await
+            .expect("open cover blob file");
+        let len = std::fs::metadata(file.path())
+            .expect("blob file metadata")
+            .len();
+        assert!(len > 0, "cover blob file must not be empty");
     }
 
     /// BLC-COLL-024: PUT cannot drop an existing song id from `songs`.

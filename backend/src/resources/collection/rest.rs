@@ -1,7 +1,7 @@
 use actix_web::http::header;
 use actix_web::{
     HttpRequest, HttpResponse, Scope, delete, get, patch, post, put,
-    web::{self, Data, Json, Path, Query, ReqData},
+    web::{self, Bytes, Data, Json, Path, Query, ReqData},
 };
 
 use crate::accept::accepts_worship_player_json;
@@ -13,8 +13,10 @@ use crate::http_cache::{check_if_match, if_none_match_matches, weak_etag_json};
 #[allow(unused_imports)]
 use crate::resources::collection::Collection;
 use crate::resources::collection::PatchCollection;
+use crate::resources::blob::service::BlobServiceHandle;
 use crate::resources::collection::service::CollectionServiceHandle;
 use crate::resources::collection::{CreateCollection, UpdateCollection};
+use crate::settings::CoverUploadLimits;
 #[allow(unused_imports)]
 use crate::resources::song::Song;
 use shared::MoveOwner;
@@ -22,8 +24,9 @@ use shared::api::{ListQuery, PAGE_SIZE_DEFAULT, PageQuery};
 #[allow(unused_imports)]
 use shared::player::Player;
 
-pub fn scope() -> Scope {
+pub fn scope(cover_upload_max_bytes: usize) -> Scope {
     web::scope("/collections")
+        .app_data(web::PayloadConfig::new(cover_upload_max_bytes))
         .service(get_collections)
         .service(get_collection)
         .service(get_collection_songs)
@@ -33,6 +36,7 @@ pub fn scope() -> Scope {
         .service(patch_collection)
         .service(move_collection)
         .service(delete_collection)
+        .service(put_collection_cover)
 }
 
 #[utoipa::path(
@@ -301,6 +305,65 @@ async fn update_collection(
         svc.update_collection_for_user(&ctx, &id, payload, owner)
             .await?,
     ))
+}
+
+#[utoipa::path(
+    put,
+    path = "/api/v1/collections/{id}/cover",
+    params(
+        ("id" = String, Path, description = "Collection identifier")
+    ),
+    request_body(
+        content = Vec<u8>,
+        description = "Raw JPEG or PNG cover image",
+        content_type = "image/jpeg"
+    ),
+    responses(
+        (status = 200, description = "Cover uploaded; creates a blob and sets `cover` to its id. Returns updated `Collection`.", body = Collection),
+        (status = 400, description = "Invalid Content-Type or image", body = Problem, content_type = "application/problem+json"),
+        (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
+        (status = 404, description = "Collection not found or caller lacks library write access", body = Problem, content_type = "application/problem+json"),
+        (status = 413, description = "Payload too large", body = Problem, content_type = "application/problem+json"),
+        (status = 429, description = "API rate limit exceeded", body = Problem, content_type = "application/problem+json"),
+        (status = 500, description = "Failed to upload collection cover", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Collections",
+    security(
+        ("SessionCookie" = []),
+        ("SessionToken" = [])
+    )
+)]
+#[put("/{id}/cover")]
+async fn put_collection_cover(
+    ctx: ReqData<AuthorizationContext>,
+    svc: Data<CollectionServiceHandle>,
+    blob_svc: Data<BlobServiceHandle>,
+    limits: Data<CoverUploadLimits>,
+    id: Path<String>,
+    body: Bytes,
+    req: HttpRequest,
+) -> Result<HttpResponse, AppError> {
+    let id = id.into_inner();
+    let ct = req
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|h| h.to_str().ok())
+        .ok_or_else(|| AppError::invalid_request("missing Content-Type"))?;
+    let updated = svc
+        .upload_collection_cover_for_user(
+            blob_svc.get_ref(),
+            &ctx,
+            &id,
+            ct,
+            body.as_ref(),
+            limits.max_bytes,
+        )
+        .await?;
+    let etag = weak_etag_json(&updated)
+        .map_err(|e| AppError::internal_from_err("collection.rest", e))?;
+    Ok(HttpResponse::Ok()
+        .insert_header((header::ETAG, etag))
+        .json(updated))
 }
 
 #[utoipa::path(

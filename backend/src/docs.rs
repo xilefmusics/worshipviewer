@@ -159,6 +159,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
         crate::resources::collection::rest::get_collection_songs,
         crate::resources::collection::rest::create_collection,
         crate::resources::collection::rest::update_collection,
+        crate::resources::collection::rest::put_collection_cover,
         crate::resources::collection::rest::patch_collection,
         crate::resources::collection::rest::move_collection,
         crate::resources::collection::rest::delete_collection,

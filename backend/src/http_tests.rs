@@ -31,7 +31,7 @@ use crate::database::Database;
 use crate::docs;
 use crate::resources;
 use crate::resources::User;
-use crate::settings::{CookieConfig, ProfilePictureLimits, Settings};
+use crate::settings::{CookieConfig, CoverUploadLimits, ProfilePictureLimits, Settings};
 use crate::test_helpers::{create_song_with_title, create_user, session_service, test_db};
 
 // ─── Slice 4A: test harness helpers ──────────────────────────────────────────
@@ -106,6 +106,9 @@ fn build_app_with_api_limits(
         .app_data(Data::new(session_service(&db)))
         .app_data(Data::new(ProfilePictureLimits {
             max_bytes: 2 * 1024 * 1024,
+        }))
+        .app_data(Data::new(CoverUploadLimits {
+            max_bytes: 20 * 1024 * 1024,
         }))
         .app_data(cookie_cfg)
         .app_data(crate::error::json_config())
@@ -1871,6 +1874,70 @@ mod blob_create_http {
             .to_request();
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+}
+
+#[cfg(test)]
+mod collection_cover_http {
+    use super::*;
+    use actix_web::http::StatusCode;
+
+    #[actix_web::test]
+    async fn put_collection_cover_route_returns_200() {
+        let db = test_db().await.unwrap();
+        let user = create_user(&db, "cover-route@test.local").await.unwrap();
+        let token = create_session_token(&db, user).await.unwrap();
+        let app = test::init_service(build_app(db.clone())).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/v1/collections")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .set_json(&serde_json::json!({
+                "title": "Cover test",
+                "cover": "",
+                "songs": []
+            }))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::CREATED);
+        let body: serde_json::Value =
+            serde_json::from_slice(&test::read_body(resp).await).unwrap();
+        let col_id = body["id"].as_str().expect("collection id");
+
+        let jpeg = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../mysongs.jpeg"),
+        )
+        .expect("mysongs.jpeg");
+
+        let req = test::TestRequest::put()
+            .uri(&format!("/api/v1/collections/{col_id}/cover"))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .insert_header(("Content-Type", "image/jpeg"))
+            .set_payload(jpeg)
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(
+            resp.status(),
+            StatusCode::OK,
+            "PUT /collections/{{id}}/cover should be registered"
+        );
+        let body: serde_json::Value =
+            serde_json::from_slice(&test::read_body(resp).await).unwrap();
+        let cover_id = body["cover"].as_str().expect("cover id");
+        assert!(!cover_id.is_empty());
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/blobs/{cover_id}/data"))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = test::read_body(resp).await;
+        assert!(
+            bytes.len() > 100,
+            "blob data should contain image bytes, got {}",
+            bytes.len()
+        );
     }
 }
 
