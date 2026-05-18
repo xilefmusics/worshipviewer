@@ -14,9 +14,9 @@ use crate::database::Database;
 use crate::error::AppError;
 use crate::resources::blob::service::BlobServiceHandle;
 use crate::resources::common::{player_from_song_links, resolve_owner_team, song_thing};
-use crate::resources::user::profile_picture;
 use crate::resources::song::LikedSongIds;
 use crate::resources::team::{parse_owner_record_id, thing_record_key};
+use crate::resources::user::profile_picture;
 
 use super::repository::CollectionRepository;
 use super::surreal_repo::SurrealCollectionRepo;
@@ -872,7 +872,10 @@ mod tests {
     async fn upload_collection_cover_creates_blob_and_updates_cover() {
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
         let blob_dir = std::env::temp_dir()
-            .join(format!("worshipviewer_coll_cover_test_{}", uuid::Uuid::new_v4()))
+            .join(format!(
+                "worshipviewer_coll_cover_test_{}",
+                uuid::Uuid::new_v4()
+            ))
             .to_string_lossy()
             .into_owned();
         let blob_svc = crate::test_helpers::blob_service(&db, blob_dir);
@@ -885,8 +888,7 @@ mod tests {
             .expect("create");
         assert_eq!(col.cover, "mysongs");
 
-        let jpeg_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../mysongs.jpeg");
-        let bytes = std::fs::read(jpeg_path).expect("mysongs.jpeg");
+        let bytes = crate::test_helpers::sample_cover_jpeg_bytes();
 
         let updated = svc
             .upload_collection_cover_for_user(

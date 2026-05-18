@@ -1900,14 +1900,10 @@ mod collection_cover_http {
             .to_request();
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::CREATED);
-        let body: serde_json::Value =
-            serde_json::from_slice(&test::read_body(resp).await).unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&test::read_body(resp).await).unwrap();
         let col_id = body["id"].as_str().expect("collection id");
 
-        let jpeg = std::fs::read(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../mysongs.jpeg"),
-        )
-        .expect("mysongs.jpeg");
+        let jpeg = crate::test_helpers::sample_cover_jpeg_bytes();
 
         let req = test::TestRequest::put()
             .uri(&format!("/api/v1/collections/{col_id}/cover"))
@@ -1921,8 +1917,7 @@ mod collection_cover_http {
             StatusCode::OK,
             "PUT /collections/{{id}}/cover should be registered"
         );
-        let body: serde_json::Value =
-            serde_json::from_slice(&test::read_body(resp).await).unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&test::read_body(resp).await).unwrap();
         let cover_id = body["cover"].as_str().expect("cover id");
         assert!(!cover_id.is_empty());
 
