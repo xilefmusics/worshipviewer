@@ -8,4 +8,7 @@ pub use chordlib::types::{ChordRepresentation, SimpleChord};
 pub use link::{Link, LinkOwned};
 pub use song::{CreateSong, PatchSong, PatchSongData, Song, SongUserSpecificAddons, UpdateSong};
 #[cfg(feature = "backend")]
-pub use song_data_schema::SongDataSchema;
+pub use song_data_schema::{
+    ChordKindSchema, ChordSchema, LineSchema, PartSchema, RootSpellingHintSchema, SectionSchema,
+    SimpleChordSchema, SongDataSchema,
+};
