@@ -1,0 +1,420 @@
+{
+  "app": {
+    "name": "Worship Viewer"
+  },
+  "login": {
+    "headline": "Alles zu seiner Ehre.",
+    "supporting": "Worship Viewer hilft beim Leiten von Worship — und tritt zurück, wenn der Geist übernimmt. Fokus auf den Raum, nicht auf den Screen.",
+    "cardTitle": "Anmelden / Registrieren",
+    "cardDescription": "Gib deine E-Mail ein, um einen Code zu erhalten, oder nutze Google.",
+    "divider": "oder",
+    "oauth": {
+      "google": "Mit Google anmelden",
+      "hint": "Du wirst zur Anmeldung weitergeleitet und danach hierher zurückgebracht."
+    },
+    "otp": {
+      "emailLabel": "E-Mail",
+      "emailPlaceholder": "du@beispiel.de",
+      "sendCode": "Code senden",
+      "codeLabel": "Bestätigungscode",
+      "codePlaceholder": "6-stelliger Code",
+      "verify": "Prüfen und anmelden",
+      "back": "Andere E-Mail verwenden"
+    },
+    "legal": {
+      "imprint": "Impressum",
+      "privacy": "Datenschutz",
+      "terms": "AGB"
+    },
+    "errors": {
+      "otpGeneric": "Anmeldung fehlgeschlagen. Bitte erneut versuchen."
+    }
+  },
+  "home": {
+    "stubTitle": "Willkommen",
+    "stubBody": "Du bist angemeldet. Die Bibliothekslisten kommen im nächsten Meilenstein.",
+    "e2": "Durchstöbern kommt in einem späteren Meilenstein (E2).",
+    "signOut": "Abmelden",
+    "userId": "Nutzer-ID",
+    "email": "E-Mail"
+  },
+  "notFound": {
+    "title": "Seite nicht gefunden",
+    "body": "Dieser Pfad ist noch nicht Teil der App.",
+    "home": "Zur Startseite",
+    "signOut": "Abmelden"
+  },
+  "common": {
+    "load": "Laden…"
+  },
+  "pwa": {
+    "updateMessage": "Neue Version verfügbar — neu laden",
+    "reload": "Neu laden",
+    "install": {
+      "iosTitle": "Zum Home-Bildschirm",
+      "iosStep1": "Tippe in Safari auf „Teilen“.",
+      "iosStep2": "Scrolle und wähle „Zum Home-Bildschirm“.",
+      "iosStep3": "Öffne Worship vom Home-Bildschirm für die Vollbild-Ansicht.",
+      "safariMacTitle": "Zum Dock hinzufügen (Safari)",
+      "safariMacBody": "In Safari im Menü „Ablage“ die Option „Zum Dock hinzufügen“ wählen (falls verfügbar, z. B. ab macOS 14), oder Ablage → Teilen → Zum Dock hinzufügen. Anschließend Worship vom Dock öffnen.",
+      "genericTitle": "App installieren",
+      "genericBody": "Nutze das Menü deines Browsers, um die Seite zu installieren oder zum Home-Bildschirm bzw. zu den Apps hinzuzufügen. In Chrome oder Edge: Install-Symbol in der Adresszeile; in anderen Browsern: Haupt- oder App-Menü prüfen.",
+      "close": "Schließen"
+    }
+  },
+  "hub": {
+    "tabs": {
+      "collections": "Sammlungen",
+      "songs": "Lieder",
+      "setlists": "Setlisten",
+      "aria": "Bibliotheksbereiche"
+    },
+    "searchPlaceholder": "Suchen…",
+    "searchAria": "Bibliothek durchsuchen",
+    "createAria": "Neu anlegen",
+    "createTeamAria": "Team erstellen",
+    "createSetlistAria": "Setliste erstellen",
+    "createCollectionAria": "Sammlung erstellen",
+    "createLabel": "Neu",
+    "profile": {
+      "openMenu": "Profilmenü öffnen",
+      "openMenuOffline": "Profilmenü öffnen (offline)",
+      "offline": "Offline",
+      "settings": "Einstellungen",
+      "teams": "Teams",
+      "sessions": "Sitzungen",
+      "install": "App installieren",
+      "logout": "Abmelden"
+    },
+    "cmdk": {
+      "label": "Befehlsmenü",
+      "inputPlaceholder": "Befehl finden…",
+      "commandInputAria": "Befehl finden",
+      "actions": "Aktionen",
+      "searchAction": "Bibliothek durchsuchen",
+      "navigate": "Navigation",
+      "empty": "Keine passenden Befehle"
+    },
+    "refresh": {
+      "pull": "Zum Aktualisieren ziehen",
+      "release": "Loslassen zum Aktualisieren",
+      "refreshing": "Wird aktualisiert…"
+    },
+    "error": {
+      "body": "Beim Laden dieser Liste ist ein Fehler aufgetreten.",
+      "retry": "Erneut versuchen"
+    },
+    "empty": {
+      "noResults": "Keine Treffer für deine Suche.",
+      "clearSearch": "Suche löschen",
+      "none": {
+        "collections": "Noch keine Sammlungen.",
+        "songs": "Noch keine Lieder.",
+        "setlists": "Noch keine Setlisten."
+      }
+    },
+    "loadMore": "Mehr laden",
+    "meta": {
+      "songsCount_one": "{{count}} Lied",
+      "songsCount_other": "{{count}} Lieder"
+    },
+    "actions": {
+      "edit": "Bearbeiten",
+      "play": "Abspielen",
+      "addToSetlist": "Zur Setliste hinzufügen",
+      "duplicate": "Duplizieren",
+      "delete": "Löschen",
+      "deleteOfflineHint": "Offline nicht verfügbar — für Löschen verbinden."
+    },
+    "addToSetlist": {
+      "title": "Zur Setliste hinzufügen",
+      "setlistLabel": "Setliste",
+      "selectAria": "Setliste wählen",
+      "placeholder": "Setliste wählen…",
+      "add": "Hinzufügen",
+      "cancel": "Abbrechen",
+      "loadingLists": "Setlisten werden geladen…",
+      "loadingMore": "Weitere Setlisten werden geladen…",
+      "empty": "Noch keine Setlisten.",
+      "alreadyInSetlist": "Dieses Lied ist bereits in dieser Setliste.",
+      "success": "Zu „{{title}}“ hinzugefügt.",
+      "failed": "Lied konnte nicht zur Setliste hinzugefügt werden."
+    },
+    "delete": {
+      "title": "Diesen Eintrag löschen?",
+      "body": "„{{name}}“ wird aus deiner Bibliothek entfernt.",
+      "cancel": "Abbrechen",
+      "confirm": "Löschen"
+    },
+    "createOfflineHint": "Verbinde dich mit dem Internet, um Einträge hinzuzufügen."
+  },
+  "offlinePlayer": {
+    "onlineOnlyType": "Dieser Player ist nur online verfügbar.",
+    "setlistNotCached": "Diese Setliste ist offline nicht verfügbar. Öffne sie im Player einmal online und versuche es erneut."
+  },
+  "player": {
+    "close": "Schließen",
+    "backToList": "Zurück zur Liste",
+    "loadFailed": "Player konnte nicht geladen werden.",
+    "empty": "In diesem Player gibt es nichts anzuzeigen.",
+    "position": "{{current}} / {{total}}",
+    "prev": "Zurück",
+    "next": "Weiter",
+    "blobOffline": "Diese Datei ist offline nicht verfügbar.",
+    "blobMissing": "Diese Datei konnte nicht geladen werden.",
+    "invalidLink": "Ungültiger Player-Link."
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "description": "Lege fest, wie Worship Viewer auf diesem Gerät funktioniert.",
+    "language": {
+      "title": "Sprache",
+      "description": "Wähle eine Sprache oder folge der Browser-Einstellung.",
+      "browser": "Browser-Einstellung verwenden",
+      "browserDescription": "Wählt automatisch Englisch oder Deutsch anhand deiner Browser-Sprachen.",
+      "en": "Englisch",
+      "enDescription": "Zeigt die Oberfläche auf Englisch.",
+      "de": "Deutsch",
+      "deDescription": "Zeigt die Oberfläche auf Deutsch."
+    },
+    "appearance": {
+      "title": "Darstellung",
+      "description": "Steuere das Farbschema für dieses Gerät.",
+      "system": "Browser-Einstellung verwenden",
+      "systemDescription": "Folgt der Hell-Dunkel-Einstellung deines Browsers oder Betriebssystems.",
+      "light": "Hell",
+      "lightDescription": "Verwendet immer das helle Design.",
+      "dark": "Dunkel",
+      "darkDescription": "Verwendet immer das dunkle Design."
+    },
+    "profilePicture": {
+      "title": "Profilbild",
+      "description": "Lade ein JPEG- oder PNG-Bild hoch. Es wird im Menü-Kopf angezeigt und ersetzt das mit dem Konto verknüpfte Foto, solange ein Upload gesetzt ist.",
+      "previewAria": "Dein Profilbild",
+      "upload": "Neues Foto hochladen",
+      "removeUploaded": "Hochgeladenes Foto entfernen",
+      "unsupportedType": "Nur JPEG- oder PNG-Bilder werden unterstützt.",
+      "invalid": "Diese Datei ist kein gültiges Bild.",
+      "tooLarge": "Dieses Bild ist zu groß. Versuche eine kleinere Datei.",
+      "failed": "Das Profilbild konnte nicht aktualisiert werden.",
+      "removeFailed": "Das hochgeladene Foto konnte nicht entfernt werden."
+    },
+    "cache": {
+      "title": "Cache",
+      "description": "Löscht lokale App-Daten und lädt deine Sitzung neu. Sprache und Darstellung bleiben erhalten.",
+      "approxSize": "Ungefähre gespeicherte Daten: {{size}} (Offline-Player-Cache + Listen-Cache).",
+      "clear": "Lokalen Cache löschen",
+      "cleared": "Lokaler Cache gelöscht.",
+      "failed": "Lokaler Cache konnte nicht gelöscht werden."
+    },
+    "account": {
+      "title": "Konto",
+      "description": "Springe zu kontobezogenen Bereichen oder melde dich auf diesem Gerät ab.",
+      "teams": "Teams",
+      "sessions": "Sitzungen",
+      "logout": "Abmelden"
+    }
+  },
+  "setlists": {
+    "create": {
+      "dialogTitle": "Neue Setliste",
+      "dialogDescription": "Gib der Setliste einen Titel. Songs fügst du im Editor hinzu.",
+      "titleLabel": "Titel",
+      "titlePlaceholder": "z. B. Ostern",
+      "titleRequired": "Bitte einen Titel eingeben.",
+      "teamLabel": "Team",
+      "submit": "Erstellen",
+      "failed": "Setliste konnte nicht erstellt werden."
+    },
+    "editor": {
+      "backToList": "Zurück zu Setlisten",
+      "readOnlyBanner": "Schreibgeschützt — du hast auf diesem Team keine Bearbeitungsrechte für die Bibliothek.",
+      "bannerOfflineEditing": "Du bist offline — Bearbeitung ist pausiert.",
+      "removeBrokenToSave": "Entferne nicht verfügbare Songs, bevor Änderungen gespeichert werden können.",
+      "discardToServer": "Lokale Änderungen verwerfen",
+      "retry": "Erneut versuchen",
+      "retryIn": "Erneut versuchen ({{seconds}} s)",
+      "discardLocal": "Verwerfen",
+      "saveFailedShort": "Speichern fehlgeschlagen.",
+      "saveStatusIdle": "Alle Änderungen gespeichert.",
+      "saveStatusPending": "Änderungen noch nicht gespeichert…",
+      "saveStatusSaving": "Speichert…",
+      "brokenAutosavePaused": "Speichern pausiert, bis nicht verfügbare Songs behoben sind.",
+      "resumePrompt": "Du bist wieder online. Bearbeitung fortsetzen und synchronisieren?",
+      "resumeRetry": "Synchronisieren",
+      "resumeDiscard": "Verwerfen und vom Server neu laden",
+      "emptyHint": "Noch keine Songs — unten Songs hinzufügen.",
+      "songsSectionLabel": "Songs",
+      "addSong": "Songs hinzufügen",
+      "addSongTitle": "Song hinzufügen",
+      "pickerSearchPlaceholder": "Songs suchen…",
+      "pickerSearchAria": "Songs zum Hinzufügen suchen",
+      "duplicateBadge": "Schon in Setliste ×{{count}}",
+      "waitForSave": "Bitte bis zum Speichern warten",
+      "pickerExcluded": "Dieser Eintrag kann nicht zu Setlisten hinzugefügt werden.",
+      "removedSlot": "Zeile entfernt.",
+      "undo": "Rückgängig",
+      "dragHandleAria": "Zum Sortieren ziehen",
+      "removeAria": "Aus Setliste entfernen",
+      "keyChip": "Tonart: {{symbol}}",
+      "songOriginalKey": "Originaltonart: {{symbol}}",
+      "songTempoAndMeter": "{{bpm}} BPM in {{meter}}",
+      "songTempoOnly": "{{bpm}} BPM",
+      "songMeterOnly": "{{meter}}",
+      "teamUnavailable": "Nicht verfügbar",
+      "unavailable": "Nicht verfügbar",
+      "cmdkInsertHeading": "Song in Setliste einfügen",
+      "a11yMoved": "Verschoben"
+    }
+  },
+  "collections": {
+    "create": {
+      "dialogTitle": "Neue Sammlung",
+      "dialogDescription": "Gib der Sammlung einen Titel. Lieder fügst du im Editor hinzu.",
+      "titleLabel": "Titel",
+      "titlePlaceholder": "z. B. Lieder vom Sonntag",
+      "titleRequired": "Bitte einen Titel eingeben.",
+      "teamLabel": "Team",
+      "submit": "Erstellen",
+      "failed": "Sammlung konnte nicht erstellt werden."
+    },
+    "hub": {
+      "duplicateTitleSuffix": "(Kopie)",
+      "duplicateFailed": "Sammlung konnte nicht dupliziert werden."
+    },
+    "editor": {
+      "backToList": "Zurück zu Sammlungen",
+      "readOnlyBanner": "Schreibgeschützt — du hast auf diesem Team keine Bearbeitungsrechte für die Bibliothek.",
+      "bannerOfflineEditing": "Du bist offline — Bearbeitung ist pausiert.",
+      "removeBrokenToSave": "Entferne nicht verfügbare Lieder, damit weiter gespeichert werden kann.",
+      "discardToServer": "Lokale Änderungen verwerfen",
+      "retry": "Erneut versuchen",
+      "retryIn": "Erneut versuchen ({{seconds}} s)",
+      "discardLocal": "Verwerfen",
+      "saveFailedShort": "Speichern fehlgeschlagen.",
+      "saveStatusIdle": "Alle Änderungen gespeichert.",
+      "saveStatusPending": "Änderungen noch nicht gespeichert…",
+      "saveStatusSaving": "Speichert…",
+      "brokenAutosavePaused": "Speichern pausiert, bis nicht verfügbare Lieder entfernt sind.",
+      "resumePrompt": "Du bist wieder online. Bearbeitung fortsetzen und synchronisieren?",
+      "resumeRetry": "Synchronisieren",
+      "resumeDiscard": "Verwerfen und vom Server neu laden",
+      "emptyHint": "Noch keine Lieder — unten Lieder hinzufügen.",
+      "songsSectionLabel": "Lieder",
+      "addSong": "Lieder hinzufügen",
+      "addSongTitle": "Lied hinzufügen",
+      "pickerSearchPlaceholder": "Lieder suchen…",
+      "pickerSearchAria": "Lieder zum Hinzufügen suchen",
+      "duplicateBadge": "Schon in Sammlung ×{{count}}",
+      "pickerExcluded": "Dieser Eintrag kann nicht zu Sammlungen hinzugefügt werden.",
+      "dragHandleAria": "Zum Sortieren ziehen",
+      "moveAria": "In eine andere Sammlung verschieben",
+      "moveToCollection": {
+        "title": "Lied in Sammlung verschieben",
+        "collectionLabel": "Sammlung",
+        "placeholder": "Sammlung wählen…",
+        "selectAria": "Sammlung auswählen",
+        "loadingLists": "Sammlungen werden geladen…",
+        "loadingMore": "Weitere laden…",
+        "empty": "Es gibt keine andere Sammlung, in die sich dieses Lied verschieben lässt.",
+        "cancel": "Abbrechen",
+        "confirm": "Verschieben",
+        "success": "Nach «{{collection}}» verschoben.",
+        "failed": "Lied konnte nicht verschoben werden.",
+        "failedPartial": "Das Lied könnte kurzzeitig in beiden Sammlungen stehen — Seite neu laden und ggf. hier entfernen.",
+        "alreadyThere": "Dieses Lied ist bereits in der gewählten Sammlung.",
+        "flushFailed": "Speichern abschließen oder nicht verfügbare Lieder beheben, dann erneut versuchen.",
+        "notFound": "Dieses Lied steht nicht mehr auf dem Server; bei Bedarf Liste neu laden."
+      },
+      "cmdkInsertHeading": "Lied in Sammlung einfügen",
+      "a11yMoved": "Verschoben",
+      "coverLabel": "Titelbild",
+      "coverChange": "Bild hochladen",
+      "coverUploading": "Wird hochgeladen…",
+      "coverRemove": "Entfernen",
+      "coverUploadFailed": "Titelbild konnte nicht hochgeladen werden.",
+      "coverUnsupportedType": "Bitte PNG, JPEG oder SVG verwenden."
+    }
+  },
+  "teams": {
+    "listTitle": "Teams",
+    "listMeta": "{{count}} von {{total}} angezeigt",
+    "memberCount_one": "{{count}} Mitglied",
+    "memberCount_other": "{{count}} Mitglieder",
+    "empty": "Noch keine Teams.",
+    "personalDisplayMine": "Mein Team",
+    "personalDisplayOwner": "Team von {{email}}",
+    "personalNameLocked": "Der Name des persönlichen Teams kann nicht geändert werden.",
+    "detailTitle": "{{name}}",
+    "nameLabel": "Teamname",
+    "saveName": "Speichern",
+    "saveFailed": "Änderungen konnten nicht gespeichert werden.",
+    "loadFailed": "Team konnte nicht geladen werden.",
+    "backToList": "Zurück zu Teams",
+    "membersHeading": "Mitglieder",
+    "membersEditHint": "Rollen anpassen und speichern. Es muss mindestens ein Admin verbleiben.",
+    "membersEditHintPersonal": "Rollen anpassen und speichern. Der Team-Inhaber hat immer Admin-Rechte; unter den aufgeführten Mitgliedern muss kein Admin sein.",
+    "saveMembers": "Rollen speichern",
+    "saveMembersFailed": "Rollen konnten nicht aktualisiert werden.",
+    "discardMembers": "Verwerfen",
+    "needOneAdmin": "Es muss mindestens ein Admin geben.",
+    "roleLabel": "Rolle",
+    "deleteTeam": "Team löschen",
+    "deleteTeamTitle": "Dieses Team löschen?",
+    "deleteTeamDescription": "Das Team wird für alle entfernt. Auswirkungen auf die Bibliothek hängen vom Server ab. Der Vorgang kann nicht rückgängig gemacht werden.",
+    "deleteTeamConfirm": "Team löschen",
+    "deleteFailed": "Team konnte nicht gelöscht werden. Persönliche Teams werden hier nicht gelöscht.",
+    "role": {
+      "admin": "Admin",
+      "content_maintainer": "Redaktion",
+      "guest": "Gast"
+    },
+    "invitationsHeading": "Einladungen",
+    "inviteAction": "Einladen",
+    "inviteAdminOnly": "Nur Team-Admins verwalten Einladungen.",
+    "inviteListFailed": "Einladungen konnten nicht geladen werden.",
+    "inviteEmpty": "Keine ausstehenden Einladungen.",
+    "inviteMeta": "Erstellt {{at}}",
+    "inviteRevoke": "Zurückziehen",
+    "inviteDialogTitle": "Einladungslink",
+    "inviteDialogDescription": "Erzeuge einen Link und teile ihn. Wer eingeloggt ist, kann dem Team so beitreten.",
+    "inviteLinkLabel": "Einladungslink",
+    "inviteCreateLink": "Link erstellen",
+    "inviteCopy": "Link kopieren",
+    "inviteCopied": "Link kopiert",
+    "inviteCopyFailed": "Kopieren fehlgeschlagen",
+    "inviteDone": "Schließen",
+    "inviteFailed": "Einladung konnte nicht erstellt werden.",
+    "deleteInviteFailed": "Einladung konnte nicht zurückgezogen werden.",
+    "createTitle": "Team erstellen",
+    "createDescription": "Lege ein gemeinsames Team für eure Gruppe an.",
+    "createNameLabel": "Teamname",
+    "createNamePlaceholder": "z. B. Band Dienstag",
+    "createNameRequired": "Bitte einen Teamnamen eingeben.",
+    "createSubmit": "Erstellen",
+    "createFailed": "Team konnte nicht erstellt werden.",
+    "dialogCancel": "Abbrechen"
+  },
+  "joinTeam": {
+    "joining": "Team wird beigetreten …",
+    "failed": "Teambeitritt fehlgeschlagen.",
+    "invalidLink": "Dieser Einladungslink enthält nicht alle nötigen Angaben.",
+    "backToTeams": "Zurück zu Teams"
+  },
+  "sessions": {
+    "listTitle": "Aktive Sitzungen",
+    "listDescription": "Geräte und Browser, an denen du angemeldet bist. Ziehe eine Sitzung zurück, um dort abzumelden.",
+    "thisDevice": "Dieses Gerät",
+    "currentUnknownHint": "Die aktuelle Sitzung in diesem Browser kann nicht markiert werden: Das Sitzungs-Cookie ist für diese Seite unsichtbar (häufig HttpOnly, aus Sicherheitsgründen). Du bist trotzdem angemeldet.",
+    "empty": "Keine weiteren Sitzungen.",
+    "rowMeta": "Start {{start}} · Ende {{end}}",
+    "lastUsed": "Zuletzt genutzt: {{when}}",
+    "lastUsedNever": "Keine Nutzungsdaten",
+    "lastUsedUnavailable": "Aktivität konnte nicht geladen werden",
+    "revoke": "Zurückziehen",
+    "revokeTitle": "Diese Sitzung zurückziehen?",
+    "revokeBody": "Auf diesem Gerät wirst du von Worship Viewer abgemeldet.",
+    "revokeConfirm": "Sitzung zurückziehen",
+    "revokeFailed": "Sitzung konnte nicht beendet werden."
+  }
+}
