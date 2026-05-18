@@ -10,15 +10,15 @@ use crate::auth::AuthorizationContext;
 use crate::docs::Problem;
 use crate::error::AppError;
 use crate::http_cache::{check_if_match, if_none_match_matches, weak_etag_json};
+use crate::resources::blob::service::BlobServiceHandle;
 #[allow(unused_imports)]
 use crate::resources::collection::Collection;
 use crate::resources::collection::PatchCollection;
-use crate::resources::blob::service::BlobServiceHandle;
 use crate::resources::collection::service::CollectionServiceHandle;
 use crate::resources::collection::{CreateCollection, UpdateCollection};
-use crate::settings::CoverUploadLimits;
 #[allow(unused_imports)]
 use crate::resources::song::Song;
+use crate::settings::CoverUploadLimits;
 use shared::MoveOwner;
 use shared::api::{ListQuery, PAGE_SIZE_DEFAULT, PageQuery};
 #[allow(unused_imports)]
@@ -359,8 +359,8 @@ async fn put_collection_cover(
             limits.max_bytes,
         )
         .await?;
-    let etag = weak_etag_json(&updated)
-        .map_err(|e| AppError::internal_from_err("collection.rest", e))?;
+    let etag =
+        weak_etag_json(&updated).map_err(|e| AppError::internal_from_err("collection.rest", e))?;
     Ok(HttpResponse::Ok()
         .insert_header((header::ETAG, etag))
         .json(updated))
