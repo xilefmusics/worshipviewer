@@ -3,6 +3,8 @@ use chordlib::types::SimpleChord;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "backend")]
+use super::song_data_schema::SimpleChordSchema;
+#[cfg(feature = "backend")]
 use utoipa::ToSchema;
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone)]
@@ -13,8 +15,8 @@ pub struct Link {
     pub id: String,
     /// Optional display position in the parent list (e.g. `1`, `2a`).
     pub nr: Option<String>,
-    /// Musical key for this slot (e.g. `G`, `Am`, `F#m`).
-    #[cfg_attr(feature = "backend", schema(value_type = Option<String>))]
+    /// Transposition key for this slot (same `{ "level": … }` object as `Song.data.key`).
+    #[cfg_attr(feature = "backend", schema(value_type = Option<SimpleChordSchema>))]
     pub key: Option<SimpleChord>,
 }
 
