@@ -22,6 +22,16 @@ fn song_link_id_key(id: &str) -> String {
     thing_record_key(&song_thing(id))
 }
 
+/// BLC-COLL-025: collection must have no songs before DELETE.
+fn ensure_collection_empty_for_delete(songs: &[SongLink]) -> Result<(), AppError> {
+    if !songs.is_empty() {
+        return Err(AppError::conflict(
+            "cannot delete a collection that still contains songs; remove all songs first",
+        ));
+    }
+    Ok(())
+}
+
 /// BLC-COLL-024: existing song ids must remain present (add/reorder/nr/key changes only).
 fn ensure_no_song_removals(current: &[SongLink], proposed: &[SongLink]) -> Result<(), AppError> {
     let proposed_keys: HashSet<String> = proposed.iter().map(|l| song_link_id_key(&l.id)).collect();
@@ -198,6 +208,8 @@ impl<R: CollectionRepository, L: LikedSongIds> CollectionService<R, L> {
         ctx: &AuthorizationContext,
         id: &str,
     ) -> Result<Collection, AppError> {
+        let collection = self.get_collection_for_user(ctx, id).await?;
+        ensure_collection_empty_for_delete(&collection.songs)?;
         let write_teams = ctx.write_teams();
         self.repo.delete_collection(&write_teams, id).await
     }
@@ -317,6 +329,11 @@ mod tests {
             .await;
         assert!(matches!(put_guest, Err(AppError::NotFound(_))));
 
+        let song_svc = crate::resources::song::SongServiceHandle::build(db.clone());
+        song_svc
+            .delete_song_for_user(&owner_perms, &song.id)
+            .await
+            .expect("delete song");
         svc.delete_collection_for_user(&owner_perms, &col.id)
             .await
             .expect("delete");
@@ -438,6 +455,74 @@ mod tests {
             .update_collection_for_user(&guest_p, &col.id, make_collection("Hack"), None)
             .await;
         assert!(matches!(r, Err(AppError::NotFound(_))));
+    }
+
+    /// BLC-COLL-025: DELETE is rejected while the collection still has songs.
+    #[tokio::test]
+    async fn blc_coll_025_delete_non_empty_collection_rejected() {
+        let db = test_db().await.expect("db");
+        let svc = CollectionServiceHandle::build(db.clone());
+        let owner = create_user(&db, "coll-del-block@test.local")
+            .await
+            .expect("o");
+        let song = create_song_with_title(&db, &owner, "Block Del")
+            .await
+            .expect("song");
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let col = svc
+            .create_collection_for_user(
+                &owner_p,
+                CreateCollection {
+                    owner: None,
+                    title: "Non Empty".into(),
+                    cover: "mysongs".into(),
+                    songs: vec![SongLink {
+                        id: song.id.clone(),
+                        nr: None,
+                        key: None,
+                    }],
+                },
+            )
+            .await
+            .expect("create");
+        let r = svc.delete_collection_for_user(&owner_p, &col.id).await;
+        assert!(matches!(r, Err(AppError::Conflict(_))));
+    }
+
+    /// BLC-COLL-025: DELETE succeeds after all songs are removed (via song DELETE cascade).
+    #[tokio::test]
+    async fn blc_coll_025_delete_after_songs_removed() {
+        let db = test_db().await.expect("db");
+        let svc = CollectionServiceHandle::build(db.clone());
+        let song_svc = crate::resources::song::SongServiceHandle::build(db.clone());
+        let owner = create_user(&db, "coll-del-ok@test.local").await.expect("o");
+        let song = create_song_with_title(&db, &owner, "Allow Del")
+            .await
+            .expect("song");
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let col = svc
+            .create_collection_for_user(
+                &owner_p,
+                CreateCollection {
+                    owner: None,
+                    title: "Then Empty".into(),
+                    cover: "mysongs".into(),
+                    songs: vec![SongLink {
+                        id: song.id.clone(),
+                        nr: None,
+                        key: None,
+                    }],
+                },
+            )
+            .await
+            .expect("create");
+        song_svc
+            .delete_song_for_user(&owner_p, &song.id)
+            .await
+            .expect("delete song");
+        svc.delete_collection_for_user(&owner_p, &col.id)
+            .await
+            .expect("delete collection");
     }
 
     /// BLC-COLL-007: guest cannot delete a collection they don't own.
