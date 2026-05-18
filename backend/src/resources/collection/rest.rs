@@ -391,6 +391,7 @@ async fn move_collection(
         (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
         (status = 429, description = "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers", body = Problem, content_type = "application/problem+json"),
         (status = 404, description = "Collection not found", body = Problem, content_type = "application/problem+json"),
+        (status = 409, description = "Collection still contains songs (BLC-COLL-025)", body = Problem, content_type = "application/problem+json"),
         (status = 412, description = "`If-Match` does not match current weak ETag", body = Problem, content_type = "application/problem+json"),
         (status = 500, description = "Failed to delete collection", body = Problem, content_type = "application/problem+json")
     ),

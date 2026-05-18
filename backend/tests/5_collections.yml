@@ -1089,7 +1089,7 @@ testcases:
           - result.statuscode ShouldEqual 200
           - result.bodyjson ShouldHaveLength 1
 
-  # BLC: BLC-COLL-004, BLC-COLL-013
+  # BLC: BLC-COLL-004, BLC-COLL-013, BLC-COLL-024
   - name: put-collection-invalid-song-entry
     steps:
       - type: http
@@ -1103,12 +1103,14 @@ testcases:
             "title": "Put Bad Song",
             "cover": "cover-bad-song",
             "songs": [
-              { "id": "song-missing-from-db", "nr": "1" }
+              { "id": "{{.create-collection-song-one.songid}}", "nr": "1" },
+              { "id": "{{.create-collection-song-two.songid}}", "nr": "2" },
+              { "id": "song-missing-from-db", "nr": "3" }
             ]
           }
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.bodyjson.songs ShouldHaveLength 1
+          - result.bodyjson.songs ShouldHaveLength 3
 
   # Additional collections for delete scenarios
   - name: post-collection-for-delete
@@ -1123,9 +1125,7 @@ testcases:
           {
             "title": "Collection To Delete",
             "cover": "cover-delete",
-            "songs": [
-              { "id": "{{.create-collection-song-one.songid}}", "nr": "1" }
-            ]
+            "songs": []
           }
         assertions:
           - result.statuscode ShouldEqual 201
@@ -1145,8 +1145,28 @@ testcases:
           {
             "title": "Collection To Delete By Write",
             "cover": "cover-delete-write",
+            "songs": []
+          }
+        assertions:
+          - result.statuscode ShouldEqual 201
+        vars:
+          collectionid:
+            from: result.bodyjson.id
+
+  - name: post-collection-for-delete-blocked
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "title": "Collection With Songs",
+            "cover": "cover-delete-blocked",
             "songs": [
-              { "id": "{{.create-collection-song-two.songid}}", "nr": "2" }
+              { "id": "{{.create-collection-song-one.songid}}", "nr": "1" }
             ]
           }
         assertions:
@@ -1155,8 +1175,37 @@ testcases:
           collectionid:
             from: result.bodyjson.id
 
+  # BLC: BLC-COLL-025
+  - name: delete-collection-non-empty-rejected
+    steps:
+      - type: http
+        method: DELETE
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-for-delete-blocked.collectionid}}"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+        assertions:
+          - result.statuscode ShouldEqual 409
+
+  # BLC: BLC-COLL-025, BLC-SONG-015, BLC-COLL-019
+  - name: delete-collection-song-then-collection
+    steps:
+      - type: http
+        method: DELETE
+        url: "{{.base_url}}/api/v1/songs/{{.create-collection-song-one.songid}}"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+        assertions:
+          - result.statuscode ShouldEqual 204
+      - type: http
+        method: DELETE
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-for-delete-blocked.collectionid}}"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+        assertions:
+          - result.statuscode ShouldEqual 204
+
   # DELETE /api/v1/collections/{id}
-  # BLC: BLC-COLL-008, BLC-COLL-015
+  # BLC: BLC-COLL-008, BLC-COLL-015, BLC-COLL-025
   - name: delete-collection-success
     steps:
       - type: http
@@ -1167,7 +1216,7 @@ testcases:
         assertions:
           - result.statuscode ShouldEqual 204
 
-  # BLC: BLC-COLL-008, BLC-COLL-015, BLC-USER-011
+  # BLC: BLC-COLL-008, BLC-COLL-015, BLC-COLL-025, BLC-USER-011
   - name: delete-collection-success-write-user
     steps:
       - type: http

@@ -3753,6 +3753,16 @@
             },
             "description": "Collection not found"
           },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Collection still contains songs (BLC-COLL-025)"
+          },
           "412": {
             "content": {
               "application/problem+json": {
