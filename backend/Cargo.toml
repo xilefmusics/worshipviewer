@@ -54,6 +54,10 @@ chordlib = { version = "0.10.0", features = ["html"] }
 zip = "8.6.0"
 imagesize = "0.14"
 
+[[bin]]
+name = "venom-test"
+path = "src/bin/venom_test.rs"
+
 [dev-dependencies]
 anyhow = "1"
 tempfile = "3"
