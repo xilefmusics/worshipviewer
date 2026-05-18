@@ -31,8 +31,11 @@ use shared::like::LikeStatus;
 use shared::player::{
     Orientation, Player, PlayerBlobItem, PlayerChordsItem, PlayerItem, ScrollType, TocItem,
 };
-use shared::song::SongDataSchema;
-use shared::song::{Link as SongLink, SongUserSpecificAddons};
+use shared::song::{
+    ChordKindSchema, ChordSchema, LineSchema, Link as SongLink, PartSchema,
+    RootSpellingHintSchema, SectionSchema, SimpleChordSchema, SongDataSchema,
+    SongUserSpecificAddons,
+};
 use shared::team::{
     CreateTeam, PatchTeam, Team, TeamInvitation, TeamMember, TeamMemberInput, TeamRole, TeamUser,
     TeamUserRef, UpdateTeam,
@@ -215,6 +218,13 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
             PatchSong,
             PatchSongData,
             SongDataSchema,
+            SimpleChordSchema,
+            ChordKindSchema,
+            RootSpellingHintSchema,
+            ChordSchema,
+            PartSchema,
+            LineSchema,
+            SectionSchema,
             SongUserSpecificAddons,
             Collection,
             CreateCollection,

@@ -146,6 +146,58 @@
         ],
         "type": "object"
       },
+      "Chord": {
+        "description": "Structured chord attached to a lyric [`PartSchema`].",
+        "properties": {
+          "base": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SimpleChord"
+              }
+            ]
+          },
+          "duration": {
+            "description": "Duration in milliclicks (1000 per ChordPro click in `{chord:…:N}`).",
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/Kind"
+          },
+          "main": {
+            "$ref": "#/components/schemas/SimpleChord"
+          },
+          "optional": {
+            "type": "boolean"
+          },
+          "root_spelling_hint": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RootSpellingHint"
+              }
+            ]
+          },
+          "var": {
+            "description": "Extensions and figures after the quality (e.g. `7`, `add9`, `sus4`).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "main",
+          "kind",
+          "var",
+          "optional",
+          "root_spelling_hint"
+        ],
+        "type": "object"
+      },
       "Collection": {
         "example": {
           "cover": "",
@@ -689,6 +741,18 @@
         ],
         "type": "object"
       },
+      "Kind": {
+        "description": "Chord quality on the wire (`kind` field of [`ChordSchema`]).",
+        "enum": [
+          "Major",
+          "Minor",
+          "Diminished",
+          "Augmented",
+          "Suspended2",
+          "Suspended4"
+        ],
+        "type": "string"
+      },
       "LatencyMetrics": {
         "properties": {
           "by_method": {
@@ -733,6 +797,21 @@
         },
         "required": [
           "liked"
+        ],
+        "type": "object"
+      },
+      "Line": {
+        "description": "A single lyric line made of aligned [`PartSchema`] fragments.",
+        "properties": {
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/Part"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "parts"
         ],
         "type": "object"
       },
@@ -999,6 +1078,37 @@
         ],
         "type": "object"
       },
+      "Part": {
+        "description": "One lyric/chord fragment on a line.",
+        "properties": {
+          "chord": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Chord"
+              }
+            ]
+          },
+          "comment": {
+            "description": "When true, `languages` holds a ChordPro comment line, not lyrics.",
+            "type": "boolean"
+          },
+          "languages": {
+            "description": "Lyric text per language **track** (index aligns with song-level `languages`; not BCP 47 codes).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "languages",
+          "comment"
+        ],
+        "type": "object"
+      },
       "PatchBlob": {
         "additionalProperties": false,
         "description": "Partial update for a blob. Absent fields are left unchanged.",
@@ -1159,9 +1269,13 @@
             ]
           },
           "key": {
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SimpleChord"
+              }
             ]
           },
           "languages": {
@@ -1176,7 +1290,7 @@
           },
           "sections": {
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/Section"
             },
             "type": [
               "array",
@@ -1553,6 +1667,15 @@
         ],
         "type": "string"
       },
+      "RootSpellingHint": {
+        "description": "Accidental spelling hint from the parsed root token (`#` vs `b`).",
+        "enum": [
+          "default",
+          "prefer_sharp",
+          "prefer_flat"
+        ],
+        "type": "string"
+      },
       "RouteFamily": {
         "enum": [
           "api_v1",
@@ -1571,6 +1694,35 @@
           "two_half_page"
         ],
         "type": "string"
+      },
+      "Section": {
+        "description": "Verse, chorus, bridge, etc.",
+        "properties": {
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/Line"
+            },
+            "type": "array"
+          },
+          "repeat_count": {
+            "description": "Times this section repeats (`{repeat}` / `{repeat: N}`). Default 1 when omitted on input.",
+            "example": 1,
+            "format": "int32",
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "lines"
+        ],
+        "type": "object"
       },
       "SessionBody": {
         "description": "Wire representation of a session. `user` is a [`TeamUser`] link unless the client\npasses `expand=user`, in which case it is the full [`User`] object.",
@@ -1656,6 +1808,23 @@
         ],
         "type": "object"
       },
+      "SimpleChord": {
+        "description": "Chromatic pitch class (song key, chord root, or slash bass).",
+        "properties": {
+          "level": {
+            "description": "Pitch class: 0 = C, 1 = C#/Db, …, 11 = B.",
+            "example": 7,
+            "format": "int32",
+            "maximum": 11,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "level"
+        ],
+        "type": "object"
+      },
       "Song": {
         "properties": {
           "blobs": {
@@ -1699,11 +1868,41 @@
         "example": {
           "artists": [],
           "copyright": null,
-          "key": null,
+          "key": {
+            "level": 7
+          },
           "languages": [
             "en"
           ],
-          "sections": [],
+          "sections": [
+            {
+              "lines": [
+                {
+                  "parts": [
+                    {
+                      "chord": {
+                        "base": null,
+                        "duration": null,
+                        "kind": "Major",
+                        "main": {
+                          "level": 0
+                        },
+                        "optional": false,
+                        "root_spelling_hint": "default",
+                        "var": ""
+                      },
+                      "comment": false,
+                      "languages": [
+                        "Amazing grace"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "repeat_count": 1,
+              "title": "Verse"
+            }
+          ],
           "subtitle": null,
           "tags": {},
           "tempo": null,
@@ -1717,7 +1916,10 @@
             "items": {
               "type": "string"
             },
-            "type": "array"
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "copyright": {
             "type": [
@@ -1726,27 +1928,33 @@
             ]
           },
           "key": {
-            "description": "Musical key; chord symbols use ChordPro conventions.",
-            "example": "G",
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SimpleChord",
+                "description": "Tonic pitch class for the song (transposition / display reference)."
+              }
             ]
           },
           "languages": {
-            "description": "BCP 47 language tags (e.g. `en`, `de-CH`).",
+            "description": "BCP 47 language tags for lyric tracks (e.g. `en`, `de-CH`). Empty string when unset.",
             "example": [
               "en"
             ],
             "items": {
               "type": "string"
             },
-            "type": "array"
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "sections": {
             "description": "Structured sections (verse, chorus, etc.) with lyric lines and chords.",
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/Section"
             },
             "type": "array"
           },
@@ -1758,8 +1966,11 @@
           },
           "tags": {
             "additionalProperties": true,
-            "description": "Custom meta tags from ChordPro `{meta: name value}` pairs.",
-            "type": "object"
+            "description": "Custom meta tags from ChordPro `{meta: name value}` pairs. Omitted on the wire when empty.",
+            "type": [
+              "object",
+              "null"
+            ]
           },
           "tempo": {
             "description": "Tempo in BPM (beats per minute).",
@@ -1794,14 +2005,13 @@
             "items": {
               "type": "string"
             },
-            "type": "array"
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
-          "titles",
-          "artists",
-          "languages",
-          "tags",
           "sections"
         ],
         "type": "object"
@@ -1813,10 +2023,14 @@
             "type": "string"
           },
           "key": {
-            "description": "Musical key for this slot (e.g. `G`, `Am`, `F#m`).",
-            "type": [
-              "string",
-              "null"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SimpleChord",
+                "description": "Transposition key for this slot (same `{ \"level\": … }` object as `Song.data.key`)."
+              }
             ]
           },
           "nr": {
