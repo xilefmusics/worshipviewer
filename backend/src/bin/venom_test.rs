@@ -150,9 +150,8 @@ fn parse_args() -> io::Result<Options> {
 }
 
 fn next_arg(args: &mut impl Iterator<Item = String>, flag: &str) -> io::Result<String> {
-    args.next().ok_or_else(|| {
-        io::Error::new(ErrorKind::InvalidInput, format!("missing value for {flag}"))
-    })
+    args.next()
+        .ok_or_else(|| io::Error::new(ErrorKind::InvalidInput, format!("missing value for {flag}")))
 }
 
 fn print_help() {
@@ -188,7 +187,10 @@ fn socket_addr(base_url: &str) -> io::Result<String> {
         .next()
         .filter(|s| !s.is_empty())
         .ok_or_else(|| {
-            io::Error::new(ErrorKind::InvalidInput, format!("invalid base URL {base_url:?}"))
+            io::Error::new(
+                ErrorKind::InvalidInput,
+                format!("invalid base URL {base_url:?}"),
+            )
         })?;
     Ok(authority.to_string())
 }
@@ -217,7 +219,12 @@ fn venom_suite_files(tests_dir: &Path) -> io::Result<Vec<PathBuf>> {
     Ok(files)
 }
 
-fn spawn_backend(backend_bin: &Path, root: &Path, static_dir: &Path, port: u16) -> io::Result<Child> {
+fn spawn_backend(
+    backend_bin: &Path,
+    root: &Path,
+    static_dir: &Path,
+    port: u16,
+) -> io::Result<Child> {
     Command::new(backend_bin)
         .current_dir(root)
         .env("HOST", HOST)
