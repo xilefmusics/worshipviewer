@@ -495,9 +495,7 @@ mod tests {
         let db = test_db().await.expect("db");
         let svc = CollectionServiceHandle::build(db.clone());
         let song_svc = crate::resources::song::SongServiceHandle::build(db.clone());
-        let owner = create_user(&db, "coll-del-ok@test.local")
-            .await
-            .expect("o");
+        let owner = create_user(&db, "coll-del-ok@test.local").await.expect("o");
         let song = create_song_with_title(&db, &owner, "Allow Del")
             .await
             .expect("song");
