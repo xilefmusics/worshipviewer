@@ -189,10 +189,22 @@ pub struct ProfilePictureLimits {
     pub max_bytes: usize,
 }
 
+/// Limits for `PUT /collections/{id}/cover`.
+#[derive(Clone, Copy, Debug)]
+pub struct CoverUploadLimits {
+    pub max_bytes: usize,
+}
+
 impl Settings {
     pub fn profile_picture_limits(&self) -> ProfilePictureLimits {
         ProfilePictureLimits {
             max_bytes: self.avatar_upload_max_bytes,
+        }
+    }
+
+    pub fn cover_upload_limits(&self) -> CoverUploadLimits {
+        CoverUploadLimits {
+            max_bytes: self.blob_upload_max_bytes,
         }
     }
 

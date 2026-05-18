@@ -27,7 +27,7 @@ pub fn scope(
             web::scope("")
                 .wrap(RequireUser)
                 .service(blob::rest::scope(blob_upload_max_bytes))
-                .service(collection::rest::scope())
+                .service(collection::rest::scope(blob_upload_max_bytes))
                 .service(setlist::rest::scope())
                 .service(song::rest::scope())
                 .service(team::rest::scope())

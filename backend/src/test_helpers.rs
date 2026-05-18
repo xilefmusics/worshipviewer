@@ -300,3 +300,8 @@ pub fn setlist_with_songs(title: &str, song_ids: &[(&str, Option<&str>)]) -> Cre
             .collect(),
     }
 }
+
+/// Minimal valid JPEG for collection-cover upload tests.
+pub fn sample_cover_jpeg_bytes() -> Vec<u8> {
+    include_bytes!("../tests/fixtures/cover-1x1.jpeg").to_vec()
+}

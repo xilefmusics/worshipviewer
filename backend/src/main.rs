@@ -169,6 +169,7 @@ async fn main() -> AnyResult<()> {
 
     let docs_settings = settings.clone();
     let profile_picture_limits = Data::new(settings.profile_picture_limits());
+    let cover_upload_limits = Data::new(settings.cover_upload_limits());
 
     HttpServer::new(move || {
         App::new()
@@ -182,6 +183,7 @@ async fn main() -> AnyResult<()> {
             .app_data(Data::new(mail_service.clone()))
             .app_data(Data::new(blob_service.clone()))
             .app_data(profile_picture_limits.clone())
+            .app_data(cover_upload_limits.clone())
             .app_data(Data::new(collection_service.clone()))
             .app_data(Data::new(song_service.clone()))
             .app_data(Data::new(setlist_service.clone()))
