@@ -181,6 +181,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/collections/{id}/songs/{song_id}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["transfer_collection_song"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invitations/{invitation_id}/accept": {
         parameters: {
             query?: never;
@@ -1656,6 +1672,28 @@ export interface components {
             family: components["schemas"]["RouteFamily"];
             /** Format: double */
             share: number;
+        };
+        /**
+         * @description Move a song link from this collection into another (`POST …/collections/{id}/songs/{song_id}/transfer`).
+         * @example {
+         *       "key": {
+         *         "level": 3
+         *       },
+         *       "nr": "3",
+         *       "target": "col_target"
+         *     }
+         */
+        TransferCollectionSong: {
+            key?: null | components["schemas"]["SimpleChord"];
+            /** @description Optional slot number override from the editor row. */
+            nr?: string | null;
+            /** @description Destination collection id. */
+            target: string;
+        };
+        /** @description Updated source and target collections after a successful transfer. */
+        TransferCollectionSongResult: {
+            source: components["schemas"]["Collection"];
+            target: components["schemas"]["Collection"];
         };
         /** @description Full replacement body for `PUT /api/v1/blobs/{id}` metadata (same shape as [`CreateBlob`]; does not upload bytes). */
         UpdateBlob: {
@@ -3216,6 +3254,89 @@ export interface operations {
                 };
             };
             /** @description Failed to fetch collection songs */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    transfer_collection_song: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Source collection identifier */
+                id: string;
+                /** @description Song identifier to move */
+                song_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferCollectionSong"];
+            };
+        };
+        responses: {
+            /** @description Song link moved from source to target collection atomically. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransferCollectionSongResult"];
+                };
+            };
+            /** @description Invalid identifiers or source equals target */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Collection or song slot not found, or caller lacks library write access */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Song already in target collection */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description API rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Failed to transfer song between collections */
             500: {
                 headers: {
                     [name: string]: unknown;

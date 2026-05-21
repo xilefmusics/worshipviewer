@@ -16,13 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { buildCollectionPatchBody } from '@/lib/collection-field-diff'
 import { hubListKey } from '@/lib/hub-list-keys'
 import { getNextPageIndex } from '@/lib/list-pagination'
 import { collectionDetailKey } from '@/lib/setlist-detail-key'
 import {
   normalizeSongLinkId,
-  normalizeSongLinksForCollectionEditor,
+  normalizeSongLinkNr,
+  songLinkKeyEditorToWire,
   type SongLink,
 } from '@/lib/setlist-song-links'
 import { cn } from '@/lib/utils'
@@ -91,114 +91,44 @@ export function MoveSongToCollectionDialog({
         throw new Error('flush_failed')
       }
 
-      const { data: src, response: srcRes } = await api.GET('/api/v1/collections/{id}', {
-        params: { path: { id: sourceCollectionId } },
-      })
-      if (!srcRes.ok) {
-        const problem = await parseProblemResponse(srcRes.clone())
-        throw new Error(problem?.title ?? t('collections.editor.moveToCollection.failed'))
-      }
-      if (!src) {
-        throw new Error(t('collections.editor.moveToCollection.failed'))
-      }
+      const songId = normalizeSongLinkId(songLink.id)
+      const key = songLinkKeyEditorToWire(songLink.key)
+      const nr = normalizeSongLinkNr(songLink.nr)
 
-      const { data: tgt, response: tgtRes } = await api.GET('/api/v1/collections/{id}', {
-        params: { path: { id: targetCollectionId } },
-      })
-      if (!tgtRes.ok) {
-        const problem = await parseProblemResponse(tgtRes.clone())
-        throw new Error(problem?.title ?? t('collections.editor.moveToCollection.failed'))
-      }
-      if (!tgt) {
-        throw new Error(t('collections.editor.moveToCollection.failed'))
-      }
-
-      const srcNorm = normalizeSongLinksForCollectionEditor(src.songs)
-      const fromServer = srcNorm.find(
-        (l) => normalizeSongLinkId(l.id) === normalizeSongLinkId(songLink.id),
-      )
-      if (!fromServer) {
-        throw new Error('not_in_collection')
-      }
-
-      const linkToMove: SongLink = {
-        id: fromServer.id,
-        key: songLink.key ?? fromServer.key,
-        nr: songLink.nr ?? fromServer.nr,
-      }
-
-      const tgtNorm = normalizeSongLinksForCollectionEditor(tgt.songs)
-      if (
-        tgtNorm.some((l) => normalizeSongLinkId(l.id) === normalizeSongLinkId(linkToMove.id))
-      ) {
-        return { kind: 'duplicate' as const, title: tgt.title }
-      }
-
-      const nextTargetSongs = [...tgtNorm, linkToMove]
-      const nextSourceSongs = srcNorm.filter(
-        (l) => normalizeSongLinkId(l.id) !== normalizeSongLinkId(linkToMove.id),
+      const { data: result, response } = await api.POST(
+        '/api/v1/collections/{id}/songs/{song_id}/transfer',
+        {
+          params: { path: { id: sourceCollectionId, song_id: songId } },
+          body: {
+            target: targetCollectionId,
+            ...(key != null ? { key } : {}),
+            ...(nr != null ? { nr } : {}),
+          },
+        },
       )
 
-      const baselineTgt = {
-        title: tgt.title,
-        songs: tgt.songs,
-        cover: tgt.cover ?? '',
-        owner: tgt.owner,
-      }
-      const draftTgt = { title: tgt.title, songs: nextTargetSongs, cover: tgt.cover ?? '', owner: tgt.owner }
-
-      const baselineSrc = {
-        title: src.title,
-        songs: src.songs,
-        cover: src.cover ?? '',
-        owner: src.owner,
-      }
-      const draftSrc = { title: src.title, songs: nextSourceSongs, cover: src.cover ?? '', owner: src.owner }
-
-      const bodyTgt = buildCollectionPatchBody(baselineTgt, draftTgt)
-      const bodySrc = buildCollectionPatchBody(baselineSrc, draftSrc)
-
-      if (!bodyTgt || !bodySrc) {
-        throw new Error(t('collections.editor.moveToCollection.failed'))
-      }
-
-      const { response: patchTgtRes, data: patchedTgt } = await api.PATCH('/api/v1/collections/{id}', {
-        params: { path: { id: targetCollectionId } },
-        body: bodyTgt,
-      })
-      if (!patchTgtRes.ok) {
-        const problem = await parseProblemResponse(patchTgtRes.clone())
+      if (!response.ok) {
+        const problem = await parseProblemResponse(response.clone())
+        if (response.status === 404) {
+          throw new Error('not_in_collection')
+        }
         throw new Error(problem?.title ?? t('collections.editor.moveToCollection.failed'))
       }
 
-      const { response: patchSrcRes, data: patchedSrc } = await api.PATCH('/api/v1/collections/{id}', {
-        params: { path: { id: sourceCollectionId } },
-        body: bodySrc,
-      })
-      if (!patchSrcRes.ok) {
-        const problem = await parseProblemResponse(patchSrcRes.clone())
-        throw new Error(problem?.title ?? t('collections.editor.moveToCollection.failedPartial'))
+      if (!result) {
+        throw new Error(t('collections.editor.moveToCollection.failed'))
       }
 
       return {
         kind: 'ok' as const,
-        targetTitle: tgt.title,
-        patchedTgt: patchedTgt ?? undefined,
-        patchedSrc: patchedSrc ?? undefined,
+        targetTitle: result.target.title,
+        source: result.source,
+        target: result.target,
       }
     },
     onSuccess: (result) => {
-      if (result.kind === 'duplicate') {
-        toast.info(t('collections.editor.moveToCollection.alreadyThere'))
-        return
-      }
-
-      if (result.patchedSrc) {
-        queryClient.setQueryData(collectionDetailKey(sourceCollectionId), result.patchedSrc)
-      }
-      if (result.patchedTgt) {
-        queryClient.setQueryData(collectionDetailKey(result.patchedTgt.id), result.patchedTgt)
-      }
+      queryClient.setQueryData(collectionDetailKey(sourceCollectionId), result.source)
+      queryClient.setQueryData(collectionDetailKey(result.target.id), result.target)
       void queryClient.invalidateQueries({ queryKey: hubListKey('collections', '') })
 
       toast.success(
