@@ -486,6 +486,8 @@ function HubItemContextMenu({
                 void navigate({ to: '/setlists/$setlistId', params: { setlistId: itemId } })
               } else if (entity === 'collections') {
                 void navigate({ to: '/collections/$collectionId', params: { collectionId: itemId } })
+              } else if (entity === 'songs') {
+                void navigate({ to: '/songs/$songId', params: { songId: itemId } })
               } else {
                 void navigate({
                   to: '/$',

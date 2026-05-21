@@ -23,6 +23,7 @@ import { Route as HubSetlistsRouteImport } from './routes/_hub/setlists'
 import { Route as HubSessionsRouteImport } from './routes/_hub/sessions'
 import { Route as HubCollectionsRouteImport } from './routes/_hub/collections'
 import { Route as HubTeamsTeamIdRouteImport } from './routes/_hub/teams.$teamId'
+import { Route as HubSongsSongIdRouteImport } from './routes/_hub/songs.$songId'
 import { Route as HubSetlistsSetlistIdRouteImport } from './routes/_hub/setlists.$setlistId'
 import { Route as HubCollectionsCollectionIdRouteImport } from './routes/_hub/collections.$collectionId'
 
@@ -95,6 +96,11 @@ const HubTeamsTeamIdRoute = HubTeamsTeamIdRouteImport.update({
   path: '/$teamId',
   getParentRoute: () => HubTeamsRoute,
 } as any)
+const HubSongsSongIdRoute = HubSongsSongIdRouteImport.update({
+  id: '/$songId',
+  path: '/$songId',
+  getParentRoute: () => HubSongsRoute,
+} as any)
 const HubSetlistsSetlistIdRoute = HubSetlistsSetlistIdRouteImport.update({
   id: '/$setlistId',
   path: '/$setlistId',
@@ -118,10 +124,11 @@ export interface FileRoutesByFullPath {
   '/sessions': typeof HubSessionsRoute
   '/setlists': typeof HubSetlistsRouteWithChildren
   '/settings': typeof HubSettingsRoute
-  '/songs': typeof HubSongsRoute
+  '/songs': typeof HubSongsRouteWithChildren
   '/teams': typeof HubTeamsRouteWithChildren
   '/collections/$collectionId': typeof HubCollectionsCollectionIdRoute
   '/setlists/$setlistId': typeof HubSetlistsSetlistIdRoute
+  '/songs/$songId': typeof HubSongsSongIdRoute
   '/teams/$teamId': typeof HubTeamsTeamIdRoute
 }
 export interface FileRoutesByTo {
@@ -135,10 +142,11 @@ export interface FileRoutesByTo {
   '/sessions': typeof HubSessionsRoute
   '/setlists': typeof HubSetlistsRouteWithChildren
   '/settings': typeof HubSettingsRoute
-  '/songs': typeof HubSongsRoute
+  '/songs': typeof HubSongsRouteWithChildren
   '/teams': typeof HubTeamsRouteWithChildren
   '/collections/$collectionId': typeof HubCollectionsCollectionIdRoute
   '/setlists/$setlistId': typeof HubSetlistsSetlistIdRoute
+  '/songs/$songId': typeof HubSongsSongIdRoute
   '/teams/$teamId': typeof HubTeamsTeamIdRoute
 }
 export interface FileRoutesById {
@@ -154,10 +162,11 @@ export interface FileRoutesById {
   '/_hub/sessions': typeof HubSessionsRoute
   '/_hub/setlists': typeof HubSetlistsRouteWithChildren
   '/_hub/settings': typeof HubSettingsRoute
-  '/_hub/songs': typeof HubSongsRoute
+  '/_hub/songs': typeof HubSongsRouteWithChildren
   '/_hub/teams': typeof HubTeamsRouteWithChildren
   '/_hub/collections/$collectionId': typeof HubCollectionsCollectionIdRoute
   '/_hub/setlists/$setlistId': typeof HubSetlistsSetlistIdRoute
+  '/_hub/songs/$songId': typeof HubSongsSongIdRoute
   '/_hub/teams/$teamId': typeof HubTeamsTeamIdRoute
 }
 export interface FileRouteTypes {
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/teams'
     | '/collections/$collectionId'
     | '/setlists/$setlistId'
+    | '/songs/$songId'
     | '/teams/$teamId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/teams'
     | '/collections/$collectionId'
     | '/setlists/$setlistId'
+    | '/songs/$songId'
     | '/teams/$teamId'
   id:
     | '__root__'
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/_hub/teams'
     | '/_hub/collections/$collectionId'
     | '/_hub/setlists/$setlistId'
+    | '/_hub/songs/$songId'
     | '/_hub/teams/$teamId'
   fileRoutesById: FileRoutesById
 }
@@ -325,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HubTeamsTeamIdRouteImport
       parentRoute: typeof HubTeamsRoute
     }
+    '/_hub/songs/$songId': {
+      id: '/_hub/songs/$songId'
+      path: '/$songId'
+      fullPath: '/songs/$songId'
+      preLoaderRoute: typeof HubSongsSongIdRouteImport
+      parentRoute: typeof HubSongsRoute
+    }
     '/_hub/setlists/$setlistId': {
       id: '/_hub/setlists/$setlistId'
       path: '/$setlistId'
@@ -366,6 +385,18 @@ const HubSetlistsRouteWithChildren = HubSetlistsRoute._addFileChildren(
   HubSetlistsRouteChildren,
 )
 
+interface HubSongsRouteChildren {
+  HubSongsSongIdRoute: typeof HubSongsSongIdRoute
+}
+
+const HubSongsRouteChildren: HubSongsRouteChildren = {
+  HubSongsSongIdRoute: HubSongsSongIdRoute,
+}
+
+const HubSongsRouteWithChildren = HubSongsRoute._addFileChildren(
+  HubSongsRouteChildren,
+)
+
 interface HubTeamsRouteChildren {
   HubTeamsTeamIdRoute: typeof HubTeamsTeamIdRoute
 }
@@ -383,7 +414,7 @@ interface HubRouteChildren {
   HubSessionsRoute: typeof HubSessionsRoute
   HubSetlistsRoute: typeof HubSetlistsRouteWithChildren
   HubSettingsRoute: typeof HubSettingsRoute
-  HubSongsRoute: typeof HubSongsRoute
+  HubSongsRoute: typeof HubSongsRouteWithChildren
   HubTeamsRoute: typeof HubTeamsRouteWithChildren
 }
 
@@ -392,7 +423,7 @@ const HubRouteChildren: HubRouteChildren = {
   HubSessionsRoute: HubSessionsRoute,
   HubSetlistsRoute: HubSetlistsRouteWithChildren,
   HubSettingsRoute: HubSettingsRoute,
-  HubSongsRoute: HubSongsRoute,
+  HubSongsRoute: HubSongsRouteWithChildren,
   HubTeamsRoute: HubTeamsRouteWithChildren,
 }
 

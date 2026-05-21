@@ -75,6 +75,7 @@
     "createTeamAria": "Team erstellen",
     "createSetlistAria": "Setliste erstellen",
     "createCollectionAria": "Sammlung erstellen",
+    "createSongAria": "Song erstellen",
     "createLabel": "Neu",
     "profile": {
       "openMenu": "Profilmenü öffnen",
@@ -336,6 +337,61 @@
       "coverUploadFailed": "Titelbild konnte nicht hochgeladen werden.",
       "coverUnsupportedType": "Bitte PNG oder JPEG verwenden.",
       "coverTooLarge": "Bild ist zu groß."
+    }
+  },
+  "songs": {
+    "create": {
+      "dialogTitle": "Neuer Song",
+      "dialogDescription": "Ein leerer Song öffnet sich im Editor — dort fügst du ChordPro-Inhalt hinzu.",
+      "defaultTitle": "Ohne Titel",
+      "teamLabel": "Team",
+      "submit": "Erstellen",
+      "failed": "Song konnte nicht erstellt werden."
+    },
+    "editor": {
+      "backToList": "Zurück zu Songs",
+      "readOnlyBanner": "Schreibgeschützt — du hast auf diesem Team keine Bearbeitungsrechte für die Bibliothek.",
+      "bannerOfflineEditing": "Du bist offline — Bearbeitung ist pausiert.",
+      "notASongChip": "Dieser Eintrag ist als «kein Song» markiert (schreibgeschützt).",
+      "parseErrorTitle": "ChordPro-Fehler beheben, bevor gespeichert werden kann:",
+      "parseBlocked": "Speichern pausiert, bis ChordPro fehlerfrei parst.",
+      "previewBlocked": "Vorschau nicht verfügbar, solange die Quelle Parse-Fehler hat.",
+      "previewRenderFailed": "Vorschau konnte nicht gerendert werden.",
+      "previewLabel": "Vorschau",
+      "sourceLabel": "ChordPro-Quelltext",
+      "metadataLabel": "Metadaten",
+      "tabsAria": "Song-Editor-Bereiche",
+      "tabs": {
+        "meta": "Meta",
+        "source": "Quelle",
+        "preview": "Vorschau"
+      },
+      "titleLabel": "Titel",
+      "subtitleLabel": "Untertitel",
+      "artistsLabel": "Künstler",
+      "copyrightLabel": "Copyright",
+      "languagesLabel": "Sprachen",
+      "languagesPlaceholder": "de, en-US",
+      "tempoLabel": "Tempo (BPM)",
+      "timeLabel": "Taktart",
+      "timePlaceholder": "Taktart wählen",
+      "timeSelectAria": "Taktart",
+      "timeNone": "Keine",
+      "keyLabel": "Standardtonart",
+      "keyPlaceholder": "Tonart wählen",
+      "keyNone": "Keine",
+      "wasmLoading": "Chord-Engine wird geladen…",
+      "wasmFailed": "Chord-Engine konnte nicht geladen werden.",
+      "retry": "Erneut versuchen",
+      "retryIn": "Erneut versuchen ({{seconds}} s)",
+      "discardLocal": "Verwerfen",
+      "saveFailedShort": "Speichern fehlgeschlagen.",
+      "saveStatusIdle": "Alle Änderungen gespeichert.",
+      "saveStatusPending": "Änderungen noch nicht gespeichert…",
+      "saveStatusSaving": "Speichert…",
+      "resumePrompt": "Du bist wieder online. Bearbeitung fortsetzen und synchronisieren?",
+      "resumeRetry": "Synchronisieren",
+      "resumeDiscard": "Verwerfen und vom Server neu laden"
     }
   },
   "teams": {

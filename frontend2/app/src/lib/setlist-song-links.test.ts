@@ -17,25 +17,25 @@ import {
 } from '@/lib/setlist-song-links'
 
 describe('chordSymbolToPitchLevel', () => {
-  it('maps flat roots to the same levels as API wire (0=C … 11=B)', () => {
-    expect(chordSymbolToPitchLevel('C')).toBe(0)
-    expect(chordSymbolToPitchLevel('Db')).toBe(1)
-    expect(chordSymbolToPitchLevel('F')).toBe(5)
-    expect(chordSymbolToPitchLevel('A')).toBe(9)
-    expect(chordSymbolToPitchLevel('Ab')).toBe(8)
-    expect(chordSymbolToPitchLevel('Bb')).toBe(10)
+  it('maps flat roots to chordlib pitch-class levels (0=A … 11=Ab)', () => {
+    expect(chordSymbolToPitchLevel('A')).toBe(0)
+    expect(chordSymbolToPitchLevel('Bb')).toBe(1)
+    expect(chordSymbolToPitchLevel('C')).toBe(3)
+    expect(chordSymbolToPitchLevel('Db')).toBe(4)
+    expect(chordSymbolToPitchLevel('F')).toBe(8)
+    expect(chordSymbolToPitchLevel('Ab')).toBe(11)
   })
 
   it('uses longest root prefix and minor / extension tails', () => {
-    expect(chordSymbolToPitchLevel('Am')).toBe(9)
-    expect(chordSymbolToPitchLevel('Ebm7')).toBe(3)
-    expect(chordSymbolToPitchLevel('Ebmaj7')).toBe(3)
+    expect(chordSymbolToPitchLevel('Am')).toBe(0)
+    expect(chordSymbolToPitchLevel('Ebm7')).toBe(6)
+    expect(chordSymbolToPitchLevel('Ebmaj7')).toBe(6)
   })
 })
 
 describe('songLinkKeyEditorToWire', () => {
   it('translates editor strings to `{ level }`', () => {
-    expect(songLinkKeyEditorToWire('Db')).toEqual({ level: 1 })
+    expect(songLinkKeyEditorToWire('Db')).toEqual({ level: 4 })
   })
 
   it('accepts structured keys from GET responses', () => {
@@ -59,9 +59,10 @@ describe('coerceMusicalKeyString', () => {
     expect(coerceMusicalKeyString({ key: 'Eb' })).toBe('Eb')
     expect(coerceMusicalKeyString({ root: 'C' })).toBe('C')
     expect(coerceMusicalKeyString({ key: { root: 'Gm' } })).toBe('Gm')
-    expect(coerceMusicalKeyString({ level: 7 })).toBe('G')
-    expect(coerceMusicalKeyString({ level: 6 })).toBe('Gb')
-    expect(coerceMusicalKeyString(0)).toBe('C')
+    expect(coerceMusicalKeyString({ level: 7 })).toBe('E')
+    expect(coerceMusicalKeyString({ level: 6 })).toBe('Eb')
+    expect(coerceMusicalKeyString(0)).toBe('A')
+    expect(coerceMusicalKeyString({ level: 3 })).toBe('C')
     expect(coerceMusicalKeyString('C#')).toBe('Db')
     expect(coerceMusicalKeyString('F#m7')).toBe('Gbm7')
     expect(coerceMusicalKeyString({})).toBeNull()
@@ -74,12 +75,13 @@ describe('resolveSongDataKey', () => {
     expect(resolveSongDataKey({ key: 'Bb', tags: { key: 'C' } })).toBe('Bb')
   })
 
-  it('maps API pitch-class level objects (0=C … 11=B, chromatic from C)', () => {
-    expect(resolveSongDataKey({ key: { level: 7 } })).toBe('G')
-    expect(resolveSongDataKey({ key: { level: 0 } })).toBe('C')
-    expect(resolveSongDataKey({ key: { level: 11 } })).toBe('B')
-    expect(resolveSongDataKey({ key: { level: 1 } })).toBe('Db')
-    expect(resolveSongDataKey({ key: { level: 10 } })).toBe('Bb')
+  it('maps API pitch-class level objects (chordlib: 0=A … 11=Ab)', () => {
+    expect(resolveSongDataKey({ key: { level: 7 } })).toBe('E')
+    expect(resolveSongDataKey({ key: { level: 0 } })).toBe('A')
+    expect(resolveSongDataKey({ key: { level: 3 } })).toBe('C')
+    expect(resolveSongDataKey({ key: { level: 11 } })).toBe('Ab')
+    expect(resolveSongDataKey({ key: { level: 1 } })).toBe('Bb')
+    expect(resolveSongDataKey({ key: { level: 10 } })).toBe('G')
   })
 
   it('falls back to tags.key variants', () => {
@@ -225,7 +227,7 @@ describe('songLinkForCollectionMutation', () => {
   it('maps key to wire and nr to null when empty', () => {
     expect(songLinkForCollectionMutation({ id: 'x', key: 'C', nr: ' \n' })).toEqual({
       id: 'x',
-      key: { level: 0 },
+      key: { level: 3 },
       nr: null,
     })
   })

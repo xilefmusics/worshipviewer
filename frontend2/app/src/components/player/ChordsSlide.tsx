@@ -2,7 +2,7 @@ import type { components } from '@/api/schema'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Button } from '@/components/ui/button'
+import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import { getChordEngine } from '@/lib/chord-engine'
 import { viewportScaleForA4 } from '@/lib/chord-a4-scale'
 import type { ChordSongData } from '@/ports/chord-engine'
@@ -101,7 +101,7 @@ export function ChordsSlide({ song }: ChordsSlideProps) {
 
       {renderState.status === 'ready' && scale != null ? (
         <>
-          <style dangerouslySetInnerHTML={{ __html: renderState.css }} />
+          <style dangerouslySetInnerHTML={{ __html: scopeChordlibPageCss(renderState.css) }} />
           <div
             className="player-chords-page mx-auto w-full max-w-[794px] shrink-0"
             dangerouslySetInnerHTML={{ __html: renderState.html }}

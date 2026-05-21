@@ -75,6 +75,7 @@
     "createTeamAria": "Create team",
     "createSetlistAria": "Create setlist",
     "createCollectionAria": "Create collection",
+    "createSongAria": "Create song",
     "createLabel": "Add",
     "profile": {
       "openMenu": "Open profile menu",
@@ -336,6 +337,61 @@
       "coverUploadFailed": "Could not upload cover image.",
       "coverUnsupportedType": "Use PNG or JPEG.",
       "coverTooLarge": "Image is too large."
+    }
+  },
+  "songs": {
+    "create": {
+      "dialogTitle": "New song",
+      "dialogDescription": "A blank song will open in the editor so you can add ChordPro content.",
+      "defaultTitle": "Untitled",
+      "teamLabel": "Team",
+      "submit": "Create",
+      "failed": "Could not create song."
+    },
+    "editor": {
+      "backToList": "Back to songs",
+      "readOnlyBanner": "Read-only — you don’t have edit access on this team.",
+      "bannerOfflineEditing": "You’re offline — editing is paused.",
+      "notASongChip": "This item is marked as not a song (read-only).",
+      "parseErrorTitle": "Fix ChordPro errors before saving:",
+      "parseBlocked": "Saving paused until ChordPro parses cleanly.",
+      "previewBlocked": "Preview unavailable while the source has parse errors.",
+      "previewRenderFailed": "Could not render preview.",
+      "previewLabel": "Preview",
+      "sourceLabel": "ChordPro source",
+      "metadataLabel": "Metadata",
+      "tabsAria": "Song editor sections",
+      "tabs": {
+        "meta": "Meta",
+        "source": "Source",
+        "preview": "Preview"
+      },
+      "titleLabel": "Title",
+      "subtitleLabel": "Subtitle",
+      "artistsLabel": "Artists",
+      "copyrightLabel": "Copyright",
+      "languagesLabel": "Languages",
+      "languagesPlaceholder": "en, de-CH",
+      "tempoLabel": "Tempo (BPM)",
+      "timeLabel": "Time signature",
+      "timePlaceholder": "Choose time signature",
+      "timeSelectAria": "Time signature",
+      "timeNone": "None",
+      "keyLabel": "Default key",
+      "keyPlaceholder": "Choose a key",
+      "keyNone": "None",
+      "wasmLoading": "Loading chord engine…",
+      "wasmFailed": "Could not load the chord engine.",
+      "retry": "Retry",
+      "retryIn": "Retry ({{seconds}}s)",
+      "discardLocal": "Discard",
+      "saveFailedShort": "Save failed.",
+      "saveStatusIdle": "All changes saved.",
+      "saveStatusPending": "Unsaved edits…",
+      "saveStatusSaving": "Saving…",
+      "resumePrompt": "You’re back online. Resume syncing your edits?",
+      "resumeRetry": "Retry sync",
+      "resumeDiscard": "Discard and reload from server"
     }
   },
   "teams": {

@@ -26,6 +26,7 @@ import { useSession } from '@/hooks/useSession'
 import { useTeamDetail } from '@/hooks/useTeamDetail'
 import { useCollectionDetailQuery } from '@/hooks/useCollectionDetailQuery'
 import { useSetlistDetailQuery } from '@/hooks/useSetlistDetailQuery'
+import { useSongDetailQuery } from '@/hooks/useSongDetailQuery'
 import { getTeamDisplayName, isPersonalTeamName } from '@/lib/team-display-name'
 import { isUserTeamAdmin } from '@/lib/team-permissions'
 import { teamDetailKey, teamsListRootKey } from '@/lib/teams-sessions-keys'
@@ -100,15 +101,19 @@ function HubChrome({
   const setlistEditorId = isSetlistDetail ? pathname.slice('/setlists/'.length) : ''
   const isCollectionDetail = /^\/collections\/[^/]+$/.test(pathname)
   const collectionEditorId = isCollectionDetail ? pathname.slice('/collections/'.length) : ''
+  const isSongDetail = /^\/songs\/[^/]+$/.test(pathname)
+  const songEditorId = isSongDetail ? pathname.slice('/songs/'.length) : ''
   const { data: headerSetlist } = useSetlistDetailQuery(isSetlistDetail ? setlistEditorId : '')
   const { data: headerCollection } = useCollectionDetailQuery(isCollectionDetail ? collectionEditorId : '')
+  const { data: headerSong } = useSongDetailQuery(isSongDetail ? songEditorId : '')
   const hideHubPlus =
     pathname === '/sessions' ||
     pathname === '/settings' ||
     isTeamDetail ||
     isSetlistDetail ||
-    isCollectionDetail
-  const showFooter = !isTeamDetail && !isSetlistDetail && !isCollectionDetail
+    isCollectionDetail ||
+    isSongDetail
+  const showFooter = !isTeamDetail && !isSetlistDetail && !isCollectionDetail && !isSongDetail
   const reduceMotion = useReducedMotion()
   const [createHovered, setCreateHovered] = useState(false)
   const [searchFieldHovered, setSearchFieldHovered] = useState(false)
@@ -316,6 +321,26 @@ function HubChrome({
                 </div>
               </div>
             </>
+          ) : isSongDetail ? (
+            <>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={() => void navigate({ to: '/songs' })}
+                className={hubDetailBackButtonClass}
+                aria-label={t('songs.editor.backToList')}
+              >
+                <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
+              </Button>
+              <div ref={searchAnchorRef} className="group relative my-[0.36rem] min-w-0 flex-1">
+                <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
+                  <p className="w-full truncate px-5 text-center text-[0.7875rem] font-medium text-[var(--color-foreground)]">
+                    {headerSong?.data.titles[0]?.trim() || '—'}
+                  </p>
+                </div>
+              </div>
+            </>
           ) : (
             <div
               ref={searchAnchorRef}
@@ -406,6 +431,8 @@ function HubChrome({
                       void navigate({ to: '/setlists', search: { new: '1' } })
                     } else if (pathname === '/collections') {
                       void navigate({ to: '/collections', search: { new: '1' } })
+                    } else if (pathname === '/songs') {
+                      void navigate({ to: '/songs', search: { new: '1' } })
                     }
                   }}
                   className={cn(
@@ -421,7 +448,9 @@ function HubChrome({
                         ? t('hub.createSetlistAria')
                         : pathname === '/collections'
                           ? t('hub.createCollectionAria')
-                          : t('hub.createAria')
+                          : pathname === '/songs'
+                            ? t('hub.createSongAria')
+                            : t('hub.createAria')
                   }
                 >
                   <IconHubPlus isHovered={createHovered} />

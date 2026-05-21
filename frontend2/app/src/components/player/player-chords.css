@@ -1,17 +1,19 @@
-/* Stage-readable chord sheet surface (chordlib HTML inherits these constraints). */
-.player-chords-viewport {
-  background: #fff;
-  color: #000;
-}
-
 .player-chords-viewport--ready {
   align-items: center;
   justify-content: flex-start;
   padding: 0.75rem 0.5rem 1rem;
 }
 
+.player-chords-viewport--editor.player-chords-viewport--ready {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+}
+
+/* Stage-readable chord sheet surface (chordlib HTML inherits these constraints). */
 .player-chords-page {
   background: #fff;
+  color: #000;
 }
 
 .player-chords-page span,
