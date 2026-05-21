@@ -49,7 +49,14 @@ pub fn avatar_dimensions(data: &[u8]) -> Result<(u32, u32), AppError> {
 }
 
 pub fn file_type_from_content_type(ct: &str) -> Result<FileType, AppError> {
-    match ct.trim().to_ascii_lowercase().as_str() {
+    let base = ct
+        .trim()
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+    match base.as_str() {
         "image/jpeg" | "image/jpg" => Ok(FileType::JPEG),
         "image/png" => Ok(FileType::PNG),
         _ => Err(AppError::invalid_request(
@@ -147,5 +154,17 @@ mod tests {
     fn http_scheme_rejected() {
         let u = Url::parse("http://lh3.googleusercontent.com/x").unwrap();
         assert!(!oauth_picture_url_allowed(&u));
+    }
+
+    #[test]
+    fn content_type_strips_charset_suffix() {
+        assert_eq!(
+            file_type_from_content_type("image/jpeg; charset=binary").unwrap(),
+            FileType::JPEG
+        );
+        assert_eq!(
+            file_type_from_content_type("image/png; charset=UTF-8").unwrap(),
+            FileType::PNG
+        );
     }
 }

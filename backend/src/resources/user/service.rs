@@ -187,8 +187,8 @@ impl UserServiceHandle {
             );
         }
 
-        let created = blob_svc
-            .create_blob_for_user(
+        let created = match blob_svc
+            .create_blob_with_data_for_user(
                 ctx,
                 CreateBlob {
                     owner: None,
@@ -197,21 +197,20 @@ impl UserServiceHandle {
                     height: h,
                     ocr: String::new(),
                 },
+                &bytes,
             )
-            .await?;
-
-        if let Err(e) = blob_svc
-            .upload_blob_data_for_user(ctx, &created.id, &bytes)
             .await
         {
-            tracing::warn!(
-                user_id = %ctx.user.id,
-                error = %e,
-                "failed to write oauth avatar bytes; cleaning up blob"
-            );
-            let _ = blob_svc.delete_blob_for_user(ctx, &created.id).await;
-            return Ok(());
-        }
+            Ok(b) => b,
+            Err(e) => {
+                tracing::warn!(
+                    user_id = %ctx.user.id,
+                    error = %e,
+                    "failed to store oauth avatar blob"
+                );
+                return Ok(());
+            }
+        };
 
         if let Err(e) = self
             .repo
@@ -250,7 +249,7 @@ impl UserServiceHandle {
         }
 
         let created = blob_svc
-            .create_blob_for_user(
+            .create_blob_with_data_for_user(
                 ctx,
                 CreateBlob {
                     owner: None,
@@ -259,11 +258,8 @@ impl UserServiceHandle {
                     height: h,
                     ocr: String::new(),
                 },
+                body,
             )
-            .await?;
-
-        blob_svc
-            .upload_blob_data_for_user(ctx, &created.id, body)
             .await?;
 
         self.repo
