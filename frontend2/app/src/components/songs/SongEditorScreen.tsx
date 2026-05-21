@@ -3,6 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTranslation } from 'react-i18next'
 
 import { SongEditorPreview } from '@/components/songs/SongEditorPreview'
+import { SongEditorSource } from '@/components/songs/SongEditorSource'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -33,9 +34,6 @@ import {
 } from '@/lib/song-editor-state'
 import type { ChordEngine } from '@/ports/chord-engine'
 import { cn } from '@/lib/utils'
-
-const sourceFieldClass =
-  'flex min-h-[55vh] w-full resize-y rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 font-mono text-sm shadow-sm transition-colors placeholder:text-[var(--color-muted-foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] disabled:cursor-not-allowed disabled:opacity-50'
 
 type EditorTab = 'meta' | 'source' | 'preview'
 
@@ -498,13 +496,11 @@ export function SongEditorScreen({ songId }: { songId: string }) {
           <label htmlFor={`song-editor-source-${songId}`} className="sr-only">
             {t('songs.editor.sourceLabel')}
           </label>
-          <textarea
+          <SongEditorSource
             id={`song-editor-source-${songId}`}
-            className={sourceFieldClass}
             value={sourceText}
             readOnly={sourceBlocked}
-            spellCheck={false}
-            onChange={(e) => onSourceChange(e.target.value)}
+            onChange={onSourceChange}
           />
         </div>
       ) : null}
