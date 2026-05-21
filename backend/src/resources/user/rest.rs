@@ -96,7 +96,13 @@ async fn get_users_me(
 #[utoipa::path(
     put,
     path = "/api/v1/users/me/profile-picture",
-    request_body(content = Vec<u8>, description = "Raw JPEG or PNG bytes", content_type = "image/jpeg"),
+    request_body(
+        content(
+            (Vec<u8> = "image/jpeg"),
+            (Vec<u8> = "image/png"),
+        ),
+        description = "Raw JPEG or PNG bytes; Content-Type must match the image magic bytes",
+    ),
     responses(
         (status = 200, description = "Uploaded; returns updated `User`", body = User),
         (status = 400, description = "Invalid Content-Type or image", body = Problem, content_type = "application/problem+json"),

@@ -1,18 +1,17 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
-import { profilePictureContentType } from '@/api/profile-picture'
+import { imageContentTypeFromBytes } from '@/lib/image-content-type'
 
-describe('profilePictureContentType', () => {
-  it('accepts jpeg and png', () => {
-    expect(profilePictureContentType(new File([], 'a', { type: 'image/jpeg' }))).toBe('image/jpeg')
-    expect(profilePictureContentType(new File([], 'a', { type: 'image/png' }))).toBe('image/png')
-  })
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../../..')
 
-  it('accepts by extension when mime is empty', () => {
-    expect(profilePictureContentType(new File([], 'photo.jpg', { type: '' }))).toBe('image/jpeg')
-  })
-
-  it('rejects other formats', () => {
-    expect(profilePictureContentType(new File([], 'x.heic', { type: 'image/heic' }))).toBeNull()
+describe('putProfilePicture content type', () => {
+  it('uses PNG magic bytes for appicon.png even when browser mime is wrong', async () => {
+    const bytes = readFileSync(join(repoRoot, 'resources/appicon.png'))
+    const file = new File([bytes], 'appicon.png', { type: 'image/jpeg' })
+    const buf = await file.arrayBuffer()
+    expect(imageContentTypeFromBytes(buf)).toBe('image/png')
   })
 })

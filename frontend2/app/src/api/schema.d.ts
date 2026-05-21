@@ -5948,10 +5948,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Raw JPEG or PNG bytes */
+        /** @description Raw JPEG or PNG bytes; Content-Type must match the image magic bytes */
         requestBody: {
             content: {
                 "image/jpeg": number[];
+                "image/png": number[];
             };
         };
         responses: {

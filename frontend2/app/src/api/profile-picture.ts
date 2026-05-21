@@ -1,21 +1,11 @@
 import { parseProblemResponse } from '@/api/problem'
 import type { User } from '@/api/session'
+import { imageContentTypeFromBytes } from '@/lib/image-content-type'
 
 function profilePictureUrl(): string {
   const base = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
   const path = '/api/v1/users/me/profile-picture'
   return base ? `${base}${path}` : path
-}
-
-/** Content-Type for `PUT /api/v1/users/me/profile-picture` (JPEG or PNG body). */
-export function profilePictureContentType(file: File): 'image/jpeg' | 'image/png' | null {
-  const mime = file.type.toLowerCase().split(';')[0]?.trim() ?? ''
-  if (mime === 'image/jpeg' || mime === 'image/jpg') return 'image/jpeg'
-  if (mime === 'image/png') return 'image/png'
-  const lower = file.name.toLowerCase()
-  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
-  if (lower.endsWith('.png')) return 'image/png'
-  return null
 }
 
 async function parseUserJson(res: Response): Promise<User> {
@@ -25,12 +15,12 @@ async function parseUserJson(res: Response): Promise<User> {
 
 /** Replace the signed-in user’s uploaded profile picture; returns updated `User`. */
 export async function putProfilePicture(file: File, signal?: AbortSignal): Promise<User> {
-  const contentType = profilePictureContentType(file)
+  const buf = await file.arrayBuffer()
+  const contentType = imageContentTypeFromBytes(buf)
   if (!contentType) {
     throw new Error('unsupported_type')
   }
 
-  const buf = await file.arrayBuffer()
   const res = await fetch(profilePictureUrl(), {
     method: 'PUT',
     credentials: 'include',

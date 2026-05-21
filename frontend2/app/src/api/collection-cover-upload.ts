@@ -1,5 +1,6 @@
 import { parseProblemResponse } from '@/api/problem'
 import type { components } from '@/api/schema'
+import { imageContentTypeFromBytes } from '@/lib/image-content-type'
 
 type Collection = components['schemas']['Collection']
 
@@ -7,17 +8,6 @@ function collectionCoverUrl(collectionId: string): string {
   const base = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
   const path = `/api/v1/collections/${encodeURIComponent(collectionId)}/cover`
   return base ? `${base}${path}` : path
-}
-
-/** Content-Type for `PUT /api/v1/collections/{id}/cover` (JPEG or PNG body). */
-export function collectionCoverContentType(file: File): 'image/jpeg' | 'image/png' | null {
-  const mime = file.type.toLowerCase().split(';')[0]?.trim() ?? ''
-  if (mime === 'image/jpeg' || mime === 'image/jpg') return 'image/jpeg'
-  if (mime === 'image/png') return 'image/png'
-  const lower = file.name.toLowerCase()
-  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
-  if (lower.endsWith('.png')) return 'image/png'
-  return null
 }
 
 /**
@@ -28,12 +18,12 @@ export async function putCollectionCover(
   file: File,
   signal?: AbortSignal,
 ): Promise<Collection> {
-  const contentType = collectionCoverContentType(file)
+  const buf = await file.arrayBuffer()
+  const contentType = imageContentTypeFromBytes(buf)
   if (!contentType) {
     throw new Error('unsupported_type')
   }
 
-  const buf = await file.arrayBuffer()
   const res = await fetch(collectionCoverUrl(collectionId), {
     method: 'PUT',
     credentials: 'include',

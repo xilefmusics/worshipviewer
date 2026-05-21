@@ -8329,9 +8329,19 @@
                 },
                 "type": "array"
               }
+            },
+            "image/png": {
+              "schema": {
+                "items": {
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              }
             }
           },
-          "description": "Raw JPEG or PNG bytes",
+          "description": "Raw JPEG or PNG bytes; Content-Type must match the image magic bytes",
           "required": true
         },
         "responses": {
