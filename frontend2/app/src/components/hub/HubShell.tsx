@@ -35,6 +35,8 @@ import { cn } from '@/lib/utils'
 const hubChromeRowClass = 'flex w-full min-w-0 max-w-[37.8rem]'
 /** Same gap as between header search and profile (`gap-[0.72rem]`). */
 const hubChromeRowLayoutClass = 'items-center gap-[0.72rem]'
+const hubDetailBackButtonClass =
+  'my-[0.36rem] size-[3.6rem] shrink-0 rounded-full shadow-[var(--shadow-elevated)]'
 
 /** Hub list tab id from pathname; stable when only a sub-segment changes (e.g. `/songs` → `/songs/:id`). */
 function hubSearchSectionKey(pathname: string): string | null {
@@ -195,7 +197,7 @@ function HubChrome({
           'fixed left-0 right-0 top-0 z-40 flex justify-center bg-transparent px-3 pt-[calc(0.675rem+env(safe-area-inset-top,0px))]',
         )}
       >
-        <div className={cn(hubChromeRowClass, hubChromeRowLayoutClass, (isTeamDetail || isSetlistDetail || isCollectionDetail) && 'relative')}>
+        <div className={cn(hubChromeRowClass, hubChromeRowLayoutClass)}>
           {isTeamDetail ? (
             <>
               <Button
@@ -203,7 +205,7 @@ function HubChrome({
                 size="icon"
                 variant="outline"
                 onClick={() => void navigate({ to: '/teams' })}
-                className="absolute -left-[4.32rem] my-[0.36rem] size-[3.6rem] shrink-0 rounded-full shadow-[var(--shadow-elevated)]"
+                className={hubDetailBackButtonClass}
                 aria-label={t('teams.backToList')}
               >
                 <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
@@ -234,7 +236,7 @@ function HubChrome({
                       }
                     }}
                     maxLength={120}
-                    className={cn(HUB_SEARCH_INPUT_CLASS, 'pr-8 text-center')}
+                    className={cn(HUB_SEARCH_INPUT_CLASS, 'min-w-0 pr-8 text-center')}
                     aria-label={t('teams.nameLabel')}
                     disabled={patchTeamName.isPending}
                   />
@@ -244,7 +246,7 @@ function HubChrome({
                       type="button"
                       className={cn(
                         HUB_SEARCH_INPUT_CLASS,
-                        'flex items-center',
+                        'flex min-w-0 items-center',
                         canEditTeamTitle && 'cursor-text',
                       )}
                       onClick={() => {
@@ -281,13 +283,13 @@ function HubChrome({
                 size="icon"
                 variant="outline"
                 onClick={() => void navigate({ to: '/setlists' })}
-                className="absolute -left-[4.32rem] my-[0.36rem] size-[3.6rem] shrink-0 rounded-full shadow-[var(--shadow-elevated)]"
+                className={hubDetailBackButtonClass}
                 aria-label={t('setlists.editor.backToList')}
               >
                 <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
               </Button>
               <div ref={searchAnchorRef} className="group relative my-[0.36rem] min-w-0 flex-1">
-                <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex items-center justify-center')}>
+                <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
                   <p className="w-full truncate px-5 text-center text-[0.7875rem] font-medium text-[var(--color-foreground)]">
                     {headerSetlist?.title ?? t('common.load')}
                   </p>
@@ -301,13 +303,13 @@ function HubChrome({
                 size="icon"
                 variant="outline"
                 onClick={() => void navigate({ to: '/collections' })}
-                className="absolute -left-[4.32rem] my-[0.36rem] size-[3.6rem] shrink-0 rounded-full shadow-[var(--shadow-elevated)]"
+                className={hubDetailBackButtonClass}
                 aria-label={t('collections.editor.backToList')}
               >
                 <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
               </Button>
               <div ref={searchAnchorRef} className="group relative my-[0.36rem] min-w-0 flex-1">
-                <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex items-center justify-center')}>
+                <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
                   <p className="w-full truncate px-5 text-center text-[0.7875rem] font-medium text-[var(--color-foreground)]">
                     {headerCollection?.title ?? t('common.load')}
                   </p>

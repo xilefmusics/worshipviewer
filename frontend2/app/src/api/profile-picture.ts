@@ -8,7 +8,7 @@ function profilePictureUrl(): string {
 }
 
 /** Content-Type for `PUT /api/v1/users/me/profile-picture` (JPEG or PNG body). */
-function profilePictureContentType(file: File): 'image/jpeg' | 'image/png' | null {
+export function profilePictureContentType(file: File): 'image/jpeg' | 'image/png' | null {
   const mime = file.type.toLowerCase().split(';')[0]?.trim() ?? ''
   if (mime === 'image/jpeg' || mime === 'image/jpg') return 'image/jpeg'
   if (mime === 'image/png') return 'image/png'
@@ -42,7 +42,11 @@ export async function putProfilePicture(file: File, signal?: AbortSignal): Promi
   })
 
   if (res.ok) {
-    return parseUserJson(res)
+    try {
+      return await parseUserJson(res)
+    } catch {
+      throw new Error('invalid_response')
+    }
   }
 
   if (res.status === 413) {

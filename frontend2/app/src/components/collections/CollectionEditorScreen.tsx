@@ -25,7 +25,7 @@ import { toast } from 'sonner'
 import { fetchSongForHubSlot } from '@/api/setlists-detail'
 import { fetchTeamDetail, fetchTeamsPage } from '@/api/teams-sessions-fetch'
 import type { Team } from '@/api/teams-sessions-fetch'
-import { createCoverBlobFromImageFile } from '@/api/cover-image-upload'
+import { putCollectionCover } from '@/api/collection-cover-upload'
 import { MoveSongToCollectionDialog } from '@/components/collections/MoveSongToCollectionDialog'
 import { ArrowRightLeftIcon } from '@/components/icons/arrow-right-left-icon'
 import { Button } from '@/components/ui/button'
@@ -47,6 +47,7 @@ import { useRegisterSetlistPaletteBridge } from '@/context/SetlistPaletteBridgeC
 import { brokenSlotGate, type SongHydrationOutcome } from '@/lib/setlist-broken-rows'
 import { makeSlotRow, slotsFromSongLinks, type SlotRow } from '@/lib/setlist-editor-slots'
 import type { SetlistPaletteBridge } from '@/lib/setlist-palette-bridge'
+import { hubListRootKey } from '@/lib/hub-list-keys'
 import { collectionDetailKey, songDetailQueryKey } from '@/lib/setlist-detail-key'
 import {
   coerceMusicalKeyString,
@@ -318,12 +319,17 @@ export function CollectionEditorScreen({ collectionId }: { collectionId: string 
     if (!file || blockingAll || !canEdit) return
     setCoverUploading(true)
     try {
-      const id = await createCoverBlobFromImageFile(file, { ownerTeamId: ownerDraft })
-      setCoverDraft(id)
-      notifyDraftEdited()
+      const updated = await putCollectionCover(collectionId, file)
+      queryClient.setQueryData(collectionDetailKey(collectionId), updated)
+      setCoverDraft(updated.cover ?? '')
+      void queryClient.invalidateQueries({
+        queryKey: [...hubListRootKey, 'collections'],
+        refetchType: 'none',
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : ''
       if (msg === 'unsupported_type') toast.error(t('collections.editor.coverUnsupportedType'))
+      else if (msg === 'payload_too_large') toast.error(t('collections.editor.coverTooLarge'))
       else toast.error(t('collections.editor.coverUploadFailed'))
     } finally {
       setCoverUploading(false)
@@ -545,7 +551,7 @@ export function CollectionEditorScreen({ collectionId }: { collectionId: string 
                 ref={coverFileInputRef}
                 id={`collection-editor-cover-file-${collectionId}`}
                 type="file"
-                accept="image/png,image/jpeg,image/jpg,image/svg+xml,.png,.jpg,.jpeg,.svg"
+                accept="image/png,image/jpeg,image/jpg,.png,.jpg,.jpeg"
                 className="sr-only"
                 onChange={(ev) => void onCoverFilePicked(ev)}
               />

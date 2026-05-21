@@ -333,7 +333,8 @@
       "coverUploading": "Wird hochgeladen…",
       "coverRemove": "Entfernen",
       "coverUploadFailed": "Titelbild konnte nicht hochgeladen werden.",
-      "coverUnsupportedType": "Bitte PNG, JPEG oder SVG verwenden."
+      "coverUnsupportedType": "Bitte PNG oder JPEG verwenden.",
+      "coverTooLarge": "Bild ist zu groß."
     }
   },
   "teams": {

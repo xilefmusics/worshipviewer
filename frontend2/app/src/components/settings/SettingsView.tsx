@@ -129,7 +129,13 @@ function SettingsProfilePictureSection({ user }: { user: User }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState<'idle' | 'upload' | 'remove'>('idle')
   const [errorKey, setErrorKey] = useState<
-    'unsupported_type' | 'invalid_image' | 'too_large' | 'failed' | 'remove_failed' | null
+    | 'unsupported_type'
+    | 'invalid_image'
+    | 'too_large'
+    | 'failed'
+    | 'remove_failed'
+    | 'invalid_response'
+    | null
   >(null)
   const { imageSrc, onImageError, initials } = useUserAvatarDisplay(user)
 
@@ -147,6 +153,7 @@ function SettingsProfilePictureSection({ user }: { user: User }) {
       if (msg === 'unsupported_type') setErrorKey('unsupported_type')
       else if (msg === 'invalid_image') setErrorKey('invalid_image')
       else if (msg === 'payload_too_large') setErrorKey('too_large')
+      else if (msg === 'invalid_response') setErrorKey('invalid_response')
       else setErrorKey('failed')
     } finally {
       setBusy('idle')
@@ -227,9 +234,11 @@ function SettingsProfilePictureSection({ user }: { user: User }) {
                 ? t('settings.profilePicture.invalid')
                 : errorKey === 'too_large'
                   ? t('settings.profilePicture.tooLarge')
-                  : errorKey === 'remove_failed'
-                    ? t('settings.profilePicture.removeFailed')
-                    : t('settings.profilePicture.failed')}
+                  : errorKey === 'invalid_response'
+                    ? t('settings.profilePicture.invalid')
+                    : errorKey === 'remove_failed'
+                      ? t('settings.profilePicture.removeFailed')
+                      : t('settings.profilePicture.failed')}
           </p>
         ) : null}
       </CardContent>

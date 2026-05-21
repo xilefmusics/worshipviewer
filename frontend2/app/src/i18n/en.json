@@ -333,7 +333,8 @@
       "coverUploading": "Uploading…",
       "coverRemove": "Remove",
       "coverUploadFailed": "Could not upload cover image.",
-      "coverUnsupportedType": "Use PNG, JPEG, or SVG."
+      "coverUnsupportedType": "Use PNG or JPEG.",
+      "coverTooLarge": "Image is too large."
     }
   },
   "teams": {
