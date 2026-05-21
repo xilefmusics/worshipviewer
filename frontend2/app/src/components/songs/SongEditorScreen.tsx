@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useCanEditSong } from '@/hooks/useCanEditSong'
+import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
 import { useOnline } from '@/hooks/use-online'
 import { useSongAutosave } from '@/hooks/useSongAutosave'
 import { useSongDetailQuery } from '@/hooks/useSongDetailQuery'
@@ -48,6 +49,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const online = useOnline()
+  const chordFormat = useChordFormatPreference()
 
   const { data: detail, isPending, error, refetch } = useSongDetailQuery(songId)
   const { canEdit } = useCanEditSong(detail?.owner)
@@ -112,16 +114,18 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     if (!detail || detail.id !== songId || !engine) return
     if (lastLoadedSongRef.current === songId) return
     lastLoadedSongRef.current = songId
-    const source = formatSourceFromSongData(engine, detail.data as Record<string, unknown>)
+    const source = formatSourceFromSongData(engine, detail.data as Record<string, unknown>, chordFormat)
     setSourceText(source)
     setMetadataStrip(metadataStripFromSongData(detail.data as Record<string, unknown>))
     setParseError(null)
-  }, [detail, songId, engine])
+  }, [detail, songId, engine, chordFormat])
 
   const parseResult = useMemo(() => {
     if (!engine) return null
     return parseSourceWithEngine(engine, sourceText)
   }, [engine, sourceText])
+  const parseResultRef = useRef(parseResult)
+  parseResultRef.current = parseResult
 
   const previewData = parseResult?.ok ? parseResult.data : null
   const parseErrors = useMemo(
@@ -174,6 +178,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     patchInFlight,
     saveIcon,
     saveFailure,
+    saveRevision,
     retrySave,
     discardFailedSave,
   } = useSongAutosave({
@@ -182,6 +187,19 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     draft: draftPatchData,
     canAutosavePatch,
   })
+
+  useEffect(() => {
+    if (!engine) return
+    const current = parseResultRef.current
+    if (!current?.ok) return
+    setSourceText(formatSourceFromSongData(engine, current.data, chordFormat))
+  }, [chordFormat, engine])
+
+  useEffect(() => {
+    if (!engine || !detail || saveRevision === 0) return
+    setSourceText(formatSourceFromSongData(engine, detail.data as Record<string, unknown>, chordFormat))
+    setParseError(null)
+  }, [saveRevision, engine, detail, chordFormat])
 
   const blockingAll =
     patchInFlight || !!saveFailure || offlineFrozen || !editable || resumePrompt || !engineReady
@@ -224,12 +242,12 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     (stripOverride?: SongMetadataStrip) => {
       if (!engine || !parseResult?.ok || sourceBlocked) return
       const strip = stripOverride ?? metadataStrip
-      const nextSource = applyMetadataStripToSource(engine, parseResult.data, strip)
+      const nextSource = applyMetadataStripToSource(engine, parseResult.data, strip, chordFormat)
       setSourceText(nextSource)
       setParseError(null)
       queueMicrotask(() => notifyDraftEdited())
     },
-    [engine, metadataStrip, notifyDraftEdited, parseResult, sourceBlocked],
+    [engine, metadataStrip, notifyDraftEdited, parseResult, sourceBlocked, chordFormat],
   )
 
   const onMetadataFieldBlur = useCallback(() => {
@@ -251,7 +269,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     await queryClient.invalidateQueries({ queryKey: songDetailQueryKey(songId) })
     const r = await refetch()
     if (r.data && engine) {
-      setSourceText(formatSourceFromSongData(engine, r.data.data as Record<string, unknown>))
+      setSourceText(formatSourceFromSongData(engine, r.data.data as Record<string, unknown>, chordFormat))
       setMetadataStrip(metadataStripFromSongData(r.data.data as Record<string, unknown>))
       setParseError(null)
     }
@@ -360,7 +378,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
                 const rolled = discardFailedSave()
                 if (rolled && engine) {
                   const data = rolled as unknown as Record<string, unknown>
-                  setSourceText(formatSourceFromSongData(engine, data))
+                  setSourceText(formatSourceFromSongData(engine, data, chordFormat))
                   setMetadataStrip(metadataStripFromSongData(data))
                   setParseError(null)
                 }

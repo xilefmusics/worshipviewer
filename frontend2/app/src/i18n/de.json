@@ -189,6 +189,14 @@
       "dark": "Dunkel",
       "darkDescription": "Verwendet immer das dunkle Design."
     },
+    "chordFormat": {
+      "title": "Akkordformat",
+      "description": "Lege fest, wie Akkorde in der Song-Editor-Vorschau angezeigt werden.",
+      "letters": "Buchstaben",
+      "lettersDescription": "Zeigt Standard-Akkordsymbole wie C, G und Am.",
+      "nashville": "Nashville",
+      "nashvilleDescription": "Zeigt Nashville-Ziffern wie 1, 4 und 6m."
+    },
     "profilePicture": {
       "title": "Profilbild",
       "description": "Lade ein JPEG- oder PNG-Bild hoch. Es wird im Menü-Kopf angezeigt und ersetzt das mit dem Konto verknüpfte Foto, solange ein Upload gesetzt ist.",

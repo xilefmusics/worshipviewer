@@ -60,6 +60,7 @@ export function useSongAutosave({
     failedBody: NonNullable<ReturnType<typeof buildSongPatchBody>>
     retryAfterUntil: number | null
   } | null>(null)
+  const [saveRevision, setSaveRevision] = useState(0)
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const needFollowUpPatch = useRef(false)
@@ -135,6 +136,7 @@ export function useSongAutosave({
         if (next) {
           applyServerSongToCache(next)
           baselineRef.current = patchSongDataFromSongData(next.data as ChordSongData)
+          setSaveRevision((revision) => revision + 1)
         }
         setSaveFailure(null)
         setSaveIcon('idle')
@@ -277,6 +279,7 @@ export function useSongAutosave({
     patchInFlight,
     saveIcon,
     saveFailure,
+    saveRevision,
     retrySave,
     discardFailedSave,
   }

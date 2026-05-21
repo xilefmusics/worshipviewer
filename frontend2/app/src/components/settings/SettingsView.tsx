@@ -15,6 +15,11 @@ import {
   type AppearancePreference,
   writeAppearancePreference,
 } from '@/lib/appearance'
+import {
+  readChordFormatPreference,
+  type ChordFormatPreference,
+  writeChordFormatPreference,
+} from '@/lib/chord-format'
 import { clearAllLocalData } from '@/lib/clear-local'
 import { formatApproxBytes } from '@/lib/format-bytes'
 import {
@@ -253,6 +258,7 @@ export function SettingsView() {
   const { data: sessionUser } = useSession()
   const [localePreference, setLocalePreferenceState] = useState(getLocalePreference)
   const [appearancePreference, setAppearancePreference] = useState(readAppearancePreference)
+  const [chordFormatPreference, setChordFormatPreference] = useState(readChordFormatPreference)
   const [cacheState, setCacheState] = useState<'idle' | 'clearing' | 'cleared' | 'failed'>('idle')
   const [approxBytes, setApproxBytes] = useState<number | null>(null)
   const [logoutPending, setLogoutPending] = useState(false)
@@ -273,6 +279,22 @@ export function SettingsView() {
         value: 'de',
         label: t('settings.language.de'),
         description: t('settings.language.deDescription'),
+      },
+    ],
+    [t],
+  )
+
+  const chordFormatOptions = useMemo<SettingsOption<ChordFormatPreference>[]>(
+    () => [
+      {
+        value: 'letters',
+        label: t('settings.chordFormat.letters'),
+        description: t('settings.chordFormat.lettersDescription'),
+      },
+      {
+        value: 'nashville',
+        label: t('settings.chordFormat.nashville'),
+        description: t('settings.chordFormat.nashvilleDescription'),
       },
     ],
     [t],
@@ -318,6 +340,11 @@ export function SettingsView() {
     setAppearancePreference(next)
     writeAppearancePreference(next)
     applyAppearancePreference(next)
+  }
+
+  function setChordFormat(next: ChordFormatPreference) {
+    setChordFormatPreference(next)
+    writeChordFormatPreference(next)
   }
 
   async function clearCache() {
@@ -376,6 +403,14 @@ export function SettingsView() {
         options={appearanceOptions}
         value={appearancePreference}
         onChange={setAppearance}
+      />
+
+      <SettingsSection
+        title={t('settings.chordFormat.title')}
+        description={t('settings.chordFormat.description')}
+        options={chordFormatOptions}
+        value={chordFormatPreference}
+        onChange={setChordFormat}
       />
 
       {sessionUser ? <SettingsProfilePictureSection user={sessionUser} /> : null}

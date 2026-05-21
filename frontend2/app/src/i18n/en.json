@@ -189,6 +189,14 @@
       "dark": "Dark",
       "darkDescription": "Always use the dark theme."
     },
+    "chordFormat": {
+      "title": "Chord format",
+      "description": "Choose how chords are shown in the song editor preview.",
+      "letters": "Letters",
+      "lettersDescription": "Show standard chord symbols such as C, G, and Am.",
+      "nashville": "Nashville",
+      "nashvilleDescription": "Show Nashville numbers such as 1, 4, and 6m."
+    },
     "profilePicture": {
       "title": "Profile picture",
       "description": "Upload a JPEG or PNG image. It is shown in the menu header and replaces your linked account photo while an upload is set.",

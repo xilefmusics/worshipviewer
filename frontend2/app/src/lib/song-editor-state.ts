@@ -1,7 +1,9 @@
 import type { components } from '@/api/schema'
 
+import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
 import {
   coerceMusicalKeyString,
+  resolveSongDataKey,
   songLinkKeyEditorToWire,
 } from '@/lib/setlist-song-links'
 import {
@@ -11,8 +13,21 @@ import {
   type FormatChordProOptions,
 } from '@/ports/chord-engine'
 
-/** Emit Worship Pro source (durations, `&` lines, etc.) in the song editor. */
-export const SONG_EDITOR_FORMAT_OPTIONS: FormatChordProOptions = { worshipPro: true }
+/** Format options for Worship Pro source in the song editor. */
+export function songEditorFormatOptions(
+  chordFormat: ChordFormatPreference = 'letters',
+  data?: ChordSongData,
+): FormatChordProOptions {
+  const key = data ? (resolveSongDataKey(data as Record<string, unknown>) ?? undefined) : undefined
+  return {
+    worshipPro: true,
+    key,
+    representation: chordFormatToRepresentation(chordFormat),
+  }
+}
+
+/** @deprecated Use {@link songEditorFormatOptions} */
+export const SONG_EDITOR_FORMAT_OPTIONS: FormatChordProOptions = songEditorFormatOptions('letters')
 
 export type PatchSongData = components['schemas']['PatchSongData']
 
@@ -155,6 +170,7 @@ export function applyMetadataStripToSource(
   engine: ChordEngine,
   parsed: ChordSongData,
   strip: SongMetadataStrip,
+  chordFormat: ChordFormatPreference = 'letters',
 ): string {
   const patch = patchSongDataFromParsed(parsed, strip)
   const merged: ChordSongData = {
@@ -168,11 +184,15 @@ export function applyMetadataStripToSource(
     time: patch.time,
     key: patch.key,
   }
-  return engine.formatChordPro(merged, SONG_EDITOR_FORMAT_OPTIONS)
+  return engine.formatChordPro(merged, songEditorFormatOptions(chordFormat, merged))
 }
 
-export function formatSourceFromSongData(engine: ChordEngine, data: ChordSongData): string {
-  return engine.formatChordPro(data, SONG_EDITOR_FORMAT_OPTIONS)
+export function formatSourceFromSongData(
+  engine: ChordEngine,
+  data: ChordSongData,
+  chordFormat: ChordFormatPreference = 'letters',
+): string {
+  return engine.formatChordPro(data, songEditorFormatOptions(chordFormat, data))
 }
 
 export function songDataSnapshotsEqual(a: PatchSongData, b: PatchSongData): boolean {

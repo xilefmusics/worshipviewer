@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Button } from '@/components/ui/button'
+import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import { cssScaleToViewportWidth } from '@/lib/chord-a4-scale'
+import { chordFormatToRepresentation } from '@/lib/chord-format'
 import { resolveSongDataKey } from '@/lib/setlist-song-links'
 import type { ChordEngine, ChordSongData } from '@/ports/chord-engine'
 import { cn } from '@/lib/utils'
@@ -31,6 +34,8 @@ export function SongEditorPreview({
   viewportClassName,
 }: SongEditorPreviewProps) {
   const { t } = useTranslation()
+  const chordFormat = useChordFormatPreference()
+  const chordRepresentation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
   const viewportRef = useRef<HTMLDivElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
@@ -77,6 +82,7 @@ export function SongEditorPreview({
     try {
       const page = engine.renderA4Html(songData, {
         key: displayKey ?? undefined,
+        representation: chordRepresentation,
         scale: 1,
       })
       if (cancelled) return
@@ -89,7 +95,7 @@ export function SongEditorPreview({
     return () => {
       cancelled = true
     }
-  }, [engine, songData, displayKey, parseError, renderPass])
+  }, [engine, songData, displayKey, chordRepresentation, parseError, renderPass])
 
   useLayoutEffect(() => {
     if (renderState.status !== 'ready') return
