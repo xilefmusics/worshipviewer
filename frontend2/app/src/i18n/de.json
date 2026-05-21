@@ -162,6 +162,7 @@
     "next": "Weiter",
     "blobOffline": "Diese Datei ist offline nicht verfügbar.",
     "blobMissing": "Diese Datei konnte nicht geladen werden.",
+    "chordsRenderFailed": "Dieses Lied konnte nicht dargestellt werden.",
     "invalidLink": "Ungültiger Player-Link."
   },
   "settings": {

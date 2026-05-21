@@ -5,9 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { fetchBlobBinaryWithMime } from '@/api/blob-data'
+import { ChordsSlide } from '@/components/player/ChordsSlide'
 import { Button } from '@/components/ui/button'
 import type { PlayerEntityType } from '@/lib/player-route'
-import { resolveSongDataKey } from '@/lib/setlist-song-links'
 import { resolvePlayerForRoute } from '@/lib/offline/resolve-player'
 import { getCachedBlob } from '@/lib/offline/setlist-player-cache'
 import { cn } from '@/lib/utils'
@@ -26,30 +26,6 @@ function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs'
     default:
       return '/setlists'
   }
-}
-
-function EmergencyChordsSlide({ song }: { song: components['schemas']['Song'] }) {
-  const d = song.data
-  const title = d.titles[0] ?? '—'
-  const keyLabel = resolveSongDataKey(d as Record<string, unknown>)
-  return (
-    <div className="flex min-h-0 flex-col gap-4 px-4 py-6">
-      <header>
-        <h1 className="text-lg font-semibold text-[var(--color-foreground)]">{title}</h1>
-        {d.subtitle ? (
-          <p className="text-sm text-[var(--color-muted-foreground)]">{d.subtitle}</p>
-        ) : null}
-        {keyLabel ? (
-          <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">Key: {keyLabel}</p>
-        ) : null}
-      </header>
-      <div className="min-h-0 overflow-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
-        <pre className="whitespace-pre-wrap break-words font-mono text-[0.8125rem] leading-relaxed text-[var(--color-foreground)]">
-          {JSON.stringify(d.sections, null, 2)}
-        </pre>
-      </div>
-    </div>
-  )
 }
 
 type BlobSlideProps = {
@@ -148,7 +124,7 @@ function PlayerItemSlide({
   if (item.type === 'blob') {
     return <BlobSlide blobId={item.blob_id} allowNetworkFetch={allowNetworkFetch} />
   }
-  return <EmergencyChordsSlide song={item.song} />
+  return <ChordsSlide song={item.song} />
 }
 
 export type PlayerRouteInnerProps = {

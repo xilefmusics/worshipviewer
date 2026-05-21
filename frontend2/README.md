@@ -7,7 +7,8 @@ pnpm monorepo with the Vite SPA in [`app/`](app/). Product and API contracts liv
 | Script | Purpose |
 |--------|---------|
 | `pnpm dev` | Start Vite dev server (`app`) |
-| `pnpm build` | Production build |
+| `pnpm build:wasm` | Build `chordlib-wasm` from `crates/chordlib-wasm` into `packages/chordlib-wasm/pkg` |
+| `pnpm build` | Build WASM, then production Vite build |
 | `pnpm lint` | ESLint |
 | `pnpm typecheck` | TypeScript |
 | `pnpm test` | Vitest (pure helpers) |
@@ -35,6 +36,14 @@ You must align **CORS**, **SameSite** cookie settings, and HTTPS with the backen
 ## OpenAPI
 
 Refresh the canonical spec in [`docs/openapi.json`](docs/openapi.json), then run `pnpm openapi:sync` and commit the updated generated types in the same change when possible (see [`docs/api-integration.md`](docs/api-integration.md)).
+
+## Chordlib WASM
+
+Song editor and player preview use **`@worshipviewer/chordlib-wasm`**, built from [`crates/chordlib-wasm`](crates/chordlib-wasm) into `packages/chordlib-wasm/pkg` via `pnpm build:wasm`. Requires **Rust**, **wasm32-unknown-unknown**, and **wasm-pack**. Run `build:wasm` after changing the Rust crate; `pnpm build` runs it automatically. Generated artifacts are gitignored.
+
+TypeScript access: `getChordEngine()` from `app/src/lib/chord-engine.ts` (lazy-loads WASM on first use).
+
+Integration test with real WASM: `VITEST_WASM=1 pnpm test` (after `build:wasm`).
 
 ## QA locale override
 

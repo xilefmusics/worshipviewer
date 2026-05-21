@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --filter app dev",
-    "build": "pnpm --filter app build",
+    "build:wasm": "wasm-pack build crates/chordlib-wasm --target web --out-dir ../../packages/chordlib-wasm/pkg --release",
+    "build": "pnpm build:wasm && pnpm --filter app build",
     "lint": "pnpm --filter app lint",
     "typecheck": "pnpm --filter app typecheck",
     "openapi:sync": "pnpm --filter app openapi:sync",

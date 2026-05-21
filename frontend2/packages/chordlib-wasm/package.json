@@ -1,0 +1,16 @@
+{
+  "name": "@worshipviewer/chordlib-wasm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": ["pkg"],
+  "main": "./pkg/chordlib_wasm.js",
+  "types": "./pkg/chordlib_wasm.d.ts",
+  "exports": {
+    ".": {
+      "types": "./pkg/chordlib_wasm.d.ts",
+      "import": "./pkg/chordlib_wasm.js"
+    }
+  },
+  "sideEffects": ["./pkg/chordlib_wasm.js"]
+}

@@ -59,6 +59,9 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, 'src'),
       },
     },
+    optimizeDeps: {
+      exclude: ['@worshipviewer/chordlib-wasm'],
+    },
     server: {
       proxy: {
         '/api': { target: proxyTarget, changeOrigin: true },

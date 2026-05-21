@@ -1,0 +1,128 @@
+//! WASM bindings for [`chordlib`] — parse ChordPro/WorshipPro, format source, render A4 HTML.
+
+use chordlib::inputs::chord_pro;
+use chordlib::outputs::{FormatChordPro, FormatHTML};
+use chordlib::types::{ChordRepresentation, SimpleChord, Song};
+use wasm_bindgen::prelude::*;
+
+fn parse_song_json(json: &str) -> Result<Song, String> {
+    serde_json::from_str(json).map_err(|e| e.to_string())
+}
+
+fn parse_key(key: Option<String>) -> Result<Option<SimpleChord>, String> {
+    match key {
+        None => Ok(None),
+        Some(k) if k.trim().is_empty() => Ok(None),
+        Some(k) => SimpleChord::try_from(k.as_str())
+            .map(Some)
+            .map_err(|e| e.to_string()),
+    }
+}
+
+fn parse_representation(rep: Option<String>) -> Result<Option<ChordRepresentation>, String> {
+    match rep {
+        None => Ok(None),
+        Some(r) if r.trim().is_empty() => Ok(None),
+        Some(r) => match r.as_str() {
+            "default" => Ok(Some(ChordRepresentation::Default)),
+            "nashville" => Ok(Some(ChordRepresentation::Nashville)),
+            _ => Err(format!("unknown chord representation: {r}")),
+        },
+    }
+}
+
+/// Parse ChordPro / WorshipPro source into song JSON (`chordlib::types::Song` wire shape).
+#[wasm_bindgen(js_name = parseChordPro)]
+pub fn parse_chord_pro(source: &str) -> Result<String, String> {
+    let song = chord_pro::load_string(source).map_err(|e| e.to_string())?;
+    serde_json::to_string(&song).map_err(|e| e.to_string())
+}
+
+/// Format structured song JSON as ChordPro or WorshipPro text.
+#[wasm_bindgen(js_name = formatChordPro)]
+pub fn format_chord_pro(
+    song_json: &str,
+    worship_pro: bool,
+    key: Option<String>,
+    representation: Option<String>,
+    language: Option<u32>,
+) -> Result<String, String> {
+    let song = parse_song_json(song_json)?;
+    let key_ref = parse_key(key)?;
+    let rep_ref = parse_representation(representation)?;
+    let lang = language.map(|l| l as usize);
+    Ok((&song).format_chord_pro(
+        key_ref.as_ref(),
+        rep_ref.as_ref(),
+        lang,
+        worship_pro,
+    ))
+}
+
+/// DIN-A4 HTML preview (body fragment + CSS) for a structured song.
+#[wasm_bindgen]
+pub struct HtmlPage {
+    html: String,
+    css: String,
+}
+
+#[wasm_bindgen]
+impl HtmlPage {
+    #[wasm_bindgen(getter)]
+    pub fn html(&self) -> String {
+        self.html.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn css(&self) -> String {
+        self.css.clone()
+    }
+}
+
+#[wasm_bindgen(js_name = renderA4Html)]
+pub fn render_a4_html(
+    song_json: &str,
+    key: Option<String>,
+    representation: Option<String>,
+    language: Option<u32>,
+    scale: Option<f32>,
+) -> Result<HtmlPage, String> {
+    let song = parse_song_json(song_json)?;
+    let key_ref = parse_key(key)?;
+    let rep_ref = parse_representation(representation)?;
+    let lang = language.map(|l| l as usize);
+    let (html, css) = (&song).format_html_page(key_ref.as_ref(), rep_ref.as_ref(), lang, scale);
+    Ok(HtmlPage { html, css })
+}
+
+/// Transpose all chords in a song to the given key symbol (e.g. `G`, `Bb`).
+#[wasm_bindgen(js_name = transposeSong)]
+pub fn transpose_song(song_json: &str, key: &str) -> Result<String, String> {
+    let mut song = parse_song_json(song_json)?;
+    let target = SimpleChord::try_from(key).map_err(|e| e.to_string())?;
+    song.transpose(target);
+    serde_json::to_string(&song).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_and_round_trip() {
+        let source = "{title: Test}\n{key: C}\n\n[C]Hello";
+        let json = parse_chord_pro(source).expect("parse");
+        let out = format_chord_pro(&json, false, None, None, None).expect("format");
+        assert!(out.contains("title"));
+        assert!(out.contains("[C]"));
+    }
+
+    #[test]
+    fn render_html_non_empty() {
+        let source = "{title: Test}\n{key: C}\n\n[C]Hello";
+        let json = parse_chord_pro(source).expect("parse");
+        let page = render_a4_html(&json, None, None, None, Some(1.0)).expect("render");
+        assert!(!page.html.is_empty());
+        assert!(!page.css.is_empty());
+    }
+}

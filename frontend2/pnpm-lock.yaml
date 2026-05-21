@@ -68,6 +68,9 @@ importers:
       '@tanstack/react-router':
         specifier: ^1.168.23
         version: 1.168.23(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      '@worshipviewer/chordlib-wasm':
+        specifier: workspace:*
+        version: link:../packages/chordlib-wasm
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -168,6 +171,8 @@ importers:
       vitest:
         specifier: ^4.1.4
         version: 4.1.4(@types/node@24.12.2)(@vitest/coverage-v8@4.1.4)(vite@8.0.9(@types/node@24.12.2)(esbuild@0.27.7)(jiti@2.6.1)(terser@5.46.2)(tsx@4.21.0))
+
+  packages/chordlib-wasm: {}
 
 packages:
 

@@ -1,0 +1,11 @@
+# WASM crate build artifacts (source lives in crates/chordlib-wasm/)
+crates/**/target/
+crates/**/pkg/
+crates/**/packages/
+crates/**/Cargo.lock
+
+# wasm-pack JS/WASM bundle (source lives in packages/chordlib-wasm/package.json)
+packages/**/pkg/
+
+# Vite dependency pre-bundle cache
+app/.vite/
