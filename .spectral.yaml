@@ -16,6 +16,8 @@ rules:
   info-contact: off
   # Deprecated / query shapes referenced indirectly.
   oas3-unused-component: off
+  # Crashes Spectral 6 on utoipa `oneOf: [{ type: null }, …]` nullable fields (reads enum on null).
+  duplicated-entry-in-enum: off
 
   oas3-schema-properties-snake-case:
     description: Every property name under components.schemas must be snake_case ASCII
