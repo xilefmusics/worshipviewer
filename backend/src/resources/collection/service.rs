@@ -4,7 +4,10 @@ use std::sync::Arc;
 use shared::MoveOwner;
 use shared::api::ListQuery;
 use shared::blob::CreateBlob;
-use shared::collection::{Collection, CreateCollection, PatchCollection};
+use shared::collection::{
+    Collection, CreateCollection, PatchCollection, TransferCollectionSong,
+    TransferCollectionSongResult,
+};
 use shared::player::Player;
 use shared::song::{Link as SongLink, Song};
 use tracing::instrument;
@@ -185,6 +188,66 @@ impl<R: CollectionRepository, L: LikedSongIds> CollectionService<R, L> {
     }
 
     #[instrument(level = "debug", err, skip(self, ctx, payload))]
+    pub async fn transfer_song_between_collections_for_user(
+        &self,
+        ctx: &AuthorizationContext,
+        source_id: &str,
+        song_id: &str,
+        payload: TransferCollectionSong,
+    ) -> Result<TransferCollectionSongResult, AppError> {
+        if source_id == payload.target {
+            return Err(AppError::invalid_request(
+                "source and target collection must differ",
+            ));
+        }
+        let write_teams = ctx.write_teams();
+        let source = self.repo.get_collection(&write_teams, source_id).await?;
+        let target = self
+            .repo
+            .get_collection(&write_teams, &payload.target)
+            .await?;
+
+        let song_key = song_link_id_key(song_id);
+        let from_source = source
+            .songs
+            .iter()
+            .find(|l| song_link_id_key(&l.id) == song_key)
+            .ok_or_else(|| AppError::NotFound("song not in source collection".into()))?;
+
+        let already_in_target = target
+            .songs
+            .iter()
+            .any(|l| song_link_id_key(&l.id) == song_key);
+
+        if already_in_target {
+            let source = self
+                .repo
+                .remove_song_link_from_collection(&write_teams, source_id, song_id)
+                .await?;
+            return Ok(TransferCollectionSongResult { source, target });
+        }
+
+        let link = SongLink {
+            id: from_source.id.clone(),
+            key: payload.key.or_else(|| from_source.key.clone()),
+            nr: payload.nr.or_else(|| from_source.nr.clone()),
+        };
+
+        let (source, target) = self
+            .repo
+            .transfer_song_link_between_collections(
+                &write_teams,
+                source_id,
+                &payload.target,
+                song_id,
+                link,
+            )
+            .await?;
+
+        Ok(TransferCollectionSongResult { source, target })
+    }
+
+    #[instrument(level = "debug", err, skip(self, ctx, payload))]
     pub async fn move_collection_for_user(
         &self,
         ctx: &AuthorizationContext,
@@ -285,6 +348,7 @@ impl CollectionServiceHandle {
 
 #[cfg(test)]
 mod tests {
+    use chordlib::types::SimpleChord;
     use shared::song::Link as SongLink;
 
     use crate::error::AppError;
@@ -979,6 +1043,155 @@ mod tests {
             .await
             .expect("unchanged");
         assert_eq!(still.songs.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn transfer_song_between_collections_moves_link_atomically() {
+        use shared::collection::TransferCollectionSong;
+
+        let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
+        let svc = CollectionServiceHandle::build(db.clone());
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let s1 = create_song_with_title(&db, &owner, "Transfer Me")
+            .await
+            .expect("s1");
+        let source = svc
+            .create_collection_for_user(
+                &owner_p,
+                CreateCollection {
+                    owner: None,
+                    title: "Source".into(),
+                    cover: "".into(),
+                    songs: vec![shared::song::Link {
+                        id: s1.id.clone(),
+                        nr: Some("1".into()),
+                        key: Some(SimpleChord::new(3)),
+                    }],
+                },
+            )
+            .await
+            .expect("source");
+        let target = svc
+            .create_collection_for_user(
+                &owner_p,
+                CreateCollection {
+                    owner: None,
+                    title: "Target".into(),
+                    cover: "".into(),
+                    songs: vec![],
+                },
+            )
+            .await
+            .expect("target");
+
+        let result = svc
+            .transfer_song_between_collections_for_user(
+                &owner_p,
+                &source.id,
+                &s1.id,
+                TransferCollectionSong {
+                    target: target.id.clone(),
+                    key: Some(SimpleChord::new(7)),
+                    nr: Some("2".into()),
+                },
+            )
+            .await
+            .expect("transfer");
+
+        assert!(result.source.songs.is_empty());
+        assert_eq!(result.source.id, source.id);
+        assert_eq!(result.target.songs.len(), 1);
+        assert_eq!(result.target.songs[0].id, s1.id);
+        assert_eq!(result.target.songs[0].key, Some(SimpleChord::new(7)));
+        assert_eq!(result.target.songs[0].nr.as_deref(), Some("2"));
+
+        let r = svc
+            .transfer_song_between_collections_for_user(
+                &owner_p,
+                &source.id,
+                &s1.id,
+                TransferCollectionSong {
+                    target: target.id,
+                    key: None,
+                    nr: None,
+                },
+            )
+            .await;
+        assert!(matches!(r, Err(AppError::NotFound(_))));
+    }
+
+    #[tokio::test]
+    async fn transfer_unlinks_source_when_song_already_in_target() {
+        use shared::collection::{PatchCollection, TransferCollectionSong};
+
+        let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
+        let svc = CollectionServiceHandle::build(db.clone());
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let s1 = create_song_with_title(&db, &owner, "Duplicate slot")
+            .await
+            .expect("s1");
+        let source = svc
+            .create_collection_for_user(
+                &owner_p,
+                CreateCollection {
+                    owner: None,
+                    title: "Dup Source".into(),
+                    cover: "".into(),
+                    songs: vec![shared::song::Link {
+                        id: s1.id.clone(),
+                        nr: Some("1".into()),
+                        key: None,
+                    }],
+                },
+            )
+            .await
+            .expect("source");
+        let target = svc
+            .create_collection_for_user(
+                &owner_p,
+                CreateCollection {
+                    owner: None,
+                    title: "Dup Target".into(),
+                    cover: "".into(),
+                    songs: vec![],
+                },
+            )
+            .await
+            .expect("target");
+        svc.patch_collection_for_user(
+            &owner_p,
+            &target.id,
+            PatchCollection {
+                title: None,
+                cover: None,
+                songs: Some(vec![shared::song::Link {
+                    id: s1.id.clone(),
+                    nr: Some("9".into()),
+                    key: None,
+                }]),
+                owner: None,
+            },
+        )
+        .await
+        .expect("seed target");
+
+        let result = svc
+            .transfer_song_between_collections_for_user(
+                &owner_p,
+                &source.id,
+                &s1.id,
+                TransferCollectionSong {
+                    target: target.id.clone(),
+                    key: None,
+                    nr: None,
+                },
+            )
+            .await
+            .expect("repair");
+
+        assert!(result.source.songs.is_empty());
+        assert_eq!(result.target.songs.len(), 1);
+        assert_eq!(result.target.songs[0].nr.as_deref(), Some("9"));
     }
 
     /// BLC-COLL-024: PATCH cannot drop an existing song id from `songs`.

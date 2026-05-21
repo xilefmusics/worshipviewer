@@ -69,4 +69,22 @@ pub trait CollectionRepository: Send + Sync {
         id: &str,
         song_link: SongLink,
     ) -> Result<(), AppError>;
+
+    /// Atomically remove `song_id` from `source_id` and append `link` to `target_id`.
+    async fn transfer_song_link_between_collections(
+        &self,
+        write_teams: &[RecordId],
+        source_id: &str,
+        target_id: &str,
+        song_id: &str,
+        link: SongLink,
+    ) -> Result<(Collection, Collection), AppError>;
+
+    /// Remove `song_id` from `source_id` only (repair / unlink without deleting the song).
+    async fn remove_song_link_from_collection(
+        &self,
+        write_teams: &[RecordId],
+        source_id: &str,
+        song_id: &str,
+    ) -> Result<Collection, AppError>;
 }

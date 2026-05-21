@@ -2341,6 +2341,61 @@
         ],
         "type": "object"
       },
+      "TransferCollectionSong": {
+        "additionalProperties": false,
+        "description": "Move a song link from this collection into another (`POST …/collections/{id}/songs/{song_id}/transfer`).",
+        "example": {
+          "key": {
+            "level": 3
+          },
+          "nr": "3",
+          "target": "col_target"
+        },
+        "properties": {
+          "key": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SimpleChord",
+                "description": "Optional slot key override from the editor row."
+              }
+            ]
+          },
+          "nr": {
+            "description": "Optional slot number override from the editor row.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target": {
+            "description": "Destination collection id.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "type": "object"
+      },
+      "TransferCollectionSongResult": {
+        "description": "Updated source and target collections after a successful transfer.",
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/Collection"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Collection"
+          }
+        },
+        "required": [
+          "source",
+          "target"
+        ],
+        "type": "object"
+      },
       "UpdateBlob": {
         "additionalProperties": false,
         "description": "Full replacement body for `PUT /api/v1/blobs/{id}` metadata (same shape as [`CreateBlob`]; does not upload bytes).",
@@ -4551,6 +4606,124 @@
               }
             },
             "description": "Failed to fetch collection songs"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Collections"
+        ]
+      }
+    },
+    "/api/v1/collections/{id}/songs/{song_id}/transfer": {
+      "post": {
+        "operationId": "transfer_collection_song",
+        "parameters": [
+          {
+            "description": "Source collection identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Song identifier to move",
+            "in": "path",
+            "name": "song_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferCollectionSong"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransferCollectionSongResult"
+                }
+              }
+            },
+            "description": "Song link moved from source to target collection atomically."
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid identifiers or source equals target"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Collection or song slot not found, or caller lacks library write access"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Song already in target collection"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "API rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Failed to transfer song between collections"
           }
         },
         "security": [

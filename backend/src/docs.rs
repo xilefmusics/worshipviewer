@@ -26,6 +26,7 @@ use shared::MoveOwner;
 use shared::api::SongListQuery;
 use shared::auth::otp::{OtpRequest, OtpVerify};
 use shared::blob::{BlobLink, FileType};
+use shared::collection::{TransferCollectionSong, TransferCollectionSongResult};
 pub use shared::error::{ErrorResponse, Problem, ProblemDetails};
 use shared::like::LikeStatus;
 use shared::player::{
@@ -162,6 +163,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
         crate::resources::collection::rest::put_collection_cover,
         crate::resources::collection::rest::patch_collection,
         crate::resources::collection::rest::move_collection,
+        crate::resources::collection::rest::transfer_collection_song,
         crate::resources::collection::rest::delete_collection,
         crate::resources::blob::rest::get_blobs,
         crate::resources::blob::rest::get_blob,
@@ -230,6 +232,8 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
             CreateCollection,
             UpdateCollection,
             PatchCollection,
+            TransferCollectionSong,
+            TransferCollectionSongResult,
             Setlist,
             CreateSetlist,
             UpdateSetlist,
