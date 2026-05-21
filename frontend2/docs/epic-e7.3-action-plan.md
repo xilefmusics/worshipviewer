@@ -2,7 +2,7 @@
 
 **Parent:** [E7 — Content editors](./roadmap.md#e7--content-editors-collections-songs-setlists) · [E7 phase index](./epic-e7-action-plan.md)
 
-**Skipping E6:** [§0 — scope adjustments](./epic-e7-action-plan.md#0-skipping-e6--scope-adjustments) (export/import deferred until E6).
+**E6 (songs):** Import/export for songs is specified in [Epic E6](./epic-e6-action-plan.md) (editor + hub). Setlist/collection export remains E6-deferred per [E7 §0](./epic-e7-action-plan.md#0-skipping-e6--scope-adjustments).
 
 **Prerequisite:** [E7.2](./epic-e7.2-action-plan.md) complete.
 
@@ -21,7 +21,7 @@
 - **`/songs/:id`** per [song-editor.md](./song-editor.md) and API.
 - **`ChordEngine`** port + web WASM adapter — **E8** reuses without duplicating WASM loading.
 - **Hub:** **Edit** + **`+`** on **`/songs`**; together with [E7.1](./epic-e7.1-action-plan.md)–[E7.2](./epic-e7.2-action-plan.md), **all three** entities have editors and create flows.
-- **No Export** until E6 ([§0](./epic-e7-action-plan.md#0-skipping-e6--scope-adjustments)).
+- **Song import/export** per [E6](./epic-e6-action-plan.md) (not part of E7.3 exit; ships with E6).
 
 ---
 
@@ -42,7 +42,7 @@
 
 ## 3. Hub integration (songs)
 
-1. **Song list — long-press / context:** **Edit** → **`/songs/:id`**. **Omit Export** ([§0](./epic-e7-action-plan.md#0-skipping-e6--scope-adjustments)).
+1. **Song list — long-press / context:** **Edit** → **`/songs/:id`**. **Export** (ChordPro / Worship Pro / PDF) ships with [E6](./epic-e6-action-plan.md).
 2. **`+` on `/songs`:** **`POST /api/v1/songs`** → **`/songs/{id}`** (same pattern as E7.1/E7.2).
 3. **Cmd-K:** Navigate to **song** editors as needed; **no** song-editor-specific Cmd-K behavior ([song-editor.md](./song-editor.md)).
 4. **Setlist** Cmd-K insert ([E7.1](./epic-e7.1-action-plan.md)) unchanged.
@@ -81,7 +81,7 @@ Extend prior phases: **songs** list + **`/songs/:id`** detail cache updates afte
 ## 7. Documentation
 
 1. **[pages-and-flows.md](./pages-and-flows.md):** **Song** **Edit** + **New song**; all three hubs aligned; **Play** from editors when E8 lands.
-2. **[app-shell.md](./app-shell.md):** **`+`** = **New** only until E6 **Import**.
+2. **[app-shell.md](./app-shell.md):** **`+`** on `/songs` = **New** | **Import** per [E6](./epic-e6-action-plan.md).
 
 ---
 

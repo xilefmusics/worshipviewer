@@ -125,7 +125,21 @@
       "addToSetlist": "Add to setlist",
       "duplicate": "Duplicate",
       "delete": "Delete",
-      "deleteOfflineHint": "Unavailable offline — connect to delete items."
+      "deleteOfflineHint": "Unavailable offline — connect to delete items.",
+      "export": "Export",
+      "exportChordPro": "ChordPro",
+      "exportWorshipPro": "Worship Pro",
+      "exportPdf": "PDF (print)",
+      "exportPdfHint": "Opens the print dialog — choose Save as PDF.",
+      "exportPreparing": "Preparing export…",
+      "exportFailed": "Could not export this song."
+    },
+    "createChooser": {
+      "title": "Add to library",
+      "description": "Create a blank song or import ChordPro / Worship Pro files.",
+      "newSong": "New song",
+      "importFiles": "Import files",
+      "importOfflineHint": "Import requires an internet connection."
     },
     "addToSetlist": {
       "title": "Add to setlist",
@@ -144,8 +158,11 @@
     "delete": {
       "title": "Delete this item?",
       "body": "“{{name}}” will be removed from your library.",
+      "collectionNotEmptyBody": "“{{name}}” still contains songs. Delete every song in the collection first, then try again.",
       "cancel": "Cancel",
-      "confirm": "Delete"
+      "confirm": "Delete",
+      "failed": "Could not delete this item.",
+      "collectionNotEmpty": "Remove all songs from the collection before deleting it."
     },
     "createOfflineHint": "Connect to the internet to add items."
   },
@@ -402,7 +419,37 @@
       "ugImportFailed": "Could not import Ultimate Guitar HTML:",
       "resumePrompt": "You’re back online. Resume syncing your edits?",
       "resumeRetry": "Retry sync",
-      "resumeDiscard": "Discard and reload from server"
+      "resumeDiscard": "Discard and reload from server",
+      "actionsMenuAria": "Song actions",
+      "importFile": "Import file…",
+      "importOfflineHint": "Import requires an internet connection.",
+      "importFailed": "Could not import file:",
+      "importReplaceTitle": "Replace current content?",
+      "importReplaceDescription": "Importing will replace your unsaved edits in the source editor.",
+      "importReplaceConfirm": "Replace",
+      "exportLabel": "Export",
+      "exportChordPro": "Export as ChordPro",
+      "exportWorshipPro": "Export as Worship Pro",
+      "exportPdf": "Print / Save as PDF",
+      "exportPdfHint": "Opens the print dialog — choose Save as PDF.",
+      "exportFailed": "Could not export this song."
+    },
+    "import": {
+      "dialogTitle": "Import songs",
+      "dialogDescription": "Choose one or more ChordPro or Worship Pro files. Each valid file becomes a new song.",
+      "teamLabel": "Team",
+      "pickFiles": "Choose files",
+      "pickFilesAria": "Choose ChordPro or Worship Pro files",
+      "noFiles": "No files selected.",
+      "importing": "Importing…",
+      "submit": "Import",
+      "summaryCreated_one": "{{count}} song imported.",
+      "summaryCreated_other": "{{count}} songs imported.",
+      "summaryFailed_one": "{{count}} file could not be imported.",
+      "summaryFailed_other": "{{count}} files could not be imported.",
+      "failedItem": "{{name}}: {{error}}",
+      "failed": "Import failed.",
+      "offlineHint": "Import requires an internet connection."
     }
   },
   "teams": {

@@ -34,6 +34,23 @@ Normative UX and client behavior from the **2026-04-20** design grill. Implement
 
 - **Song editor v1:** **No** upload, remove, reorder, or primary-blob management in the editor (see **Song editor grill** table in [grill-session.md](./grill-session.md)). Treat blob handling as **player-focused** or a later iteration; the editor may show a **read-only** count or hint linking forward only if product adds that without violating “player-only.”
 
+## Import / export
+
+Implemented per [Epic E6 (songs)](./epic-e6-action-plan.md).
+
+- **Placement:** Sticky tab bar **overflow menu** (⋯) on `/songs/:id`.
+- **Export** (ChordPro, Worship Pro, PDF):
+  - Available when **ChordEngine** is ready; works in **read-only** mode.
+  - Text export uses the latest **valid parse** of the source buffer, otherwise server `data`.
+  - Chord spelling follows the user’s **chord format** preference (letters / Nashville).
+  - **PDF:** DIN-A4 HTML via `renderA4Html` in an isolated frame, then the **browser print** dialog (choose **Save as PDF**). Keeps real, selectable text. Works **offline** once the chord engine is loaded.
+- **Import** (single file):
+  - Replaces the ChordPro source buffer (and metadata strip from parse).
+  - **Editable + online** only; blocked when WASM is not ready or the song is read-only / `not_a_song`.
+  - If autosave has **pending** edits, show a **confirm** dialog before replacing local content.
+  - Accepted types: `.cp`, `.cho`, `.chopro`, `.chordpro`, `.wp`, `.wop`, `.worshippro`, and `text/plain`.
+- **Hub parity:** Songs list long-press **Export** (same three formats); hub **`+`** → **New** | **Import** for batch create — see [app-shell.md](./app-shell.md) and [pages-and-flows.md](./pages-and-flows.md).
+
 ## Move and delete
 
 - **Move team** (`POST .../move`): **Songs list / long-press / context menu only** — **not** in the song editor (parity with setlist “move” placement).

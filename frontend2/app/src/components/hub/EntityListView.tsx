@@ -13,6 +13,7 @@ import {
   type ReactElement,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
 import { ListMusicIcon } from '@/components/icons/lucide-animated/list-music-icon'
@@ -39,14 +40,16 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
 import { useHubSearch } from '@/hooks/useHubSearch'
 import { useCoverImageSrc } from '@/hooks/useCoverImageSrc'
-import { useDeleteHubEntity } from '@/hooks/useDeleteHubEntity'
+import { useDeleteHubEntity, HubDeleteConflictError } from '@/hooks/useDeleteHubEntity'
 import { useInfiniteHubList } from '@/hooks/useInfiniteHubList'
 import { useLongPress } from '@/hooks/useLongPress'
 import { useOnline } from '@/hooks/use-online'
 import { useSession } from '@/hooks/useSession'
 import { useTeamDetail } from '@/hooks/useTeamDetail'
+import { runSongExport, type SongExportKind } from '@/lib/run-song-export'
 import type { HubEntity } from '@/lib/hub-entity'
 import { hubEntityEditSplat } from '@/lib/hub-entity-edit'
 import { hubListKey } from '@/lib/hub-list-keys'
@@ -110,7 +113,14 @@ export function EntityListView({ entity }: EntityListViewProps) {
 
   const deleteMutation = useDeleteHubEntity(entity)
   const networkOnline = useOnline()
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string
+    label: string
+    songCount?: number
+  } | null>(null)
+
+  const deleteBlocked =
+    entity === 'collections' && deleteTarget != null && (deleteTarget.songCount ?? 0) > 0
 
   const items = useMemo(() => {
     const pages = (data?.pages ?? []) as Array<{
@@ -361,22 +371,36 @@ export function EntityListView({ entity }: EntityListViewProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>{t('hub.delete.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('hub.delete.body', { name: deleteTarget?.label ?? '' })}
+              {deleteBlocked
+                ? t('hub.delete.collectionNotEmptyBody', { name: deleteTarget?.label ?? '' })
+                : t('hub.delete.body', { name: deleteTarget?.label ?? '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('hub.delete.cancel')}</AlertDialogCancel>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={deleteMutation.isPending || !networkOnline}
-              onClick={() => {
-                if (!deleteTarget) return
-                void deleteMutation.mutateAsync(deleteTarget.id).then(() => setDeleteTarget(null))
-              }}
-            >
-              {t('hub.delete.confirm')}
-            </Button>
+            {!deleteBlocked ? (
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={deleteMutation.isPending || !networkOnline}
+                onClick={() => {
+                  if (!deleteTarget) return
+                  void deleteMutation
+                    .mutateAsync(deleteTarget.id)
+                    .then(() => setDeleteTarget(null))
+                    .catch((e: unknown) => {
+                      if (e instanceof HubDeleteConflictError && e.code === 'collection_not_empty') {
+                        toast.error(t('hub.delete.collectionNotEmpty'))
+                        return
+                      }
+                      const msg = e instanceof Error ? e.message : ''
+                      toast.error(msg || t('hub.delete.failed'))
+                    })
+                }}
+              >
+                {t('hub.delete.confirm')}
+              </Button>
+            ) : null}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -384,7 +408,8 @@ export function EntityListView({ entity }: EntityListViewProps) {
   )
 }
 
-type DeleteReq = (target: { id: string; label: string }) => void
+type DeleteTarget = { id: string; label: string; songCount?: number }
+type DeleteReq = (target: DeleteTarget) => void
 
 function dispatchContextMenuFromPointer(e: PointerEvent<HTMLElement>) {
   e.currentTarget.dispatchEvent(
@@ -447,6 +472,7 @@ function HubItemContextMenu({
   entity,
   itemId,
   itemLabel,
+  itemSongCount,
   onDeleteRequest,
   networkOnline,
   hubSong,
@@ -455,6 +481,7 @@ function HubItemContextMenu({
   entity: HubEntity
   itemId: string
   itemLabel: string
+  itemSongCount?: number
   onDeleteRequest: DeleteReq
   networkOnline: boolean
   /** When set (songs hub), enables “Add to setlist”. */
@@ -463,6 +490,7 @@ function HubItemContextMenu({
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const chordFormat = useChordFormatPreference()
   const [editHot, setEditHot] = useState(false)
   const [playHot, setPlayHot] = useState(false)
   const [addToSetlistHot, setAddToSetlistHot] = useState(false)
@@ -472,6 +500,24 @@ function HubItemContextMenu({
   const playType = hubEntityToPlayerType(entity)
   const showAddToSetlist = Boolean(
     entity === 'songs' && hubSong && !hubSong.not_a_song,
+  )
+  const showSongExport = Boolean(entity === 'songs' && hubSong)
+
+  const onSongExport = useCallback(
+    async (kind: SongExportKind) => {
+      if (!hubSong) return
+      const toastId = toast.loading(t('hub.actions.exportPreparing'))
+      try {
+        await runSongExport(hubSong.data as Record<string, unknown>, kind, chordFormat)
+        toast.dismiss(toastId)
+      } catch (e) {
+        toast.dismiss(toastId)
+        const detail = e instanceof Error ? e.message : String(e)
+        toast.error(t('hub.actions.exportFailed'), { description: detail })
+        console.error('Song export failed', e)
+      }
+    },
+    [chordFormat, hubSong, t],
   )
 
   return (
@@ -537,6 +583,30 @@ function HubItemContextMenu({
               {t('hub.actions.addToSetlist')}
             </ContextMenuItem>
           ) : null}
+          {showSongExport ? (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                className="gap-2"
+                onSelect={() => void onSongExport('chordpro')}
+              >
+                {t('hub.actions.export')} — {t('hub.actions.exportChordPro')}
+              </ContextMenuItem>
+              <ContextMenuItem
+                className="gap-2"
+                onSelect={() => void onSongExport('worshippro')}
+              >
+                {t('hub.actions.export')} — {t('hub.actions.exportWorshipPro')}
+              </ContextMenuItem>
+              <ContextMenuItem
+                className="gap-2"
+                title={t('hub.actions.exportPdfHint')}
+                onSelect={() => void onSongExport('pdf')}
+              >
+                {t('hub.actions.export')} — {t('hub.actions.exportPdf')}
+              </ContextMenuItem>
+            </>
+          ) : null}
           <ContextMenuSeparator />
           <ContextMenuItem
             className="gap-2 text-[var(--color-danger)] focus:text-[var(--color-danger)]"
@@ -544,7 +614,11 @@ function HubItemContextMenu({
             title={!networkOnline ? t('hub.actions.deleteOfflineHint') : undefined}
             onSelect={() => {
               if (!networkOnline) return
-              onDeleteRequest({ id: itemId, label: itemLabel })
+              onDeleteRequest({
+                id: itemId,
+                label: itemLabel,
+                ...(itemSongCount != null ? { songCount: itemSongCount } : {}),
+              })
             }}
             onMouseEnter={() => setDeleteHot(true)}
             onMouseLeave={() => setDeleteHot(false)}
@@ -584,6 +658,7 @@ const CollectionCard = memo(function CollectionCard({
       entity="collections"
       itemId={collection.id}
       itemLabel={collection.title}
+      itemSongCount={collection.songs.length}
       onDeleteRequest={onDeleteRequest}
       networkOnline={networkOnline}
     >
@@ -639,6 +714,7 @@ const CollectionRow = memo(function CollectionRow({
       entity="collections"
       itemId={collection.id}
       itemLabel={collection.title}
+      itemSongCount={collection.songs.length}
       onDeleteRequest={onDeleteRequest}
       networkOnline={networkOnline}
     >

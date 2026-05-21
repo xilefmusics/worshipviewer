@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SongEditorActionsMenu } from '@/components/songs/SongEditorActionsMenu'
 import { SongEditorPreview } from '@/components/songs/SongEditorPreview'
 import { SongEditorSource } from '@/components/songs/SongEditorSource'
 import { Button } from '@/components/ui/button'
@@ -84,6 +85,8 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   const [activeTab, setActiveTab] = useState<EditorTab>('source')
   const lastLoadedSongRef = useRef('')
   const [resumePrompt, setResumePrompt] = useState(false)
+  const [fileImportError, setFileImportError] = useState<string | null>(null)
+  const [fileExportError, setFileExportError] = useState<string | null>(null)
   const wentOfflineEditing = useRef(false)
 
   useEffect(() => {
@@ -142,6 +145,11 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   parseResultRef.current = parseResult
 
   const previewData = parseResult?.ok ? parseResult.data : null
+  const exportData = useMemo(() => {
+    if (previewData) return previewData
+    if (detail?.data) return detail.data as Record<string, unknown>
+    return null
+  }, [detail?.data, previewData])
   const parseErrors = useMemo(
     () => (parseResult ? parseErrorsFromResult(parseResult) : []),
     [parseResult],
@@ -364,35 +372,54 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   return (
     <div className="mx-auto flex w-full max-w-lg min-h-[calc(100dvh-6.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] flex-col gap-4">
       <div className="sticky top-0 z-10 -mx-3 bg-[var(--color-background)] px-3 pb-2">
-        <nav
-          role="tablist"
-          aria-label={t('songs.editor.tabsAria')}
-          className="flex w-full items-stretch gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem] shadow-[var(--shadow-elevated)]"
-        >
-          {editorTabs.map((tab) => {
-            const selected = activeTab === tab
-            return (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                id={`song-editor-tab-${tab}-${songId}`}
-                aria-selected={selected}
-                aria-controls={`song-editor-panel-${tab}-${songId}`}
-                tabIndex={selected ? 0 : -1}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  'min-w-0 flex-1 rounded-full px-2 py-2.5 text-sm font-medium transition-colors',
-                  selected
-                    ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-                    : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',
-                )}
-              >
-                {t(`songs.editor.tabs.${tab}`)}
-              </button>
-            )
-          })}
-        </nav>
+        <div className="flex items-center gap-2">
+          <nav
+            role="tablist"
+            aria-label={t('songs.editor.tabsAria')}
+            className="flex min-w-0 flex-1 items-stretch gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem] shadow-[var(--shadow-elevated)]"
+          >
+            {editorTabs.map((tab) => {
+              const selected = activeTab === tab
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  id={`song-editor-tab-${tab}-${songId}`}
+                  aria-selected={selected}
+                  aria-controls={`song-editor-panel-${tab}-${songId}`}
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    'min-w-0 flex-1 rounded-full px-2 py-2.5 text-sm font-medium transition-colors',
+                    selected
+                      ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
+                      : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',
+                  )}
+                >
+                  {t(`songs.editor.tabs.${tab}`)}
+                </button>
+              )
+            })}
+          </nav>
+          <SongEditorActionsMenu
+            engine={engine}
+            exportData={exportData}
+            chordFormat={chordFormat}
+            canImport={Boolean(editable && online && engineReady)}
+            online={online}
+            hasPendingEdits={saveIcon === 'pending'}
+            onImportError={setFileImportError}
+            onExportError={setFileExportError}
+            onImportApplied={(source, data) => {
+              setFileImportError(null)
+              setSourceText(source)
+              setMetadataStrip(metadataStripFromSongData(data))
+              setParseError(null)
+              queueMicrotask(() => notifyDraftEdited())
+            }}
+          />
+        </div>
       </div>
       {!editable ? (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-3 py-2 text-sm">
@@ -402,6 +429,18 @@ export function SongEditorScreen({ songId }: { songId: string }) {
       {offlineFrozen ? (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-3 py-2 text-sm">
           {t('songs.editor.bannerOfflineEditing')}
+        </div>
+      ) : null}
+      {fileImportError ? (
+        <div className="rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-3 py-2 text-sm text-[var(--color-foreground)]">
+          <p className="font-medium">{t('songs.editor.importFailed')}</p>
+          <p className="mt-1">{fileImportError}</p>
+        </div>
+      ) : null}
+      {fileExportError ? (
+        <div className="rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-3 py-2 text-sm text-[var(--color-foreground)]">
+          <p className="font-medium">{t('songs.editor.exportFailed')}</p>
+          <p className="mt-1">{fileExportError}</p>
         </div>
       ) : null}
       {ugImportUi.kind === 'url_hint' ? (

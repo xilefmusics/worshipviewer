@@ -9,10 +9,10 @@
 | `/login` | Login | **OAuth** and **email OTP** with **equal prominence** (tabs or segmented control). **Marketing copy + footer legal links** — [branding.md](./branding.md). See [E1 interactive grill](./grill-session.md#e1-interactive-grill--user-session-resolved). |
 | `/` | Redirect | → `/collections` when authenticated ([epic E2](./epic-e2-action-plan.md)). |
 | `/collections` | Collections list | Default **card** view (A4 cover aspect). **Primary tap / Enter / Space** → **`/player`** (`type=collection`). **FAB +** → **`CreateCollectionDialog`** (`?new=1` latch); success → **`/collections/:id`**. **Edit** via long-press / context menu. |
-| `/songs` | Songs list | Default **list** view. |
+| `/songs` | Songs list | Default **list** view. **FAB +** → chooser **New song** \| **Import files** ([E6](./epic-e6-action-plan.md)). Long-press **Export** (ChordPro / Worship Pro / PDF). |
 | `/setlists` | Setlists list | Default **list** view. **FAB +** opens **create setlist** when the team library is writable; after create, navigate to **`/setlists/:id`**. |
 | `/collections/:id` | Collection editor | **[E7.2](./epic-e7.2-action-plan.md)** — parity with **`/setlists/:id`**: picker, Cmd-K, reorder, **`SongLink.nr`**, slot keys (**[setlist-editor](./setlist-editor.md)**). **No Play** in-editor until **E8**; use hub row / **`/player`**. **`/collections/:id`** is **not** allowlisted for **`return_to`** (logged-out bounce → **`/collections`**). Next: **[E7.3](./epic-e7.3-action-plan.md)** |
-| `/songs/:id` | Song editor | ChordPro/WorshipPro via chordlib; play opens player. See [Song editor](./song-editor.md). |
+| `/songs/:id` | Song editor | ChordPro/WorshipPro via chordlib; **Import / Export** overflow menu ([E6](./epic-e6-action-plan.md)); play opens player. See [Song editor](./song-editor.md). |
 | `/setlists/:id` | Setlist editor | Autosave: reorder, slot keys, add/remove songs ([setlist-editor.md](./setlist-editor.md)). **No Play in the editor** in E7.1 — open **`/player`** from the hub row or context menu; editor Play lands in **E8**. |
 | `/player` | Player | Book mode; **query** `type` (song, setlist, or collection) and `id` (resource id). Maps to the matching `GET /api/v1/songs/{id}/player`, `GET /api/v1/setlists/{id}/player`, or `GET /api/v1/collections/{id}/player`. **No app shell** — see [App shell](./app-shell.md). |
 | `/settings` | Settings | **Language**, **appearance** (light / dark / system), cache, account shortcuts. |

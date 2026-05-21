@@ -26,9 +26,9 @@ Without **E6**, the following remain **out of scope** for **E7.1–E7.3** (add w
 
 | Topic | Deferred behavior |
 |--------|-------------------|
-| **Long-press Export** | No **PDF / ChordPro / WorshipPro** export from list row actions. |
-| **+ → Import** | No multi-file import batch; **`+`** only **New** (create) per entity as each phase wires it. |
-| **Roadmap E7 exit** | **Export** row actions are **not required** until **E6** ships. |
+| **Long-press Export** | **Songs:** [E6](./epic-e6-action-plan.md). **Setlists / collections:** still deferred until E6 extends to those entities. |
+| **+ → Import** | **Songs hub:** [E6](./epic-e6-action-plan.md) chooser. Other hubs: **`+`** = **New** only until E6. |
+| **Roadmap E7 exit** | **Song** export/import is **E6**, not E7.3. |
 
 **Dependency rationale:** Formal roadmap order is E6 → E7. Skipping E6 is a **planning exception**; phased delivery still yields shippable increments.
 
