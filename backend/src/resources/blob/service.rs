@@ -167,14 +167,9 @@ impl<R: BlobRepository, S: BlobStorage> BlobService<R, S> {
         id: &str,
         data: &[u8],
     ) -> Result<(), AppError> {
-        // Reuse update_blob for the permission check: it scopes by write_teams and returns
-        // 404 if the caller has no write access, which is exactly the right behavior here.
-        let write_teams = ctx.write_teams();
-        let blob = self
-            .repo
-            .get_blob(&write_teams, id)
-            .await
-            .map_err(|_| AppError::NotFound("blob not found or write access denied".into()))?;
+        let blob = self.get_blob_for_user(ctx, id).await?;
+        let owner = parse_owner_record_id(&blob.owner)?;
+        ctx.require_write_access_to_owner(&owner)?;
         self.storage.write_blob_bytes(&blob, data)
     }
 
