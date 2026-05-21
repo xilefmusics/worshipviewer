@@ -10,12 +10,16 @@ import { hubListRootKey } from '@/lib/hub-list-keys'
 import { parseRetryAfterSeconds } from '@/lib/http-retry-after'
 import { buildSongPatchBody } from '@/lib/song-patch-body'
 import { songDetailQueryKey } from '@/lib/setlist-detail-key'
-import { patchSongDataFromSongData, type PatchSongData } from '@/lib/song-editor-state'
+import {
+  patchSongDataFromSongData,
+  SONG_EDITOR_TYPING_DEBOUNCE_MS,
+  type PatchSongData,
+} from '@/lib/song-editor-state'
 import type { ChordSongData } from '@/ports/chord-engine'
 
 type Song = components['schemas']['Song']
 
-const DEBOUNCE_MS = 750
+const DEBOUNCE_MS = SONG_EDITOR_TYPING_DEBOUNCE_MS
 
 export type SaveIconState = 'idle' | 'pending' | 'saving' | 'error'
 

@@ -11,6 +11,9 @@ export type PatchSongData = components['schemas']['PatchSongData']
 /** Time signatures offered in the song editor meta strip. */
 export const SONG_EDITOR_TIME_SIGNATURES = ['4/4', '6/8'] as const
 
+/** Pause after typing before autosave runs or parse errors are shown in source mode. */
+export const SONG_EDITOR_TYPING_DEBOUNCE_MS = 3000
+
 export type SongEditorTimeSignature = (typeof SONG_EDITOR_TIME_SIGNATURES)[number]
 
 export type SongMetadataStrip = {

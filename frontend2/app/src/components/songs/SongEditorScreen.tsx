@@ -28,6 +28,7 @@ import {
   patchSongDataFromParsed,
   patchSongDataFromSongData,
   SONG_EDITOR_TIME_SIGNATURES,
+  SONG_EDITOR_TYPING_DEBOUNCE_MS,
   type SongMetadataStrip,
 } from '@/lib/song-editor-state'
 import type { ChordEngine } from '@/ports/chord-engine'
@@ -125,8 +126,28 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   }, [engine, sourceText])
 
   const previewData = parseResult?.ok ? parseResult.data : null
-  const parseErrors = parseResult ? parseErrorsFromResult(parseResult) : []
+  const parseErrors = useMemo(
+    () => (parseResult ? parseErrorsFromResult(parseResult) : []),
+    [parseResult],
+  )
   const effectiveParseError = parseError ?? parseErrors[0] ?? null
+
+  const [displayedParseError, setDisplayedParseError] = useState<string | null>(null)
+  const [displayedParseErrors, setDisplayedParseErrors] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!effectiveParseError) {
+      setDisplayedParseError(null)
+      setDisplayedParseErrors([])
+      return
+    }
+    const errors = parseErrors
+    const id = setTimeout(() => {
+      setDisplayedParseError(effectiveParseError)
+      setDisplayedParseErrors(errors)
+    }, SONG_EDITOR_TYPING_DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [effectiveParseError, parseErrors])
 
   const baseline = useMemo(
     () => (detail ? patchSongDataFromSongData(detail.data as Record<string, unknown>) : null),
@@ -280,11 +301,11 @@ export function SongEditorScreen({ songId }: { songId: string }) {
           {t('songs.editor.bannerOfflineEditing')}
         </div>
       ) : null}
-      {effectiveParseError ? (
+      {displayedParseError ? (
         <div className="rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-3 py-2 text-sm text-[var(--color-foreground)]">
           <p className="font-medium">{t('songs.editor.parseErrorTitle')}</p>
           <ul className="mt-1 list-inside list-disc">
-            {parseErrors.map((msg) => (
+            {displayedParseErrors.map((msg) => (
               <li key={msg}>{msg}</li>
             ))}
           </ul>
