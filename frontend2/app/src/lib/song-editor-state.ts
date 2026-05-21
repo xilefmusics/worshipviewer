@@ -4,7 +4,15 @@ import {
   coerceMusicalKeyString,
   songLinkKeyEditorToWire,
 } from '@/lib/setlist-song-links'
-import { ChordEngineError, type ChordEngine, type ChordSongData } from '@/ports/chord-engine'
+import {
+  ChordEngineError,
+  type ChordEngine,
+  type ChordSongData,
+  type FormatChordProOptions,
+} from '@/ports/chord-engine'
+
+/** Emit Worship Pro source (durations, `&` lines, etc.) in the song editor. */
+export const SONG_EDITOR_FORMAT_OPTIONS: FormatChordProOptions = { worshipPro: true }
 
 export type PatchSongData = components['schemas']['PatchSongData']
 
@@ -160,11 +168,11 @@ export function applyMetadataStripToSource(
     time: patch.time,
     key: patch.key,
   }
-  return engine.formatChordPro(merged)
+  return engine.formatChordPro(merged, SONG_EDITOR_FORMAT_OPTIONS)
 }
 
 export function formatSourceFromSongData(engine: ChordEngine, data: ChordSongData): string {
-  return engine.formatChordPro(data)
+  return engine.formatChordPro(data, SONG_EDITOR_FORMAT_OPTIONS)
 }
 
 export function songDataSnapshotsEqual(a: PatchSongData, b: PatchSongData): boolean {

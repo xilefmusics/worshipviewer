@@ -289,6 +289,37 @@ export function SongEditorScreen({ songId }: { songId: string }) {
 
   return (
     <div className="mx-auto flex w-full max-w-lg min-h-[calc(100dvh-6.5rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] flex-col gap-4">
+      <div className="sticky top-0 z-10 -mx-3 bg-[var(--color-background)] px-3 pb-2">
+        <nav
+          role="tablist"
+          aria-label={t('songs.editor.tabsAria')}
+          className="flex w-full items-stretch gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem] shadow-[var(--shadow-elevated)]"
+        >
+          {editorTabs.map((tab) => {
+            const selected = activeTab === tab
+            return (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                id={`song-editor-tab-${tab}-${songId}`}
+                aria-selected={selected}
+                aria-controls={`song-editor-panel-${tab}-${songId}`}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  'min-w-0 flex-1 rounded-full px-2 py-2.5 text-sm font-medium transition-colors',
+                  selected
+                    ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
+                    : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',
+                )}
+              >
+                {t(`songs.editor.tabs.${tab}`)}
+              </button>
+            )
+          })}
+        </nav>
+      </div>
       {!editable ? (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-3 py-2 text-sm">
           {detail.not_a_song ? t('songs.editor.notASongChip') : t('songs.editor.readOnlyBanner')}
@@ -541,35 +572,6 @@ export function SongEditorScreen({ songId }: { songId: string }) {
           </span>
           <span className="sr-only">{saveAria}</span>
         </div>
-        <nav
-          role="tablist"
-          aria-label={t('songs.editor.tabsAria')}
-          className="flex w-full items-stretch gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem] shadow-[var(--shadow-elevated)]"
-        >
-          {editorTabs.map((tab) => {
-            const selected = activeTab === tab
-            return (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                id={`song-editor-tab-${tab}-${songId}`}
-                aria-selected={selected}
-                aria-controls={`song-editor-panel-${tab}-${songId}`}
-                tabIndex={selected ? 0 : -1}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  'min-w-0 flex-1 rounded-full px-2 py-2.5 text-sm font-medium transition-colors',
-                  selected
-                    ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-                    : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',
-                )}
-              >
-                {t(`songs.editor.tabs.${tab}`)}
-              </button>
-            )
-          })}
-        </nav>
       </div>
     </div>
   )
