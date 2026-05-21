@@ -1,6 +1,7 @@
 //! WASM bindings for [`chordlib`] — parse ChordPro/WorshipPro, format source, render A4 HTML.
 
 use chordlib::inputs::chord_pro;
+use chordlib::inputs::ultimate_guitar;
 use chordlib::outputs::{FormatChordPro, FormatHTML};
 use chordlib::types::{ChordRepresentation, SimpleChord, Song};
 use wasm_bindgen::prelude::*;
@@ -35,6 +36,13 @@ fn parse_representation(rep: Option<String>) -> Result<Option<ChordRepresentatio
 #[wasm_bindgen(js_name = parseChordPro)]
 pub fn parse_chord_pro(source: &str) -> Result<String, String> {
     let song = chord_pro::load_string(source).map_err(|e| e.to_string())?;
+    serde_json::to_string(&song).map_err(|e| e.to_string())
+}
+
+/// Parse Ultimate Guitar saved page HTML into song JSON.
+#[wasm_bindgen(js_name = parseUltimateGuitarHtml)]
+pub fn parse_ultimate_guitar_html(html: &str) -> Result<String, String> {
+    let song = ultimate_guitar::load_html(html).map_err(|e| e.to_string())?;
     serde_json::to_string(&song).map_err(|e| e.to_string())
 }
 
@@ -124,5 +132,36 @@ mod tests {
         let page = render_a4_html(&json, None, None, None, Some(1.0)).expect("render");
         assert!(!page.html.is_empty());
         assert!(!page.css.is_empty());
+    }
+
+    #[test]
+    fn parse_ultimate_guitar_html_fixture() {
+        let content = "Tempo: 120\n[Verse 1]\n[ch]C[/ch] Test lyrics";
+        let json = serde_json::json!({
+            "store": {
+                "page": {
+                    "data": {
+                        "tab_view": {
+                            "wiki_tab": {
+                                "content": content
+                            }
+                        },
+                        "tab": {
+                            "song_name": "Test Song",
+                            "artist_name": "Test Artist",
+                            "tonality_name": "C"
+                        }
+                    }
+                }
+            }
+        });
+        let json_str = json.to_string().replace('"', "&quot;");
+        let html = format!(
+            r#"<!DOCTYPE html><html><body><div class="js-store" data-content="{}"></div></body></html>"#,
+            json_str
+        );
+        let out = parse_ultimate_guitar_html(&html).expect("parse ug html");
+        assert!(out.contains("Test Song"));
+        assert!(out.contains("Verse 1"));
     }
 }

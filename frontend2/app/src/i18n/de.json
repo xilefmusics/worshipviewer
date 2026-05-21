@@ -397,6 +397,9 @@
       "saveStatusIdle": "Alle Änderungen gespeichert.",
       "saveStatusPending": "Änderungen noch nicht gespeichert…",
       "saveStatusSaving": "Speichert…",
+      "ugImporting": "Ultimate-Guitar-Import läuft…",
+      "ugUrlHint": "Speichere die Ultimate-Guitar-Seite im Browser (Seite speichern oder Seitenquelltext), und füge das HTML hier ein, um zu importieren.",
+      "ugImportFailed": "Ultimate-Guitar-HTML konnte nicht importiert werden:",
       "resumePrompt": "Du bist wieder online. Bearbeitung fortsetzen und synchronisieren?",
       "resumeRetry": "Synchronisieren",
       "resumeDiscard": "Verwerfen und vom Server neu laden"

@@ -45,6 +45,10 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
       return wrapWasmError(() => parseSongJson(wasm.parseChordPro(source)))
     },
 
+    parseUltimateGuitarHtml(html: string) {
+      return wrapWasmError(() => parseSongJson(wasm.parseUltimateGuitarHtml(html)))
+    },
+
     formatChordPro(song: ChordSongData, options?: FormatChordProOptions) {
       const json = JSON.stringify(song)
       return wrapWasmError(() =>

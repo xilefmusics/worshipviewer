@@ -94,7 +94,7 @@ cd frontend && \
 
 Use this together with a **same-origin** setup (proxy or static dir) as described [above](#local-development).
 
-The in-app song editor expects **ChordPro** text (via **chordlib**). **Ultimate Guitar is not fetched over HTTP** by chordlib anymore: paste ChordPro you already have, or download UG/tab HTML yourself and convert outside the app.
+The in-app song editor expects **ChordPro** text (via **chordlib**). To import from **Ultimate Guitar**, save the tab page in your browser and paste the HTML into the song editor source — it converts to Worship Pro automatically. **Ultimate Guitar is not fetched over HTTP** by the app.
 
 ### Serve backend and frontend on the same port (Caddy reverse proxy)
 

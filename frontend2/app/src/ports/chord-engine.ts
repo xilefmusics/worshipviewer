@@ -27,6 +27,7 @@ export type ChordSongData = Record<string, unknown>
  */
 export interface ChordEngine {
   parseChordPro(source: string): ChordSongData
+  parseUltimateGuitarHtml(html: string): ChordSongData
   formatChordPro(song: ChordSongData, options?: FormatChordProOptions): string
   renderA4Html(song: ChordSongData, options?: RenderA4HtmlOptions): { html: string; css: string }
   transpose(song: ChordSongData, key: string): ChordSongData

@@ -28,6 +28,9 @@ function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
       if (source.includes('{{broken}}')) throw new ChordEngineError('parse failed at line 2')
       return { ...sample, raw: source }
     },
+    parseUltimateGuitarHtml() {
+      return sample
+    },
     formatChordPro(song: ChordSongData) {
       return `{title: ${(song.titles as string[] | undefined)?.[0] ?? ''}}\n${JSON.stringify(song.sections)}`
     },

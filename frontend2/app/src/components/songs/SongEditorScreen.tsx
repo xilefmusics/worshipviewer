@@ -33,6 +33,11 @@ import {
   SONG_EDITOR_TYPING_DEBOUNCE_MS,
   type SongMetadataStrip,
 } from '@/lib/song-editor-state'
+import {
+  importUltimateGuitarHtml,
+  isUltimateGuitarUrl,
+  shouldAttemptUgImport,
+} from '@/lib/ultimate-guitar-import'
 import type { ChordEngine } from '@/ports/chord-engine'
 import { cn } from '@/lib/utils'
 
@@ -44,6 +49,12 @@ type EngineState =
   | { status: 'loading' }
   | { status: 'ready'; engine: ChordEngine }
   | { status: 'error'; message: string }
+
+type UgImportUiState =
+  | { kind: 'idle' }
+  | { kind: 'url_hint' }
+  | { kind: 'importing' }
+  | { kind: 'error'; message: string }
 
 export function SongEditorScreen({ songId }: { songId: string }) {
   const { t } = useTranslation()
@@ -69,6 +80,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     key: '',
   })
   const [parseError, setParseError] = useState<string | null>(null)
+  const [ugImportUi, setUgImportUi] = useState<UgImportUiState>({ kind: 'idle' })
   const [activeTab, setActiveTab] = useState<EditorTab>('source')
   const lastLoadedSongRef = useRef('')
   const [resumePrompt, setResumePrompt] = useState(false)
@@ -77,6 +89,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   useEffect(() => {
     lastLoadedSongRef.current = ''
     setActiveTab('source')
+    setUgImportUi({ kind: 'idle' })
   }, [songId])
 
   useEffect(() => {
@@ -118,6 +131,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     setSourceText(source)
     setMetadataStrip(metadataStripFromSongData(detail.data as Record<string, unknown>))
     setParseError(null)
+    setUgImportUi({ kind: 'idle' })
   }, [detail, songId, engine, chordFormat])
 
   const parseResult = useMemo(() => {
@@ -205,6 +219,47 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     patchInFlight || !!saveFailure || offlineFrozen || !editable || resumePrompt || !engineReady
   const sourceBlocked = blockingAll || !editable || !engineReady
 
+  useEffect(() => {
+    if (!engine || !editable || sourceBlocked) {
+      setUgImportUi({ kind: 'idle' })
+      return
+    }
+    if (parseResult?.ok) {
+      setUgImportUi({ kind: 'idle' })
+      return
+    }
+
+    setUgImportUi({ kind: 'idle' })
+    const trimmed = sourceText.trim()
+    const timer = setTimeout(() => {
+      if (parseResultRef.current?.ok) return
+
+      if (isUltimateGuitarUrl(trimmed)) {
+        setUgImportUi({ kind: 'url_hint' })
+        return
+      }
+
+      if (!shouldAttemptUgImport(sourceText, false)) {
+        setUgImportUi({ kind: 'idle' })
+        return
+      }
+
+      setUgImportUi({ kind: 'importing' })
+      const result = importUltimateGuitarHtml(engine, sourceText, chordFormat)
+      if (result.ok) {
+        setUgImportUi({ kind: 'idle' })
+        setSourceText(result.source)
+        setMetadataStrip(metadataStripFromSongData(result.data))
+        setParseError(null)
+        queueMicrotask(() => notifyDraftEdited())
+        return
+      }
+      setUgImportUi({ kind: 'error', message: result.error })
+    }, SONG_EDITOR_TYPING_DEBOUNCE_MS)
+
+    return () => clearTimeout(timer)
+  }, [sourceText, engine, editable, sourceBlocked, chordFormat, notifyDraftEdited, parseResult?.ok])
+
   const retryAfterUntil = saveFailure?.retryAfterUntil
   const [retrySec, setRetrySec] = useState(0)
   useEffect(() => {
@@ -256,12 +311,13 @@ export function SongEditorScreen({ songId }: { songId: string }) {
 
   const saveAria = useMemo(() => {
     if (offlineFrozen) return t('songs.editor.bannerOfflineEditing')
-    if (effectiveParseError) return t('songs.editor.parseBlocked')
+    if (ugImportUi.kind === 'importing') return t('songs.editor.ugImporting')
+    if (effectiveParseError && ugImportUi.kind !== 'url_hint') return t('songs.editor.parseBlocked')
     if (patchInFlight) return t('songs.editor.saveStatusSaving')
     if (saveFailure) return t('songs.editor.saveFailedShort')
     if (saveIcon === 'pending') return t('songs.editor.saveStatusPending')
     return t('songs.editor.saveStatusIdle')
-  }, [effectiveParseError, offlineFrozen, patchInFlight, saveFailure, saveIcon, t])
+  }, [effectiveParseError, offlineFrozen, patchInFlight, saveFailure, saveIcon, t, ugImportUi.kind])
 
   async function discardResumeReload() {
     setResumePrompt(false)
@@ -348,7 +404,23 @@ export function SongEditorScreen({ songId }: { songId: string }) {
           {t('songs.editor.bannerOfflineEditing')}
         </div>
       ) : null}
-      {displayedParseError ? (
+      {ugImportUi.kind === 'url_hint' ? (
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm">
+          {t('songs.editor.ugUrlHint')}
+        </div>
+      ) : null}
+      {ugImportUi.kind === 'importing' ? (
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm">
+          {t('songs.editor.ugImporting')}
+        </div>
+      ) : null}
+      {ugImportUi.kind === 'error' ? (
+        <div className="rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-3 py-2 text-sm text-[var(--color-foreground)]">
+          <p className="font-medium">{t('songs.editor.ugImportFailed')}</p>
+          <p className="mt-1">{ugImportUi.message}</p>
+        </div>
+      ) : null}
+      {displayedParseError && ugImportUi.kind !== 'url_hint' && ugImportUi.kind !== 'importing' ? (
         <div className="rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-3 py-2 text-sm text-[var(--color-foreground)]">
           <p className="font-medium">{t('songs.editor.parseErrorTitle')}</p>
           <ul className="mt-1 list-inside list-disc">

@@ -397,6 +397,9 @@
       "saveStatusIdle": "All changes saved.",
       "saveStatusPending": "Unsaved edits…",
       "saveStatusSaving": "Saving…",
+      "ugImporting": "Importing Ultimate Guitar…",
+      "ugUrlHint": "Save the Ultimate Guitar page in your browser (Save Page As or View Source), then paste the HTML here to import.",
+      "ugImportFailed": "Could not import Ultimate Guitar HTML:",
       "resumePrompt": "You’re back online. Resume syncing your edits?",
       "resumeRetry": "Retry sync",
       "resumeDiscard": "Discard and reload from server"
