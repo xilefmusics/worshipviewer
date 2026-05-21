@@ -1,5 +1,9 @@
 use crate::song::Link as SongLink;
+use chordlib::types::SimpleChord;
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "backend")]
+use crate::song::SimpleChordSchema;
 
 #[cfg(feature = "backend")]
 #[allow(unused_imports)]
@@ -94,4 +98,36 @@ impl From<Collection> for CreateCollection {
             songs: value.songs,
         }
     }
+}
+
+/// Move a song link from this collection into another (`POST …/collections/{id}/songs/{song_id}/transfer`).
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[cfg_attr(
+    feature = "backend",
+    schema(example = json!({
+        "target": "col_target",
+        "key": { "level": 3 },
+        "nr": "3"
+    }))
+)]
+pub struct TransferCollectionSong {
+    /// Destination collection id.
+    pub target: String,
+    /// Optional slot key override from the editor row.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "backend", schema(value_type = Option<SimpleChordSchema>))]
+    pub key: Option<SimpleChord>,
+    /// Optional slot number override from the editor row.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nr: Option<String>,
+}
+
+/// Updated source and target collections after a successful transfer.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct TransferCollectionSongResult {
+    pub source: Collection,
+    pub target: Collection,
 }

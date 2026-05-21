@@ -1112,6 +1112,214 @@ testcases:
           - result.statuscode ShouldEqual 200
           - result.bodyjson.songs ShouldHaveLength 3
 
+  # POST /api/v1/collections/{id}/songs/{song_id}/transfer
+  - name: post-collection-transfer-source
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "title": "Transfer Source",
+            "cover": "cover-transfer-src",
+            "songs": [
+              { "id": "{{.create-collection-song-two.songid}}", "nr": "src" }
+            ]
+          }
+        assertions:
+          - result.statuscode ShouldEqual 201
+          - result.bodyjson.songs ShouldHaveLength 1
+        vars:
+          collectionid:
+            from: result.bodyjson.id
+
+  - name: post-collection-transfer-target
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "title": "Transfer Target",
+            "cover": "cover-transfer-tgt",
+            "songs": []
+          }
+        assertions:
+          - result.statuscode ShouldEqual 201
+          - result.bodyjson.songs ShouldHaveLength 0
+        vars:
+          collectionid:
+            from: result.bodyjson.id
+
+  - name: post-transfer-collection-song-success
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-transfer-source.collectionid}}/songs/{{.create-collection-song-two.songid}}/transfer"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "target": "{{.post-collection-transfer-target.collectionid}}",
+            "nr": "moved"
+          }
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.source.id ShouldEqual "{{.post-collection-transfer-source.collectionid}}"
+          - result.bodyjson.source.songs ShouldHaveLength 0
+          - result.bodyjson.target.id ShouldEqual "{{.post-collection-transfer-target.collectionid}}"
+          - result.bodyjson.target.songs ShouldHaveLength 1
+          - result.bodyjson.target.songs.songs0.id ShouldEqual "{{.create-collection-song-two.songid}}"
+          - result.bodyjson.target.songs.songs0.nr ShouldEqual "moved"
+
+  - name: get-collection-transfer-source-after-move
+    steps:
+      - type: http
+        method: GET
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-transfer-source.collectionid}}"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.songs ShouldHaveLength 0
+
+  - name: get-collection-transfer-target-after-move
+    steps:
+      - type: http
+        method: GET
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-transfer-target.collectionid}}"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.songs ShouldHaveLength 1
+          - result.bodyjson.songs.songs0.id ShouldEqual "{{.create-collection-song-two.songid}}"
+
+  - name: post-transfer-collection-song-not-in-source
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-transfer-source.collectionid}}/songs/{{.create-collection-song-two.songid}}/transfer"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "target": "{{.post-collection-transfer-target.collectionid}}"
+          }
+        assertions:
+          - result.statuscode ShouldEqual 404
+
+  - name: post-transfer-collection-song-target-not-found
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-transfer-source.collectionid}}/songs/{{.create-collection-song-one.songid}}/transfer"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "target": "never-existed-collection"
+          }
+        assertions:
+          - result.statuscode ShouldEqual 404
+
+  - name: post-transfer-collection-song-same-source-and-target
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-transfer-target.collectionid}}/songs/{{.create-collection-song-two.songid}}/transfer"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "target": "{{.post-collection-transfer-target.collectionid}}"
+          }
+        assertions:
+          - result.statuscode ShouldEqual 400
+
+  # BLC: BLC-COLL-007, BLC-COLL-006
+  - name: post-transfer-collection-song-read-user
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-transfer-source.collectionid}}/songs/{{.create-collection-song-one.songid}}/transfer"
+        headers:
+          Authorization: "Bearer {{.create-collection-read-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "target": "{{.post-collection-transfer-target.collectionid}}"
+          }
+        assertions:
+          - result.statuscode ShouldEqual 404
+
+  # BLC: BLC-AUTH-001
+  - name: post-transfer-collection-song-missing-token
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-transfer-source.collectionid}}/songs/{{.create-collection-song-one.songid}}/transfer"
+        headers:
+          Content-Type: application/json
+        body: |
+          {
+            "target": "{{.post-collection-transfer-target.collectionid}}"
+          }
+        assertions:
+          - result.statuscode ShouldEqual 401
+
+  # Repair path: song already in target — unlink from source only
+  - name: post-collection-transfer-repair-source
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "title": "Transfer Repair Source",
+            "cover": "cover-transfer-repair-src",
+            "songs": [
+              { "id": "{{.create-collection-song-two.songid}}", "nr": "dup-src" }
+            ]
+          }
+        assertions:
+          - result.statuscode ShouldEqual 201
+          - result.bodyjson.songs ShouldHaveLength 1
+        vars:
+          collectionid:
+            from: result.bodyjson.id
+
+  - name: post-transfer-collection-song-repair-already-in-target
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-transfer-repair-source.collectionid}}/songs/{{.create-collection-song-two.songid}}/transfer"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "target": "{{.post-collection-transfer-target.collectionid}}"
+          }
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.source.songs ShouldHaveLength 0
+          - result.bodyjson.target.songs ShouldHaveLength 1
+          - result.bodyjson.target.songs.songs0.nr ShouldEqual "moved"
+
   # Additional collections for delete scenarios
   - name: post-collection-for-delete
     steps:

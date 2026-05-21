@@ -1,4 +1,7 @@
-pub use shared::collection::{Collection, CreateCollection, PatchCollection, UpdateCollection};
+pub use shared::collection::{
+    Collection, CreateCollection, PatchCollection, TransferCollectionSong,
+    TransferCollectionSongResult, UpdateCollection,
+};
 
 mod model;
 mod repository;
