@@ -13,9 +13,11 @@ use crate::http_cache::{check_if_match, if_none_match_matches, weak_etag_json};
 use crate::resources::blob::service::BlobServiceHandle;
 #[allow(unused_imports)]
 use crate::resources::collection::Collection;
-use crate::resources::collection::PatchCollection;
 use crate::resources::collection::service::CollectionServiceHandle;
 use crate::resources::collection::{CreateCollection, UpdateCollection};
+use crate::resources::collection::{
+    PatchCollection, TransferCollectionSong, TransferCollectionSongResult,
+};
 #[allow(unused_imports)]
 use crate::resources::song::Song;
 use crate::settings::CoverUploadLimits;
@@ -35,6 +37,7 @@ pub fn scope(cover_upload_max_bytes: usize) -> Scope {
         .service(update_collection)
         .service(patch_collection)
         .service(move_collection)
+        .service(transfer_collection_song)
         .service(delete_collection)
         .service(put_collection_cover)
 }
@@ -439,6 +442,48 @@ async fn move_collection(
     Ok(HttpResponse::Ok().json(
         svc.move_collection_for_user(&ctx, &id.into_inner(), payload.into_inner())
             .await?,
+    ))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/collections/{id}/songs/{song_id}/transfer",
+    params(
+        ("id" = String, Path, description = "Source collection identifier"),
+        ("song_id" = String, Path, description = "Song identifier to move")
+    ),
+    request_body = TransferCollectionSong,
+    responses(
+        (status = 200, description = "Song link moved from source to target collection atomically.", body = TransferCollectionSongResult),
+        (status = 400, description = "Invalid identifiers or source equals target", body = Problem, content_type = "application/problem+json"),
+        (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
+        (status = 404, description = "Collection or song slot not found, or caller lacks library write access", body = Problem, content_type = "application/problem+json"),
+        (status = 409, description = "Song already in target collection", body = Problem, content_type = "application/problem+json"),
+        (status = 429, description = "API rate limit exceeded", body = Problem, content_type = "application/problem+json"),
+        (status = 500, description = "Failed to transfer song between collections", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Collections",
+    security(
+        ("SessionCookie" = []),
+        ("SessionToken" = [])
+    )
+)]
+#[post("/{id}/songs/{song_id}/transfer")]
+async fn transfer_collection_song(
+    svc: Data<CollectionServiceHandle>,
+    ctx: ReqData<AuthorizationContext>,
+    path: Path<(String, String)>,
+    payload: Json<TransferCollectionSong>,
+) -> Result<HttpResponse, AppError> {
+    let (source_id, song_id) = path.into_inner();
+    Ok(HttpResponse::Ok().json(
+        svc.transfer_song_between_collections_for_user(
+            &ctx,
+            &source_id,
+            &song_id,
+            payload.into_inner(),
+        )
+        .await?,
     ))
 }
 

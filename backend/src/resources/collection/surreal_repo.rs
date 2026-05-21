@@ -14,6 +14,7 @@ use crate::database::{Database, surreal_take_errors};
 use crate::error::AppError;
 use crate::resources::common::{
     SongLinkListRow, SongLinkRecord, belongs_to, blob_thing, resource_id, song_links_to_owned,
+    song_thing,
 };
 
 use super::model::CollectionRecord;
@@ -286,5 +287,101 @@ impl CollectionRepository for SurrealCollectionRepo {
         })?;
 
         Ok(())
+    }
+
+    async fn transfer_song_link_between_collections(
+        &self,
+        write_teams: &[RecordId],
+        source_id: &str,
+        target_id: &str,
+        song_id: &str,
+        link: SongLink,
+    ) -> Result<(Collection, Collection), AppError> {
+        let db = self.inner();
+        let song_rid = song_thing(song_id);
+        let link_record = SongLinkRecord::from(link);
+        let teams = write_teams.to_vec();
+
+        let mut response = db
+            .db
+            .query(
+                r#"UPDATE type::record("collection", $source_id)
+  SET songs = fn::song_link_array_without_song(songs, $song_rid)
+  WHERE owner IN $teams AND $song_rid INSIDE array::map(songs, |$e| $e.id)
+  RETURN AFTER;
+UPDATE type::record("collection", $target_id)
+  SET songs = array::append(songs, $link)
+  WHERE owner IN $teams AND NOT ($song_rid INSIDE array::map(songs, |$e| $e.id))
+  RETURN AFTER;"#,
+            )
+            .bind(("source_id", source_id.to_owned()))
+            .bind(("target_id", target_id.to_owned()))
+            .bind(("song_rid", song_rid))
+            .bind(("link", link_record))
+            .bind(("teams", teams))
+            .await?;
+
+        surreal_take_errors(
+            "collection.transfer_song_link_between_collections",
+            &mut response,
+        )?;
+
+        let source_rows: Vec<CollectionRecord> = response.take(0)?;
+        let target_rows: Vec<CollectionRecord> = response.take(1)?;
+
+        let source = source_rows
+            .into_iter()
+            .next()
+            .map(CollectionRecord::into_collection)
+            .ok_or_else(|| {
+                AppError::NotFound(
+                    "song not found in source collection or collection not writable".into(),
+                )
+            })?;
+        let target = target_rows
+            .into_iter()
+            .next()
+            .map(CollectionRecord::into_collection)
+            .ok_or_else(|| {
+                AppError::NotFound(
+                    "target collection not found, not writable, or song already present".into(),
+                )
+            })?;
+
+        Ok((source, target))
+    }
+
+    async fn remove_song_link_from_collection(
+        &self,
+        write_teams: &[RecordId],
+        source_id: &str,
+        song_id: &str,
+    ) -> Result<Collection, AppError> {
+        let db = self.inner();
+        let song_rid = song_thing(song_id);
+        let mut response = db
+            .db
+            .query(
+                r#"UPDATE type::record("collection", $source_id)
+  SET songs = fn::song_link_array_without_song(songs, $song_rid)
+  WHERE owner IN $teams AND $song_rid INSIDE array::map(songs, |$e| $e.id)
+  RETURN AFTER;"#,
+            )
+            .bind(("source_id", source_id.to_owned()))
+            .bind(("song_rid", song_rid))
+            .bind(("teams", write_teams.to_vec()))
+            .await?;
+
+        surreal_take_errors("collection.remove_song_link_from_collection", &mut response)?;
+
+        let rows: Vec<CollectionRecord> = response.take(0)?;
+        rows.into_iter()
+            .next()
+            .map(CollectionRecord::into_collection)
+            .ok_or_else(|| {
+                AppError::NotFound(
+                    "song not found in source collection or collection not writable".into(),
+                )
+            })
     }
 }
