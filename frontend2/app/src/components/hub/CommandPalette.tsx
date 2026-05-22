@@ -8,6 +8,12 @@ import { motion, useReducedMotion } from 'motion/react'
 
 import { SearchIcon } from '@/components/icons/lucide-animated/search-icon'
 import { HUB_SEARCH_CMD_INPUT_CLASS } from '@/components/hub/hub-search-styles'
+import {
+  hubActionCommands,
+  hubInstallCommand,
+  hubNavigateCommands,
+  type HubNavigateTarget,
+} from '@/commands/hub-commands'
 import type { SetlistPaletteBridge } from '@/lib/setlist-palette-bridge'
 import { resolveSongDataKey } from '@/lib/setlist-song-links'
 import { useHubSearch } from '@/hooks/useHubSearch'
@@ -121,7 +127,7 @@ export function CommandPalette({
     onOpenChange(false)
   }
 
-  function go(to: '/collections' | '/songs' | '/setlists' | '/teams' | '/sessions' | '/settings') {
+  function go(to: HubNavigateTarget) {
     void navigate({ to })
     beginClose()
   }
@@ -217,14 +223,17 @@ export function CommandPalette({
                   {t('hub.cmdk.empty')}
                 </Command.Empty>
                 <Command.Group heading={t('hub.cmdk.actions')} className="text-xs text-[var(--color-muted-foreground)]">
-                  <Command.Item
-                    value="action-search-library"
-                    keywords={['search', 'find', 'library', 'filter', 'query', t('hub.cmdk.searchAction')]}
-                    className="cursor-pointer rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] aria-selected:bg-[var(--color-muted)]"
-                    onSelect={applyPaletteTextToHubSearchAndClose}
-                  >
-                    {t('hub.cmdk.searchAction')}
-                  </Command.Item>
+                  {hubActionCommands.map((cmd) => (
+                    <Command.Item
+                      key={cmd.id}
+                      value={cmd.value}
+                      keywords={[...cmd.keywords, t(cmd.labelKey)]}
+                      className="cursor-pointer rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] aria-selected:bg-[var(--color-muted)]"
+                      onSelect={applyPaletteTextToHubSearchAndClose}
+                    >
+                      {t(cmd.labelKey)}
+                    </Command.Item>
+                  ))}
                 </Command.Group>
                 {setlistBridge ? (
                   <Command.Group
@@ -257,65 +266,28 @@ export function CommandPalette({
                   </Command.Group>
                 ) : null}
                 <Command.Group heading={t('hub.cmdk.navigate')} className="text-xs text-[var(--color-muted-foreground)]">
-                  <Command.Item
-                    value="nav-collections"
-                    keywords={['collections', 'library', t('hub.tabs.collections')]}
-                    className="cursor-pointer rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] aria-selected:bg-[var(--color-muted)]"
-                    onSelect={() => go('/collections')}
-                  >
-                    {t('hub.tabs.collections')}
-                  </Command.Item>
-                  <Command.Item
-                    value="nav-songs"
-                    keywords={['songs', 'music', t('hub.tabs.songs')]}
-                    className="cursor-pointer rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] aria-selected:bg-[var(--color-muted)]"
-                    onSelect={() => go('/songs')}
-                  >
-                    {t('hub.tabs.songs')}
-                  </Command.Item>
-                  <Command.Item
-                    value="nav-setlists"
-                    keywords={['setlists', 'sets', t('hub.tabs.setlists')]}
-                    className="cursor-pointer rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] aria-selected:bg-[var(--color-muted)]"
-                    onSelect={() => go('/setlists')}
-                  >
-                    {t('hub.tabs.setlists')}
-                  </Command.Item>
-                  <Command.Item
-                    value="nav-settings"
-                    keywords={['settings', 'preferences', t('hub.profile.settings')]}
-                    className="cursor-pointer rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] aria-selected:bg-[var(--color-muted)]"
-                    onSelect={() => go('/settings')}
-                  >
-                    {t('hub.profile.settings')}
-                  </Command.Item>
-                  <Command.Item
-                    value="nav-teams"
-                    keywords={['teams', t('hub.profile.teams')]}
-                    className="cursor-pointer rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] aria-selected:bg-[var(--color-muted)]"
-                    onSelect={() => go('/teams')}
-                  >
-                    {t('hub.profile.teams')}
-                  </Command.Item>
-                  <Command.Item
-                    value="nav-sessions"
-                    keywords={['sessions', t('hub.profile.sessions')]}
-                    className="cursor-pointer rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] aria-selected:bg-[var(--color-muted)]"
-                    onSelect={() => go('/sessions')}
-                  >
-                    {t('hub.profile.sessions')}
-                  </Command.Item>
+                  {hubNavigateCommands.map((cmd) => (
+                    <Command.Item
+                      key={cmd.id}
+                      value={cmd.value}
+                      keywords={[...cmd.keywords, t(cmd.labelKey)]}
+                      className="cursor-pointer rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] aria-selected:bg-[var(--color-muted)]"
+                      onSelect={() => go(cmd.to)}
+                    >
+                      {t(cmd.labelKey)}
+                    </Command.Item>
+                  ))}
                   {canShowInstall ? (
                     <Command.Item
-                      value="nav-install"
-                      keywords={['install', 'app', 'pwa', t('hub.profile.install')]}
+                      value={hubInstallCommand.value}
+                      keywords={[...hubInstallCommand.keywords, t(hubInstallCommand.labelKey)]}
                       className="cursor-pointer rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] aria-selected:bg-[var(--color-muted)]"
                       onSelect={() => {
                         openInstall()
                         beginClose()
                       }}
                     >
-                      {t('hub.profile.install')}
+                      {t(hubInstallCommand.labelKey)}
                     </Command.Item>
                   ) : null}
                 </Command.Group>

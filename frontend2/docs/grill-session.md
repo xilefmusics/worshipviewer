@@ -378,15 +378,18 @@ Promote any changes to exit criteria into [roadmap.md](./roadmap.md); keep this 
 
 ### E8 interactive grill — user session (resolved)
 
-*Implementation choices locked during **E8** ([epic-e8-action-plan.md](./epic-e8-action-plan.md)).*
+*Implementation choices locked during **E8** ([epic-e8-action-plan.md](./epic-e8-action-plan.md)); verified against [`player-keyboard.ts`](../app/src/lib/player/player-keyboard.ts) and hub completion pass (2026-05-22).*
 
 | # | Topic | Decision |
 |---|--------|----------|
-| E8.R1 | **Keyboard shortcuts** | ←/→, PgUp/PgDn, Space (next), Home/End, **`t`** TOC, **`o`** orientation, **`s`** scroll menu, **Esc** closes overlay or exits to hub. Ignored when input/textarea/contenteditable focused. |
-| E8.R2 | **TOC drawer anchor** | Bottom sheet on phone; **right-anchored sheet** at **`≥ md`**. |
+| E8.R1 | **Keyboard shortcuts** | **Prev:** ↑, PgUp, ←, Backspace, `k`. **Next:** ↓, PgDn, →, Space, Enter, `j`. **Home/End** jump. **`m`** toggle chrome, **`s`** cycle scroll mode, **`e`** edit resource, **`l`** like, **`n`** chord format. **Transpose:** `A`–`G` set key, `b`/`-` down, `#`/`+` up, `r` reset (also when transpose popover open). **Esc** closes overlay or exits. Ignored when input/textarea/contenteditable focused; most keys suppressed while transpose popover open. |
+| E8.R2 | **TOC drawer anchor** | Bottom sheet on narrow viewports; **right-anchored sheet** at **`≥ md`**. Focus trap while open; respects **`prefers-reduced-motion`**. |
 | E8.R3 | **Swipe priority** | Horizontal swipe prev/next when \|dx\| > 48px and horizontal dominates; vertical scroll not hijacked. |
-| E8.R4 | **View state storage** | `localStorage` key `playerView:{type}:{id}` — scroll, orientation, transpose-by-item, chord format. |
+| E8.R4 | **View state storage** | Player scroll prefs in `localStorage` (`wv_player_scroll_*`); hub list/card per entity in `wv.hub.viewMode.{entity}`. |
 | E8.R5 | **PDF blobs** | Native `<embed>` only in v1 (no pdf.js). |
+| E8.R6 | **Collections layout** | **Settings → Collections layout** (list or cards). Songs and setlists are list-only. |
+| E8.R7 | **Hub Duplicate** | Long-press **Duplicate** on setlists/collections → GET detail, POST copy with `(copy)` suffix, navigate to new editor. |
+| E8.R8 | **CI gate** | GitHub Actions **`frontend-ci.yml`**: `pnpm -C frontend2` test, typecheck, lint, build (+ `build:wasm`). |
 
 ## Related docs
 

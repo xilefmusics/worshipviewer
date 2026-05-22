@@ -26,6 +26,11 @@ export function useLongPress(
       activePointerId.current = e.pointerId
       timerRef.current = setTimeout(() => {
         timerRef.current = null
+        try {
+          navigator.vibrate?.(10)
+        } catch {
+          /* no-op on unsupported platforms (e.g. iOS) */
+        }
         onLongPress(e)
       }, delayMs)
     },

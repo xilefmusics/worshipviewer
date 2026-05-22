@@ -46,6 +46,19 @@ export function buildSongEditorReturnSearch(
   }
 }
 
+/** Default editor route search when not returning from the player. */
+export function emptyEditorReturnSearch(): {
+  playerType: undefined
+  playerId: undefined
+  playerIndex: undefined
+} {
+  return {
+    playerType: undefined,
+    playerId: undefined,
+    playerIndex: undefined,
+  }
+}
+
 export function buildPlayerReturnSearch(
   context: PlayerEditorReturnContext,
 ): {

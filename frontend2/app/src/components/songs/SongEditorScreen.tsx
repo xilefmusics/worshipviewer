@@ -43,6 +43,7 @@ import {
 } from '@/lib/ultimate-guitar-import'
 import type { ChordEngine } from '@/ports/chord-engine'
 import { cn } from '@/lib/utils'
+import { buildPlayerSearch } from '@/lib/player-route'
 import { runEditorPlay } from '@/lib/player/editor-play'
 
 type EditorTab = 'meta' | 'source' | 'preview'
@@ -340,7 +341,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
         return flushNow()
       },
       navigate: () => {
-        void navigate({ to: '/player', search: { type: 'song', id: songId } })
+        void navigate({ to: '/player', search: buildPlayerSearch('song', songId) })
       },
     })
   }, [editable, effectiveParseError, flushNow, navigate, songId])

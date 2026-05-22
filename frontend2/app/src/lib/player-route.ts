@@ -9,6 +9,19 @@ export function hubEntityToPlayerType(entity: HubEntity): PlayerEntityType {
 }
 
 /** Search params for `/player` route. */
+export function buildPlayerSearch(
+  type: PlayerEntityType,
+  id: string,
+  index?: number,
+): {
+  type: PlayerEntityType
+  id: string
+  index: number | undefined
+} {
+  return { type, id, index }
+}
+
+/** @deprecated Prefer {@link buildPlayerSearch} for typed TanStack Router search. */
 export function buildPlayerSearchParams(
   type: PlayerEntityType,
   id: string,

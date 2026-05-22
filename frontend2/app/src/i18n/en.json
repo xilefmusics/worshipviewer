@@ -124,6 +124,8 @@
       "play": "Play",
       "addToSetlist": "Add to setlist",
       "duplicate": "Duplicate",
+      "duplicateSuccess": "Created “{{title}}”.",
+      "duplicateFailed": "Could not duplicate this item.",
       "delete": "Delete",
       "deleteOfflineHint": "Unavailable offline — connect to delete items.",
       "export": "Export",
@@ -253,6 +255,14 @@
       "dark": "Dark",
       "darkDescription": "Always use the dark theme."
     },
+    "collectionsViewMode": {
+      "title": "Collections layout",
+      "description": "Choose how collections appear in the library. Songs and setlists always use list view.",
+      "list": "List",
+      "listDescription": "Show collections as rows with cover thumbnails.",
+      "card": "Cards",
+      "cardDescription": "Show collections as cover cards (A4 aspect ratio)."
+    },
     "chordFormat": {
       "title": "Chord format",
       "description": "Choose how chords are shown in the song editor and player.",
@@ -312,6 +322,9 @@
     }
   },
   "setlists": {
+    "hub": {
+      "duplicateFailed": "Could not duplicate this setlist."
+    },
     "create": {
       "dialogTitle": "New setlist",
       "dialogDescription": "Give your setlist a title. You’ll add songs in the editor.",

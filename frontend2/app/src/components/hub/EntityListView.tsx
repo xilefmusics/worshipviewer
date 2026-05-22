@@ -15,6 +15,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { ArrowRightLeftIcon } from '@/components/icons/arrow-right-left-icon'
 import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
 import { ListMusicIcon } from '@/components/icons/lucide-animated/list-music-icon'
 import { PlayIcon } from '@/components/icons/play-icon'
@@ -52,11 +53,13 @@ import { useTeamDetail } from '@/hooks/useTeamDetail'
 import { runCollectionExport } from '@/lib/run-collection-export'
 import { runSetlistExport } from '@/lib/run-setlist-export'
 import { runSongExport, type SongExportKind } from '@/lib/run-song-export'
+import { duplicateCollection, duplicateSetlist } from '@/lib/duplicate-hub-entity'
 import type { HubEntity } from '@/lib/hub-entity'
 import { hubEntityEditSplat } from '@/lib/hub-entity-edit'
-import { hubListKey } from '@/lib/hub-list-keys'
-import { hubEntityToPlayerType } from '@/lib/player-route'
-import { getDefaultViewMode } from '@/lib/hub-view-mode'
+import { hubListKey, hubListRootKey } from '@/lib/hub-list-keys'
+import { hubEntityToPlayerType, buildPlayerSearch } from '@/lib/player-route'
+import { emptyEditorReturnSearch } from '@/lib/player/player-editor-return'
+import { useHubViewMode } from '@/hooks/useHubViewMode'
 import { getTeamDisplayName } from '@/lib/team-display-name'
 import { cn } from '@/lib/utils'
 
@@ -93,7 +96,8 @@ export function EntityListView({ entity }: EntityListViewProps) {
   const pullStartRef = useRef<number | null>(null)
   const pullDyRef = useRef(0)
 
-  const viewMode = getDefaultViewMode(entity)
+  const { viewMode: collectionsViewMode } = useHubViewMode('collections')
+  const viewMode = entity === 'collections' ? collectionsViewMode : 'list'
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
   useEffect(() => {
@@ -250,11 +254,15 @@ export function EntityListView({ entity }: EntityListViewProps) {
         ) : null}
 
         {!error && showSkeleton ? (
-          <div className={cn(entity === 'collections' && viewMode === 'card' ? hubCardGridClass : 'flex flex-col gap-2')}>
+          <div
+            className={cn(
+              entity === 'collections' && viewMode === 'card' ? hubCardGridClass : 'flex flex-col gap-2',
+            )}
+          >
             {Array.from({ length: entity === 'collections' && viewMode === 'card' ? 6 : 8 }).map((_, i) =>
               entity === 'collections' && viewMode === 'card' ? (
                 <div key={i} className="flex flex-col gap-2">
-                  <div className="w-full animate-pulse rounded-lg bg-[var(--color-muted)] aspect-[1/1.41421356237]" />
+                  <div className="aspect-[1/1.41421356237] w-full animate-pulse rounded-lg bg-[var(--color-muted)]" />
                   <div className="h-4 w-[75%] animate-pulse rounded bg-[var(--color-muted)]" />
                 </div>
               ) : (
@@ -317,36 +325,23 @@ export function EntityListView({ entity }: EntityListViewProps) {
         ) : null}
 
         {!error && !showSkeleton && items.length > 0 && entity === 'songs' ? (
-          <div className={cn(viewMode === 'card' ? hubCardGridClass : 'flex flex-col pb-4')}>
-            {(items as Song[]).map((s) =>
-              viewMode === 'card' ? (
-                <SongCard key={s.id} song={s} onDeleteRequest={setDeleteTarget} networkOnline={networkOnline} />
-              ) : (
-                <SongRow key={s.id} song={s} onDeleteRequest={setDeleteTarget} networkOnline={networkOnline} />
-              ),
-            )}
+          <div className="flex flex-col pb-4">
+            {(items as Song[]).map((s) => (
+              <SongRow key={s.id} song={s} onDeleteRequest={setDeleteTarget} networkOnline={networkOnline} />
+            ))}
           </div>
         ) : null}
 
         {!error && !showSkeleton && items.length > 0 && entity === 'setlists' ? (
-          <div className={cn(viewMode === 'card' ? hubCardGridClass : 'flex flex-col pb-4')}>
-            {(items as Setlist[]).map((sl) =>
-              viewMode === 'card' ? (
-                <SetlistCard
-                  key={sl.id}
-                  setlist={sl}
-                  onDeleteRequest={setDeleteTarget}
-                  networkOnline={networkOnline}
-                />
-              ) : (
-                <SetlistRow
-                  key={sl.id}
-                  setlist={sl}
-                  onDeleteRequest={setDeleteTarget}
-                  networkOnline={networkOnline}
-                />
-              ),
-            )}
+          <div className="flex flex-col pb-4">
+            {(items as Setlist[]).map((sl) => (
+              <SetlistRow
+                key={sl.id}
+                setlist={sl}
+                onDeleteRequest={setDeleteTarget}
+                networkOnline={networkOnline}
+              />
+            ))}
           </div>
         ) : null}
 
@@ -436,7 +431,7 @@ function useHubListItemPlayerTap(entity: HubEntity, itemId: string) {
   })
 
   const openPlayer = useCallback(() => {
-    void navigate({ to: '/player', search: { type: playType, id: itemId } })
+    void navigate({ to: '/player', search: buildPlayerSearch(playType, itemId) })
   }, [navigate, playType, itemId])
 
   const listPointerProps = {
@@ -497,6 +492,7 @@ function HubItemContextMenu({
   const [editHot, setEditHot] = useState(false)
   const [playHot, setPlayHot] = useState(false)
   const [addToSetlistHot, setAddToSetlistHot] = useState(false)
+  const [duplicateHot, setDuplicateHot] = useState(false)
   const [deleteHot, setDeleteHot] = useState(false)
   const [addToSetlistOpen, setAddToSetlistOpen] = useState(false)
 
@@ -506,6 +502,43 @@ function HubItemContextMenu({
   )
   const showSongExport = Boolean(entity === 'songs' && hubSong)
   const showOrderedExport = entity === 'setlists' || entity === 'collections'
+  const showDuplicate = showOrderedExport
+  const titleSuffix = t('collections.hub.duplicateTitleSuffix')
+
+  const onDuplicate = useCallback(async () => {
+    const toastId = toast.loading(t('hub.actions.duplicate'))
+    try {
+      const created =
+        entity === 'setlists'
+          ? await duplicateSetlist(queryClient, itemId, titleSuffix)
+          : await duplicateCollection(queryClient, itemId, titleSuffix)
+      toast.dismiss(toastId)
+      toast.success(t('hub.actions.duplicateSuccess', { title: created.title }))
+      void queryClient.invalidateQueries({ queryKey: hubListRootKey })
+      if (entity === 'setlists') {
+        void navigate({
+          to: '/setlists/$setlistId',
+          params: { setlistId: created.id },
+          search: emptyEditorReturnSearch(),
+        })
+      } else {
+        void navigate({
+          to: '/collections/$collectionId',
+          params: { collectionId: created.id },
+          search: emptyEditorReturnSearch(),
+        })
+      }
+    } catch (e) {
+      toast.dismiss(toastId)
+      const detail = e instanceof Error ? e.message : String(e)
+      const failedKey =
+        entity === 'collections'
+          ? 'collections.hub.duplicateFailed'
+          : 'setlists.hub.duplicateFailed'
+      toast.error(t(failedKey), { description: detail })
+      console.error(`${entity} duplicate failed`, e)
+    }
+  }, [entity, itemId, navigate, queryClient, t, titleSuffix])
 
   const onOrderedExport = useCallback(
     async (kind: SongExportKind) => {
@@ -557,11 +590,23 @@ function HubItemContextMenu({
             className="gap-2"
             onSelect={() => {
               if (entity === 'setlists') {
-                void navigate({ to: '/setlists/$setlistId', params: { setlistId: itemId } })
+                void navigate({
+                  to: '/setlists/$setlistId',
+                  params: { setlistId: itemId },
+                  search: emptyEditorReturnSearch(),
+                })
               } else if (entity === 'collections') {
-                void navigate({ to: '/collections/$collectionId', params: { collectionId: itemId } })
+                void navigate({
+                  to: '/collections/$collectionId',
+                  params: { collectionId: itemId },
+                  search: emptyEditorReturnSearch(),
+                })
               } else if (entity === 'songs') {
-                void navigate({ to: '/songs/$songId', params: { songId: itemId } })
+                void navigate({
+                  to: '/songs/$songId',
+                  params: { songId: itemId },
+                  search: emptyEditorReturnSearch(),
+                })
               } else {
                 void navigate({
                   to: '/$',
@@ -582,7 +627,7 @@ function HubItemContextMenu({
             onSelect={() => {
               void navigate({
                 to: '/player',
-                search: { type: playType, id: itemId },
+                search: buildPlayerSearch(playType, itemId),
               })
             }}
             onMouseEnter={() => setPlayHot(true)}
@@ -593,6 +638,27 @@ function HubItemContextMenu({
             <PlayIcon size={16} className={cn('shrink-0 text-[var(--color-foreground)]', playHot && 'opacity-90')} />
             {t('hub.actions.play')}
           </ContextMenuItem>
+          {showDuplicate ? (
+            <ContextMenuItem
+              className="gap-2"
+              disabled={!networkOnline}
+              title={!networkOnline ? t('hub.actions.deleteOfflineHint') : undefined}
+              onSelect={() => {
+                if (!networkOnline) return
+                void onDuplicate()
+              }}
+              onMouseEnter={() => setDuplicateHot(true)}
+              onMouseLeave={() => setDuplicateHot(false)}
+              onFocus={() => setDuplicateHot(true)}
+              onBlur={() => setDuplicateHot(false)}
+            >
+              <ArrowRightLeftIcon
+                size={16}
+                className={cn('shrink-0 text-[var(--color-foreground)]', duplicateHot && 'opacity-90')}
+              />
+              {t('hub.actions.duplicate')}
+            </ContextMenuItem>
+          ) : null}
           {showAddToSetlist ? (
             <ContextMenuItem
               className="gap-2"
@@ -865,50 +931,6 @@ const SongRow = memo(function SongRow({
   )
 })
 
-const SongCard = memo(function SongCard({
-  song,
-  onDeleteRequest,
-  networkOnline,
-}: {
-  song: Song
-  onDeleteRequest: DeleteReq
-  networkOnline: boolean
-}) {
-  const reduceMotion = useReducedMotion()
-  const { listPointerProps, onClick, onKeyDown } = useHubListItemPlayerTap('songs', song.id)
-  const title = songTitle(song)
-  const sub = songSubtitle(song)
-
-  return (
-    <HubItemContextMenu
-      entity="songs"
-      itemId={song.id}
-      itemLabel={title}
-      onDeleteRequest={onDeleteRequest}
-      networkOnline={networkOnline}
-      hubSong={song}
-    >
-      <motion.div
-        className="flex cursor-pointer flex-col gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] sm:gap-2 sm:p-3"
-        {...listPointerProps}
-        onClick={onClick}
-        role="button"
-        tabIndex={0}
-        whileTap={reduceMotion ? undefined : tapFeedback}
-        transition={tapTransition}
-        onKeyDown={onKeyDown}
-      >
-        <p className="line-clamp-2 text-xs font-medium leading-snug text-[var(--color-foreground)] sm:text-sm xl:text-[0.6875rem] xl:leading-tight">
-          {title}
-        </p>
-        <p className="line-clamp-2 text-[0.6875rem] leading-snug text-[var(--color-muted-foreground)] sm:text-xs">
-          {sub}
-        </p>
-      </motion.div>
-    </HubItemContextMenu>
-  )
-})
-
 const SetlistRow = memo(function SetlistRow({
   setlist,
   onDeleteRequest,
@@ -965,48 +987,6 @@ const SetlistRow = memo(function SetlistRow({
             ) : null}
           </div>
         </div>
-      </motion.div>
-    </HubItemContextMenu>
-  )
-})
-
-const SetlistCard = memo(function SetlistCard({
-  setlist,
-  onDeleteRequest,
-  networkOnline,
-}: {
-  setlist: Setlist
-  onDeleteRequest: DeleteReq
-  networkOnline: boolean
-}) {
-  const { t } = useTranslation()
-  const reduceMotion = useReducedMotion()
-  const { listPointerProps, onClick, onKeyDown } = useHubListItemPlayerTap('setlists', setlist.id)
-
-  return (
-    <HubItemContextMenu
-      entity="setlists"
-      itemId={setlist.id}
-      itemLabel={setlist.title}
-      onDeleteRequest={onDeleteRequest}
-      networkOnline={networkOnline}
-    >
-      <motion.div
-        className="flex cursor-pointer flex-col gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] sm:gap-2 sm:p-3"
-        {...listPointerProps}
-        onClick={onClick}
-        role="button"
-        tabIndex={0}
-        whileTap={reduceMotion ? undefined : tapFeedback}
-        transition={tapTransition}
-        onKeyDown={onKeyDown}
-      >
-        <p className="line-clamp-2 text-xs font-medium leading-snug text-[var(--color-foreground)] sm:text-sm xl:text-[0.6875rem] xl:leading-tight">
-          {setlist.title}
-        </p>
-        <p className="text-[0.6875rem] text-[var(--color-muted-foreground)] sm:text-xs">
-          {t('hub.meta.songsCount', { count: setlist.songs.length })}
-        </p>
       </motion.div>
     </HubItemContextMenu>
   )

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { EntityListView } from '@/components/hub/EntityListView'
 import { CreateSetlistDialog } from '@/components/setlists/CreateSetlistDialog'
+import { emptyEditorReturnSearch } from '@/lib/player/player-editor-return'
 
 export const Route = createFileRoute('/_hub/setlists')({
   component: SetlistsRoute,
@@ -17,8 +18,8 @@ function SetlistsRoute() {
 
   useEffect(() => {
     if (isSetlistEditor) return
-    const p = new URLSearchParams(location.search)
-    if (p.get('new') !== '1') return
+    const raw = (location.search as Record<string, unknown>).new
+    if (raw !== '1' && raw !== 1) return
     // eslint-disable-next-line react-hooks/set-state-in-effect -- latch from `?new=1` like `/teams`
     setCreateOpen(true)
     void navigate({ to: '/setlists', replace: true })
@@ -36,7 +37,11 @@ function SetlistsRoute() {
         onOpenChange={setCreateOpen}
         onCreated={(id) => {
           setCreateOpen(false)
-          void navigate({ to: '/setlists/$setlistId', params: { setlistId: id } })
+          void navigate({
+            to: '/setlists/$setlistId',
+            params: { setlistId: id },
+            search: emptyEditorReturnSearch(),
+          })
         }}
       />
     </>

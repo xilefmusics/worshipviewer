@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { runEditorPlay } from '@/lib/player/editor-play'
-import type { PlayerEntityType } from '@/lib/player-route'
+import { buildPlayerSearch, type PlayerEntityType } from '@/lib/player-route'
 import { cn } from '@/lib/utils'
 
 type EditorPlayButtonProps = {
@@ -44,7 +44,7 @@ export function EditorPlayButton({
           needsFlush,
           flushNow,
           navigate: () => {
-            void navigate({ to: '/player', search: { type: entityType, id: entityId } })
+            void navigate({ to: '/player', search: buildPlayerSearch(entityType, entityId) })
           },
         })
       }

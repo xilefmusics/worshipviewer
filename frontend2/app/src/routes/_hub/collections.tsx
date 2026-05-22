@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 
 import { CreateCollectionDialog } from '@/components/collections/CreateCollectionDialog'
 import { EntityListView } from '@/components/hub/EntityListView'
+import { emptyEditorReturnSearch } from '@/lib/player/player-editor-return'
 
 export const Route = createFileRoute('/_hub/collections')({
   component: CollectionsRoute,
@@ -17,8 +18,8 @@ function CollectionsRoute() {
 
   useEffect(() => {
     if (isCollectionEditor) return
-    const p = new URLSearchParams(location.search)
-    if (p.get('new') !== '1') return
+    const raw = (location.search as Record<string, unknown>).new
+    if (raw !== '1' && raw !== 1) return
     // eslint-disable-next-line react-hooks/set-state-in-effect -- latch from `?new=1` like `/setlists`
     setCreateOpen(true)
     void navigate({ to: '/collections', replace: true })
@@ -36,7 +37,11 @@ function CollectionsRoute() {
         onOpenChange={setCreateOpen}
         onCreated={(id) => {
           setCreateOpen(false)
-          void navigate({ to: '/collections/$collectionId', params: { collectionId: id } })
+          void navigate({
+            to: '/collections/$collectionId',
+            params: { collectionId: id },
+            search: emptyEditorReturnSearch(),
+          })
         }}
       />
     </>

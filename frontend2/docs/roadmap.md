@@ -63,17 +63,19 @@ flowchart LR
 
 **Step-by-step execution:** [epic-e2-action-plan.md](./epic-e2-action-plan.md).
 
-**Outcome:** Users can **browse** the worship library: **Collections**, **Songs**, and **Setlists** with real data — pagination, search/filters where the API supports, skeleton/empty/error behavior per [pages-and-flows.md](./pages-and-flows.md). Default layouts: collections **cards** (A4 cover aspect), songs and setlists **rows**. No **content editors**, **team admin**, or **working player** yet — list **tap** targets **player** UX but **E2** is a **silent no-op** (normal UI, no navigation) ([epic-e2-action-plan.md](./epic-e2-action-plan.md)).
+**Outcome:** Users can **browse** the worship library: **Collections**, **Songs**, and **Setlists** with real data — pagination, search/filters where the API supports, skeleton/empty/error behavior per [pages-and-flows.md](./pages-and-flows.md). Default layouts: collections **cards** (A4 cover aspect), songs and setlists **rows**; **list/card toggle** persists per hub ([app-shell.md](./app-shell.md)).
 
 **Depends on:** E1.
 
 **Exit:**
 
-- Authenticated `**/`** redirects to `**/collections`**; **primary list tap** does not navigate in E2 (silent no-op until the player; [epic-e2-action-plan.md](./epic-e2-action-plan.md))
+- Authenticated **`/`** redirects to **`/collections`**
 - Routes `/collections`, `/songs`, `/setlists` with load-more pagination; search/filters where API supports
-- App shell: **quick nav** among the three hubs; **phone** header **simple search**; **tablet/desktop** **Cmd-K** with `cmdk` + command registry (**Navigate** = three hubs **plus** optional entries for **Settings / Teams / Sessions** that are **no-op** until **E4–E5** — **normal** appearance, not disabled)
-- List/card toggle primitives + `**useLongPress`** (actions that do **not** require editors yet — e.g. delete where API allows; **Play** shown **normal** but **no-op** until **E8** — no disabled styling)
-- **Profile menu:** **Logout** live; **Settings / Teams / Sessions / Install** may appear with **normal** styling — **no-op** until **E3–E5** (no disabled / “Soon” rows)
+- **Collections layout** in **Settings** (list or cards); songs and setlists always use **list** view; preference stored in `wv.hub.viewMode.collections`
+- App shell: **quick nav** among the three hubs; **phone** header **simple search**; **tablet/desktop** **Cmd-K** with `cmdk` + command registry ([`hub-commands.ts`](../app/src/commands/hub-commands.ts))
+- **`useLongPress`** (~500 ms) opens context menu; **haptics** where supported
+- **Primary tap** → **`/player`** (E8); **long-press** includes Edit, Play, Delete, Export, **Duplicate** (setlists/collections)
+- **Profile menu:** Settings, Teams, Sessions, Install, Logout — all routable
 
 ---
 
@@ -140,7 +142,7 @@ flowchart LR
 **Exit:**
 
 - `/collections/:id`, `/songs/:id`, `/setlists/:id` per [setlist-editor.md](./setlist-editor.md), [song-editor.md](./song-editor.md), and API (incremental: [E7.1](./epic-e7.1-action-plan.md), [E7.2](./epic-e7.2-action-plan.md), [E7.3](./epic-e7.3-action-plan.md); [E7 index](./epic-e7-action-plan.md))
-- Lists link to editors; long-press / row actions complete where spec’d (**export** from **E6** only when that epic ships — see [E7 index §0](./epic-e7-action-plan.md#0-skipping-e6--scope-adjustments) if E6 is deferred)
+- Lists link to editors; long-press / row actions complete where spec’d (**export** from **E6**, **Duplicate** for setlists/collections via `duplicate-hub-entity.ts`)
 - chordlib WASM for **song** editor preview — `**ChordEngine` port** established for reuse in **E8** (**E7.3**)
 
 ---
@@ -155,9 +157,10 @@ flowchart LR
 
 **Exit:**
 
-- Route `/player` with query `type` + `id`
+- Route `/player` with query `type` + `id` (+ optional `index`)
 - Renders `Player` model; `useBlobUrl` for blob data
 - **Play** from lists/editors works end-to-end
+- **Vitest in CI** — [`.github/workflows/frontend-ci.yml`](../../.github/workflows/frontend-ci.yml) runs test, typecheck, lint, build on `frontend2/**`
 
 ---
 

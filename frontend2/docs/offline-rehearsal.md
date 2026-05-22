@@ -23,8 +23,8 @@
 
 | Role | Name | Date | Notes |
 |------|------|------|--------|
-| Engineer | | | |
-| QA / product | | | |
+| Engineer | E1–E8 completion pass | 2026-05-22 | Code + Vitest for hub view-mode, Duplicate, CI workflow; manual steps 1–9 still require device rehearsal. |
+| QA / product | _pending_ | | Run script on phone/tablet + desktop after merge. |
 
 ## Related docs
 

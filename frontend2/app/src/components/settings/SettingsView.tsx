@@ -7,6 +7,7 @@ import { deleteUploadedProfilePicture, putProfilePicture } from '@/api/profile-p
 import { fetchSessionUser, SESSION_QUERY_KEY, SESSION_STALE_TIME_MS, type User } from '@/api/session'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useHubViewMode } from '@/hooks/useHubViewMode'
 import { useSession } from '@/hooks/useSession'
 import { useUserAvatarDisplay } from '@/hooks/useUserAvatarDisplay'
 import {
@@ -31,6 +32,7 @@ import {
   writeSheetBackgroundPreference,
 } from '@/lib/sheet-background'
 import type { PlayerScrollType } from '@/lib/player/effective-scroll-type'
+import type { HubViewMode } from '@/lib/hub-view-mode'
 import { clearAllLocalData } from '@/lib/clear-local'
 import { formatApproxBytes } from '@/lib/format-bytes'
 import {
@@ -272,6 +274,8 @@ export function SettingsView() {
   const [chordFormatPreference, setChordFormatPreference] = useState(readChordFormatPreference)
   const [sheetBackgroundPreference, setSheetBackgroundPreference] = useState(readSheetBackgroundPreference)
   const [scrollPreferences, setScrollPreferences] = useState(readPlayerScrollPreferences)
+  const { viewMode: collectionsViewMode, setViewMode: setCollectionsViewMode } =
+    useHubViewMode('collections')
   const [cacheState, setCacheState] = useState<'idle' | 'clearing' | 'cleared' | 'failed'>('idle')
   const [approxBytes, setApproxBytes] = useState<number | null>(null)
   const [logoutPending, setLogoutPending] = useState(false)
@@ -308,6 +312,22 @@ export function SettingsView() {
         value: 'nashville',
         label: t('settings.chordFormat.nashville'),
         description: t('settings.chordFormat.nashvilleDescription'),
+      },
+    ],
+    [t],
+  )
+
+  const collectionsViewModeOptions = useMemo<SettingsOption<HubViewMode>[]>(
+    () => [
+      {
+        value: 'card',
+        label: t('settings.collectionsViewMode.card'),
+        description: t('settings.collectionsViewMode.cardDescription'),
+      },
+      {
+        value: 'list',
+        label: t('settings.collectionsViewMode.list'),
+        description: t('settings.collectionsViewMode.listDescription'),
       },
     ],
     [t],
@@ -473,6 +493,14 @@ export function SettingsView() {
         options={appearanceOptions}
         value={appearancePreference}
         onChange={setAppearance}
+      />
+
+      <SettingsSection
+        title={t('settings.collectionsViewMode.title')}
+        description={t('settings.collectionsViewMode.description')}
+        options={collectionsViewModeOptions}
+        value={collectionsViewMode}
+        onChange={setCollectionsViewMode}
       />
 
       <SettingsSection

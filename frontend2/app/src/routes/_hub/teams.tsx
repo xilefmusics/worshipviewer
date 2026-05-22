@@ -13,8 +13,8 @@ function TeamsRoute() {
   const [createIntent, setCreateIntent] = useState(false)
 
   useEffect(() => {
-    const p = new URLSearchParams(location.search)
-    if (p.get('new') !== '1') return
+    const raw = (location.search as Record<string, unknown>).new
+    if (raw !== '1' && raw !== 1) return
     // Latch "create team" open then strip `?new=1` from the URL; state cannot live in the URL alone.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional latch from query param
     setCreateIntent(true)

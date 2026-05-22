@@ -13,13 +13,13 @@
 | Epic | Code | Exit sign-off |
 |------|------|---------------|
 | E1 | ✅ Done | Re-verify (regression) |
-| E2 | ⚠️ ~95% | View toggle missing |
+| E2 | ✅ Done | List/card toggle + persistence shipped |
 | E3 | ✅ Done | Re-verify |
-| E4 | ✅ Done | Manual rehearsal unsigned |
+| E4 | ✅ Done | Manual rehearsal — engineer row filled; QA pending |
 | E5 | ✅ Done | Re-verify |
 | E6 | ✅ Done (roadmap scope) | Re-verify export/import |
-| E7 | ⚠️ ~98% | Hub **Duplicate** missing |
-| E8 | ⚠️ ~95% | Manual §14 checklist + CI |
+| E7 | ✅ Done | Hub Duplicate shipped |
+| E8 | ✅ Done (code) | Manual §14 + CI workflow; typecheck debt remains |
 
 **Estimated effort:** ~3–5 dev days code/docs + ~1–2 days QA pass.
 

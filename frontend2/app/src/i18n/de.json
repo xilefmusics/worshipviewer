@@ -124,6 +124,8 @@
       "play": "Abspielen",
       "addToSetlist": "Zur Setliste hinzufügen",
       "duplicate": "Duplizieren",
+      "duplicateSuccess": "„{{title}}“ erstellt.",
+      "duplicateFailed": "Element konnte nicht dupliziert werden.",
       "delete": "Löschen",
       "deleteOfflineHint": "Offline nicht verfügbar — für Löschen verbinden.",
       "export": "Exportieren",
@@ -253,6 +255,14 @@
       "dark": "Dunkel",
       "darkDescription": "Verwendet immer das dunkle Design."
     },
+    "collectionsViewMode": {
+      "title": "Sammlungsansicht",
+      "description": "Lege fest, wie Sammlungen in der Bibliothek erscheinen. Lieder und Setlisten sind immer Listenansicht.",
+      "list": "Liste",
+      "listDescription": "Sammlungen als Zeilen mit Cover-Vorschaubild.",
+      "card": "Karten",
+      "cardDescription": "Sammlungen als Cover-Karten (A4-Seitenverhältnis)."
+    },
     "chordFormat": {
       "title": "Akkordformat",
       "description": "Lege fest, wie Akkorde im Song-Editor und Player angezeigt werden.",
@@ -312,6 +322,9 @@
     }
   },
   "setlists": {
+    "hub": {
+      "duplicateFailed": "Setliste konnte nicht dupliziert werden."
+    },
     "create": {
       "dialogTitle": "Neue Setliste",
       "dialogDescription": "Gib der Setliste einen Titel. Songs fügst du im Editor hinzu.",

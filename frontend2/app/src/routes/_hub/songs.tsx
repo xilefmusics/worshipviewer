@@ -7,6 +7,7 @@ import { CreateSongDialog } from '@/components/songs/CreateSongDialog'
 import { ImportSongsDialog } from '@/components/songs/ImportSongsDialog'
 import { SongCreateChooserSheet } from '@/components/songs/SongCreateChooserSheet'
 import { EntityListView } from '@/components/hub/EntityListView'
+import { emptyEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { useOnline } from '@/hooks/use-online'
 import { useSession } from '@/hooks/useSession'
 import { getNextPageIndex } from '@/lib/list-pagination'
@@ -48,8 +49,8 @@ function SongsRoute() {
 
   useEffect(() => {
     if (isSongEditor) return
-    const p = new URLSearchParams(location.search)
-    if (p.get('new') !== '1') return
+    const raw = (location.search as Record<string, unknown>).new
+    if (raw !== '1' && raw !== 1) return
     // eslint-disable-next-line react-hooks/set-state-in-effect -- latch from `?new=1` like `/setlists`
     setChooserOpen(true)
     void navigate({ to: '/songs', replace: true })
@@ -75,7 +76,11 @@ function SongsRoute() {
         onOpenChange={setCreateOpen}
         onCreated={(id) => {
           setCreateOpen(false)
-          void navigate({ to: '/songs/$songId', params: { songId: id } })
+          void navigate({
+            to: '/songs/$songId',
+            params: { songId: id },
+            search: emptyEditorReturnSearch(),
+          })
         }}
       />
       <ImportSongsDialog open={importOpen} onOpenChange={setImportOpen} online={online} />
