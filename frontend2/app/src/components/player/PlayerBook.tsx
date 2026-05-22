@@ -11,6 +11,7 @@ import { BlobSlide } from '@/components/player/BlobSlide'
 import { ChordsSlide } from '@/components/player/ChordsSlide'
 import { ChordsThreeColumnSlide } from '@/components/player/ChordsThreeColumnSlide'
 import { PlayerBookSpread } from '@/components/player/PlayerBookSpread'
+import { PlayerLikeHeartBurst } from '@/components/player/PlayerLikeHeartBurst'
 import { PlayerTocSidebar } from '@/components/player/PlayerTocSidebar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
 import { Button } from '@/components/ui/button'
@@ -124,6 +125,7 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
 }
 
 const PLAYER_CHROME_EASE = [0.25, 0.1, 0.25, 1] as const
+const VIEWPORT_DOUBLE_TAP_MS = 300
 
 const playerChromeHeaderClass =
   'pointer-events-auto flex shrink-0 items-center gap-2 overflow-hidden border-b border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-2 sm:px-3 sm:py-3'
@@ -163,6 +165,9 @@ export function PlayerBook({
   const [chromeVisible, setChromeVisible] = useState(false)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const chromeToggleHandledRef = useRef(false)
+  const lastViewportTapTimeRef = useRef<number | null>(null)
+  const [likeBurstKey, setLikeBurstKey] = useState(0)
+  const [likeBurstActive, setLikeBurstActive] = useState(false)
 
   const [viewState, setViewState] = useState<PlayerViewState>(() => readPlayerViewState(type, id))
   const [likedBySongId, setLikedBySongId] = useState<Record<string, boolean>>(() =>
@@ -223,6 +228,24 @@ export function PlayerBook({
   )
 
   const navBlocked = evicted
+
+  const triggerLikeBurst = useCallback(() => {
+    setLikeBurstKey((key) => key + 1)
+    setLikeBurstActive(true)
+  }, [])
+
+  const toggleCurrentSongLike = useCallback(() => {
+    if (!online || !allowNetworkFetch || currentItem?.type !== 'chords') return
+    const songId = currentItem.song.id
+    const previousLiked = likedBySongId[songId] ?? currentItem.song.user_specific_addons.liked
+    const nextLiked = !previousLiked
+    setLikedBySongId((state) => ({ ...state, [songId]: nextLiked }))
+    if (nextLiked) triggerLikeBurst()
+    void setSongLikeStatus(queryClient, { id: songId, liked: nextLiked }).catch(() => {
+      setLikedBySongId((state) => ({ ...state, [songId]: previousLiked }))
+      toast.error(t('player.loadFailed'))
+    })
+  }, [allowNetworkFetch, currentItem, likedBySongId, online, queryClient, t, triggerLikeBurst])
 
   useEffect(() => {
     if (deletedReconciled) {
@@ -351,15 +374,7 @@ export function PlayerBook({
       }
       if (action === 'toggleLike') {
         e.preventDefault()
-        if (!online || !allowNetworkFetch || currentItem?.type !== 'chords') return
-        const songId = currentItem.song.id
-        const previousLiked = likedBySongId[songId] ?? currentItem.song.user_specific_addons.liked
-        const nextLiked = !previousLiked
-        setLikedBySongId((state) => ({ ...state, [songId]: nextLiked }))
-        void setSongLikeStatus(queryClient, { id: songId, liked: nextLiked }).catch(() => {
-          setLikedBySongId((state) => ({ ...state, [songId]: previousLiked }))
-          toast.error(t('player.loadFailed'))
-        })
+        toggleCurrentSongLike()
         return
       }
 
@@ -406,16 +421,13 @@ export function PlayerBook({
     currentItem,
     dispatch,
     displayKey,
-    likedBySongId,
     nav.index,
     navBlocked,
     navigate,
-    online,
     popoverOpen,
-    queryClient,
     scrollPreferences,
     sheetOrientation,
-    t,
+    toggleCurrentSongLike,
     type,
     id,
   ])
@@ -473,6 +485,12 @@ export function PlayerBook({
     (clientX: number, target: EventTarget | null, rect: DOMRect) => {
       if (isInteractiveTarget(target)) return false
 
+      const now = performance.now()
+      const doubleTap =
+        lastViewportTapTimeRef.current != null &&
+        now - lastViewportTapTimeRef.current < VIEWPORT_DOUBLE_TAP_MS
+      lastViewportTapTimeRef.current = now
+
       const zone = viewportPointerZone(clientX, rect)
       if (zone === 'left') {
         if (!navBlocked) dispatch({ type: 'prev' })
@@ -482,10 +500,12 @@ export function PlayerBook({
         if (!navBlocked) dispatch({ type: 'next' })
         return true
       }
+      setPopoverOpen(false)
       setChromeVisible((visible) => !visible)
+      if (doubleTap) toggleCurrentSongLike()
       return true
     },
-    [dispatch, navBlocked],
+    [dispatch, navBlocked, toggleCurrentSongLike],
   )
 
   function onTouchEnd(e: React.TouchEvent) {
@@ -631,7 +651,7 @@ export function PlayerBook({
             role="main"
             layout={!reduceMotion}
             aria-label={t('player.mainAria', { title: title || t('player.untitled') })}
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
             animate={{
               paddingLeft: chromeVisible && showToc ? tocInsetPx : 0,
             }}
@@ -640,6 +660,13 @@ export function PlayerBook({
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
           >
+            {likeBurstActive ? (
+              <PlayerLikeHeartBurst
+                key={likeBurstKey}
+                onFinished={() => setLikeBurstActive(false)}
+              />
+            ) : null}
+
             <p className="sr-only" aria-live="polite">
               {t('player.itemAnnounce', {
                 current: nav.index + 1,
