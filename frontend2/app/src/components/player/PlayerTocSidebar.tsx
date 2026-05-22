@@ -41,7 +41,7 @@ export function PlayerTocSidebar({ toc, currentIndex, onSelect }: PlayerTocSideb
 
   return (
     <nav
-      className="flex w-44 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] sm:w-56"
+      className="flex h-full min-h-0 w-44 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] sm:w-56"
       aria-label={t('player.toc.title')}
     >
       <div
@@ -80,7 +80,11 @@ export function PlayerTocSidebar({ toc, currentIndex, onSelect }: PlayerTocSideb
         </div>
       </div>
 
-      <ul className="min-h-0 flex-1 overflow-y-auto p-2" role="listbox" aria-label={t('player.toc.title')}>
+      <ul
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 touch-pan-y"
+        role="listbox"
+        aria-label={t('player.toc.title')}
+      >
         {entries.length === 0 ? (
           <li className="px-2 py-4 text-center text-xs text-[var(--color-muted-foreground)]">
             {t('player.toc.emptyLiked')}

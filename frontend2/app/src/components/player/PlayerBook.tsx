@@ -1,5 +1,6 @@
 import type { components } from '@/api/schema'
 import { Link } from '@tanstack/react-router'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -82,6 +83,19 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   )
 }
 
+const PLAYER_CHROME_EASE = [0.25, 0.1, 0.25, 1] as const
+
+const playerChromeHeaderClass =
+  'pointer-events-auto flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/80 sm:px-3 sm:py-3'
+
+const playerChromeFooterClass = cn(
+  'pointer-events-auto grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-[var(--color-border)]',
+  'bg-[var(--color-surface)]/95 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/80',
+)
+
+const playerChromeLayerClass =
+  'pointer-events-none absolute inset-0 z-10 grid h-full min-h-0 grid-rows-[auto_1fr_auto]'
+
 type PlayerBookProps = {
   type: PlayerEntityType
   id: string
@@ -105,6 +119,8 @@ export function PlayerBook({
   const scrollPreferences = usePlayerScrollPreference()
   const isLandscapeViewport = useMediaQuery('(orientation: landscape)')
   const sheetOrientation = isLandscapeViewport ? 'landscape' : 'portrait'
+  const reduceMotion = useReducedMotion()
+  const chromeTransition = reduceMotion ? { duration: 0 } : { duration: 0.22, ease: PLAYER_CHROME_EASE }
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [chromeVisible, setChromeVisible] = useState(false)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -290,89 +306,18 @@ export function PlayerBook({
   }
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-foreground)]">
-      {chromeVisible ? (
-      <header className="z-10 flex shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/80 sm:px-3 sm:py-3">
-        <Button type="button" variant="outline" size="icon" asChild className="shrink-0">
-          <Link to={backTo} aria-label={t(backAriaKeyForPlayerType(type))}>
-            <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
-          </Link>
-        </Button>
-
-        <div className="min-w-0 flex-1 text-center">
-          <p className="truncate text-sm font-medium">{title}</p>
-          <p className="text-xs text-[var(--color-muted-foreground)]">
-            {t('player.position', { current: nav.index + 1, total: itemsLen })}
-          </p>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1">
-          {showChordsControls && currentItem.type === 'chords' ? (
-            <PopoverRoot open={popoverOpen} onOpenChange={setPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 px-2 text-xs"
-                  aria-label={t('player.transpose.current', {
-                    key: displayKey ?? t('player.transpose.default'),
-                  })}
-                >
-                  {displayKey ?? t('player.transpose.default')}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-56 p-2">
-                <div className="grid grid-cols-4 gap-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={localTranspose === undefined ? 'default' : 'outline'}
-                    className="col-span-4"
-                    onClick={() => {
-                      setViewState((s) => clearTransposeForItem(s, nav.index))
-                      setPopoverOpen(false)
-                    }}
-                  >
-                    {t('player.transpose.default')}
-                  </Button>
-                  {MUSICAL_KEYS.map((key) => (
-                    <Button
-                      key={key}
-                      type="button"
-                      size="sm"
-                      variant={displayKey === key ? 'default' : 'outline'}
-                      onClick={() => {
-                        setViewState((s) => setTransposeForItem(s, nav.index, key))
-                        setPopoverOpen(false)
-                      }}
-                    >
-                      {key}
-                    </Button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </PopoverRoot>
-          ) : null}
-        </div>
-      </header>
-      ) : null}
-
+    <div className="relative flex h-dvh flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-foreground)]">
       {evicted ? (
-        <p className="shrink-0 bg-[var(--color-danger)]/10 px-4 py-2 text-center text-xs text-[var(--color-danger)]" role="status" aria-live="polite">
+        <p
+          className="pointer-events-none absolute inset-x-0 top-0 z-20 bg-[var(--color-danger)]/10 px-4 py-2 text-center text-xs text-[var(--color-danger)]"
+          role="status"
+          aria-live="polite"
+        >
           {t('player.evicted')}
         </p>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {chromeVisible && showToc ? (
-          <PlayerTocSidebar
-            toc={player.toc}
-            currentIndex={nav.index}
-            onSelect={(idx) => dispatch({ type: 'jump', index: idx })}
-          />
-        ) : null}
-
+      <div className="absolute inset-0 flex min-h-0 flex-col overflow-hidden">
         <div
           role="main"
           aria-label={t('player.mainAria', { title: title || t('player.untitled') })}
@@ -402,37 +347,138 @@ export function PlayerBook({
         </div>
       </div>
 
-      {chromeVisible ? (
-      <footer
-        className={cn(
-          'z-10 grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-[var(--color-border)]',
-          'bg-[var(--color-surface)]/95 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/80',
-        )}
-      >
-        <Button
-          type="button"
-          variant="outline"
-          disabled={atStart || navBlocked}
-          onClick={() => dispatch({ type: 'prev' })}
-          aria-keyshortcuts="ArrowLeft"
-        >
-          {t('player.prev')}
-        </Button>
-        <p className="min-w-0 truncate px-2 text-center text-xs text-[var(--color-muted-foreground)]">
-          {tocRow ? `${tocRow.nr} · ${tocRow.title}` : ''}
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          className="justify-self-end"
-          disabled={atEnd || navBlocked}
-          onClick={() => dispatch({ type: 'next' })}
-          aria-keyshortcuts="ArrowRight"
-        >
-          {t('player.next')}
-        </Button>
-      </footer>
-      ) : null}
+      <AnimatePresence>
+        {chromeVisible ? (
+          <motion.div
+            key="player-chrome"
+            className={playerChromeLayerClass}
+            initial={false}
+            exit={reduceMotion ? undefined : { opacity: 0 }}
+            transition={chromeTransition}
+          >
+            <motion.header
+              className={playerChromeHeaderClass}
+              initial={reduceMotion ? false : { opacity: 0, y: '-100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={chromeTransition}
+            >
+              <Button type="button" variant="outline" size="icon" asChild className="shrink-0">
+                <Link to={backTo} aria-label={t(backAriaKeyForPlayerType(type))}>
+                  <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
+                </Link>
+              </Button>
+
+              <div className="min-w-0 flex-1 text-center">
+                <p className="truncate text-sm font-medium">{title}</p>
+                <p className="text-xs text-[var(--color-muted-foreground)]">
+                  {t('player.position', { current: nav.index + 1, total: itemsLen })}
+                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-1">
+                {showChordsControls && currentItem.type === 'chords' ? (
+                  <PopoverRoot open={popoverOpen} onOpenChange={setPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-2 text-xs"
+                        aria-label={t('player.transpose.current', {
+                          key: displayKey ?? t('player.transpose.default'),
+                        })}
+                      >
+                        {displayKey ?? t('player.transpose.default')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-56 p-2">
+                      <div className="grid grid-cols-4 gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={localTranspose === undefined ? 'default' : 'outline'}
+                          className="col-span-4"
+                          onClick={() => {
+                            setViewState((s) => clearTransposeForItem(s, nav.index))
+                            setPopoverOpen(false)
+                          }}
+                        >
+                          {t('player.transpose.default')}
+                        </Button>
+                        {MUSICAL_KEYS.map((key) => (
+                          <Button
+                            key={key}
+                            type="button"
+                            size="sm"
+                            variant={displayKey === key ? 'default' : 'outline'}
+                            onClick={() => {
+                              setViewState((s) => setTransposeForItem(s, nav.index, key))
+                              setPopoverOpen(false)
+                            }}
+                          >
+                            {key}
+                          </Button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </PopoverRoot>
+                ) : null}
+              </div>
+            </motion.header>
+
+            <div className="flex min-h-0 min-w-0 items-stretch overflow-hidden">
+              <AnimatePresence>
+                {showToc ? (
+                  <motion.div
+                    key="player-chrome-toc"
+                    className="pointer-events-auto flex h-full min-h-0 overflow-hidden"
+                    initial={reduceMotion ? false : { x: '-100%' }}
+                    animate={{ x: 0 }}
+                    exit={{ x: '-100%' }}
+                    transition={chromeTransition}
+                  >
+                    <PlayerTocSidebar
+                      toc={player.toc}
+                      currentIndex={nav.index}
+                      onSelect={(idx) => dispatch({ type: 'jump', index: idx })}
+                    />
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </div>
+
+            <motion.footer
+              className={playerChromeFooterClass}
+              initial={reduceMotion ? false : { opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={chromeTransition}
+            >
+              <Button
+                type="button"
+                variant="outline"
+                disabled={atStart || navBlocked}
+                onClick={() => dispatch({ type: 'prev' })}
+                aria-keyshortcuts="ArrowLeft"
+              >
+                {t('player.prev')}
+              </Button>
+              <p className="min-w-0 truncate px-2 text-center text-xs text-[var(--color-muted-foreground)]">
+                {tocRow ? `${tocRow.nr} · ${tocRow.title}` : ''}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="justify-self-end"
+                disabled={atEnd || navBlocked}
+                onClick={() => dispatch({ type: 'next' })}
+                aria-keyshortcuts="ArrowRight"
+              >
+                {t('player.next')}
+              </Button>
+            </motion.footer>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   )
 }
