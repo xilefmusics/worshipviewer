@@ -182,12 +182,25 @@ const PDF_PRINT_CSS = `
 }
 `
 
+const PDF_SETLIST_PAGE_BREAK_CSS = `
+.pdf-export-root + .pdf-export-root {
+  page-break-before: always;
+  break-before: page;
+}
+`
+
+export type PdfExportPage = { html: string; css: string }
+
 /** Isolated hidden iframe (no app oklch theme) for print/PDF. */
-function mountPdfExportPage(html: string, css: string, title: string): {
+function mountPdfExportDocument(pages: PdfExportPage[], title: string): {
   frame: HTMLIFrameElement
-  page: HTMLElement
+  pageRoots: HTMLElement[]
   contentWindow: Window
 } {
+  if (pages.length === 0) {
+    throw new Error('No pages to print')
+  }
+
   const frame = document.createElement('iframe')
   frame.setAttribute('aria-hidden', 'true')
   frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${A4_WIDTH_PX}px;height:${A4_HEIGHT_PX}px;border:0;visibility:hidden;`
@@ -209,46 +222,42 @@ function mountPdfExportPage(html: string, css: string, title: string): {
   titleEl.textContent = title
   doc.head.appendChild(titleEl)
 
+  const scopedCss = pages
+    .map((page, index) =>
+      scopeChordlibPageCss(page.css, `.pdf-export-root:nth-of-type(${index + 1})`),
+    )
+    .join('\n')
+  const pageBreakCss = pages.length > 1 ? PDF_SETLIST_PAGE_BREAK_CSS : ''
+
   const styleEl = doc.createElement('style')
-  styleEl.textContent = `${PDF_PAGE_BASE_CSS}\n${scopeChordlibPageCss(css, '.pdf-export-root')}\n${PDF_PRINT_CSS}\nhtml, body { margin: 0; padding: 0; background: #fff; color: #000; }`
+  styleEl.textContent = `${PDF_PAGE_BASE_CSS}\n${scopedCss}\n${PDF_PRINT_CSS}\n${pageBreakCss}\nhtml, body { margin: 0; padding: 0; background: #fff; color: #000; }`
   doc.head.appendChild(styleEl)
 
-  const page = doc.createElement('div')
-  page.className = 'pdf-export-root player-chords-page'
-  page.innerHTML = html
-  doc.body.appendChild(page)
+  const pageRoots: HTMLElement[] = []
+  for (const page of pages) {
+    const root = doc.createElement('div')
+    root.className = 'pdf-export-root player-chords-page'
+    root.innerHTML = page.html
+    doc.body.appendChild(root)
+    pageRoots.push(root)
+  }
 
-  return { frame, page, contentWindow }
+  return { frame, pageRoots, contentWindow }
 }
 
-async function waitForPdfLayout(page: HTMLElement): Promise<void> {
+async function waitForPdfLayout(pageRoots: HTMLElement[]): Promise<void> {
   await document.fonts.ready
   await new Promise<void>((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
   })
-  void page.getBoundingClientRect()
+  for (const page of pageRoots) {
+    void page.getBoundingClientRect()
+  }
 }
 
-/**
- * Opens the system print dialog on an isolated A4 preview (use Save as PDF for a file).
- * Real text remains selectable in the PDF the browser generates.
- */
-export async function exportSongPdf(
-  engine: ChordEngine,
-  data: ChordSongData,
-  chordFormat: ChordFormatPreference,
-): Promise<void> {
-  const key = resolveSongDataKey(data as Record<string, unknown>) ?? undefined
-  const { html, css } = engine.renderA4Html(data, {
-    key,
-    representation: chordFormatToRepresentation(chordFormat),
-    scale: 1,
-  })
-
-  const title = sanitizeDownloadBasename(songTitleFromData(data))
+async function printPdfDocument(pages: PdfExportPage[], title: string): Promise<void> {
   const previousTitle = document.title
-
-  const { frame, page, contentWindow } = mountPdfExportPage(html, css, title)
+  const { frame, pageRoots, contentWindow } = mountPdfExportDocument(pages, title)
 
   let frameRemoved = false
   const removeFrame = () => {
@@ -270,7 +279,7 @@ export async function exportSongPdf(
   window.setTimeout(restoreAppTitle, 300_000)
 
   try {
-    await waitForPdfLayout(page)
+    await waitForPdfLayout(pageRoots)
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -292,6 +301,58 @@ export async function exportSongPdf(
     restoreAppTitle()
     throw e
   }
+}
+
+function renderA4ExportPage(
+  engine: ChordEngine,
+  data: ChordSongData,
+  key: string | undefined,
+  chordFormat: ChordFormatPreference,
+): PdfExportPage {
+  return engine.renderA4Html(data, {
+    key,
+    representation: chordFormatToRepresentation(chordFormat),
+    scale: 1,
+  })
+}
+
+export type SetlistPdfExportSong = {
+  data: ChordSongData
+  key?: string
+}
+
+/**
+ * Opens the system print dialog on an isolated A4 preview (use Save as PDF for a file).
+ * Real text remains selectable in the PDF the browser generates.
+ */
+export async function exportSongPdf(
+  engine: ChordEngine,
+  data: ChordSongData,
+  chordFormat: ChordFormatPreference,
+): Promise<void> {
+  const key = resolveSongDataKey(data as Record<string, unknown>) ?? undefined
+  const pages = [renderA4ExportPage(engine, data, key, chordFormat)]
+  const title = sanitizeDownloadBasename(songTitleFromData(data))
+  await printPdfDocument(pages, title)
+}
+
+/**
+ * Print every song in setlist order as consecutive A4 pages in one PDF (browser print).
+ */
+export async function exportSetlistPdf(
+  engine: ChordEngine,
+  setlistTitle: string,
+  songs: SetlistPdfExportSong[],
+  chordFormat: ChordFormatPreference,
+): Promise<void> {
+  if (songs.length === 0) {
+    throw new Error('Setlist has no exportable songs')
+  }
+  const pages = songs.map((song) =>
+    renderA4ExportPage(engine, song.data, song.key, chordFormat),
+  )
+  const title = sanitizeDownloadBasename(setlistTitle)
+  await printPdfDocument(pages, title)
 }
 
 /** Re-export for editor formatting consistency when applying import to source buffer. */

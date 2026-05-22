@@ -132,7 +132,8 @@
       "exportPdf": "PDF (print)",
       "exportPdfHint": "Opens the print dialog — choose Save as PDF.",
       "exportPreparing": "Preparing export…",
-      "exportFailed": "Could not export this song."
+      "exportFailed": "Could not export this song.",
+      "exportSetlistFailed": "Could not export this setlist."
     },
     "createChooser": {
       "title": "Add to library",
