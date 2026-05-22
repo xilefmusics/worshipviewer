@@ -3,14 +3,18 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { useBlobUrl } from '@/hooks/useBlobUrl'
 
+import { cn } from '@/lib/utils'
+
 type BlobSlideProps = {
   blobId: string
   allowNetworkFetch: boolean
+  fillParent?: boolean
 }
 
-export function BlobSlide({ blobId, allowNetworkFetch }: BlobSlideProps) {
+export function BlobSlide({ blobId, allowNetworkFetch, fillParent = false }: BlobSlideProps) {
   const { t } = useTranslation()
   const { url, mime, status, retry, cancel } = useBlobUrl(blobId, { allowNetworkFetch })
+  const slotClass = cn('player-blob-page flex min-h-0 flex-1 flex-col bg-white', fillParent && 'h-full w-full')
 
   if (status === 'offline-unavailable') {
     return (
@@ -46,14 +50,14 @@ export function BlobSlide({ blobId, allowNetworkFetch }: BlobSlideProps) {
 
   if (mime?.includes('pdf')) {
     return (
-      <div className="player-blob-page flex min-h-0 flex-1 flex-col bg-white">
+      <div className={slotClass}>
         <embed title="" src={url} className="min-h-0 w-full flex-1 border-0 bg-white" />
       </div>
     )
   }
 
   return (
-    <div className="player-blob-page flex min-h-0 flex-1 items-center justify-center overflow-auto bg-white p-4">
+    <div className={cn(slotClass, 'items-center justify-center overflow-auto p-4')}>
       <img
         src={url}
         alt=""

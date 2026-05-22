@@ -17,8 +17,9 @@ export function effectiveScrollType(scrollType: ScrollType): PlayerScrollType {
 
 /** Whether prev/next should page within an item before crossing boundaries. */
 export function supportsIntraItemPaging(scrollType: ScrollType, betweenItems: boolean): boolean {
-  if (betweenItems) return false
-  return normalizeScrollType(scrollType) === 'book'
+  void scrollType
+  void betweenItems
+  return false
 }
 
 /** Logical page count within one player item for navigation. */

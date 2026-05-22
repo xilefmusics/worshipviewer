@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import { BlobSlide } from '@/components/player/BlobSlide'
 import { ChordsSlide } from '@/components/player/ChordsSlide'
+import { PlayerBookSpread } from '@/components/player/PlayerBookSpread'
 import { PlayerTocSidebar } from '@/components/player/PlayerTocSidebar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,7 @@ import { useOnline } from '@/hooks/use-online'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
 import { getChordEngine } from '@/lib/chord-engine'
 import { effectiveScrollType } from '@/lib/player/effective-scroll-type'
+import { bookSpreadRightIndex, isBookSpreadMode } from '@/lib/player/book-spread'
 import { scrollTypeForOrientation } from '@/lib/player-scroll-preference'
 import {
   initialPlayerNavState,
@@ -45,6 +47,7 @@ import { resolveSongDataKey } from '@/lib/setlist-song-links'
 import { cn } from '@/lib/utils'
 
 type Player = components['schemas']['Player']
+type PlayerItem = Player['items'][number]
 
 function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs' | '/setlists' {
   switch (type) {
@@ -128,6 +131,7 @@ export function PlayerBook({
   const effectiveScroll = effectiveScrollType(
     scrollTypeForOrientation(sheetOrientation, scrollPreferences),
   )
+  const bookSpread = isBookSpreadMode(effectiveScroll)
   const itemsLen = player.items.length
 
   const [nav, setNav] = useState<PlayerNavState>(() =>
@@ -166,30 +170,42 @@ export function PlayerBook({
   }, [deletedReconciled, t])
 
   useEffect(() => {
-    const prefetchIndex = prefetchNextItemIndex(online, nav.index, itemsLen)
-    if (prefetchIndex == null) return
+    const prefetchIndices = new Set<number>()
+    const primary = prefetchNextItemIndex(online, nav.index, itemsLen)
+    if (primary != null) prefetchIndices.add(primary)
+    if (bookSpread) {
+      const rightIndex = bookSpreadRightIndex(nav.index, itemsLen)
+      if (rightIndex != null) prefetchIndices.add(rightIndex)
+      const afterSpread = prefetchNextItemIndex(online, rightIndex ?? nav.index, itemsLen)
+      if (afterSpread != null) prefetchIndices.add(afterSpread)
+    }
+
+    if (prefetchIndices.size === 0) return
 
     const controller = new AbortController()
-    const nextItem = player.items[prefetchIndex]
-    if (!nextItem) return () => controller.abort()
 
     void (async () => {
-      if (nextItem.type === 'blob' && allowNetworkFetch) {
-        const { fetchBlobBinaryWithMime } = await import('@/api/blob-data')
-        await fetchBlobBinaryWithMime(nextItem.blob_id, controller.signal)
-      } else if (nextItem.type === 'chords') {
-        try {
-          const engine = await getChordEngine()
-          const key = resolveSongDataKey(nextItem.song.data as Record<string, unknown>)
-          engine.renderA4Html(nextItem.song.data, { key: key ?? undefined })
-        } catch {
-          // Prefetch is best-effort
+      for (const prefetchIndex of prefetchIndices) {
+        const nextItem = player.items[prefetchIndex]
+        if (!nextItem) continue
+
+        if (nextItem.type === 'blob' && allowNetworkFetch) {
+          const { fetchBlobBinaryWithMime } = await import('@/api/blob-data')
+          await fetchBlobBinaryWithMime(nextItem.blob_id, controller.signal)
+        } else if (nextItem.type === 'chords') {
+          try {
+            const engine = await getChordEngine()
+            const key = resolveSongDataKey(nextItem.song.data as Record<string, unknown>)
+            engine.renderA4Html(nextItem.song.data, { key: key ?? undefined })
+          } catch {
+            // Prefetch is best-effort
+          }
         }
       }
     })()
 
     return () => controller.abort()
-  }, [nav.index, online, itemsLen, player.items, allowNetworkFetch])
+  }, [nav.index, online, itemsLen, player.items, allowNetworkFetch, bookSpread])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -238,6 +254,34 @@ export function PlayerBook({
     currentItem?.type === 'chords'
       ? resolvePlayerItemKey(currentItem, type, slotKey, localTranspose)
       : null
+
+  function displayKeyForItem(item: PlayerItem, itemIndex: number): string | null {
+    if (item.type !== 'chords') return null
+    const itemSlotKey = resolveSongDataKey(item.song.data as Record<string, unknown>)
+    return resolvePlayerItemKey(item, type, itemSlotKey, viewState.transposeByItem[itemIndex])
+  }
+
+  function renderPlayerItem(item: PlayerItem, itemIndex: number, fillParent = false) {
+    if (item.type === 'blob') {
+      return (
+        <BlobSlide
+          blobId={item.blob_id}
+          allowNetworkFetch={allowNetworkFetch}
+          fillParent={fillParent}
+        />
+      )
+    }
+
+    return (
+      <ChordsSlide
+        song={item.song}
+        displayKey={displayKeyForItem(item, itemIndex)}
+        chordFormat={chordFormat}
+        orientation={sheetOrientation}
+        fillParent={fillParent}
+      />
+    )
+  }
 
   function onTouchStart(e: React.TouchEvent) {
     const touch = e.touches[0]
@@ -419,7 +463,17 @@ export function PlayerBook({
               })}
             </p>
 
-            {currentItem.type === 'blob' ? (
+            {bookSpread ? (
+              <PlayerBookSpread
+                left={renderPlayerItem(currentItem, nav.index, true)}
+                right={(() => {
+                  const rightIndex = bookSpreadRightIndex(nav.index, itemsLen)
+                  const rightItem = rightIndex == null ? null : player.items[rightIndex]
+                  if (!rightItem) return undefined
+                  return renderPlayerItem(rightItem, rightIndex, true)
+                })()}
+              />
+            ) : currentItem.type === 'blob' ? (
               <BlobSlide blobId={currentItem.blob_id} allowNetworkFetch={allowNetworkFetch} />
             ) : (
               <ChordsSlide

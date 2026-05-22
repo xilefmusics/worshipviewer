@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   A4_REFERENCE_HEIGHT_PX,
   A4_REFERENCE_WIDTH_PX,
+  bookSpreadLayout,
   cssScaleToFitViewport,
   cssScaleToViewportWidth,
   viewportScaleForA4,
@@ -47,5 +48,25 @@ describe('cssScaleToFitViewport', () => {
   it('uses the tighter axis', () => {
     expect(cssScaleToFitViewport(400, 800, 794, 1123)).toBeCloseTo(400 / 794, 5)
     expect(cssScaleToFitViewport(794, 500, 794, 1123)).toBeCloseTo(500 / 1123, 5)
+  })
+})
+
+describe('bookSpreadLayout', () => {
+  it('returns zero dimensions for invalid viewport', () => {
+    expect(bookSpreadLayout(0, 800, true)).toEqual({ width: 0, height: 0, pageWidth: 0 })
+  })
+
+  it('sizes a single page spread from viewport height', () => {
+    const layout = bookSpreadLayout(390, 844, false)
+    expect(layout.width).toBe(390)
+    expect(layout.pageWidth).toBe(390)
+    expect(layout.height).toBeCloseTo(390 * Math.SQRT2, 0)
+  })
+
+  it('sizes a two-page spread and splits page width evenly', () => {
+    const layout = bookSpreadLayout(844, 390, true)
+    expect(layout.width).toBeCloseTo(390 * Math.SQRT2, 0)
+    expect(layout.height).toBe(390)
+    expect(layout.pageWidth).toBeCloseTo((390 * Math.SQRT2) / 2, 0)
   })
 })

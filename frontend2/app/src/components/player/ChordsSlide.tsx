@@ -25,6 +25,8 @@ type ChordsSlideProps = {
   displayKey?: string | null
   chordFormat: ChordFormatPreference
   orientation: Orientation
+  /** Fill a fixed-size book spread slot instead of growing with content. */
+  fillParent?: boolean
 }
 
 export function ChordsSlide({
@@ -32,6 +34,7 @@ export function ChordsSlide({
   displayKey,
   chordFormat,
   orientation,
+  fillParent = false,
 }: ChordsSlideProps) {
   const { t } = useTranslation()
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -127,7 +130,8 @@ export function ChordsSlide({
     <div
       ref={viewportRef}
       className={cn(
-        'player-chords-viewport flex min-h-0 flex-1 flex-col overflow-auto',
+        'player-chords-viewport flex min-h-0 flex-1 flex-col',
+        fillParent ? 'h-full w-full overflow-hidden' : 'overflow-auto',
         scaledReady && 'player-chords-viewport--ready',
         orientation === 'landscape' && 'player-chords-viewport--landscape',
       )}

@@ -1,5 +1,11 @@
 import type { components } from '@/api/schema'
 
+import {
+  bookJumpIndex,
+  bookSpreadNextIndex,
+  bookSpreadPrevIndex,
+  isBookSpreadMode,
+} from '@/lib/player/book-spread'
 import { pagesPerItem, supportsIntraItemPaging } from '@/lib/player/effective-scroll-type'
 
 export type ScrollType = components['schemas']['ScrollType']
@@ -53,12 +59,20 @@ export function nextPlayerState(
   }
 
   if (action.type === 'jump') {
-    return { index: clampIndex(action.index, itemCount), pageOffset: 0 }
+    let index = clampIndex(action.index, itemCount)
+    if (isBookSpreadMode(config.scrollType)) {
+      index = bookJumpIndex(index, itemCount)
+    }
+    return { index, pageOffset: 0 }
   }
 
+  const bookSpread = isBookSpreadMode(config.scrollType)
   const intra = supportsIntraItemPaging(config.scrollType, config.betweenItems)
 
   if (action.type === 'next') {
+    if (bookSpread) {
+      return { index: bookSpreadNextIndex(state.index, itemCount), pageOffset: 0 }
+    }
     if (intra) {
       const pages = pagesFor(config, state.index)
       if (state.pageOffset < pages - 1) {
@@ -76,6 +90,9 @@ export function nextPlayerState(
   }
 
   // prev
+  if (bookSpread) {
+    return { index: bookSpreadPrevIndex(state.index), pageOffset: 0 }
+  }
   if (intra) {
     if (state.pageOffset > 0) {
       return { ...state, pageOffset: state.pageOffset - 1 }

@@ -28,8 +28,8 @@ describe('effectiveScrollType', () => {
 })
 
 describe('supportsIntraItemPaging', () => {
-  it('pages within items only in book mode when between_items is false', () => {
-    expect(supportsIntraItemPaging('book', false)).toBe(true)
+  it('is disabled in the simplified player', () => {
+    expect(supportsIntraItemPaging('book', false)).toBe(false)
     expect(supportsIntraItemPaging('book', true)).toBe(false)
     expect(supportsIntraItemPaging('one_page', false)).toBe(false)
     expect(supportsIntraItemPaging('half_page', false)).toBe(false)

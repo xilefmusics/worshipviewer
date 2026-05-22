@@ -34,3 +34,33 @@
 .player-blob-page {
   background: #fff;
 }
+
+.player-book-spread {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.player-book-spread__wrapper {
+  display: flex;
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.player-book-spread__page {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.player-book-spread__page + .player-book-spread__page {
+  border-left: 1px solid var(--color-border);
+}

@@ -31,3 +31,38 @@ export function cssScaleToFitViewport(
   }
   return Math.min(viewportWidth / contentWidth, viewportHeight / contentHeight)
 }
+
+export type BookSpreadLayout = {
+  width: number
+  height: number
+  pageWidth: number
+}
+
+/** Size a book spread to fit the viewport — mirrors legacy `get_content_dimensions`. */
+export function bookSpreadLayout(
+  viewportWidth: number,
+  viewportHeight: number,
+  hasTwoPages: boolean,
+): BookSpreadLayout {
+  if (viewportWidth <= 0 || viewportHeight <= 0) {
+    return { width: 0, height: 0, pageWidth: 0 }
+  }
+
+  const sqrt2 = Math.SQRT2
+  let width: number
+  let height: number
+
+  if (!hasTwoPages) {
+    width = Math.min(viewportWidth, viewportHeight / sqrt2)
+    height = Math.min(viewportHeight, viewportWidth * sqrt2)
+  } else {
+    width = Math.min(viewportWidth, viewportHeight * sqrt2)
+    height = Math.min(viewportHeight, viewportWidth / sqrt2)
+  }
+
+  return {
+    width,
+    height,
+    pageWidth: hasTwoPages ? width / 2 : width,
+  }
+}
