@@ -21,14 +21,14 @@ Users can **round-trip** worship song files for **songs**: **export** from the *
 - **`+` on `/songs`:** chooser **New song** | **Import files** (multi-select ChordPro/WorshipPro); partial failures reported clearly.
 - **PDF:** `renderA4Html` → isolated frame → **browser print** (Save as PDF); real selectable text; non-blocking.
 - **i18n:** EN + DE for new strings.
-- **`/setlists` list:** long-press **Export** → **PDF (print)** — every song as consecutive A4 pages in **one** print job (setlist title as document name).
-- **`/collections` list:** long-press **Export** → **PDF (print)** — same multi-page print job (collection title as document name).
+- **`/setlists` list:** long-press **Export** → ChordPro / Worship Pro (**`.zip`** of `.cp` / `.wp` per song) or **PDF (print)** (one multi-page job; setlist title as document name).
+- **`/collections` list:** long-press **Export** → same choices (collection title for PDF / zip basename).
 
 ## Deferred (full E6)
 
 | Topic | Notes |
 |--------|--------|
-| **Setlist / collection text export** | ChordPro / Worship Pro bundling deferred |
+| **Single-file setlist/collection bundles** | One merged ChordPro/Worship Pro file per list (not per-song zip) |
 | **Hub import on collections/setlists** | Songs hub only in v1 |
 
 ---

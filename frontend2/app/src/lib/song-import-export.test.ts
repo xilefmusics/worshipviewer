@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createSongBodyFromParsed,
   importSongsBatch,
+  orderedSongZipEntryNames,
   parseImportSource,
   sanitizeDownloadBasename,
   songTitleFromData,
@@ -28,6 +29,23 @@ describe('sanitizeDownloadBasename', () => {
   it('falls back to Untitled', () => {
     expect(sanitizeDownloadBasename('   ')).toBe('Untitled')
     expect(sanitizeDownloadBasename(undefined)).toBe('Untitled')
+  })
+})
+
+describe('orderedSongZipEntryNames', () => {
+  it('numbers entries and uses cp/wp extensions', () => {
+    const songs = [
+      { data: { titles: ['Alpha'] } },
+      { data: { titles: ['Beta'] } },
+    ] as { data: { titles: string[] } }[]
+    expect(orderedSongZipEntryNames(songs, 'chordpro')).toEqual([
+      '01 - Alpha.cp',
+      '02 - Beta.cp',
+    ])
+    expect(orderedSongZipEntryNames(songs, 'worshippro')).toEqual([
+      '01 - Alpha.wp',
+      '02 - Beta.wp',
+    ])
   })
 })
 

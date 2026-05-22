@@ -49,8 +49,8 @@ import { useLongPress } from '@/hooks/useLongPress'
 import { useOnline } from '@/hooks/use-online'
 import { useSession } from '@/hooks/useSession'
 import { useTeamDetail } from '@/hooks/useTeamDetail'
-import { runCollectionPdfExport } from '@/lib/run-collection-export'
-import { runSetlistPdfExport } from '@/lib/run-setlist-export'
+import { runCollectionExport } from '@/lib/run-collection-export'
+import { runSetlistExport } from '@/lib/run-setlist-export'
 import { runSongExport, type SongExportKind } from '@/lib/run-song-export'
 import type { HubEntity } from '@/lib/hub-entity'
 import { hubEntityEditSplat } from '@/lib/hub-entity-edit'
@@ -505,28 +505,31 @@ function HubItemContextMenu({
     entity === 'songs' && hubSong && !hubSong.not_a_song,
   )
   const showSongExport = Boolean(entity === 'songs' && hubSong)
-  const showOrderedPdfExport = entity === 'setlists' || entity === 'collections'
+  const showOrderedExport = entity === 'setlists' || entity === 'collections'
 
-  const onOrderedExportPdf = useCallback(async () => {
-    const toastId = toast.loading(t('hub.actions.exportPreparing'))
-    try {
-      if (entity === 'setlists') {
-        await runSetlistPdfExport(queryClient, itemId, chordFormat)
-      } else if (entity === 'collections') {
-        await runCollectionPdfExport(queryClient, itemId, chordFormat)
+  const onOrderedExport = useCallback(
+    async (kind: SongExportKind) => {
+      const toastId = toast.loading(t('hub.actions.exportPreparing'))
+      try {
+        if (entity === 'setlists') {
+          await runSetlistExport(queryClient, itemId, kind, chordFormat)
+        } else if (entity === 'collections') {
+          await runCollectionExport(queryClient, itemId, kind, chordFormat)
+        }
+        toast.dismiss(toastId)
+      } catch (e) {
+        toast.dismiss(toastId)
+        const detail = e instanceof Error ? e.message : String(e)
+        const failedKey =
+          entity === 'collections'
+            ? 'hub.actions.exportCollectionFailed'
+            : 'hub.actions.exportSetlistFailed'
+        toast.error(t(failedKey), { description: detail })
+        console.error(`${entity} export failed`, e)
       }
-      toast.dismiss(toastId)
-    } catch (e) {
-      toast.dismiss(toastId)
-      const detail = e instanceof Error ? e.message : String(e)
-      const failedKey =
-        entity === 'collections'
-          ? 'hub.actions.exportCollectionFailed'
-          : 'hub.actions.exportSetlistFailed'
-      toast.error(t(failedKey), { description: detail })
-      console.error(`${entity} export failed`, e)
-    }
-  }, [chordFormat, entity, itemId, queryClient, t])
+    },
+    [chordFormat, entity, itemId, queryClient, t],
+  )
 
   const onSongExport = useCallback(
     async (kind: SongExportKind) => {
@@ -632,13 +635,25 @@ function HubItemContextMenu({
               </ContextMenuItem>
             </>
           ) : null}
-          {showOrderedPdfExport ? (
+          {showOrderedExport ? (
             <>
               <ContextMenuSeparator />
               <ContextMenuItem
                 className="gap-2"
+                onSelect={() => void onOrderedExport('chordpro')}
+              >
+                {t('hub.actions.export')} — {t('hub.actions.exportChordPro')}
+              </ContextMenuItem>
+              <ContextMenuItem
+                className="gap-2"
+                onSelect={() => void onOrderedExport('worshippro')}
+              >
+                {t('hub.actions.export')} — {t('hub.actions.exportWorshipPro')}
+              </ContextMenuItem>
+              <ContextMenuItem
+                className="gap-2"
                 title={t('hub.actions.exportPdfHint')}
-                onSelect={() => void onOrderedExportPdf()}
+                onSelect={() => void onOrderedExport('pdf')}
               >
                 {t('hub.actions.export')} — {t('hub.actions.exportPdf')}
               </ContextMenuItem>

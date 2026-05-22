@@ -1,3 +1,5 @@
+import JSZip from 'jszip'
+
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
 import { resolveSongDataKey } from '@/lib/setlist-song-links'
@@ -101,30 +103,45 @@ export function createSongBodyFromParsed(
   return body
 }
 
-function formatOptionsForExport(
-  worshipPro: boolean,
-  chordFormat: ChordFormatPreference,
-  data: ChordSongData,
-) {
-  const key = resolveSongDataKey(data as Record<string, unknown>) ?? undefined
-  return {
-    worshipPro,
-    key,
-    representation: chordFormatToRepresentation(chordFormat),
-  }
-}
-
 export function formatSongForExport(
   engine: ChordEngine,
   data: ChordSongData,
   format: TextExportFormat,
   chordFormat: ChordFormatPreference,
+  keyOverride?: string,
 ): string {
   const worshipPro = format === 'worshippro'
-  return engine.formatChordPro(
-    data,
-    formatOptionsForExport(worshipPro, chordFormat, data),
-  )
+  const key =
+    keyOverride ?? resolveSongDataKey(data as Record<string, unknown>) ?? undefined
+  return engine.formatChordPro(data, {
+    worshipPro,
+    key,
+    representation: chordFormatToRepresentation(chordFormat),
+  })
+}
+
+export function orderedSongZipEntryNames(
+  songs: { data: ChordSongData }[],
+  format: TextExportFormat,
+): string[] {
+  const ext = format === 'worshippro' ? 'wp' : 'cp'
+  return songs.map((song, index) => {
+    const base = sanitizeDownloadBasename(songTitleFromData(song.data))
+    const num = String(index + 1).padStart(2, '0')
+    return `${num} - ${base}.${ext}`
+  })
+}
+
+export function downloadBlobFile(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.rel = 'noopener'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
 }
 
 export function downloadTextFile(filename: string, content: string, mime = 'text/plain;charset=utf-8') {
@@ -316,9 +333,33 @@ function renderA4ExportPage(
   })
 }
 
-export type SetlistPdfExportSong = {
+export type HubExportSong = {
   data: ChordSongData
   key?: string
+}
+
+/** @deprecated Use {@link HubExportSong}. */
+export type SetlistPdfExportSong = HubExportSong
+
+export async function exportOrderedSongsZip(
+  engine: ChordEngine,
+  listTitle: string,
+  songs: HubExportSong[],
+  format: TextExportFormat,
+  chordFormat: ChordFormatPreference,
+): Promise<void> {
+  if (songs.length === 0) {
+    throw new Error('No exportable songs')
+  }
+  const zip = new JSZip()
+  const entryNames = orderedSongZipEntryNames(songs, format)
+  songs.forEach((song, index) => {
+    const text = formatSongForExport(engine, song.data, format, chordFormat, song.key)
+    zip.file(entryNames[index]!, text)
+  })
+  const blob = await zip.generateAsync({ type: 'blob' })
+  const zipBasename = sanitizeDownloadBasename(listTitle)
+  downloadBlobFile(`${zipBasename}.zip`, blob)
 }
 
 /**
@@ -343,11 +384,11 @@ export async function exportSongPdf(
 export async function exportSetlistPdf(
   engine: ChordEngine,
   setlistTitle: string,
-  songs: SetlistPdfExportSong[],
+  songs: HubExportSong[],
   chordFormat: ChordFormatPreference,
 ): Promise<void> {
   if (songs.length === 0) {
-    throw new Error('Setlist has no exportable songs')
+    throw new Error('No exportable songs')
   }
   const pages = songs.map((song) =>
     renderA4ExportPage(engine, song.data, song.key, chordFormat),
