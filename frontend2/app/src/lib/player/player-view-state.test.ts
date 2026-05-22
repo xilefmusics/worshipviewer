@@ -25,4 +25,18 @@ describe('player-view-state', () => {
     const loaded = readPlayerViewState('song', 's1', mockStorage)
     expect(loaded.transposeByItem[0]).toBe('G')
   })
+
+  it('persists and reads item index', () => {
+    const storage = new Map<string, string>()
+    const mockStorage = {
+      getItem: (k: string) => storage.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        storage.set(k, v)
+      },
+    }
+
+    writePlayerViewState('setlist', 'sl1', { transposeByItem: {}, itemIndex: 5 }, mockStorage)
+
+    expect(readPlayerViewState('setlist', 'sl1', mockStorage).itemIndex).toBe(5)
+  })
 })

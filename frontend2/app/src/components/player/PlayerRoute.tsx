@@ -14,6 +14,7 @@ import { collectionDetailKey, setlistDetailKey, songDetailQueryKey } from '@/lib
 export type PlayerRouteInnerProps = {
   type: PlayerEntityType
   id: string
+  initialIndex?: number
 }
 
 function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs' | '/setlists' {
@@ -55,7 +56,7 @@ function usePlayerResourceTitle(type: PlayerEntityType, id: string, enabled: boo
   return data
 }
 
-export function PlayerRouteInner({ type, id }: PlayerRouteInnerProps) {
+export function PlayerRouteInner({ type, id, initialIndex }: PlayerRouteInnerProps) {
   const { t } = useTranslation()
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['player', type, id],
@@ -138,6 +139,7 @@ export function PlayerRouteInner({ type, id }: PlayerRouteInnerProps) {
       type={type}
       id={id}
       player={player}
+      initialIndex={initialIndex}
       allowNetworkFetch={allowNetworkFetch}
       resourceTitle={resourceTitle}
       deletedReconciled={data.deletedReconciled}

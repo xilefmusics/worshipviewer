@@ -28,6 +28,10 @@ import { useCollectionDetailQuery } from '@/hooks/useCollectionDetailQuery'
 import { useSetlistDetailQuery } from '@/hooks/useSetlistDetailQuery'
 import { useSongDetailQuery } from '@/hooks/useSongDetailQuery'
 import { getTeamDisplayName, isPersonalTeamName } from '@/lib/team-display-name'
+import {
+  buildPlayerReturnSearch,
+  parsePlayerEditorReturnSearch,
+} from '@/lib/player/player-editor-return'
 import { isUserTeamAdmin } from '@/lib/team-permissions'
 import { teamDetailKey, teamsListRootKey } from '@/lib/teams-sessions-keys'
 import { cn } from '@/lib/utils'
@@ -94,6 +98,7 @@ function HubChrome({
   const { qInput, setQInput } = useHubSearch()
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const locationSearch = useRouterState({ select: (s) => s.location.search })
   const isTeamsList = pathname === '/teams'
   const isTeamDetail = pathname.startsWith('/teams/') && pathname !== '/teams'
   const teamDetailId = isTeamDetail ? pathname.slice('/teams/'.length) : ''
@@ -103,6 +108,11 @@ function HubChrome({
   const collectionEditorId = isCollectionDetail ? pathname.slice('/collections/'.length) : ''
   const isSongDetail = /^\/songs\/[^/]+$/.test(pathname)
   const songEditorId = isSongDetail ? pathname.slice('/songs/'.length) : ''
+  const songEditorPlayerReturn = isSongDetail
+    ? parsePlayerEditorReturnSearch(
+        Object.fromEntries(new URLSearchParams(locationSearch)) as Record<string, unknown>,
+      )
+    : null
   const { data: headerSetlist } = useSetlistDetailQuery(isSetlistDetail ? setlistEditorId : '')
   const { data: headerCollection } = useCollectionDetailQuery(isCollectionDetail ? collectionEditorId : '')
   const { data: headerSong } = useSongDetailQuery(isSongDetail ? songEditorId : '')
@@ -327,7 +337,16 @@ function HubChrome({
                 type="button"
                 size="icon"
                 variant="outline"
-                onClick={() => void navigate({ to: '/songs' })}
+                onClick={() => {
+                  if (songEditorPlayerReturn) {
+                    void navigate({
+                      to: '/player',
+                      search: buildPlayerReturnSearch(songEditorPlayerReturn),
+                    })
+                    return
+                  }
+                  void navigate({ to: '/songs' })
+                }}
                 className={hubDetailBackButtonClass}
                 aria-label={t('songs.editor.backToList')}
               >

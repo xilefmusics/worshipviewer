@@ -51,11 +51,13 @@ import { resolveTransposeKey } from '@/lib/player/transpose-key'
 import {
   readPlayerViewState,
   clearTransposeForItem,
+  setPlayerItemIndex,
   setTransposeForItem,
   writePlayerViewState,
   type PlayerViewState,
 } from '@/lib/player/player-view-state'
 import type { PlayerEntityType } from '@/lib/player-route'
+import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
 import { resolveSongDataKey } from '@/lib/setlist-song-links'
 
@@ -130,6 +132,7 @@ type PlayerBookProps = {
   type: PlayerEntityType
   id: string
   player: Player
+  initialIndex?: number
   allowNetworkFetch: boolean
   resourceTitle?: string
   deletedReconciled?: boolean
@@ -139,6 +142,7 @@ export function PlayerBook({
   type,
   id,
   player,
+  initialIndex,
   allowNetworkFetch,
   resourceTitle,
   deletedReconciled,
@@ -179,9 +183,17 @@ export function PlayerBook({
   const bookSpread = isBookSpreadMode(effectiveScroll)
   const itemsLen = player.items.length
 
-  const [nav, setNav] = useState<PlayerNavState>(() =>
-    initialPlayerNavState(player.index, itemsLen),
-  )
+  const [nav, setNav] = useState<PlayerNavState>(() => {
+    const savedIndex = readPlayerViewState(type, id).itemIndex
+    const startIndex = initialIndex ?? savedIndex ?? player.index
+    return initialPlayerNavState(startIndex, itemsLen)
+  })
+
+  useEffect(() => {
+    setViewState((state) =>
+      state.itemIndex === nav.index ? state : setPlayerItemIndex(state, nav.index),
+    )
+  }, [nav.index])
 
   const navConfig = useMemo(
     () => ({
@@ -320,7 +332,15 @@ export function PlayerBook({
       if (action === 'edit') {
         e.preventDefault()
         if (currentItem?.type === 'chords') {
-          void navigate({ to: '/songs/$songId', params: { songId: currentItem.song.id } })
+          void navigate({
+            to: '/songs/$songId',
+            params: { songId: currentItem.song.id },
+            search: buildSongEditorReturnSearch({
+              playerType: type,
+              playerId: id,
+              playerIndex: nav.index,
+            }),
+          })
         }
         return
       }
@@ -396,6 +416,8 @@ export function PlayerBook({
     scrollPreferences,
     sheetOrientation,
     t,
+    type,
+    id,
   ])
 
   const title = resourceTitle ?? tocRow?.title ?? ''

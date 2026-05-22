@@ -1,7 +1,9 @@
-export type PlayerEntityType = 'collection' | 'song' | 'setlist'
+import type { PlayerEntityType } from '@/lib/player-route'
+import { parseOptionalPlayerIndex } from '@/lib/player/player-editor-return'
 
 export type PlayerViewState = {
   transposeByItem: Record<number, string | null>
+  itemIndex?: number
 }
 
 export function playerViewStorageKey(type: PlayerEntityType, id: string): string {
@@ -19,8 +21,10 @@ export function readPlayerViewState(
       return { transposeByItem: {} }
     }
     const parsed = JSON.parse(raw) as Partial<PlayerViewState>
+    const itemIndex = parseOptionalPlayerIndex(parsed.itemIndex)
     return {
       transposeByItem: parsed.transposeByItem ?? {},
+      ...(itemIndex != null ? { itemIndex } : {}),
     }
   } catch {
     return { transposeByItem: {} }
@@ -59,4 +63,8 @@ export function clearTransposeForItem(state: PlayerViewState, itemIndex: number)
   const next = { ...state.transposeByItem }
   delete next[itemIndex]
   return { ...state, transposeByItem: next }
+}
+
+export function setPlayerItemIndex(state: PlayerViewState, itemIndex: number): PlayerViewState {
+  return { ...state, itemIndex }
 }

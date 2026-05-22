@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { PlayerRouteInner } from '@/components/player/PlayerRoute'
 import { requireSession } from '@/lib/auth-guard'
+import { parseOptionalPlayerIndex } from '@/lib/player/player-editor-return'
 import type { PlayerEntityType } from '@/lib/player-route'
 
 function parsePlayerType(raw: unknown): PlayerEntityType | undefined {
@@ -14,7 +15,8 @@ export const Route = createFileRoute('/player')({
   validateSearch: (search: Record<string, unknown>) => {
     const id = typeof search.id === 'string' ? search.id : ''
     const type = parsePlayerType(search.type)
-    return { type, id }
+    const index = parseOptionalPlayerIndex(search.index)
+    return { type, id, index }
   },
   beforeLoad: async ({ context }) => {
     await requireSession(context)
@@ -24,7 +26,7 @@ export const Route = createFileRoute('/player')({
 
 function PlayerPageComponent() {
   const { t } = useTranslation()
-  const { type, id } = Route.useSearch()
+  const { type, id, index } = Route.useSearch()
   if (!type || !id) {
     return (
       <div className="flex min-h-dvh items-center justify-center p-6 text-[var(--color-muted-foreground)]">
@@ -32,5 +34,5 @@ function PlayerPageComponent() {
       </div>
     )
   }
-  return <PlayerRouteInner type={type} id={id} />
+  return <PlayerRouteInner type={type} id={id} initialIndex={index} />
 }
