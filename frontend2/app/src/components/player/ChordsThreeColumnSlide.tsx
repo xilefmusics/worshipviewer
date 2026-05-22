@@ -141,19 +141,17 @@ function previewHeadingHtml(song: Song, displayKey?: string | null): string {
   const title = escapeHtml(songTitleFromData(songData))
   const subtitle = songSubtitleLine(songData)
   const meta = songMetaLines(songData, displayKey)
+  const metaParts = [meta.keyLine, meta.tempoLine].filter(Boolean)
+  const metaLine = metaParts.length > 0 ? escapeHtml(metaParts.join(' · ')) : null
 
   let html = `<p class="player-chords-three-column__preview-section player-chords-three-column__preview-heading"><strong>${title}</strong>`
   if (subtitle) {
     html += `<br><span class="player-chords-three-column__preview-subtitle">${escapeHtml(subtitle)}</span>`
   }
+  if (metaLine) {
+    html += `<br><span class="player-chords-three-column__preview-meta">${metaLine}</span>`
+  }
   html += '</p>'
-
-  if (meta.keyLine) {
-    html += `<p class="player-chords-three-column__preview-section player-chords-three-column__preview-meta">${escapeHtml(meta.keyLine)}</p>`
-  }
-  if (meta.tempoLine) {
-    html += `<p class="player-chords-three-column__preview-section player-chords-three-column__preview-meta">${escapeHtml(meta.tempoLine)}</p>`
-  }
 
   return html
 }
