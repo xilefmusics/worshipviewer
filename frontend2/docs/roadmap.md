@@ -147,6 +147,8 @@ flowchart LR
 
 ## E8 — Player (book mode)
 
+**Step-by-step execution:** [epic-e8-action-plan.md](./epic-e8-action-plan.md).
+
 **Outcome:** **Book-mode playback** at `/player?type=&id=` via `GET .../player` APIs; `**Player`** model (`blob` vs `chords`); `**useBlobUrl`**; **ChordEngine** in **player** context. **No main app shell** on player per [app-shell.md](./app-shell.md).
 
 **Depends on:** E7.
