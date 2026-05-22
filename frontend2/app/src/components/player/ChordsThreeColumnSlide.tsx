@@ -20,8 +20,6 @@ import './player-chords-three-column.css'
 
 type Song = components['schemas']['Song']
 
-const THREE_COLUMN_COUNT = 3
-
 type RenderState =
   | { status: 'loading' }
   | { status: 'ready'; sections: string[]; css: string }
@@ -31,6 +29,7 @@ type ChordsThreeColumnSlideProps = {
   song: Song
   displayKey?: string | null
   chordFormat: ChordFormatPreference
+  columnCount?: 2 | 3
   fillParent?: boolean
 }
 
@@ -81,10 +80,11 @@ export function ChordsThreeColumnSlide({
   song,
   displayKey,
   chordFormat,
+  columnCount = 3,
   fillParent = false,
 }: ChordsThreeColumnSlideProps) {
   const { t } = useTranslation()
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const columnsRef = useRef<HTMLDivElement>(null)
   const [renderState, setRenderState] = useState<RenderState>({ status: 'loading' })
   const [renderPass, setRenderPass] = useState(0)
   const [columnTypography, setColumnTypography] = useState<{
@@ -131,7 +131,7 @@ export function ChordsThreeColumnSlide({
       return
     }
 
-    const el = scrollRef.current
+    const el = columnsRef.current
     if (!el) return
 
     const updateTypography = () => {
@@ -142,7 +142,7 @@ export function ChordsThreeColumnSlide({
       const columnGap = Number.parseFloat(styles.columnGap) || Number.parseFloat(styles.gap) || 0
       const columnWidth = columnWidthInMultiColumnLayout(
         rect.width,
-        THREE_COLUMN_COUNT,
+        columnCount,
         columnGap,
         paddingLeft + paddingRight,
       )
@@ -155,7 +155,7 @@ export function ChordsThreeColumnSlide({
     const observer = new ResizeObserver(updateTypography)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [renderState])
+  }, [columnCount, renderState])
 
   return (
     <div
@@ -198,25 +198,28 @@ export function ChordsThreeColumnSlide({
           </header>
           <style
             dangerouslySetInnerHTML={{
-              __html: scopeChordlibPageCss(renderState.css, '.player-chords-three-column__scroll'),
+              __html: scopeChordlibPageCss(renderState.css, '.player-chords-three-column__columns'),
             }}
           />
           {renderState.sections.length === 0 ? (
             <p className="player-chords-three-column__empty">{t('player.threeColumnEmpty')}</p>
           ) : (
-            <div
-              ref={scrollRef}
-              className="player-chords-three-column__scroll"
-              style={
-                columnTypography
-                  ? {
-                      fontSize: `${columnTypography.fontSizePx}px`,
-                      lineHeight: `${columnTypography.lineHeightPx}px`,
-                    }
-                  : undefined
-              }
-              dangerouslySetInnerHTML={{ __html: renderState.sections.join('') }}
-            />
+            <div className="player-chords-three-column__scroll">
+              <div
+                ref={columnsRef}
+                className="player-chords-three-column__columns"
+                style={{
+                  '--player-chords-column-count': columnCount,
+                  ...(columnTypography
+                    ? {
+                        fontSize: `${columnTypography.fontSizePx}px`,
+                        lineHeight: `${columnTypography.lineHeightPx}px`,
+                      }
+                    : {}),
+                }}
+                dangerouslySetInnerHTML={{ __html: renderState.sections.join('') }}
+              />
+            </div>
           )}
         </>
       ) : null}

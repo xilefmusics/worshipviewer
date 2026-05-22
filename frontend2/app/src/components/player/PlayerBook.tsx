@@ -20,7 +20,11 @@ import { useOnline } from '@/hooks/use-online'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
 import { getChordEngine } from '@/lib/chord-engine'
 import { chordFormatToRepresentation } from '@/lib/chord-format'
-import { effectiveScrollType, isThreeColumnScrollMode } from '@/lib/player/effective-scroll-type'
+import {
+  effectiveScrollType,
+  isMultiColumnScrollMode,
+  multiColumnCount,
+} from '@/lib/player/effective-scroll-type'
 import { bookSpreadRightIndex, isBookSpreadMode } from '@/lib/player/book-spread'
 import { scrollTypeForOrientation } from '@/lib/player-scroll-preference'
 import {
@@ -200,7 +204,7 @@ export function PlayerBook({
             const engine = await getChordEngine()
             const key = resolveSongDataKey(nextItem.song.data as Record<string, unknown>)
             const renderOpts = { key: key ?? undefined, representation: chordFormatToRepresentation(chordFormat) }
-            if (isThreeColumnScrollMode(effectiveScroll)) {
+            if (isMultiColumnScrollMode(effectiveScroll)) {
               engine.renderA4SectionHtmls(nextItem.song.data, renderOpts)
             } else {
               engine.renderA4Html(nextItem.song.data, renderOpts)
@@ -280,12 +284,14 @@ export function PlayerBook({
       )
     }
 
-    if (isThreeColumnScrollMode(effectiveScroll)) {
+    const columnCount = multiColumnCount(effectiveScroll)
+    if (columnCount != null) {
       return (
         <ChordsThreeColumnSlide
           song={item.song}
           displayKey={displayKeyForItem(item, itemIndex)}
           chordFormat={chordFormat}
+          columnCount={columnCount}
           fillParent={fillParent}
         />
       )

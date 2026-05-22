@@ -207,6 +207,7 @@
       "current": "Scroll mode: {{mode}}, change",
       "one_page": "Sheet",
       "book": "Book",
+      "two_column": "2 columns",
       "three_column": "3 columns"
     },
     "orientation": {
@@ -274,6 +275,8 @@
       "bookDescription": "As if they were inside a book.",
       "singleSheets": "Sheet",
       "bookView": "Book",
+      "twoColumnView": "2 columns",
+      "twoColumnDescription": "Full-screen scroll with two columns of song sections.",
       "threeColumnView": "3 columns",
       "threeColumnDescription": "Full-screen scroll with three columns of song sections."
     },

@@ -207,6 +207,7 @@
       "current": "Scrollmodus: {{mode}}, ändern",
       "one_page": "Blatt",
       "book": "Buch",
+      "two_column": "2 Spalten",
       "three_column": "3 Spalten"
     },
     "orientation": {
@@ -274,6 +275,8 @@
       "bookDescription": "Als wären sie in einem Buch.",
       "singleSheets": "Blatt",
       "bookView": "Buch",
+      "twoColumnView": "2 Spalten",
+      "twoColumnDescription": "Vollbild-Scrollen mit zwei Spalten aus Songabschnitten.",
       "threeColumnView": "3 Spalten",
       "threeColumnDescription": "Vollbild-Scrollen mit drei Spalten aus Songabschnitten."
     },
