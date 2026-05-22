@@ -232,11 +232,18 @@
     },
     "editSong": "Edit song",
     "editSetlist": "Edit setlist",
-    "editCollection": "Edit collection"
+    "editCollection": "Edit collection",
+    "openSettings": "Player settings"
   },
   "settings": {
     "title": "Settings",
     "description": "Choose how Worship Viewer behaves on this device.",
+    "back": "Back to library",
+    "tabs": {
+      "aria": "Settings sections",
+      "general": "General",
+      "player": "Player"
+    },
     "language": {
       "title": "Language",
       "description": "Pick a language or follow your browser preference.",

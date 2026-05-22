@@ -48,6 +48,8 @@ import {
   estimateKvTableBytes,
   estimateOfflinePlayerCacheBytes,
 } from '@/lib/offline/setlist-player-cache'
+import type { PlayerEditorReturnContext } from '@/lib/player/player-editor-return'
+import { buildSettingsSearch, type SettingsTab } from '@/lib/settings-route'
 import { cn } from '@/lib/utils'
 
 type SettingsOption<T extends string> = {
@@ -55,6 +57,8 @@ type SettingsOption<T extends string> = {
   label: string
   description: string
 }
+
+const settingsTabs: SettingsTab[] = ['general', 'player']
 
 function getLocalePreference(): LocalePreference {
   return resolveLocalePreference(
@@ -264,7 +268,13 @@ function SettingsProfilePictureSection({ user }: { user: User }) {
   )
 }
 
-export function SettingsView() {
+export function SettingsView({
+  activeTab,
+  playerReturn = null,
+}: {
+  activeTab: SettingsTab
+  playerReturn?: PlayerEditorReturnContext | null
+}) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -478,126 +488,176 @@ export function SettingsView() {
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4">
-      <div>
-        <h1 className="mb-1 text-lg font-semibold text-[var(--color-foreground)]">
-          {t('settings.title')}
-        </h1>
-        <p className="text-sm text-[var(--color-muted-foreground)]">
-          {t('settings.description')}
-        </p>
-      </div>
+      <p className="text-sm text-[var(--color-muted-foreground)]">
+        {t('settings.description')}
+      </p>
 
-      <SettingsSection
-        title={t('settings.language.title')}
-        description={t('settings.language.description')}
-        options={languageOptions}
-        value={localePreference}
-        onChange={(next) => {
-          void setLocalePreference(next)
-        }}
-      />
+      <nav
+        role="tablist"
+        aria-label={t('settings.tabs.aria')}
+        className="flex items-stretch gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem] shadow-[var(--shadow-elevated)]"
+      >
+        {settingsTabs.map((tab) => {
+          const selected = activeTab === tab
+          return (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              id={`settings-tab-${tab}`}
+              aria-selected={selected}
+              aria-controls={`settings-panel-${tab}`}
+              tabIndex={selected ? 0 : -1}
+              onClick={() =>
+                void navigate({ to: '/settings', search: buildSettingsSearch(tab, playerReturn) })
+              }
+              className={cn(
+                'min-w-0 flex-1 rounded-full px-2 py-2.5 text-sm font-medium transition-colors',
+                selected
+                  ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
+                  : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',
+              )}
+            >
+              {t(`settings.tabs.${tab}`)}
+            </button>
+          )
+        })}
+      </nav>
 
-      <SettingsSection
-        title={t('settings.appearance.title')}
-        description={t('settings.appearance.description')}
-        options={appearanceOptions}
-        value={appearancePreference}
-        onChange={setAppearance}
-      />
+      {activeTab === 'general' ? (
+        <div
+          id="settings-panel-general"
+          role="tabpanel"
+          aria-labelledby="settings-tab-general"
+          className="flex flex-col gap-4"
+        >
+          <SettingsSection
+            title={t('settings.language.title')}
+            description={t('settings.language.description')}
+            options={languageOptions}
+            value={localePreference}
+            onChange={(next) => {
+              void setLocalePreference(next)
+            }}
+          />
 
-      <SettingsSection
-        title={t('settings.collectionsViewMode.title')}
-        description={t('settings.collectionsViewMode.description')}
-        options={collectionsViewModeOptions}
-        value={collectionsViewMode}
-        onChange={setCollectionsViewMode}
-      />
+          <SettingsSection
+            title={t('settings.appearance.title')}
+            description={t('settings.appearance.description')}
+            options={appearanceOptions}
+            value={appearancePreference}
+            onChange={setAppearance}
+          />
 
-      <SettingsSection
-        title={t('settings.chordFormat.title')}
-        description={t('settings.chordFormat.description')}
-        options={chordFormatOptions}
-        value={chordFormatPreference}
-        onChange={setChordFormat}
-      />
+          <SettingsSection
+            title={t('settings.collectionsViewMode.title')}
+            description={t('settings.collectionsViewMode.description')}
+            options={collectionsViewModeOptions}
+            value={collectionsViewMode}
+            onChange={setCollectionsViewMode}
+          />
 
-      <SettingsSection
-        title={t('settings.sheetBackground.title')}
-        description={t('settings.sheetBackground.description')}
-        options={sheetBackgroundOptions}
-        value={sheetBackgroundPreference}
-        onChange={setSheetBackground}
-      />
+          {sessionUser ? <SettingsProfilePictureSection user={sessionUser} /> : null}
 
-      <SettingsSection
-        title={t('settings.playerScroll.portraitTitle')}
-        description={t('settings.playerScroll.portraitDescription')}
-        options={scrollModeOptions}
-        value={scrollPreferences.portrait}
-        onChange={setPortraitScroll}
-      />
+          <Card>
+            <CardHeader className="p-4 pb-3">
+              <CardTitle className="text-base">{t('settings.cache.title')}</CardTitle>
+              <CardDescription>{t('settings.cache.description')}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-start gap-2 p-4 pt-0">
+              {approxBytes !== null ? (
+                <p className="text-xs text-[var(--color-muted-foreground)]">
+                  {t('settings.cache.approxSize', { size: formatApproxBytes(approxBytes) })}
+                </p>
+              ) : (
+                <p className="text-xs text-[var(--color-muted-foreground)]">{t('common.load')}</p>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void clearCache()}
+                disabled={cacheState === 'clearing'}
+              >
+                {cacheState === 'clearing' ? t('common.load') : t('settings.cache.clear')}
+              </Button>
+              {cacheState === 'cleared' ? (
+                <p className="text-xs text-[var(--color-muted-foreground)]">
+                  {t('settings.cache.cleared')}
+                </p>
+              ) : null}
+              {cacheState === 'failed' ? (
+                <p role="alert" className="text-xs text-[var(--color-danger)]">
+                  {t('settings.cache.failed')}
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
 
-      <SettingsSection
-        title={t('settings.playerScroll.landscapeTitle')}
-        description={t('settings.playerScroll.landscapeDescription')}
-        options={scrollModeOptions}
-        value={scrollPreferences.landscape}
-        onChange={setLandscapeScroll}
-      />
+          <Card>
+            <CardHeader className="p-4 pb-3">
+              <CardTitle className="text-base">{t('settings.account.title')}</CardTitle>
+              <CardDescription>{t('settings.account.description')}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2 p-4 pt-0">
+              <Button type="button" variant="outline" onClick={() => void navigate({ to: '/teams' })}>
+                {t('settings.account.teams')}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => void navigate({ to: '/sessions' })}>
+                {t('settings.account.sessions')}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => void logout()}
+                disabled={logoutPending}
+              >
+                {logoutPending ? t('common.load') : t('settings.account.logout')}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
 
-      {sessionUser ? <SettingsProfilePictureSection user={sessionUser} /> : null}
+      {activeTab === 'player' ? (
+        <div
+          id="settings-panel-player"
+          role="tabpanel"
+          aria-labelledby="settings-tab-player"
+          className="flex flex-col gap-4"
+        >
+          <SettingsSection
+            title={t('settings.chordFormat.title')}
+            description={t('settings.chordFormat.description')}
+            options={chordFormatOptions}
+            value={chordFormatPreference}
+            onChange={setChordFormat}
+          />
 
-      <Card>
-        <CardHeader className="p-4 pb-3">
-          <CardTitle className="text-base">{t('settings.cache.title')}</CardTitle>
-          <CardDescription>{t('settings.cache.description')}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col items-start gap-2 p-4 pt-0">
-          {approxBytes !== null ? (
-            <p className="text-xs text-[var(--color-muted-foreground)]">
-              {t('settings.cache.approxSize', { size: formatApproxBytes(approxBytes) })}
-            </p>
-          ) : (
-            <p className="text-xs text-[var(--color-muted-foreground)]">{t('common.load')}</p>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void clearCache()}
-            disabled={cacheState === 'clearing'}
-          >
-            {cacheState === 'clearing' ? t('common.load') : t('settings.cache.clear')}
-          </Button>
-          {cacheState === 'cleared' ? (
-            <p className="text-xs text-[var(--color-muted-foreground)]">
-              {t('settings.cache.cleared')}
-            </p>
-          ) : null}
-          {cacheState === 'failed' ? (
-            <p role="alert" className="text-xs text-[var(--color-danger)]">
-              {t('settings.cache.failed')}
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
+          <SettingsSection
+            title={t('settings.sheetBackground.title')}
+            description={t('settings.sheetBackground.description')}
+            options={sheetBackgroundOptions}
+            value={sheetBackgroundPreference}
+            onChange={setSheetBackground}
+          />
 
-      <Card>
-        <CardHeader className="p-4 pb-3">
-          <CardTitle className="text-base">{t('settings.account.title')}</CardTitle>
-          <CardDescription>{t('settings.account.description')}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2 p-4 pt-0">
-          <Button type="button" variant="outline" onClick={() => void navigate({ to: '/teams' })}>
-            {t('settings.account.teams')}
-          </Button>
-          <Button type="button" variant="outline" onClick={() => void navigate({ to: '/sessions' })}>
-            {t('settings.account.sessions')}
-          </Button>
-          <Button type="button" variant="destructive" onClick={() => void logout()} disabled={logoutPending}>
-            {logoutPending ? t('common.load') : t('settings.account.logout')}
-          </Button>
-        </CardContent>
-      </Card>
+          <SettingsSection
+            title={t('settings.playerScroll.portraitTitle')}
+            description={t('settings.playerScroll.portraitDescription')}
+            options={scrollModeOptions}
+            value={scrollPreferences.portrait}
+            onChange={setPortraitScroll}
+          />
+
+          <SettingsSection
+            title={t('settings.playerScroll.landscapeTitle')}
+            description={t('settings.playerScroll.landscapeDescription')}
+            options={scrollModeOptions}
+            value={scrollPreferences.landscape}
+            onChange={setLandscapeScroll}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }

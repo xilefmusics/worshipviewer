@@ -17,6 +17,7 @@ import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left
 import { LayersIcon } from '@/components/icons/lucide-animated/layers-icon'
 import { ListMusicIcon } from '@/components/icons/lucide-animated/list-music-icon'
 import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
+import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
 import { Button } from '@/components/ui/button'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
 import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
@@ -63,6 +64,7 @@ import {
 } from '@/lib/player/player-view-state'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
+import { buildSettingsSearch } from '@/lib/settings-route'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
 import { resolveSongDataKey } from '@/lib/setlist-song-links'
 
@@ -712,6 +714,19 @@ export function PlayerBook({
                     </PopoverContent>
                   </PopoverRoot>
                 ) : null}
+                <Button type="button" variant="outline" size="icon" asChild className="shrink-0">
+                  <Link
+                    to="/settings"
+                    search={buildSettingsSearch('player', {
+                      playerType: type,
+                      playerId: id,
+                      playerIndex: nav.index,
+                    })}
+                    aria-label={t('player.openSettings')}
+                  >
+                    <SettingsIcon size={18} className="text-[var(--color-foreground)]" />
+                  </Link>
+                </Button>
               </div>
             </motion.header>
           ) : null}

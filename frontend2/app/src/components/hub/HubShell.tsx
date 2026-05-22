@@ -108,6 +108,7 @@ function HubChrome({
   const collectionEditorId = isCollectionDetail ? pathname.slice('/collections/'.length) : ''
   const isSongDetail = /^\/songs\/[^/]+$/.test(pathname)
   const songEditorId = isSongDetail ? pathname.slice('/songs/'.length) : ''
+  const isSettings = pathname === '/settings'
   const songEditorPlayerReturn = isSongDetail
     ? parsePlayerEditorReturnSearch(locationSearch as Record<string, unknown>)
     : null
@@ -115,6 +116,9 @@ function HubChrome({
     ? parsePlayerEditorReturnSearch(locationSearch as Record<string, unknown>)
     : null
   const collectionEditorPlayerReturn = isCollectionDetail
+    ? parsePlayerEditorReturnSearch(locationSearch as Record<string, unknown>)
+    : null
+  const settingsPlayerReturn = isSettings
     ? parsePlayerEditorReturnSearch(locationSearch as Record<string, unknown>)
     : null
   const { data: headerSetlist } = useSetlistDetailQuery(isSetlistDetail ? setlistEditorId : '')
@@ -378,6 +382,37 @@ function HubChrome({
                 <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
                   <p className="w-full truncate px-5 text-center text-[0.7875rem] font-medium text-[var(--color-foreground)]">
                     {headerSong?.data.titles[0]?.trim() || '—'}
+                  </p>
+                </div>
+              </div>
+            </>
+          ) : isSettings ? (
+            <>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={() => {
+                  if (settingsPlayerReturn) {
+                    void navigate({
+                      to: '/player',
+                      search: buildPlayerReturnSearch(settingsPlayerReturn),
+                    })
+                    return
+                  }
+                  void navigate({ to: '/collections' })
+                }}
+                className={hubDetailBackButtonClass}
+                aria-label={
+                  settingsPlayerReturn ? t('player.backToList') : t('settings.back')
+                }
+              >
+                <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
+              </Button>
+              <div ref={searchAnchorRef} className="group relative my-[0.36rem] min-w-0 flex-1">
+                <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
+                  <p className="w-full truncate px-5 text-center text-[0.7875rem] font-medium text-[var(--color-foreground)]">
+                    {t('settings.title')}
                   </p>
                 </div>
               </div>
