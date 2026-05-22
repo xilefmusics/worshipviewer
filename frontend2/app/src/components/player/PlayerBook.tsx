@@ -1,6 +1,6 @@
 import type { components } from '@/api/schema'
 import { Link } from '@tanstack/react-router'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -21,8 +21,6 @@ import { effectiveScrollType } from '@/lib/player/effective-scroll-type'
 import { scrollTypeForOrientation } from '@/lib/player-scroll-preference'
 import {
   initialPlayerNavState,
-  isAtEnd,
-  isAtStart,
   nextPlayerState,
   type PlayerNavState,
 } from '@/lib/player/next-player-state'
@@ -70,10 +68,13 @@ function backAriaKeyForPlayerType(type: PlayerEntityType): string {
   }
 }
 
-function isMiddlePointer(clientX: number, clientY: number, rect: DOMRect): boolean {
-  const relX = (rect.width > 0 ? (clientX - rect.left) / rect.width : 0.5)
-  const relY = (rect.height > 0 ? (clientY - rect.top) / rect.height : 0.5)
-  return relX >= 0.2 && relX <= 0.8 && relY >= 0.2 && relY <= 0.8
+type ViewportPointerZone = 'left' | 'middle' | 'right'
+
+function viewportPointerZone(clientX: number, rect: DOMRect): ViewportPointerZone {
+  const relX = rect.width > 0 ? (clientX - rect.left) / rect.width : 0.5
+  if (relX < 0.4) return 'left'
+  if (relX > 0.6) return 'right'
+  return 'middle'
 }
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
@@ -86,15 +87,7 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
 const PLAYER_CHROME_EASE = [0.25, 0.1, 0.25, 1] as const
 
 const playerChromeHeaderClass =
-  'pointer-events-auto flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/80 sm:px-3 sm:py-3'
-
-const playerChromeFooterClass = cn(
-  'pointer-events-auto grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-[var(--color-border)]',
-  'bg-[var(--color-surface)]/95 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/80',
-)
-
-const playerChromeLayerClass =
-  'pointer-events-none absolute inset-0 z-10 grid h-full min-h-0 grid-rows-[auto_1fr_auto]'
+  'pointer-events-auto flex shrink-0 items-center gap-2 overflow-hidden border-b border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-2 sm:px-3 sm:py-3'
 
 type PlayerBookProps = {
   type: PlayerEntityType
@@ -164,8 +157,6 @@ export function PlayerBook({
     [navConfig],
   )
 
-  const atStart = isAtStart(nav, navConfig)
-  const atEnd = isAtEnd(nav, navConfig)
   const navBlocked = evicted
 
   useEffect(() => {
@@ -254,12 +245,24 @@ export function PlayerBook({
     touchStartRef.current = { x: touch.clientX, y: touch.clientY }
   }
 
-  function toggleChromeAt(clientX: number, clientY: number, target: EventTarget | null, rect: DOMRect) {
-    if (isInteractiveTarget(target)) return
-    if (!isMiddlePointer(clientX, clientY, rect)) return
-    setChromeVisible((visible) => !visible)
-    return true
-  }
+  const handleViewportPointer = useCallback(
+    (clientX: number, target: EventTarget | null, rect: DOMRect) => {
+      if (isInteractiveTarget(target)) return false
+
+      const zone = viewportPointerZone(clientX, rect)
+      if (zone === 'left') {
+        if (!navBlocked) dispatch({ type: 'prev' })
+        return true
+      }
+      if (zone === 'right') {
+        if (!navBlocked) dispatch({ type: 'next' })
+        return true
+      }
+      setChromeVisible((visible) => !visible)
+      return true
+    },
+    [dispatch, navBlocked],
+  )
 
   function onTouchEnd(e: React.TouchEvent) {
     const start = touchStartRef.current
@@ -279,7 +282,7 @@ export function PlayerBook({
     }
 
     const rect = e.currentTarget.getBoundingClientRect()
-    if (toggleChromeAt(touch.clientX, touch.clientY, e.target, rect)) {
+    if (handleViewportPointer(touch.clientX, e.target, rect)) {
       chromeToggleHandledRef.current = true
     }
   }
@@ -291,7 +294,7 @@ export function PlayerBook({
     }
 
     const rect = e.currentTarget.getBoundingClientRect()
-    toggleChromeAt(e.clientX, e.clientY, e.target, rect)
+    handleViewportPointer(e.clientX, e.target, rect)
   }
 
   if (itemsLen === 0 || !currentItem) {
@@ -306,60 +309,27 @@ export function PlayerBook({
   }
 
   return (
-    <div className="relative flex h-dvh flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-foreground)]">
-      {evicted ? (
-        <p
-          className="pointer-events-none absolute inset-x-0 top-0 z-20 bg-[var(--color-danger)]/10 px-4 py-2 text-center text-xs text-[var(--color-danger)]"
-          role="status"
-          aria-live="polite"
-        >
-          {t('player.evicted')}
-        </p>
-      ) : null}
-
-      <div className="absolute inset-0 flex min-h-0 flex-col overflow-hidden">
-        <div
-          role="main"
-          aria-label={t('player.mainAria', { title: title || t('player.untitled') })}
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-          onClick={onMainClick}
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
-        >
-          <p className="sr-only" aria-live="polite">
-            {t('player.itemAnnounce', {
-              current: nav.index + 1,
-              total: itemsLen,
-              title: tocRow?.title ?? '',
-            })}
-          </p>
-
-          {currentItem.type === 'blob' ? (
-            <BlobSlide blobId={currentItem.blob_id} allowNetworkFetch={allowNetworkFetch} />
-          ) : (
-            <ChordsSlide
-              song={currentItem.song}
-              displayKey={displayKey}
-              chordFormat={chordFormat}
-              orientation={sheetOrientation}
-            />
-          )}
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {chromeVisible ? (
-          <motion.div
-            key="player-chrome"
-            className={playerChromeLayerClass}
-            initial={false}
-            exit={reduceMotion ? undefined : { opacity: 0 }}
-            transition={chromeTransition}
+    <LayoutGroup>
+      <div className="relative flex h-dvh flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-foreground)]">
+        {evicted ? (
+          <p
+            className="pointer-events-none absolute inset-x-0 top-0 z-20 bg-[var(--color-danger)]/10 px-4 py-2 text-center text-xs text-[var(--color-danger)]"
+            role="status"
+            aria-live="polite"
           >
+            {t('player.evicted')}
+          </p>
+        ) : null}
+
+        <AnimatePresence initial={false}>
+          {chromeVisible ? (
             <motion.header
+              key="player-chrome-header"
+              layout={!reduceMotion}
               className={playerChromeHeaderClass}
-              initial={reduceMotion ? false : { opacity: 0, y: '-100%' }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
               transition={chromeTransition}
             >
               <Button type="button" variant="outline" size="icon" asChild className="shrink-0">
@@ -425,60 +395,62 @@ export function PlayerBook({
                 ) : null}
               </div>
             </motion.header>
+          ) : null}
+        </AnimatePresence>
 
-            <div className="flex min-h-0 min-w-0 items-stretch overflow-hidden">
-              <AnimatePresence>
-                {showToc ? (
-                  <motion.div
-                    key="player-chrome-toc"
-                    className="pointer-events-auto flex h-full min-h-0 overflow-hidden"
-                    initial={reduceMotion ? false : { x: '-100%' }}
-                    animate={{ x: 0 }}
-                    exit={{ x: '-100%' }}
-                    transition={chromeTransition}
-                  >
-                    <PlayerTocSidebar
-                      toc={player.toc}
-                      currentIndex={nav.index}
-                      onSelect={(idx) => dispatch({ type: 'jump', index: idx })}
-                    />
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-            </div>
+        <motion.div
+          layout={!reduceMotion}
+          transition={chromeTransition}
+          className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+        >
+          <div
+            role="main"
+            aria-label={t('player.mainAria', { title: title || t('player.untitled') })}
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            onClick={onMainClick}
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+          >
+            <p className="sr-only" aria-live="polite">
+              {t('player.itemAnnounce', {
+                current: nav.index + 1,
+                total: itemsLen,
+                title: tocRow?.title ?? '',
+              })}
+            </p>
 
-            <motion.footer
-              className={playerChromeFooterClass}
-              initial={reduceMotion ? false : { opacity: 0, y: '100%' }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={chromeTransition}
-            >
-              <Button
-                type="button"
-                variant="outline"
-                disabled={atStart || navBlocked}
-                onClick={() => dispatch({ type: 'prev' })}
-                aria-keyshortcuts="ArrowLeft"
+            {currentItem.type === 'blob' ? (
+              <BlobSlide blobId={currentItem.blob_id} allowNetworkFetch={allowNetworkFetch} />
+            ) : (
+              <ChordsSlide
+                song={currentItem.song}
+                displayKey={displayKey}
+                chordFormat={chordFormat}
+                orientation={sheetOrientation}
+              />
+            )}
+          </div>
+
+          <AnimatePresence initial={false}>
+            {chromeVisible && showToc ? (
+              <motion.div
+                key="player-chrome-toc"
+                className="pointer-events-auto absolute inset-y-0 left-0 z-10 flex overflow-hidden"
+                initial={reduceMotion ? false : { x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={chromeTransition}
               >
-                {t('player.prev')}
-              </Button>
-              <p className="min-w-0 truncate px-2 text-center text-xs text-[var(--color-muted-foreground)]">
-                {tocRow ? `${tocRow.nr} · ${tocRow.title}` : ''}
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                className="justify-self-end"
-                disabled={atEnd || navBlocked}
-                onClick={() => dispatch({ type: 'next' })}
-                aria-keyshortcuts="ArrowRight"
-              >
-                {t('player.next')}
-              </Button>
-            </motion.footer>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </div>
+                <PlayerTocSidebar
+                  toc={player.toc}
+                  currentIndex={nav.index}
+                  onSelect={(idx) => dispatch({ type: 'jump', index: idx })}
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </motion.div>
+      </div>
+    </LayoutGroup>
   )
 }
