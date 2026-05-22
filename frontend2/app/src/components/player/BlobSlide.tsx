@@ -2,8 +2,10 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { useBlobUrl } from '@/hooks/useBlobUrl'
+import { useRemappedBlobImageUrl } from '@/hooks/useRemappedBlobImageUrl'
 
 import { cn } from '@/lib/utils'
+import { shouldRemapSheetImageMime } from '@/lib/sheet-image-remap'
 
 type BlobSlideProps = {
   blobId: string
@@ -14,6 +16,8 @@ type BlobSlideProps = {
 export function BlobSlide({ blobId, allowNetworkFetch, fillParent = false }: BlobSlideProps) {
   const { t } = useTranslation()
   const { url, mime, status, retry, cancel } = useBlobUrl(blobId, { allowNetworkFetch })
+  const shouldRemapImage = Boolean(url && shouldRemapSheetImageMime(mime))
+  const imageUrl = useRemappedBlobImageUrl(url, shouldRemapImage)
   const slotClass = cn('player-blob-page flex min-h-0 flex-1 flex-col', fillParent && 'h-full w-full')
 
   if (status === 'offline-unavailable') {
@@ -57,9 +61,9 @@ export function BlobSlide({ blobId, allowNetworkFetch, fillParent = false }: Blo
   }
 
   return (
-    <div className={cn(slotClass, 'items-center justify-center overflow-auto p-4')}>
+    <div className={cn(slotClass, 'items-center justify-center overflow-auto')}>
       <img
-        src={url}
+        src={imageUrl ?? url}
         alt=""
         className="max-h-full max-w-full object-contain"
         draggable={false}
