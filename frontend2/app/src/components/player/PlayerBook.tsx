@@ -115,6 +115,8 @@ export function PlayerBook({
   const chordFormat = useChordFormatPreference()
   const scrollPreferences = usePlayerScrollPreference()
   const isLandscapeViewport = useMediaQuery('(orientation: landscape)')
+  const isSmViewport = useMediaQuery('(min-width: 640px)')
+  const tocInsetPx = isSmViewport ? 224 : 176
   const sheetOrientation = isLandscapeViewport ? 'landscape' : 'portrait'
   const reduceMotion = useReducedMotion()
   const chromeTransition = reduceMotion ? { duration: 0 } : { duration: 0.22, ease: PLAYER_CHROME_EASE }
@@ -464,10 +466,15 @@ export function PlayerBook({
           transition={chromeTransition}
           className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         >
-          <div
+          <motion.div
             role="main"
+            layout={!reduceMotion}
             aria-label={t('player.mainAria', { title: title || t('player.untitled') })}
             className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            animate={{
+              paddingLeft: chromeVisible && showToc ? tocInsetPx : 0,
+            }}
+            transition={chromeTransition}
             onClick={onMainClick}
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
@@ -493,7 +500,7 @@ export function PlayerBook({
             ) : currentItem ? (
               renderPlayerItem(currentItem, nav.index)
             ) : null}
-          </div>
+          </motion.div>
 
           <AnimatePresence initial={false}>
             {chromeVisible && showToc ? (

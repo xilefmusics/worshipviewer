@@ -44,11 +44,16 @@ function songSubtitleLine(songData: ChordSongData): string {
   return subtitle || artist
 }
 
-function songMetaLine(songData: ChordSongData, displayKey: string | null | undefined): string {
-  const parts: string[] = []
-  if (displayKey) {
-    parts.push(`Key ${displayKey}`)
-  }
+type SongMetaLines = {
+  keyLine: string | null
+  tempoLine: string | null
+}
+
+function songMetaLines(
+  songData: ChordSongData,
+  displayKey: string | null | undefined,
+): SongMetaLines {
+  const keyLine = displayKey ? `Key ${displayKey}` : null
   const tempo = songData.tempo
   const time = songData.time
   const tempoNum = typeof tempo === 'number' && Number.isFinite(tempo) ? tempo : null
@@ -60,14 +65,16 @@ function songMetaLine(songData: ChordSongData, displayKey: string | null | undef
       ? ([time[0], time[1]] as [number, number])
       : null
 
+  let tempoLine: string | null = null
   if (tempoNum != null && timePair != null) {
-    parts.push(`${tempoNum} BPM in ${timePair[0]}/${timePair[1]}`)
+    tempoLine = `${tempoNum} BPM in ${timePair[0]}/${timePair[1]}`
   } else if (tempoNum != null) {
-    parts.push(`${tempoNum} BPM`)
+    tempoLine = `${tempoNum} BPM`
   } else if (timePair != null) {
-    parts.push(`${timePair[0]}/${timePair[1]}`)
+    tempoLine = `${timePair[0]}/${timePair[1]}`
   }
-  return parts.join(' · ')
+
+  return { keyLine, tempoLine }
 }
 
 export function ChordsThreeColumnSlide({
@@ -89,7 +96,7 @@ export function ChordsThreeColumnSlide({
   const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
   const title = useMemo(() => songTitleFromData(songData), [songData])
   const subtitle = useMemo(() => songSubtitleLine(songData), [songData])
-  const metaLine = useMemo(() => songMetaLine(songData, displayKey), [songData, displayKey])
+  const meta = useMemo(() => songMetaLines(songData, displayKey), [songData, displayKey])
 
   const retry = useCallback(() => {
     setRenderPass((n) => n + 1)
@@ -180,11 +187,18 @@ export function ChordsThreeColumnSlide({
               <h1 className="player-chords-three-column__title">{title}</h1>
               {subtitle ? <p className="player-chords-three-column__subtitle">{subtitle}</p> : null}
             </div>
-            {metaLine ? <div className="player-chords-three-column__meta">{metaLine}</div> : null}
+            {meta.keyLine || meta.tempoLine ? (
+              <div className="player-chords-three-column__meta">
+                {meta.keyLine ? <p className="player-chords-three-column__meta-line">{meta.keyLine}</p> : null}
+                {meta.tempoLine ? (
+                  <p className="player-chords-three-column__meta-line">{meta.tempoLine}</p>
+                ) : null}
+              </div>
+            ) : null}
           </header>
           <style
             dangerouslySetInnerHTML={{
-              __html: scopeChordlibPageCss(renderState.css, '.player-chords-three-column'),
+              __html: scopeChordlibPageCss(renderState.css, '.player-chords-three-column__scroll'),
             }}
           />
           {renderState.sections.length === 0 ? (
