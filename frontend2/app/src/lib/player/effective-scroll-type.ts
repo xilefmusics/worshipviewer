@@ -10,6 +10,12 @@ export const PLAYER_SCROLL_TYPES: PlayerScrollType[] = [
   'three_column',
 ]
 
+export function nextPlayerScrollType(current: PlayerScrollType): PlayerScrollType {
+  const idx = PLAYER_SCROLL_TYPES.indexOf(current)
+  const next = idx === -1 ? 0 : (idx + 1) % PLAYER_SCROLL_TYPES.length
+  return PLAYER_SCROLL_TYPES[next]
+}
+
 /** Map API / legacy scroll modes to the supported player modes. */
 export function normalizeScrollType(
   scrollType: ScrollType | PlayerScrollType | string | null | undefined,

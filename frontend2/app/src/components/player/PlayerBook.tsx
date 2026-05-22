@@ -1,10 +1,12 @@
 import type { components } from '@/api/schema'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { setSongLikeStatus } from '@/api/songs-like'
 import { BlobSlide } from '@/components/player/BlobSlide'
 import { ChordsSlide } from '@/components/player/ChordsSlide'
 import { ChordsThreeColumnSlide } from '@/components/player/ChordsThreeColumnSlide'
@@ -19,14 +21,19 @@ import { usePlayerScrollPreference } from '@/hooks/usePlayerScrollPreference'
 import { useOnline } from '@/hooks/use-online'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
 import { getChordEngine } from '@/lib/chord-engine'
-import { chordFormatToRepresentation } from '@/lib/chord-format'
+import { chordFormatToRepresentation, writeChordFormatPreference } from '@/lib/chord-format'
 import {
   effectiveScrollType,
   isMultiColumnScrollMode,
   multiColumnCount,
+  nextPlayerScrollType,
 } from '@/lib/player/effective-scroll-type'
 import { bookSpreadRightIndex, isBookSpreadMode } from '@/lib/player/book-spread'
-import { scrollTypeForOrientation } from '@/lib/player-scroll-preference'
+import {
+  scrollTypeForOrientation,
+  writePlayerScrollLandscape,
+  writePlayerScrollPortrait,
+} from '@/lib/player-scroll-preference'
 import {
   initialPlayerNavState,
   nextPlayerState,
@@ -40,6 +47,7 @@ import {
 } from '@/lib/player/player-helpers'
 import { playerKeyboardAction } from '@/lib/player/player-keyboard'
 import { prefetchNextItemIndex } from '@/lib/player/prefetch-next-item'
+import { resolveTransposeKey } from '@/lib/player/transpose-key'
 import {
   readPlayerViewState,
   clearTransposeForItem,
@@ -53,6 +61,27 @@ import { resolveSongDataKey } from '@/lib/setlist-song-links'
 
 type Player = components['schemas']['Player']
 type PlayerItem = Player['items'][number]
+type TocItem = Player['toc'][number]
+
+function initialLikedBySongId(player: Player): Record<string, boolean> {
+  const liked: Record<string, boolean> = {}
+  for (const row of player.toc) {
+    if (row.id) liked[row.id] = row.liked
+  }
+  for (const item of player.items) {
+    if (item.type === 'chords') {
+      liked[item.song.id] = item.song.user_specific_addons.liked
+    }
+  }
+  return liked
+}
+
+function mergeTocLikes(toc: TocItem[], likedBySongId: Record<string, boolean>): TocItem[] {
+  return toc.map((row) => ({
+    ...row,
+    liked: row.id ? (likedBySongId[row.id] ?? row.liked) : row.liked,
+  }))
+}
 
 function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs' | '/setlists' {
   switch (type) {
@@ -115,6 +144,8 @@ export function PlayerBook({
   deletedReconciled,
 }: PlayerBookProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const online = useOnline()
   const chordFormat = useChordFormatPreference()
   const scrollPreferences = usePlayerScrollPreference()
@@ -130,6 +161,13 @@ export function PlayerBook({
   const chromeToggleHandledRef = useRef(false)
 
   const [viewState, setViewState] = useState<PlayerViewState>(() => readPlayerViewState(type, id))
+  const [likedBySongId, setLikedBySongId] = useState<Record<string, boolean>>(() =>
+    initialLikedBySongId(player),
+  )
+
+  useEffect(() => {
+    setLikedBySongId(initialLikedBySongId(player))
+  }, [player])
 
   useEffect(() => {
     writePlayerViewState(type, id, viewState)
@@ -156,8 +194,12 @@ export function PlayerBook({
   )
 
   const currentItem = player.items[nav.index]
-  const tocRow = tocEntryForIndex(player.toc, nav.index)
-  const showToc = player.toc.length > 0
+  const displayToc = useMemo(
+    () => mergeTocLikes(player.toc, likedBySongId),
+    [player.toc, likedBySongId],
+  )
+  const tocRow = tocEntryForIndex(displayToc, nav.index)
+  const showToc = displayToc.length > 0
   const showChordsControls = hasChordsItems(player.items)
   const evicted = useSetlistEvictionWatch(type === 'setlist' ? id : undefined, type === 'setlist')
 
@@ -219,6 +261,17 @@ export function PlayerBook({
     return () => controller.abort()
   }, [nav.index, online, itemsLen, player.items, allowNetworkFetch, bookSpread, effectiveScroll, chordFormat])
 
+  const backTo = hubPathForPlayerType(type)
+  const localTranspose = viewState.transposeByItem[nav.index]
+  const slotKey =
+    currentItem?.type === 'chords'
+      ? resolveSongDataKey(currentItem.song.data as Record<string, unknown>)
+      : null
+  const displayKey =
+    currentItem?.type === 'chords'
+      ? resolvePlayerItemKey(currentItem, type, slotKey, localTranspose)
+      : null
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const action = playerKeyboardAction(e.key, e.target, { popoverOpen })
@@ -244,28 +297,108 @@ export function PlayerBook({
         if (!navBlocked) dispatch({ type: 'end' })
         return
       }
-      if (action === 'escape' && popoverOpen) {
+      if (action === 'escape') {
+        e.preventDefault()
+        if (popoverOpen) setPopoverOpen(false)
+        else void navigate({ to: backTo })
+        return
+      }
+      if (action === 'toggleChrome') {
         e.preventDefault()
         setPopoverOpen(false)
+        setChromeVisible((visible) => !visible)
+        return
+      }
+      if (action === 'cycleScroll') {
+        e.preventDefault()
+        const currentScroll = scrollTypeForOrientation(sheetOrientation, scrollPreferences)
+        const next = nextPlayerScrollType(effectiveScrollType(currentScroll))
+        if (sheetOrientation === 'landscape') writePlayerScrollLandscape(next)
+        else writePlayerScrollPortrait(next)
+        return
+      }
+      if (action === 'edit') {
+        e.preventDefault()
+        if (currentItem?.type === 'chords') {
+          void navigate({ to: '/songs/$songId', params: { songId: currentItem.song.id } })
+        }
+        return
+      }
+      if (action === 'toggleChordFormat') {
+        e.preventDefault()
+        writeChordFormatPreference(chordFormat === 'nashville' ? 'letters' : 'nashville')
+        return
+      }
+      if (action === 'toggleLike') {
+        e.preventDefault()
+        if (!online || !allowNetworkFetch || currentItem?.type !== 'chords') return
+        const songId = currentItem.song.id
+        const previousLiked = likedBySongId[songId] ?? currentItem.song.user_specific_addons.liked
+        const nextLiked = !previousLiked
+        setLikedBySongId((state) => ({ ...state, [songId]: nextLiked }))
+        void setSongLikeStatus(queryClient, { id: songId, liked: nextLiked }).catch(() => {
+          setLikedBySongId((state) => ({ ...state, [songId]: previousLiked }))
+          toast.error(t('player.loadFailed'))
+        })
+        return
+      }
+
+      if (currentItem?.type !== 'chords') return
+
+      if (typeof action === 'object' && action.type === 'setTransposeKey') {
+        e.preventDefault()
+        setViewState((state) => setTransposeForItem(state, nav.index, action.key))
+        setPopoverOpen(false)
+        return
+      }
+      if (action === 'resetTranspose') {
+        e.preventDefault()
+        setViewState((state) => clearTransposeForItem(state, nav.index))
+        setPopoverOpen(false)
+        return
+      }
+      if (action === 'transposeUp') {
+        e.preventDefault()
+        const nextKey = resolveTransposeKey(displayKey, 1)
+        if (nextKey) {
+          setViewState((state) => setTransposeForItem(state, nav.index, nextKey))
+          setPopoverOpen(false)
+        }
+        return
+      }
+      if (action === 'transposeDown') {
+        e.preventDefault()
+        const nextKey = resolveTransposeKey(displayKey, -1)
+        if (nextKey) {
+          setViewState((state) => setTransposeForItem(state, nav.index, nextKey))
+          setPopoverOpen(false)
+        }
+        return
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [dispatch, navBlocked, popoverOpen])
+  }, [
+    allowNetworkFetch,
+    backTo,
+    chordFormat,
+    currentItem,
+    dispatch,
+    displayKey,
+    likedBySongId,
+    nav.index,
+    navBlocked,
+    navigate,
+    online,
+    popoverOpen,
+    queryClient,
+    scrollPreferences,
+    sheetOrientation,
+    t,
+  ])
 
-  const backTo = hubPathForPlayerType(type)
   const title = resourceTitle ?? tocRow?.title ?? ''
-
-  const localTranspose = viewState.transposeByItem[nav.index]
-  const slotKey =
-    currentItem?.type === 'chords'
-      ? resolveSongDataKey(currentItem.song.data as Record<string, unknown>)
-      : null
-  const displayKey =
-    currentItem?.type === 'chords'
-      ? resolvePlayerItemKey(currentItem, type, slotKey, localTranspose)
-      : null
 
   function displayKeyForItem(item: PlayerItem, itemIndex: number): string | null {
     if (item.type !== 'chords') return null
@@ -519,7 +652,7 @@ export function PlayerBook({
                 transition={chromeTransition}
               >
                 <PlayerTocSidebar
-                  toc={player.toc}
+                  toc={displayToc}
                   currentIndex={nav.index}
                   onSelect={(idx) => dispatch({ type: 'jump', index: idx })}
                 />

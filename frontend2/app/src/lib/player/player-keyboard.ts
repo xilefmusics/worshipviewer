@@ -4,7 +4,22 @@ export type PlayerKeyboardAction =
   | 'home'
   | 'end'
   | 'escape'
+  | 'toggleChrome'
+  | 'cycleScroll'
+  | 'edit'
+  | 'toggleLike'
+  | 'toggleChordFormat'
+  | 'resetTranspose'
+  | 'transposeUp'
+  | 'transposeDown'
+  | { type: 'setTransposeKey'; key: string }
   | null
+
+const TRANSPOSE_KEY_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'] as const
+
+function isTransposeKeyLetter(key: string): key is (typeof TRANSPOSE_KEY_LETTERS)[number] {
+  return (TRANSPOSE_KEY_LETTERS as readonly string[]).includes(key)
+}
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!target || typeof target !== 'object') return false
@@ -19,6 +34,14 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return el.closest?.('[contenteditable="true"]') != null
 }
 
+function transposeAction(key: string): PlayerKeyboardAction {
+  if (isTransposeKeyLetter(key)) return { type: 'setTransposeKey', key }
+  if (key === 'r') return 'resetTranspose'
+  if (key === 'b' || key === '-') return 'transposeDown'
+  if (key === '#' || key === '+') return 'transposeUp'
+  return null
+}
+
 /** Map keyboard events to player actions; returns null when the event should be ignored. */
 export function playerKeyboardAction(
   key: string,
@@ -29,25 +52,41 @@ export function playerKeyboardAction(
 
   const popoverOpen = options?.popoverOpen ?? false
 
-  if (key === 'Escape') {
-    if (popoverOpen) return 'escape'
-    return 'escape'
-  }
+  if (key === 'Escape') return 'escape'
+
+  const transpose = transposeAction(key)
+  if (transpose) return transpose
 
   if (popoverOpen) return null
 
   switch (key) {
-    case 'ArrowLeft':
+    case 'ArrowUp':
     case 'PageUp':
+    case 'ArrowLeft':
+    case 'Backspace':
+    case 'k':
       return 'prev'
-    case 'ArrowRight':
+    case 'ArrowDown':
     case 'PageDown':
+    case 'ArrowRight':
     case ' ':
+    case 'Enter':
+    case 'j':
       return 'next'
     case 'Home':
       return 'home'
     case 'End':
       return 'end'
+    case 'm':
+      return 'toggleChrome'
+    case 's':
+      return 'cycleScroll'
+    case 'e':
+      return 'edit'
+    case 'l':
+      return 'toggleLike'
+    case 'n':
+      return 'toggleChordFormat'
     default:
       return null
   }
