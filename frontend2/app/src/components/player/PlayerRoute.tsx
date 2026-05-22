@@ -1,19 +1,20 @@
-import type { components } from '@/api/schema'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { fetchBlobBinaryWithMime } from '@/api/blob-data'
-import { ChordsSlide } from '@/components/player/ChordsSlide'
+import { fetchCollectionDetail } from '@/api/collections-detail'
+import { fetchSetlistDetail, fetchSongForHubSlot } from '@/api/setlists-detail'
+import { PlayerBook } from '@/components/player/PlayerBook'
 import { Button } from '@/components/ui/button'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { resolvePlayerForRoute } from '@/lib/offline/resolve-player'
-import { getCachedBlob } from '@/lib/offline/setlist-player-cache'
-import { cn } from '@/lib/utils'
+import { collectionDetailKey, setlistDetailKey, songDetailQueryKey } from '@/lib/setlist-detail-key'
 
-type Player = components['schemas']['Player']
-type PlayerItem = components['schemas']['PlayerItem']
+export type PlayerRouteInnerProps = {
+  type: PlayerEntityType
+  id: string
+}
 
 function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs' | '/setlists' {
   switch (type) {
@@ -23,182 +24,35 @@ function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs'
       return '/songs'
     case 'setlist':
       return '/setlists'
-    default:
-      return '/setlists'
   }
 }
 
-type BlobSlideProps = {
-  blobId: string
-  allowNetworkFetch: boolean
-}
-
-function BlobSlide({ blobId, allowNetworkFetch }: BlobSlideProps) {
-  const { t } = useTranslation()
-  const [objectUrl, setObjectUrl] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [mime, setMime] = useState<string | null>(null)
-
-  useEffect(() => {
-    let revoked: string | null = null
-    let cancelled = false
-    void (async () => {
-      setError(null)
-      const cached = await getCachedBlob(blobId)
-      if (cached) {
-        const blob = new Blob([cached.bytes], { type: cached.mime ?? 'application/octet-stream' })
-        const u = URL.createObjectURL(blob)
-        if (cancelled) {
-          URL.revokeObjectURL(u)
-          return
-        }
-        revoked = u
-        setMime(cached.mime)
-        setObjectUrl(u)
-        return
+function usePlayerResourceTitle(type: PlayerEntityType, id: string, enabled: boolean): string | undefined {
+  const queryClient = useQueryClient()
+  const { data } = useQuery({
+    queryKey:
+      type === 'setlist'
+        ? setlistDetailKey(id)
+        : type === 'collection'
+          ? collectionDetailKey(id)
+          : songDetailQueryKey(id),
+    enabled,
+    queryFn: async ({ signal }) => {
+      if (type === 'setlist') {
+        const detail = await fetchSetlistDetail(queryClient, { id, signal })
+        return detail.title
       }
-      if (!allowNetworkFetch) {
-        setError(t('player.blobOffline'))
-        return
+      if (type === 'collection') {
+        const detail = await fetchCollectionDetail(queryClient, { id, signal })
+        return detail.title
       }
-      const meta = await fetchBlobBinaryWithMime(blobId)
-      if (cancelled) return
-      if (!meta) {
-        setError(t('player.blobMissing'))
-        return
-      }
-      const blob = new Blob([meta.buffer], { type: meta.mime ?? 'application/octet-stream' })
-      const u = URL.createObjectURL(blob)
-      revoked = u
-      setMime(meta.mime)
-      setObjectUrl(u)
-    })()
-
-    return () => {
-      cancelled = true
-      if (revoked) URL.revokeObjectURL(revoked)
-    }
-  }, [blobId, allowNetworkFetch, t])
-
-  if (error) {
-    return (
-      <p className="px-4 py-8 text-center text-sm text-[var(--color-danger)]" role="alert">
-        {error}
-      </p>
-    )
-  }
-
-  if (!objectUrl) {
-    return <p className="py-12 text-center text-sm text-[var(--color-muted-foreground)]">{t('common.load')}</p>
-  }
-
-  if (mime?.includes('pdf')) {
-    return (
-      <embed
-        title=""
-        src={objectUrl}
-        className="min-h-[70vh] w-full flex-1 border-0 bg-[var(--color-bg)]"
-      />
-    )
-  }
-
-  return (
-    <div className="flex min-h-0 flex-1 items-start justify-center overflow-auto p-4">
-      <img
-        src={objectUrl}
-        alt=""
-        className="max-h-[min(85vh,calc(100dvh-8rem))] max-w-full object-contain"
-        draggable={false}
-      />
-    </div>
-  )
-}
-
-function PlayerItemSlide({
-  item,
-  allowNetworkFetch,
-}: {
-  item: PlayerItem
-  allowNetworkFetch: boolean
-}) {
-  if (item.type === 'blob') {
-    return <BlobSlide blobId={item.blob_id} allowNetworkFetch={allowNetworkFetch} />
-  }
-  return <ChordsSlide song={item.song} />
-}
-
-export type PlayerRouteInnerProps = {
-  type: PlayerEntityType
-  id: string
-}
-
-type PlayerBookProps = {
-  type: PlayerEntityType
-  player: Player
-  allowNetworkFetch: boolean
-}
-
-function PlayerBook({ type, player, allowNetworkFetch }: PlayerBookProps) {
-  const { t } = useTranslation()
-  const [index, setIndex] = useState(() =>
-    Math.min(Math.max(player.index, 0), Math.max(player.items.length - 1, 0)),
-  )
-
-  const itemsLen = player.items.length
-  const currentItem = player.items[index]
-
-  const goPrev = useCallback(() => {
-    setIndex((i) => Math.max(0, i - 1))
-  }, [])
-
-  const goNext = useCallback(() => {
-    setIndex((i) => Math.min(itemsLen - 1, i + 1))
-  }, [itemsLen])
-
-  const backTo = useMemo(() => hubPathForPlayerType(type), [type])
-
-  if (itemsLen === 0 || !currentItem) {
-    return (
-      <div className="mx-auto flex min-h-dvh max-w-lg flex-col gap-4 bg-[var(--color-bg)] p-6">
-        <p className="text-sm text-[var(--color-muted-foreground)]">{t('player.empty')}</p>
-        <Button type="button" variant="outline" asChild>
-          <Link to={backTo}>{t('player.backToList')}</Link>
-        </Button>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex min-h-dvh flex-col bg-[var(--color-bg)] text-[var(--color-foreground)]">
-      <header className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 px-3 py-3 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/80">
-        <Button type="button" variant="outline" size="sm" asChild>
-          <Link to={backTo}>{t('player.close')}</Link>
-        </Button>
-        <span className="min-w-0 truncate text-center text-xs text-[var(--color-muted-foreground)]">
-          {t('player.position', { current: index + 1, total: itemsLen })}
-        </span>
-        <div className="w-[4.5rem] shrink-0" aria-hidden />
-      </header>
-
-      <div className="min-h-0 flex-1">
-        <PlayerItemSlide item={currentItem} allowNetworkFetch={Boolean(allowNetworkFetch)} />
-      </div>
-
-      <footer
-        className={cn(
-          'sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t border-[var(--color-border)]',
-          'bg-[var(--color-surface)]/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/80',
-        )}
-      >
-        <Button type="button" variant="outline" disabled={index <= 0} onClick={goPrev}>
-          {t('player.prev')}
-        </Button>
-        <Button type="button" variant="outline" disabled={index >= itemsLen - 1} onClick={goNext}>
-          {t('player.next')}
-        </Button>
-      </footer>
-    </div>
-  )
+      const song = await fetchSongForHubSlot(queryClient, { id, signal })
+      const songData = song?.data as { titles?: string[] } | undefined
+      return songData?.titles?.[0] ?? ''
+    },
+    staleTime: 60_000,
+  })
+  return data
 }
 
 export function PlayerRouteInner({ type, id }: PlayerRouteInnerProps) {
@@ -208,7 +62,7 @@ export function PlayerRouteInner({ type, id }: PlayerRouteInnerProps) {
     queryFn: ({ signal }) => resolvePlayerForRoute(type, id, signal),
   })
 
-  const player: Player | undefined =
+  const player =
     data && data.status === 'ready' ? data.player : undefined
 
   const allowNetworkFetch =
@@ -216,6 +70,7 @@ export function PlayerRouteInner({ type, id }: PlayerRouteInnerProps) {
       ? data.source === 'network'
       : typeof navigator !== 'undefined' && navigator.onLine
 
+  const resourceTitle = usePlayerResourceTitle(type, id, Boolean(player))
   const backTo = useMemo(() => hubPathForPlayerType(type), [type])
 
   if (isPending || !data) {
@@ -281,8 +136,11 @@ export function PlayerRouteInner({ type, id }: PlayerRouteInnerProps) {
     <PlayerBook
       key={`${type}-${id}`}
       type={type}
+      id={id}
       player={player}
       allowNetworkFetch={allowNetworkFetch}
+      resourceTitle={resourceTitle}
+      deletedReconciled={data.deletedReconciled}
     />
   )
 }

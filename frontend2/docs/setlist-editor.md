@@ -37,16 +37,15 @@ Normative UX and client behavior from the **2026-04-20** design grill. Implement
 
 ## Play and navigation
 
-- **E7.1 deferral:** the **editor ships without a Play affordance** in [epic-e7.1-action-plan.md](./epic-e7.1-action-plan.md). Open playback from the **setlists hub** (primary tap / context **Play**) or later from the editor when **E8** lands. The flush-before-Play rule below remains the **normative target for E8**.
-- **Play with unsaved changes:** **Auto-save** (flush debounced PATCH / apply pending order) **then** navigate to `/player?type=setlist&id=…`.
-- **Read-only library (no write):** Show **read-only** editor (no drag, no add/remove, title not editable). **Playback:** use **hub tap** or context-menu **Play** (same as writable hub rows); **no Play control inside the editor** until **E8**.
+- **Play with unsaved changes:** **Auto-save** (flush debounced PATCH / apply pending order) **then** navigate to `/player?type=setlist&id=…`. On PATCH failure, **stay in the editor** with the inline Retry / Discard row; **Play is disabled** while that error holds.
+- **Read-only library (no write):** Show **read-only** editor (no drag, no add/remove, title not editable). **Play** in the editor header remains **enabled** (no flush needed).
 - **Move setlist to another team:** **List screen only** (`POST .../move` from long-press / context menu), **not** from the editor.
 - **Delete setlist:** **List screen only** — no delete-entire-setlist action in the editor.
 - **Back to `/setlists`:** Restore list with **scroll at top** (consistent with post-refresh behavior on list routes; differs from “preserve scroll” patterns some apps use).
 
 ## Empty, loading, errors
 
-- **Empty setlist:** Strong **Add songs** CTA; **no Play in the editor** in E7.1 — users **Play** from the hub row once songs exist (or after leaving the editor).
+- **Empty setlist:** Strong **Add songs** CTA; **Play** disabled with accessible label until at least one song slot exists.
 - **Initial load:** **Simple** generic list **skeleton** (not necessarily matching every final chrome detail).
 - **`PATCH` autosave (429 / 5xx / network):** **Inline** error with **Retry** and **Discard**; **429** disables Retry until **`Retry-After`** elapses (**countdown**). **No toast** for failed saves — toasts stay on **non-blocking** feedback (e.g. picker eligibility).
 - **Other requests:** honor **`Problem`** / **`Retry-After`** per [api-integration.md](./api-integration.md); **toast** where that doc calls for transient hub/list feedback.

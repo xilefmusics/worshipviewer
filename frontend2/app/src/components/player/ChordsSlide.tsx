@@ -2,16 +2,19 @@ import type { components } from '@/api/schema'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Button } from '@/components/ui/button'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import { getChordEngine } from '@/lib/chord-engine'
 import { viewportScaleForA4 } from '@/lib/chord-a4-scale'
+import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
 import type { ChordSongData } from '@/ports/chord-engine'
-import { resolveSongDataKey } from '@/lib/setlist-song-links'
 import { cn } from '@/lib/utils'
 
 import './player-chords.css'
 
 type Song = components['schemas']['Song']
+type Orientation = components['schemas']['Orientation']
+type ScrollType = components['schemas']['ScrollType']
 
 type RenderState =
   | { status: 'loading' }
@@ -20,9 +23,21 @@ type RenderState =
 
 type ChordsSlideProps = {
   song: Song
+  displayKey?: string | null
+  chordFormat: ChordFormatPreference
+  orientation: Orientation
+  scrollType: ScrollType
+  pageOffset: number
 }
 
-export function ChordsSlide({ song }: ChordsSlideProps) {
+export function ChordsSlide({
+  song,
+  displayKey,
+  chordFormat,
+  orientation,
+  scrollType,
+  pageOffset,
+}: ChordsSlideProps) {
   const { t } = useTranslation()
   const viewportRef = useRef<HTMLDivElement>(null)
   const [viewportHeight, setViewportHeight] = useState(0)
@@ -30,11 +45,8 @@ export function ChordsSlide({ song }: ChordsSlideProps) {
   const [renderPass, setRenderPass] = useState(0)
 
   const songData = song.data as ChordSongData
-  const displayKey = useMemo(
-    () => resolveSongDataKey(songData as Record<string, unknown>),
-    [songData],
-  )
   const scale = viewportScaleForA4(viewportHeight)
+  const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
 
   useEffect(() => {
     const el = viewportRef.current
@@ -61,6 +73,7 @@ export function ChordsSlide({ song }: ChordsSlideProps) {
         const page = engine.renderA4Html(songData, {
           key: displayKey ?? undefined,
           scale,
+          representation,
         })
         if (cancelled) return
         setRenderState({ status: 'ready', html: page.html, css: page.css })
@@ -73,7 +86,11 @@ export function ChordsSlide({ song }: ChordsSlideProps) {
     return () => {
       cancelled = true
     }
-  }, [song.id, songData, displayKey, scale, renderPass])
+  }, [song.id, songData, displayKey, scale, renderPass, representation])
+
+  const halfPage = scrollType === 'half_page' || scrollType === 'two_half_page'
+  const pageTransform =
+    halfPage && pageOffset === 1 ? 'translateY(-50%)' : undefined
 
   return (
     <div
@@ -81,6 +98,7 @@ export function ChordsSlide({ song }: ChordsSlideProps) {
       className={cn(
         'player-chords-viewport flex min-h-0 flex-1 flex-col overflow-auto',
         renderState.status === 'ready' && 'player-chords-viewport--ready',
+        orientation === 'landscape' && 'player-chords-viewport--landscape',
       )}
     >
       {renderState.status === 'loading' || scale == null ? (
@@ -100,13 +118,22 @@ export function ChordsSlide({ song }: ChordsSlideProps) {
       ) : null}
 
       {renderState.status === 'ready' && scale != null ? (
-        <>
+        <div
+          className={cn(
+            'mx-auto w-full max-w-[794px] shrink-0 overflow-hidden',
+            halfPage && 'h-full max-h-full',
+          )}
+        >
           <style dangerouslySetInnerHTML={{ __html: scopeChordlibPageCss(renderState.css) }} />
           <div
-            className="player-chords-page mx-auto w-full max-w-[794px] shrink-0"
+            className={cn(
+              'player-chords-page mx-auto w-full bg-white',
+              orientation === 'landscape' && 'player-chords-page--landscape',
+            )}
+            style={pageTransform ? { transform: pageTransform } : undefined}
             dangerouslySetInnerHTML={{ __html: renderState.html }}
           />
-        </>
+        </div>
       ) : null}
     </div>
   )

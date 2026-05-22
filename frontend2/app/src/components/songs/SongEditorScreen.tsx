@@ -1,8 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SongEditorActionsMenu } from '@/components/songs/SongEditorActionsMenu'
+import { EditorPlayButton } from '@/components/player/EditorPlayButton'
 import { SongEditorPreview } from '@/components/songs/SongEditorPreview'
 import { SongEditorSource } from '@/components/songs/SongEditorSource'
 import { Button } from '@/components/ui/button'
@@ -41,6 +43,7 @@ import {
 } from '@/lib/ultimate-guitar-import'
 import type { ChordEngine } from '@/ports/chord-engine'
 import { cn } from '@/lib/utils'
+import { runEditorPlay } from '@/lib/player/editor-play'
 
 type EditorTab = 'meta' | 'source' | 'preview'
 
@@ -60,6 +63,7 @@ type UgImportUiState =
 export function SongEditorScreen({ songId }: { songId: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const online = useOnline()
   const chordFormat = useChordFormatPreference()
 
@@ -327,6 +331,20 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     return t('songs.editor.saveStatusIdle')
   }, [effectiveParseError, offlineFrozen, patchInFlight, saveFailure, saveIcon, t, ugImportUi.kind])
 
+  const playFromEditor = useCallback(() => {
+    void runEditorPlay({
+      canPlay: !effectiveParseError,
+      needsFlush: editable,
+      flushNow: async () => {
+        if (effectiveParseError) return false
+        return flushNow()
+      },
+      navigate: () => {
+        void navigate({ to: '/player', search: { type: 'song', id: songId } })
+      },
+    })
+  }, [editable, effectiveParseError, flushNow, navigate, songId])
+
   async function discardResumeReload() {
     setResumePrompt(false)
     wentOfflineEditing.current = false
@@ -402,6 +420,18 @@ export function SongEditorScreen({ songId }: { songId: string }) {
               )
             })}
           </nav>
+          <EditorPlayButton
+            entityType="song"
+            entityId={songId}
+            canPlay={!effectiveParseError}
+            needsFlush={editable}
+            flushNow={async () => {
+              if (effectiveParseError) return false
+              return flushNow()
+            }}
+            disabled={patchInFlight || !!saveFailure || Boolean(effectiveParseError)}
+            className="hidden sm:inline-flex"
+          />
           <SongEditorActionsMenu
             engine={engine}
             exportData={exportData}
@@ -418,6 +448,8 @@ export function SongEditorScreen({ songId }: { songId: string }) {
               setParseError(null)
               queueMicrotask(() => notifyDraftEdited())
             }}
+            onPlay={playFromEditor}
+            playDisabled={patchInFlight || !!saveFailure || Boolean(effectiveParseError)}
           />
         </div>
       </div>

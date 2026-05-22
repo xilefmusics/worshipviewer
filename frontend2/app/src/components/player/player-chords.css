@@ -23,3 +23,11 @@
 .player-chords-page p {
   color: inherit;
 }
+
+.player-chords-viewport--landscape .player-chords-page--landscape {
+  max-width: min(1123px, 100%);
+}
+
+.player-blob-page {
+  background: #fff;
+}

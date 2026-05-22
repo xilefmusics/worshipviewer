@@ -182,8 +182,45 @@
     "next": "Weiter",
     "blobOffline": "Diese Datei ist offline nicht verfügbar.",
     "blobMissing": "Diese Datei konnte nicht geladen werden.",
+    "blobCancel": "Download abbrechen",
     "chordsRenderFailed": "Dieses Lied konnte nicht dargestellt werden.",
-    "invalidLink": "Ungültiger Player-Link."
+    "invalidLink": "Ungültiger Player-Link.",
+    "online": "Online",
+    "offline": "Offline",
+    "untitled": "Ohne Titel",
+    "mainAria": "Player — {{title}}",
+    "itemAnnounce": "Element {{current}} von {{total}} — {{title}}",
+    "evicted": "Diese Setliste ist nicht mehr im Cache. Verbinde dich erneut, um fortzufahren.",
+    "setlistDeleted": "Diese Setliste wurde vom Team entfernt — lokaler Cache wird ein letztes Mal abgespielt.",
+    "toc": {
+      "title": "Inhalt",
+      "open": "Inhaltsverzeichnis öffnen",
+      "liked": "Favorit"
+    },
+    "scrollMode": {
+      "current": "Scrollmodus: {{mode}}, ändern",
+      "one_page": "Eine Seite",
+      "half_page": "Halbe Seite",
+      "two_page": "Zwei Seiten",
+      "book": "Buch",
+      "two_half_page": "Zwei halbe Seiten"
+    },
+    "orientation": {
+      "current": "Ausrichtung: {{orientation}}, ändern",
+      "portrait": "Hochformat",
+      "landscape": "Querformat"
+    },
+    "transpose": {
+      "current": "Transponieren: {{key}}, ändern",
+      "default": "Standard"
+    },
+    "chordFormat": {
+      "current": "Akkordformat: {{format}}, ändern"
+    },
+    "editor": {
+      "emptySetlist": "Füge Lieder hinzu, bevor du abspielst",
+      "emptyCollection": "Füge Lieder hinzu, bevor du abspielst"
+    }
   },
   "settings": {
     "title": "Einstellungen",

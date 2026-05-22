@@ -42,6 +42,8 @@ type SongEditorActionsMenuProps = {
   onImportApplied: (source: string, data: ChordSongData) => void
   onImportError?: (message: string | null) => void
   onExportError?: (message: string | null) => void
+  onPlay?: () => void
+  playDisabled?: boolean
 }
 
 export function SongEditorActionsMenu({
@@ -54,6 +56,8 @@ export function SongEditorActionsMenu({
   onImportApplied,
   onImportError,
   onExportError,
+  onPlay,
+  playDisabled,
 }: SongEditorActionsMenuProps) {
   const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -139,6 +143,14 @@ export function SongEditorActionsMenu({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
+          {onPlay ? (
+            <>
+              <DropdownMenuItem disabled={playDisabled} onSelect={onPlay}>
+                {t('hub.actions.play')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           <DropdownMenuItem
             disabled={!canImport}
             title={!online ? t('songs.editor.importOfflineHint') : undefined}

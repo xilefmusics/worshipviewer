@@ -7,13 +7,14 @@ import {
   loadOfflineSetlistPlayer,
   persistSetlistPlayerMirror,
 } from '@/lib/offline/setlist-player-cache'
+import { reconcileSetlistPlayer404 } from '@/lib/player/server-deleted-reconciliation'
 
 import type { PlayerEntityType } from '@/lib/player-route'
 
 type Player = components['schemas']['Player']
 
 export type ResolvedPlayerState =
-  | { status: 'ready'; player: Player; source: 'network' | 'offline' }
+  | { status: 'ready'; player: Player; source: 'network' | 'offline'; deletedReconciled?: boolean }
   | { status: 'error'; message: string }
   | { status: 'offline_unavailable'; message: string }
 
@@ -82,6 +83,15 @@ export async function resolvePlayerForRoute(
   if (isOnline()) {
     const res = await fetchSetlistPlayerFromNetwork(id, signal)
     if ('error' in res) {
+      const reconciled = await reconcileSetlistPlayer404(id, res.status)
+      if (reconciled.kind === 'reconciled') {
+        return {
+          status: 'ready',
+          player: reconciled.player,
+          source: 'network',
+          deletedReconciled: true,
+        }
+      }
       return { status: 'error', message: res.error }
     }
     try {

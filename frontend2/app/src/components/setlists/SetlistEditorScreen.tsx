@@ -32,6 +32,7 @@ import {
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
 import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
 import { SetlistSongPickerSheet } from '@/components/setlists/SetlistSongPickerSheet'
+import { EditorPlayButton } from '@/components/player/EditorPlayButton'
 import { useCanEditSetlist } from '@/hooks/useCanEditSetlist'
 import { useSession } from '@/hooks/useSession'
 import { useRegisterSetlistPaletteBridge } from '@/context/SetlistPaletteBridgeContext'
@@ -445,9 +446,22 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
 
       <div className="flex flex-col gap-2 bg-[var(--color-background)]/90 py-3 backdrop-blur">
         <div className="grid gap-1.5">
-          <label className="text-sm font-medium" htmlFor={`setlist-editor-title-${setlistId}`}>
-            {t('setlists.create.titleLabel')}
-          </label>
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-sm font-medium" htmlFor={`setlist-editor-title-${setlistId}`}>
+              {t('setlists.create.titleLabel')}
+            </label>
+            <EditorPlayButton
+              entityType="setlist"
+              entityId={setlistId}
+              canPlay={slotRows.length > 0 && !brokenGate}
+              needsFlush={canEdit}
+              flushNow={flushNow}
+              disabled={patchInFlight || !!saveFailure || brokenGate || slotRows.length === 0}
+              disabledAriaLabel={
+                slotRows.length === 0 ? t('player.editor.emptySetlist') : undefined
+              }
+            />
+          </div>
           <div className="relative">
             <Input
               id={`setlist-editor-title-${setlistId}`}

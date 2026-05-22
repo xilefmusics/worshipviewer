@@ -182,8 +182,45 @@
     "next": "Next",
     "blobOffline": "This file isn’t available offline.",
     "blobMissing": "Could not load this file.",
+    "blobCancel": "Cancel download",
     "chordsRenderFailed": "Could not render this song.",
-    "invalidLink": "Invalid player link."
+    "invalidLink": "Invalid player link.",
+    "online": "Online",
+    "offline": "Offline",
+    "untitled": "Untitled",
+    "mainAria": "Player — {{title}}",
+    "itemAnnounce": "Item {{current}} of {{total}} — {{title}}",
+    "evicted": "This setlist is no longer cached. Reconnect to continue.",
+    "setlistDeleted": "This setlist was removed by the team — playing local cache for the last time.",
+    "toc": {
+      "title": "Contents",
+      "open": "Open table of contents",
+      "liked": "Liked"
+    },
+    "scrollMode": {
+      "current": "Scroll mode: {{mode}}, change",
+      "one_page": "One page",
+      "half_page": "Half page",
+      "two_page": "Two pages",
+      "book": "Book",
+      "two_half_page": "Two half pages"
+    },
+    "orientation": {
+      "current": "Orientation: {{orientation}}, change",
+      "portrait": "Portrait",
+      "landscape": "Landscape"
+    },
+    "transpose": {
+      "current": "Transpose: {{key}}, change",
+      "default": "Default"
+    },
+    "chordFormat": {
+      "current": "Chord format: {{format}}, change"
+    },
+    "editor": {
+      "emptySetlist": "Add songs before playing",
+      "emptyCollection": "Add songs before playing"
+    }
   },
   "settings": {
     "title": "Settings",

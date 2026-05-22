@@ -376,6 +376,18 @@ Promote any changes to exit criteria into [roadmap.md](./roadmap.md); keep this 
 64. OpenAPI drift — who regenerates types on breaking backend changes (process owner)?
 65. **E10** E2E — Playwright only, or minimum service-worker-aware coverage?
 
+### E8 interactive grill — user session (resolved)
+
+*Implementation choices locked during **E8** ([epic-e8-action-plan.md](./epic-e8-action-plan.md)).*
+
+| # | Topic | Decision |
+|---|--------|----------|
+| E8.R1 | **Keyboard shortcuts** | ←/→, PgUp/PgDn, Space (next), Home/End, **`t`** TOC, **`o`** orientation, **`s`** scroll menu, **Esc** closes overlay or exits to hub. Ignored when input/textarea/contenteditable focused. |
+| E8.R2 | **TOC drawer anchor** | Bottom sheet on phone; **right-anchored sheet** at **`≥ md`**. |
+| E8.R3 | **Swipe priority** | Horizontal swipe prev/next when \|dx\| > 48px and horizontal dominates; vertical scroll not hijacked. |
+| E8.R4 | **View state storage** | `localStorage` key `playerView:{type}:{id}` — scroll, orientation, transpose-by-item, chord format. |
+| E8.R5 | **PDF blobs** | Native `<embed>` only in v1 (no pdf.js). |
+
 ## Related docs
 
 - [Plan index](./plan.md)

@@ -27,6 +27,7 @@ import { fetchTeamDetail, fetchTeamsPage } from '@/api/teams-sessions-fetch'
 import type { Team } from '@/api/teams-sessions-fetch'
 import { putCollectionCover } from '@/api/collection-cover-upload'
 import { MoveSongToCollectionDialog } from '@/components/collections/MoveSongToCollectionDialog'
+import { EditorPlayButton } from '@/components/player/EditorPlayButton'
 import { ArrowRightLeftIcon } from '@/components/icons/arrow-right-left-icon'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -452,9 +453,22 @@ export function CollectionEditorScreen({ collectionId }: { collectionId: string 
 
       <div className="flex flex-col gap-2 bg-[var(--color-background)]/90 py-3 backdrop-blur">
         <div className="grid gap-1.5">
-          <label className="text-sm font-medium" htmlFor={`collection-editor-title-${collectionId}`}>
-            {t('collections.create.titleLabel')}
-          </label>
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-sm font-medium" htmlFor={`collection-editor-title-${collectionId}`}>
+              {t('collections.create.titleLabel')}
+            </label>
+            <EditorPlayButton
+              entityType="collection"
+              entityId={collectionId}
+              canPlay={slotRows.length > 0 && !brokenGate}
+              needsFlush={canEdit}
+              flushNow={flushNow}
+              disabled={patchInFlight || !!saveFailure || brokenGate || slotRows.length === 0}
+              disabledAriaLabel={
+                slotRows.length === 0 ? t('player.editor.emptyCollection') : undefined
+              }
+            />
+          </div>
           <div className="relative">
             <Input
               id={`collection-editor-title-${collectionId}`}

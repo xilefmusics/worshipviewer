@@ -219,7 +219,7 @@ export async function estimateKvTableBytes(): Promise<number> {
 export async function fetchSetlistPlayerFromNetwork(
   setlistId: string,
   signal?: AbortSignal,
-): Promise<{ player: Player } | { error: string }> {
+): Promise<{ player: Player } | { error: string; status: number }> {
   const { data, error, response } = await api.GET('/api/v1/setlists/{id}/player', {
     params: { path: { id: setlistId } },
     parseAs: 'json',
@@ -227,10 +227,10 @@ export async function fetchSetlistPlayerFromNetwork(
   })
   if (!response.ok || error) {
     const problem = await parseProblemResponse(response.clone())
-    return { error: problem?.title ?? 'Request failed' }
+    return { error: problem?.title ?? 'Request failed', status: response.status }
   }
   if (!data) {
-    return { error: 'Empty response' }
+    return { error: 'Empty response', status: response.status || 500 }
   }
   return { player: data }
 }
