@@ -5,13 +5,13 @@ import {
   normalizeSongLinkId,
   normalizeSongLinkNr,
   songLinkForCollectionMutation,
-  type SongLink,
+  type EditorSongLink,
 } from '@/lib/setlist-song-links'
 
 export type Collection = components['schemas']['Collection']
 export type CollectionPatchDirty = components['schemas']['PatchCollection']
 
-function collectionSongsEqual(a: SongLink[], b: SongLink[]): boolean {
+function collectionSongsEqual(a: EditorSongLink[], b: EditorSongLink[]): boolean {
   if (a.length !== b.length) return false
   for (let i = 0; i < a.length; i++) {
     if (normalizeSongLinkId(a[i].id) !== normalizeSongLinkId(b[i].id)) return false
@@ -28,7 +28,7 @@ function collectionSongsEqual(a: SongLink[], b: SongLink[]): boolean {
  */
 export function buildCollectionPatchBody(
   baseline: Pick<Collection, 'title' | 'songs' | 'cover' | 'owner'>,
-  draft: { title: string; songs: SongLink[]; cover: string; owner: string },
+  draft: { title: string; songs: EditorSongLink[]; cover: string; owner: string },
 ): CollectionPatchDirty | null {
   const body: CollectionPatchDirty = {}
   if (draft.title !== baseline.title) {
@@ -40,7 +40,7 @@ export function buildCollectionPatchBody(
   if (draft.owner !== baseline.owner) {
     body.owner = draft.owner
   }
-  const baseSongs = baseline.songs.map((l) => ({
+  const baseSongs: EditorSongLink[] = baseline.songs.map((l) => ({
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
     nr: normalizeSongLinkNr(l.nr),

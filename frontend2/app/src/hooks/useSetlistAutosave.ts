@@ -11,7 +11,7 @@ import { parseRetryAfterSeconds } from '@/lib/http-retry-after'
 import { buildSetlistPatchBody } from '@/lib/setlist-field-diff'
 import { setlistDetailKey } from '@/lib/setlist-detail-key'
 
-import { normalizeSongLinksForEditor, type SongLink } from '@/lib/setlist-song-links'
+import { normalizeSongLinksForEditor, type EditorSongLink } from '@/lib/setlist-song-links'
 
 type Setlist = components['schemas']['Setlist']
 
@@ -47,7 +47,7 @@ export function useSetlistAutosave({
   setlistId: string
   baseline: Pick<Setlist, 'title' | 'songs' | 'owner'> | null
   draftTitle: string
-  draftSongs: SongLink[]
+  draftSongs: EditorSongLink[]
   draftOwner: string
   /** false for read-only hub, offline frozen, broken slots gate, missing baseline */
   canAutosavePatch: boolean

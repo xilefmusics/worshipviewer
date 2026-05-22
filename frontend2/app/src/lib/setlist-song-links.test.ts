@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import type { components } from '@/api/schema'
+
 import {
   chordSymbolToPitchLevel,
   coerceMusicalKeyString,
@@ -13,8 +15,10 @@ import {
   removeAt,
   resolveSongDataKey,
   songLinkForCollectionMutation,
-  type SongLink,
+  type EditorSongLink,
 } from '@/lib/setlist-song-links'
+
+type WireSongLink = components['schemas']['SongLink']
 
 describe('chordSymbolToPitchLevel', () => {
   it('maps flat roots to chordlib pitch-class levels (0=A … 11=Ab)', () => {
@@ -129,7 +133,9 @@ describe('resolveSongDataKey', () => {
 
 describe('normalizeSongLinksForEditor', () => {
   it('keeps id and key only', () => {
-    expect(normalizeSongLinksForEditor([{ id: 'a', key: 'C', nr: '1' }])).toEqual([{ id: 'a', key: 'C' }])
+    expect(normalizeSongLinksForEditor([{ id: 'a', key: { level: 3 }, nr: '1' }])).toEqual([
+      { id: 'a', key: 'C' },
+    ])
     expect(normalizeSongLinksForEditor([{ id: 'b', key: null }])).toEqual([{ id: 'b', key: null }])
   })
 
@@ -139,10 +145,10 @@ describe('normalizeSongLinksForEditor', () => {
     ])
   })
 
-  it('coerces structured slot keys to strings', () => {
+  it('coerces wire `{ level }` keys to chord symbols', () => {
     expect(
-      normalizeSongLinksForEditor([{ id: 'a', key: { root: 'F#' } as unknown as string | null }]),
-    ).toEqual([{ id: 'a', key: 'Gb' }])
+      normalizeSongLinksForEditor([{ id: 'a', key: { level: 8 } } as WireSongLink]),
+    ).toEqual([{ id: 'a', key: 'F' }])
   })
 })
 
@@ -192,7 +198,7 @@ describe('applyOptimisticReorder', () => {
   })
 
   it('preserves nr and duplicate ids on slots', () => {
-    const links: SongLink[] = [
+    const links: EditorSongLink[] = [
       { id: 'a', key: 'C', nr: '1' },
       { id: 'a', key: 'D', nr: '2' },
     ]
@@ -215,7 +221,7 @@ describe('normalizeSongLinkNr', () => {
 describe('normalizeSongLinksForCollectionEditor', () => {
   it('keeps normalized nr alongside id/key', () => {
     expect(
-      normalizeSongLinksForCollectionEditor([{ id: 'a', key: 'C', nr: ' 1 ' }]),
+      normalizeSongLinksForCollectionEditor([{ id: 'a', key: { level: 3 }, nr: ' 1 ' }]),
     ).toEqual([{ id: 'a', key: 'C', nr: '1' }])
     expect(normalizeSongLinksForCollectionEditor([{ id: 'b', key: null, nr: '' }])).toEqual([
       { id: 'b', key: null, nr: null },

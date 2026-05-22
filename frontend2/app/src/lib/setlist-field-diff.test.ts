@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
+import type { components } from '@/api/schema'
+
 import { buildSetlistPatchBody } from '@/lib/setlist-field-diff'
-import type { SongLink } from '@/lib/setlist-song-links'
+
+type WireSongLink = components['schemas']['SongLink']
 
 const ownerA = 'team-a'
 
 const base = {
   title: 'A',
   owner: ownerA,
-  songs: [{ id: 'x', key: 'C', nr: '1' }] as SongLink[],
+  songs: [{ id: 'x', key: { level: 3 }, nr: '1' }] as WireSongLink[],
 }
 
 describe('buildSetlistPatchBody', () => {
@@ -56,7 +59,7 @@ describe('buildSetlistPatchBody', () => {
         {
           title: 'A',
           owner: ownerA,
-          songs: [{ id: 'x', key: { level: 3 } } as unknown as SongLink],
+          songs: [{ id: 'x', key: { level: 3 } }] as WireSongLink[],
         },
         { title: 'A', owner: ownerA, songs: [{ id: 'x', key: 'C' }] },
       ),
@@ -79,7 +82,7 @@ describe('buildSetlistPatchBody', () => {
         {
           title: 'A',
           owner: ownerA,
-          songs: [{ id: 'x', key: { root: 'C' } } as unknown as SongLink],
+          songs: [{ id: 'x', key: { root: 'C' } } as unknown as WireSongLink],
         },
         { title: 'A', owner: ownerA, songs: [{ id: 'x', key: 'C' }] },
       ),
@@ -91,7 +94,7 @@ describe('buildSetlistPatchBody', () => {
       buildSetlistPatchBody(base, {
         title: 'A',
         owner: ownerA,
-        songs: [{ id: 'x', key: { name: 'F' } } as unknown as SongLink],
+        songs: [{ id: 'x', key: 'F' }],
       }),
     ).toEqual({ songs: [{ id: 'x', key: { level: 8 } }] })
   })
@@ -100,7 +103,7 @@ describe('buildSetlistPatchBody', () => {
     const numBase = {
       title: 'A',
       owner: ownerA,
-      songs: [{ id: 7 as unknown as string, key: null }] as SongLink[],
+      songs: [{ id: 7 as unknown as string, key: null }] as WireSongLink[],
     }
     expect(
       buildSetlistPatchBody(numBase, {

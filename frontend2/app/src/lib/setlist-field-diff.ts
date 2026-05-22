@@ -4,13 +4,13 @@ import {
   coerceMusicalKeyString,
   normalizeSongLinkId,
   songLinkForSetlistMutation,
-  type SongLink,
+  type EditorSongLink,
 } from '@/lib/setlist-song-links'
 
 export type Setlist = components['schemas']['Setlist']
 export type SetlistPatchDirty = components['schemas']['PatchSetlist']
 
-function songsEqual(a: SongLink[], b: SongLink[]): boolean {
+function songsEqual(a: EditorSongLink[], b: EditorSongLink[]): boolean {
   if (a.length !== b.length) return false
   for (let i = 0; i < a.length; i++) {
     if (normalizeSongLinkId(a[i].id) !== normalizeSongLinkId(b[i].id)) return false
@@ -26,7 +26,7 @@ function songsEqual(a: SongLink[], b: SongLink[]): boolean {
  */
 export function buildSetlistPatchBody(
   baseline: Pick<Setlist, 'title' | 'songs' | 'owner'>,
-  draft: { title: string; songs: SongLink[]; owner: string },
+  draft: { title: string; songs: EditorSongLink[]; owner: string },
 ): SetlistPatchDirty | null {
   const body: SetlistPatchDirty = {}
   if (draft.title !== baseline.title) {
@@ -35,7 +35,7 @@ export function buildSetlistPatchBody(
   if (draft.owner !== baseline.owner) {
     body.owner = draft.owner
   }
-  const baseSongs = baseline.songs.map((l) => ({
+  const baseSongs: EditorSongLink[] = baseline.songs.map((l) => ({
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
   }))

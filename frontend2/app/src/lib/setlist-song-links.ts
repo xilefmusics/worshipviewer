@@ -2,6 +2,13 @@ import type { components } from '@/api/schema'
 
 export type SongLink = components['schemas']['SongLink']
 
+/** Editor slot with a coerced chord symbol; wire `SongLink.key` is `{ level }`. */
+export type EditorSongLink = {
+  id: string
+  key: string | null
+  nr?: string | null
+}
+
 export type SimpleChord = components['schemas']['SimpleChord']
 
 /** Pitch-class index on wire (`SimpleChord.level` / chordlib): 0 = A, then chromatically … 11 = Ab (flat spellings). */
@@ -82,8 +89,8 @@ export function songLinkKeyEditorToWire(key: unknown): SimpleChord | null {
   return { level }
 }
 
-/** One `SongLink` for PATCH/POST `songs`; server expects `key` as `{ level }` or JSON `null`. */
-export function songLinkForSetlistMutation(link: SongLink): Pick<SongLink, 'id' | 'key'> {
+/** One wire `SongLink` for PATCH/POST `songs`; server expects `key` as `{ level }` or JSON `null`. */
+export function songLinkForSetlistMutation(link: EditorSongLink): Pick<SongLink, 'id' | 'key'> {
   return {
     id: normalizeSongLinkId(link.id),
     key: songLinkKeyEditorToWire(link.key),
@@ -276,7 +283,7 @@ function keyFromSongSections(sections: unknown): string | null {
 }
 
 /** Strip `nr` for setlist UX + PATCH payloads (order = array index). */
-export function normalizeSongLinksForEditor(links: SongLink[]): SongLink[] {
+export function normalizeSongLinksForEditor(links: SongLink[]): EditorSongLink[] {
   return links.map((l) => ({
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
@@ -294,7 +301,7 @@ export function normalizeSongLinkNr(nr: unknown): string | null {
 }
 
 /** Collection editor slots: coerce `key`, preserve **`nr`** (empty → `null`). */
-export function normalizeSongLinksForCollectionEditor(links: SongLink[]): SongLink[] {
+export function normalizeSongLinksForCollectionEditor(links: SongLink[]): EditorSongLink[] {
   return links.map((l) => ({
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
@@ -302,8 +309,8 @@ export function normalizeSongLinksForCollectionEditor(links: SongLink[]): SongLi
   }))
 }
 
-/** One `SongLink` for collection PATCH bodies (`key` wire + `nr`). */
-export function songLinkForCollectionMutation(link: SongLink): SongLink {
+/** One wire `SongLink` for collection PATCH bodies (`key` wire + `nr`). */
+export function songLinkForCollectionMutation(link: EditorSongLink): SongLink {
   return {
     id: normalizeSongLinkId(link.id),
     key: songLinkKeyEditorToWire(link.key),

@@ -47,7 +47,7 @@ import {
   normalizeSongLinksForEditor,
   removeAt,
   resolveSongDataKey,
-  type SongLink,
+  type EditorSongLink,
 } from '@/lib/setlist-song-links'
 import { setlistDetailKey, songDetailQueryKey } from '@/lib/setlist-detail-key'
 import { formattedTimeSignature, normalizedTempoBpm } from '@/lib/song-display-meta'
@@ -232,7 +232,7 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
   )
 
   const insertSongFromPicker = async (song: { id: string; data?: { key?: unknown } }) => {
-    const link: SongLink = {
+    const link: EditorSongLink = {
       id: song.id,
       key: resolveSongDataKey(song.data as Record<string, unknown>),
     }
@@ -247,7 +247,7 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
       songLinks: draftLinks,
       canInsert: !patchInFlight,
       flushBeforeInsert: flushNow,
-      insertSongLink: (link: SongLink) => {
+      insertSongLink: (link: EditorSongLink) => {
         setSlotRows((prev) => [...prev, makeSlotRow(link)])
         queueMicrotask(() => notifyDraftEdited())
       },
@@ -598,7 +598,7 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
 type SortProps = {
   row: SlotRow
   index: number
-  draftLinks: SongLink[]
+  draftLinks: EditorSongLink[]
   hydratedSong?: import('@/api/setlists-detail').Song
   hydrationPending: boolean
   brokenHydration: boolean

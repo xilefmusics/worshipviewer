@@ -22,7 +22,7 @@ import {
   normalizeSongLinkId,
   normalizeSongLinksForEditor,
   resolveSongDataKey,
-  type SongLink,
+  type EditorSongLink,
 } from '@/lib/setlist-song-links'
 import { hubListKey } from '@/lib/hub-list-keys'
 import { getNextPageIndex } from '@/lib/list-pagination'
@@ -89,7 +89,7 @@ export function AddSongToSetlistDialog({ open, onOpenChange, song }: AddSongToSe
       if (existing.some((l) => normalizeSongLinkId(l.id) === normalizeSongLinkId(song.id))) {
         return { kind: 'duplicate' as const, title: detail.title }
       }
-      const link: SongLink = {
+      const link: EditorSongLink = {
         id: song.id,
         key: resolveSongDataKey(song.data as Record<string, unknown>),
       }

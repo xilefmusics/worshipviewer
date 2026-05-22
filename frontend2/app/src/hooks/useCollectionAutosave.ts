@@ -11,7 +11,7 @@ import { buildCollectionPatchBody } from '@/lib/collection-field-diff'
 import { parseRetryAfterSeconds } from '@/lib/http-retry-after'
 import { collectionDetailKey } from '@/lib/setlist-detail-key'
 
-import { normalizeSongLinksForCollectionEditor, type SongLink } from '@/lib/setlist-song-links'
+import { normalizeSongLinksForCollectionEditor, type EditorSongLink } from '@/lib/setlist-song-links'
 
 type Collection = components['schemas']['Collection']
 
@@ -48,7 +48,7 @@ export function useCollectionAutosave({
   collectionId: string
   baseline: Pick<Collection, 'title' | 'songs' | 'cover' | 'owner'> | null
   draftTitle: string
-  draftSongs: SongLink[]
+  draftSongs: EditorSongLink[]
   draftCover: string
   draftOwner: string
   /** false for read-only hub, offline frozen, broken slots gate, missing baseline */

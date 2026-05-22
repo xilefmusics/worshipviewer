@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { api } from '@/api/client'
+import type { components } from '@/api/schema'
 import { fetchCollectionsPage } from '@/api/list-fetch'
 import { parseProblemResponse } from '@/api/problem'
 import { Button } from '@/components/ui/button'
@@ -23,19 +24,21 @@ import {
   normalizeSongLinkId,
   normalizeSongLinkNr,
   songLinkKeyEditorToWire,
-  type SongLink,
+  type EditorSongLink,
 } from '@/lib/setlist-song-links'
 import { cn } from '@/lib/utils'
+
+type Collection = components['schemas']['Collection']
 
 type MoveSongToCollectionDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   sourceCollectionId: string
   /** Slot link from the editor (identifies the song and slot key / nr). */
-  songLink: SongLink
+  songLink: EditorSongLink
   songTitleLine: string
   flushBeforeMove: () => Promise<boolean>
-  onMoveComplete: () => void
+  onMoveComplete: (source: Collection) => void
 }
 
 export function MoveSongToCollectionDialog({
@@ -112,6 +115,9 @@ export function MoveSongToCollectionDialog({
         if (response.status === 404) {
           throw new Error('not_in_collection')
         }
+        if (response.status === 409) {
+          throw new Error('already_in_target')
+        }
         throw new Error(problem?.title ?? t('collections.editor.moveToCollection.failed'))
       }
 
@@ -134,7 +140,7 @@ export function MoveSongToCollectionDialog({
       toast.success(
         t('collections.editor.moveToCollection.success', { collection: result.targetTitle }),
       )
-      onMoveComplete()
+      onMoveComplete(result.source)
       onOpenChange(false)
     },
     onError: (e: unknown) => {
@@ -145,6 +151,10 @@ export function MoveSongToCollectionDialog({
       }
       if (msg === 'not_in_collection') {
         toast.error(t('collections.editor.moveToCollection.notFound'))
+        return
+      }
+      if (msg === 'already_in_target') {
+        toast.info(t('collections.editor.moveToCollection.alreadyThere'))
         return
       }
       toast.error(msg || t('collections.editor.moveToCollection.failed'))

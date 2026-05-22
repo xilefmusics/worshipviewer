@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
+import type { components } from '@/api/schema'
+
 import { buildCollectionPatchBody } from '@/lib/collection-field-diff'
-import type { SongLink } from '@/lib/setlist-song-links'
+
+type WireSongLink = components['schemas']['SongLink']
 
 const base = {
   title: 'A',
   cover: '',
   owner: 'team-a',
-  songs: [{ id: 'x', key: 'C', nr: '1' }] as SongLink[],
+  songs: [{ id: 'x', key: { level: 3 }, nr: '1' }] as WireSongLink[],
 }
 
 describe('buildCollectionPatchBody', () => {

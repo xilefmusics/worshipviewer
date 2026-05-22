@@ -53,9 +53,8 @@ import {
   coerceMusicalKeyString,
   normalizeSongLinkNr,
   normalizeSongLinksForCollectionEditor,
-  removeAt,
   resolveSongDataKey,
-  type SongLink,
+  type EditorSongLink,
 } from '@/lib/setlist-song-links'
 import { formattedTimeSignature, normalizedTempoBpm } from '@/lib/song-display-meta'
 import { getTeamDisplayName } from '@/lib/team-display-name'
@@ -251,7 +250,7 @@ export function CollectionEditorScreen({ collectionId }: { collectionId: string 
       songLinks: draftLinks,
       canInsert: !patchInFlight,
       flushBeforeInsert: flushNow,
-      insertSongLink: (link: SongLink) => {
+      insertSongLink: (link: EditorSongLink) => {
         setSlotRows((prev) => [...prev, makeSlotRow({ ...link, nr: normalizeSongLinkNr(link.nr) })])
         queueMicrotask(() => notifyDraftEdited())
       },
@@ -658,10 +657,9 @@ export function CollectionEditorScreen({ collectionId }: { collectionId: string 
           songLink={slotRows[moveDialogSlot.index].link}
           songTitleLine={moveDialogSlot.titlePreview}
           flushBeforeMove={flushNow}
-          onMoveComplete={() => {
-            const i = moveDialogSlot.index
+          onMoveComplete={(source) => {
             setMoveDialogSlot(null)
-            setSlotRows((rows) => removeAt(rows, i))
+            setSlotRows(slotsFromSongLinks(normalizeSongLinksForCollectionEditor(source.songs)))
           }}
         />
       ) : null}
@@ -671,7 +669,7 @@ export function CollectionEditorScreen({ collectionId }: { collectionId: string 
 
 type CollectionSortProps = {
   row: SlotRow
-  draftLinks: SongLink[]
+  draftLinks: EditorSongLink[]
   hydratedSong?: import('@/api/setlists-detail').Song
   hydrationPending: boolean
   brokenHydration: boolean
