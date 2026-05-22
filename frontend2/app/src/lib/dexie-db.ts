@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie'
 
 /** Versioned DB — placeholder stores until offline/E4; same wipe path from day one. */
 export const DB_NAME = 'worshipviewer'
-export const DB_VERSION = 3
+export const DB_VERSION = 4
 
 type PlaceholderRow = { id: string }
 
@@ -45,6 +45,12 @@ export class WorshipViewerDexie extends Dexie {
       placeholder: 'id',
       kv: 'key',
       setlistPlayerMirror: 'setlistId',
+      offlineBlobs: 'blobId',
+    })
+    this.version(4).stores({
+      placeholder: 'id',
+      kv: 'key',
+      setlistPlayerMirror: 'setlistId, lastOpenedAt',
       offlineBlobs: 'blobId',
     })
   }
