@@ -225,7 +225,10 @@
     "editor": {
       "emptySetlist": "Füge Lieder hinzu, bevor du abspielst",
       "emptyCollection": "Füge Lieder hinzu, bevor du abspielst"
-    }
+    },
+    "editSong": "Song bearbeiten",
+    "editSetlist": "Setliste bearbeiten",
+    "editCollection": "Sammlung bearbeiten"
   },
   "settings": {
     "title": "Einstellungen",

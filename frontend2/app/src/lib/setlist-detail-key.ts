@@ -1,5 +1,12 @@
+import type { PlayerEntityType } from '@/lib/player-route'
+
 export function setlistDetailKey(id: string) {
   return ['setlistDetail', id] as const
+}
+
+/** Player chrome title only — must not share keys with full detail queries. */
+export function playerResourceTitleKey(type: PlayerEntityType, id: string) {
+  return ['player', 'resourceTitle', type, id] as const
 }
 
 export function collectionDetailKey(id: string) {

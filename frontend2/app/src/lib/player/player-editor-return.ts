@@ -34,7 +34,11 @@ export function parsePlayerEditorReturnSearch(
 
 export function buildSongEditorReturnSearch(
   context: PlayerEditorReturnContext,
-): Record<string, string | number> {
+): {
+  playerType: PlayerEntityType
+  playerId: string
+  playerIndex: number
+} {
   return {
     playerType: context.playerType,
     playerId: context.playerId,
@@ -44,7 +48,11 @@ export function buildSongEditorReturnSearch(
 
 export function buildPlayerReturnSearch(
   context: PlayerEditorReturnContext,
-): Record<string, string | number> {
+): {
+  type: PlayerEntityType
+  id: string
+  index: number
+} {
   return {
     type: context.playerType,
     id: context.playerId,

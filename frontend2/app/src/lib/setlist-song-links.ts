@@ -283,8 +283,8 @@ function keyFromSongSections(sections: unknown): string | null {
 }
 
 /** Strip `nr` for setlist UX + PATCH payloads (order = array index). */
-export function normalizeSongLinksForEditor(links: SongLink[]): EditorSongLink[] {
-  return links.map((l) => ({
+export function normalizeSongLinksForEditor(links: SongLink[] | null | undefined): EditorSongLink[] {
+  return (links ?? []).map((l) => ({
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
   }))
@@ -301,8 +301,8 @@ export function normalizeSongLinkNr(nr: unknown): string | null {
 }
 
 /** Collection editor slots: coerce `key`, preserve **`nr`** (empty → `null`). */
-export function normalizeSongLinksForCollectionEditor(links: SongLink[]): EditorSongLink[] {
-  return links.map((l) => ({
+export function normalizeSongLinksForCollectionEditor(links: SongLink[] | null | undefined): EditorSongLink[] {
+  return (links ?? []).map((l) => ({
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
     nr: normalizeSongLinkNr(l.nr),

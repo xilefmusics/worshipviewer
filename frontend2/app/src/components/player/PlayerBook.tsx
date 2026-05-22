@@ -14,6 +14,9 @@ import { PlayerBookSpread } from '@/components/player/PlayerBookSpread'
 import { PlayerLikeHeartBurst } from '@/components/player/PlayerLikeHeartBurst'
 import { PlayerTocSidebar } from '@/components/player/PlayerTocSidebar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
+import { LayersIcon } from '@/components/icons/lucide-animated/layers-icon'
+import { ListMusicIcon } from '@/components/icons/lucide-animated/list-music-icon'
+import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
 import { Button } from '@/components/ui/button'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
 import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
@@ -307,6 +310,38 @@ export function PlayerBook({
       ? resolvePlayerItemKey(currentItem, type, slotKey, localTranspose)
       : null
 
+  const playerReturnContext = useMemo(
+    () => ({ playerType: type, playerId: id, playerIndex: nav.index }),
+    [type, id, nav.index],
+  )
+
+  const navigateToSongEditor = useCallback(() => {
+    if (currentItem?.type !== 'chords') return
+    void navigate({
+      to: '/songs/$songId',
+      params: { songId: currentItem.song.id },
+      search: buildSongEditorReturnSearch(playerReturnContext),
+    })
+  }, [currentItem, navigate, playerReturnContext])
+
+  const navigateToResourceEditor = useCallback(() => {
+    if (type === 'setlist') {
+      void navigate({
+        to: '/setlists/$setlistId',
+        params: { setlistId: id },
+        search: buildSongEditorReturnSearch(playerReturnContext),
+      })
+      return
+    }
+    if (type === 'collection') {
+      void navigate({
+        to: '/collections/$collectionId',
+        params: { collectionId: id },
+        search: buildSongEditorReturnSearch(playerReturnContext),
+      })
+    }
+  }, [id, navigate, playerReturnContext, type])
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const action = playerKeyboardAction(e.key, e.target, { popoverOpen })
@@ -354,17 +389,7 @@ export function PlayerBook({
       }
       if (action === 'edit') {
         e.preventDefault()
-        if (currentItem?.type === 'chords') {
-          void navigate({
-            to: '/songs/$songId',
-            params: { songId: currentItem.song.id },
-            search: buildSongEditorReturnSearch({
-              playerType: type,
-              playerId: id,
-              playerIndex: nav.index,
-            }),
-          })
-        }
+        navigateToSongEditor()
         return
       }
       if (action === 'toggleChordFormat') {
@@ -421,6 +446,7 @@ export function PlayerBook({
     currentItem,
     dispatch,
     displayKey,
+    navigateToSongEditor,
     nav.index,
     navBlocked,
     navigate,
@@ -590,6 +616,42 @@ export function PlayerBook({
               </div>
 
               <div className="flex shrink-0 items-center gap-1">
+                {type === 'setlist' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    aria-label={t('player.editSetlist')}
+                    onClick={navigateToResourceEditor}
+                  >
+                    <ListMusicIcon size={18} className="text-[var(--color-foreground)]" />
+                  </Button>
+                ) : null}
+                {type === 'collection' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    aria-label={t('player.editCollection')}
+                    onClick={navigateToResourceEditor}
+                  >
+                    <LayersIcon size={18} className="text-[var(--color-foreground)]" />
+                  </Button>
+                ) : null}
+                {currentItem.type === 'chords' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    aria-label={t('player.editSong')}
+                    onClick={navigateToSongEditor}
+                  >
+                    <PencilIcon size={18} className="text-[var(--color-foreground)]" />
+                  </Button>
+                ) : null}
                 {showChordsControls && currentItem.type === 'chords' ? (
                   <PopoverRoot open={popoverOpen} onOpenChange={setPopoverOpen}>
                     <PopoverTrigger asChild>

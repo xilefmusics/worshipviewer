@@ -109,9 +109,13 @@ function HubChrome({
   const isSongDetail = /^\/songs\/[^/]+$/.test(pathname)
   const songEditorId = isSongDetail ? pathname.slice('/songs/'.length) : ''
   const songEditorPlayerReturn = isSongDetail
-    ? parsePlayerEditorReturnSearch(
-        Object.fromEntries(new URLSearchParams(locationSearch)) as Record<string, unknown>,
-      )
+    ? parsePlayerEditorReturnSearch(locationSearch as Record<string, unknown>)
+    : null
+  const setlistEditorPlayerReturn = isSetlistDetail
+    ? parsePlayerEditorReturnSearch(locationSearch as Record<string, unknown>)
+    : null
+  const collectionEditorPlayerReturn = isCollectionDetail
+    ? parsePlayerEditorReturnSearch(locationSearch as Record<string, unknown>)
     : null
   const { data: headerSetlist } = useSetlistDetailQuery(isSetlistDetail ? setlistEditorId : '')
   const { data: headerCollection } = useCollectionDetailQuery(isCollectionDetail ? collectionEditorId : '')
@@ -297,7 +301,16 @@ function HubChrome({
                 type="button"
                 size="icon"
                 variant="outline"
-                onClick={() => void navigate({ to: '/setlists' })}
+                onClick={() => {
+                  if (setlistEditorPlayerReturn) {
+                    void navigate({
+                      to: '/player',
+                      search: buildPlayerReturnSearch(setlistEditorPlayerReturn),
+                    })
+                    return
+                  }
+                  void navigate({ to: '/setlists' })
+                }}
                 className={hubDetailBackButtonClass}
                 aria-label={t('setlists.editor.backToList')}
               >
@@ -317,7 +330,16 @@ function HubChrome({
                 type="button"
                 size="icon"
                 variant="outline"
-                onClick={() => void navigate({ to: '/collections' })}
+                onClick={() => {
+                  if (collectionEditorPlayerReturn) {
+                    void navigate({
+                      to: '/player',
+                      search: buildPlayerReturnSearch(collectionEditorPlayerReturn),
+                    })
+                    return
+                  }
+                  void navigate({ to: '/collections' })
+                }}
                 className={hubDetailBackButtonClass}
                 aria-label={t('collections.editor.backToList')}
               >

@@ -225,7 +225,10 @@
     "editor": {
       "emptySetlist": "Add songs before playing",
       "emptyCollection": "Add songs before playing"
-    }
+    },
+    "editSong": "Edit song",
+    "editSetlist": "Edit setlist",
+    "editCollection": "Edit collection"
   },
   "settings": {
     "title": "Settings",

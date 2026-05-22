@@ -9,7 +9,12 @@ import { PlayerBook } from '@/components/player/PlayerBook'
 import { Button } from '@/components/ui/button'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { resolvePlayerForRoute } from '@/lib/offline/resolve-player'
-import { collectionDetailKey, setlistDetailKey, songDetailQueryKey } from '@/lib/setlist-detail-key'
+import {
+  collectionDetailKey,
+  playerResourceTitleKey,
+  setlistDetailKey,
+  songDetailQueryKey,
+} from '@/lib/setlist-detail-key'
 
 export type PlayerRouteInnerProps = {
   type: PlayerEntityType
@@ -31,23 +36,21 @@ function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs'
 function usePlayerResourceTitle(type: PlayerEntityType, id: string, enabled: boolean): string | undefined {
   const queryClient = useQueryClient()
   const { data } = useQuery({
-    queryKey:
-      type === 'setlist'
-        ? setlistDetailKey(id)
-        : type === 'collection'
-          ? collectionDetailKey(id)
-          : songDetailQueryKey(id),
+    queryKey: playerResourceTitleKey(type, id),
     enabled,
     queryFn: async ({ signal }) => {
       if (type === 'setlist') {
         const detail = await fetchSetlistDetail(queryClient, { id, signal })
+        queryClient.setQueryData(setlistDetailKey(id), detail)
         return detail.title
       }
       if (type === 'collection') {
         const detail = await fetchCollectionDetail(queryClient, { id, signal })
+        queryClient.setQueryData(collectionDetailKey(id), detail)
         return detail.title
       }
       const song = await fetchSongForHubSlot(queryClient, { id, signal })
+      if (song) queryClient.setQueryData(songDetailQueryKey(id), song)
       const songData = song?.data as { titles?: string[] } | undefined
       return songData?.titles?.[0] ?? ''
     },

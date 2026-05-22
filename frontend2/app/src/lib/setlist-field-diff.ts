@@ -35,7 +35,7 @@ export function buildSetlistPatchBody(
   if (draft.owner !== baseline.owner) {
     body.owner = draft.owner
   }
-  const baseSongs: EditorSongLink[] = baseline.songs.map((l) => ({
+  const baseSongs: EditorSongLink[] = (baseline.songs ?? []).map((l) => ({
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
   }))
