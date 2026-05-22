@@ -25,6 +25,11 @@ import {
   writePlayerScrollLandscape,
   writePlayerScrollPortrait,
 } from '@/lib/player-scroll-preference'
+import {
+  readSheetBackgroundPreference,
+  type SheetBackgroundPreference,
+  writeSheetBackgroundPreference,
+} from '@/lib/sheet-background'
 import type { PlayerScrollType } from '@/lib/player/effective-scroll-type'
 import { clearAllLocalData } from '@/lib/clear-local'
 import { formatApproxBytes } from '@/lib/format-bytes'
@@ -265,6 +270,7 @@ export function SettingsView() {
   const [localePreference, setLocalePreferenceState] = useState(getLocalePreference)
   const [appearancePreference, setAppearancePreference] = useState(readAppearancePreference)
   const [chordFormatPreference, setChordFormatPreference] = useState(readChordFormatPreference)
+  const [sheetBackgroundPreference, setSheetBackgroundPreference] = useState(readSheetBackgroundPreference)
   const [scrollPreferences, setScrollPreferences] = useState(readPlayerScrollPreferences)
   const [cacheState, setCacheState] = useState<'idle' | 'clearing' | 'cleared' | 'failed'>('idle')
   const [approxBytes, setApproxBytes] = useState<number | null>(null)
@@ -302,6 +308,22 @@ export function SettingsView() {
         value: 'nashville',
         label: t('settings.chordFormat.nashville'),
         description: t('settings.chordFormat.nashvilleDescription'),
+      },
+    ],
+    [t],
+  )
+
+  const sheetBackgroundOptions = useMemo<SettingsOption<SheetBackgroundPreference>[]>(
+    () => [
+      {
+        value: 'white',
+        label: t('settings.sheetBackground.white'),
+        description: t('settings.sheetBackground.whiteDescription'),
+      },
+      {
+        value: 'app',
+        label: t('settings.sheetBackground.app'),
+        description: t('settings.sheetBackground.appDescription'),
       },
     ],
     [t],
@@ -368,6 +390,11 @@ export function SettingsView() {
   function setChordFormat(next: ChordFormatPreference) {
     setChordFormatPreference(next)
     writeChordFormatPreference(next)
+  }
+
+  function setSheetBackground(next: SheetBackgroundPreference) {
+    setSheetBackgroundPreference(next)
+    writeSheetBackgroundPreference(next)
   }
 
   function setPortraitScroll(next: PlayerScrollType) {
@@ -444,6 +471,14 @@ export function SettingsView() {
         options={chordFormatOptions}
         value={chordFormatPreference}
         onChange={setChordFormat}
+      />
+
+      <SettingsSection
+        title={t('settings.sheetBackground.title')}
+        description={t('settings.sheetBackground.description')}
+        options={sheetBackgroundOptions}
+        value={sheetBackgroundPreference}
+        onChange={setSheetBackground}
       />
 
       <SettingsSection

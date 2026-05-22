@@ -14,7 +14,7 @@ type BlobSlideProps = {
 export function BlobSlide({ blobId, allowNetworkFetch, fillParent = false }: BlobSlideProps) {
   const { t } = useTranslation()
   const { url, mime, status, retry, cancel } = useBlobUrl(blobId, { allowNetworkFetch })
-  const slotClass = cn('player-blob-page flex min-h-0 flex-1 flex-col bg-white', fillParent && 'h-full w-full')
+  const slotClass = cn('player-blob-page flex min-h-0 flex-1 flex-col', fillParent && 'h-full w-full')
 
   if (status === 'offline-unavailable') {
     return (
@@ -51,7 +51,7 @@ export function BlobSlide({ blobId, allowNetworkFetch, fillParent = false }: Blo
   if (mime?.includes('pdf')) {
     return (
       <div className={slotClass}>
-        <embed title="" src={url} className="min-h-0 w-full flex-1 border-0 bg-white" />
+        <embed title="" src={url} className="min-h-0 w-full flex-1 border-0" />
       </div>
     )
   }

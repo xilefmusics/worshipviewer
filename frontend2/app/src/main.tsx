@@ -9,6 +9,7 @@ import { createRoot } from 'react-dom/client'
 import { routeTree } from './routeTree.gen'
 import { initI18n } from '@/i18n'
 import { initAppearance } from '@/lib/appearance'
+import { initSheetBackground } from '@/lib/sheet-background'
 import { initLogoutQueue } from '@/lib/logout-queue'
 import {
   HUB_LISTS_PERSIST_BUSTER,
@@ -19,6 +20,7 @@ import { PwaInstallProvider } from '@/pwa/PwaInstallProvider'
 import { PwaRegistration } from '@/pwa/PwaRegistration'
 
 initAppearance()
+initSheetBackground()
 initI18n()
 
 const queryClient = new QueryClient({

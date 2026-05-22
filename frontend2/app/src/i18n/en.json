@@ -255,6 +255,14 @@
       "nashville": "Nashville",
       "nashvilleDescription": "Show Nashville numbers such as 1, 4, and 6m."
     },
+    "sheetBackground": {
+      "title": "Sheet background",
+      "description": "Choose the background behind chord sheets and attachments in the player and song preview.",
+      "white": "White",
+      "whiteDescription": "Always use a white page, including in dark mode (best for printing and scans).",
+      "app": "App background",
+      "appDescription": "Match the app surface color so sheets blend with the rest of the interface."
+    },
     "playerScroll": {
       "portraitTitle": "Player scroll mode (portrait)",
       "portraitDescription": "Choose how the player advances when the sheet is upright.",

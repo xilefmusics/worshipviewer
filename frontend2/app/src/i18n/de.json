@@ -255,6 +255,14 @@
       "nashville": "Nashville",
       "nashvilleDescription": "Zeigt Nashville-Ziffern wie 1, 4 und 6m."
     },
+    "sheetBackground": {
+      "title": "Blatt-Hintergrund",
+      "description": "Hintergrund hinter Akkordblättern und Anhängen im Player und in der Song-Vorschau.",
+      "white": "Weiß",
+      "whiteDescription": "Immer weiße Seite, auch im Dunkelmodus (gut zum Drucken und für Scans).",
+      "app": "App-Hintergrund",
+      "appDescription": "Nutzt die App-Oberflächenfarbe, damit Blätter zur restlichen Oberfläche passen."
+    },
     "playerScroll": {
       "portraitTitle": "Player-Scrollmodus (Hochformat)",
       "portraitDescription": "Lege fest, wie der Player bei aufrechtem Blatt weiterblättert.",

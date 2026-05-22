@@ -11,12 +11,22 @@
 }
 
 /* Stage-readable chord sheet surface (chordlib HTML inherits these constraints). */
+:root {
+  --player-sheet-bg: #fff;
+  --player-sheet-fg: #000;
+}
+
+:root[data-sheet-background='app'] {
+  --player-sheet-bg: var(--color-surface);
+  --player-sheet-fg: var(--color-foreground);
+}
+
 .player-chords-page {
-  color: #000;
+  color: var(--player-sheet-fg);
 }
 
 .player-chords-page .page {
-  background: #fff;
+  background: var(--player-sheet-bg);
 }
 
 .player-chords-page span,
@@ -32,7 +42,11 @@
 }
 
 .player-blob-page {
-  background: #fff;
+  background: var(--player-sheet-bg);
+}
+
+.player-blob-page embed {
+  background: var(--player-sheet-bg);
 }
 
 .player-book-spread {
