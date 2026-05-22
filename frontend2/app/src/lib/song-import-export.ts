@@ -337,7 +337,8 @@ export async function exportSongPdf(
 }
 
 /**
- * Print every song in setlist order as consecutive A4 pages in one PDF (browser print).
+ * Print every song in list order as consecutive A4 pages in one PDF (browser print).
+ * Used for setlist and collection export.
  */
 export async function exportSetlistPdf(
   engine: ChordEngine,

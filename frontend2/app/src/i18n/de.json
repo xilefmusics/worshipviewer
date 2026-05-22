@@ -133,7 +133,8 @@
       "exportPdfHint": "Öffnet den Druckdialog — „Als PDF sichern“ wählen.",
       "exportPreparing": "Export wird vorbereitet…",
       "exportFailed": "Song konnte nicht exportiert werden.",
-      "exportSetlistFailed": "Setliste konnte nicht exportiert werden."
+      "exportSetlistFailed": "Setliste konnte nicht exportiert werden.",
+      "exportCollectionFailed": "Sammlung konnte nicht exportiert werden."
     },
     "createChooser": {
       "title": "Zur Bibliothek hinzufügen",

@@ -22,13 +22,13 @@ Users can **round-trip** worship song files for **songs**: **export** from the *
 - **PDF:** `renderA4Html` → isolated frame → **browser print** (Save as PDF); real selectable text; non-blocking.
 - **i18n:** EN + DE for new strings.
 - **`/setlists` list:** long-press **Export** → **PDF (print)** — every song as consecutive A4 pages in **one** print job (setlist title as document name).
+- **`/collections` list:** long-press **Export** → **PDF (print)** — same multi-page print job (collection title as document name).
 
 ## Deferred (full E6)
 
 | Topic | Notes |
 |--------|--------|
-| **Setlist text export** | ChordPro / Worship Pro bundling deferred |
-| **Collection export** | Same format choices; bundling vs multiple files per API constraints |
+| **Setlist / collection text export** | ChordPro / Worship Pro bundling deferred |
 | **Hub import on collections/setlists** | Songs hub only in v1 |
 
 ---

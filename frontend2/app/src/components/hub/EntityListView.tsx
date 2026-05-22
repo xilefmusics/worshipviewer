@@ -49,6 +49,7 @@ import { useLongPress } from '@/hooks/useLongPress'
 import { useOnline } from '@/hooks/use-online'
 import { useSession } from '@/hooks/useSession'
 import { useTeamDetail } from '@/hooks/useTeamDetail'
+import { runCollectionPdfExport } from '@/lib/run-collection-export'
 import { runSetlistPdfExport } from '@/lib/run-setlist-export'
 import { runSongExport, type SongExportKind } from '@/lib/run-song-export'
 import type { HubEntity } from '@/lib/hub-entity'
@@ -504,20 +505,28 @@ function HubItemContextMenu({
     entity === 'songs' && hubSong && !hubSong.not_a_song,
   )
   const showSongExport = Boolean(entity === 'songs' && hubSong)
-  const showSetlistExport = entity === 'setlists'
+  const showOrderedPdfExport = entity === 'setlists' || entity === 'collections'
 
-  const onSetlistExportPdf = useCallback(async () => {
+  const onOrderedExportPdf = useCallback(async () => {
     const toastId = toast.loading(t('hub.actions.exportPreparing'))
     try {
-      await runSetlistPdfExport(queryClient, itemId, chordFormat)
+      if (entity === 'setlists') {
+        await runSetlistPdfExport(queryClient, itemId, chordFormat)
+      } else if (entity === 'collections') {
+        await runCollectionPdfExport(queryClient, itemId, chordFormat)
+      }
       toast.dismiss(toastId)
     } catch (e) {
       toast.dismiss(toastId)
       const detail = e instanceof Error ? e.message : String(e)
-      toast.error(t('hub.actions.exportSetlistFailed'), { description: detail })
-      console.error('Setlist export failed', e)
+      const failedKey =
+        entity === 'collections'
+          ? 'hub.actions.exportCollectionFailed'
+          : 'hub.actions.exportSetlistFailed'
+      toast.error(t(failedKey), { description: detail })
+      console.error(`${entity} export failed`, e)
     }
-  }, [chordFormat, itemId, queryClient, t])
+  }, [chordFormat, entity, itemId, queryClient, t])
 
   const onSongExport = useCallback(
     async (kind: SongExportKind) => {
@@ -623,13 +632,13 @@ function HubItemContextMenu({
               </ContextMenuItem>
             </>
           ) : null}
-          {showSetlistExport ? (
+          {showOrderedPdfExport ? (
             <>
               <ContextMenuSeparator />
               <ContextMenuItem
                 className="gap-2"
                 title={t('hub.actions.exportPdfHint')}
-                onSelect={() => void onSetlistExportPdf()}
+                onSelect={() => void onOrderedExportPdf()}
               >
                 {t('hub.actions.export')} — {t('hub.actions.exportPdf')}
               </ContextMenuItem>
