@@ -76,6 +76,20 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
       return { html: page.html, css: page.css }
     },
 
+    renderA4SectionHtmls(song: ChordSongData, options?: RenderA4HtmlOptions) {
+      const json = JSON.stringify(song)
+      const page = wrapWasmError(() =>
+        wasm.renderA4SectionHtmls(
+          json,
+          options?.key,
+          options?.representation,
+          options?.language,
+          options?.scale,
+        ),
+      )
+      return { sections: page.sections, css: page.css }
+    },
+
     transpose(song: ChordSongData, key: string) {
       const json = JSON.stringify(song)
       return wrapWasmError(() => parseSongJson(wasm.transposeSong(json, key)))

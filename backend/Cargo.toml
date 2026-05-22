@@ -51,7 +51,7 @@ hex = "0.4.3"
 actix-files = "0.6.10"
 actix-governor = "0.10"
 shared = { path = "../shared", features = ["backend"] }
-chordlib = { version = "0.10.0", features = ["html"] }
+chordlib = { path = "../../chordlib", features = ["html"] }
 zip = "8.6.0"
 imagesize = "0.14"
 

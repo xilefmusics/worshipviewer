@@ -103,6 +103,42 @@ pub fn render_a4_html(
     Ok(HtmlPage { html, css })
 }
 
+/// Per-section HTML fragments + shared CSS (no A4 page wrapper).
+#[wasm_bindgen]
+pub struct SectionHtmlPage {
+    sections: Vec<String>,
+    css: String,
+}
+
+#[wasm_bindgen]
+impl SectionHtmlPage {
+    #[wasm_bindgen(getter)]
+    pub fn sections(&self) -> Vec<String> {
+        self.sections.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn css(&self) -> String {
+        self.css.clone()
+    }
+}
+
+#[wasm_bindgen(js_name = renderA4SectionHtmls)]
+pub fn render_a4_section_htmls(
+    song_json: &str,
+    key: Option<String>,
+    representation: Option<String>,
+    language: Option<u32>,
+    scale: Option<f32>,
+) -> Result<SectionHtmlPage, String> {
+    let song = parse_song_json(song_json)?;
+    let key_ref = parse_key(key)?;
+    let rep_ref = parse_representation(representation)?;
+    let lang = language.map(|l| l as usize);
+    let (sections, css) = (&song).format_html_sections(key_ref.as_ref(), rep_ref.as_ref(), lang, scale);
+    Ok(SectionHtmlPage { sections, css })
+}
+
 /// Transpose all chords in a song to the given key symbol (e.g. `G`, `Bb`).
 #[wasm_bindgen(js_name = transposeSong)]
 pub fn transpose_song(song_json: &str, key: &str) -> Result<String, String> {
@@ -132,6 +168,17 @@ mod tests {
         let page = render_a4_html(&json, None, None, None, Some(1.0)).expect("render");
         assert!(!page.html.is_empty());
         assert!(!page.css.is_empty());
+    }
+
+    #[test]
+    fn render_section_htmls_returns_fragments() {
+        let source = "{title: Test}\n{key: C}\n{section: Verse}\n[C]One\n{section: Chorus}\n[D]Two";
+        let json = parse_chord_pro(source).expect("parse");
+        let page = render_a4_section_htmls(&json, None, None, None, Some(1.0)).expect("render");
+        assert_eq!(page.sections().len(), 2);
+        assert!(page.sections()[0].contains("Verse"));
+        assert!(page.sections()[1].contains("Chorus"));
+        assert!(!page.css().is_empty());
     }
 
     #[test]

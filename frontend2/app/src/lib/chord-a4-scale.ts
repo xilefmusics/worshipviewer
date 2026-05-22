@@ -4,6 +4,47 @@ export const A4_REFERENCE_HEIGHT_PX = 1123
 /** DIN-A4 page width (px) at scale 1 — matches `max-w-[794px]` player/editor surface. */
 export const A4_REFERENCE_WIDTH_PX = 794
 
+/** Chordlib `.columns` block inside an A4 page at scale 1 (`format_html.css`). */
+export const A4_COLUMNS_CONTENT_WIDTH_PX = 674
+export const A4_COLUMNS_GAP_PX = 30
+export const A4_COLUMNS_COUNT = 2
+export const A4_COLUMN_FONT_SIZE_PX = 13
+export const A4_COLUMN_LINE_HEIGHT_PX = 17
+
+/** One column width in chordlib's 2-column A4 layout at scale 1. */
+export const A4_REFERENCE_COLUMN_WIDTH_PX =
+  (A4_COLUMNS_CONTENT_WIDTH_PX - A4_COLUMNS_GAP_PX * (A4_COLUMNS_COUNT - 1)) /
+  A4_COLUMNS_COUNT
+
+/** Width of one column in a multi-column container (px). */
+export function columnWidthInMultiColumnLayout(
+  containerWidthPx: number,
+  columnCount: number,
+  columnGapPx: number,
+  horizontalPaddingPx: number,
+): number {
+  if (containerWidthPx <= 0 || columnCount <= 0) return 0
+  const contentWidth = Math.max(0, containerWidthPx - horizontalPaddingPx)
+  const totalGap = columnGapPx * Math.max(0, columnCount - 1)
+  return Math.max(0, (contentWidth - totalGap) / columnCount)
+}
+
+/** Scale factor for chord typography relative to the A4 HTML column width. */
+export function fontScaleForColumnWidth(columnWidthPx: number): number | undefined {
+  if (columnWidthPx <= 0 || A4_REFERENCE_COLUMN_WIDTH_PX <= 0) return undefined
+  return columnWidthPx / A4_REFERENCE_COLUMN_WIDTH_PX
+}
+
+export function scaledColumnTypography(scale: number): {
+  fontSizePx: number
+  lineHeightPx: number
+} {
+  return {
+    fontSizePx: A4_COLUMN_FONT_SIZE_PX * scale,
+    lineHeightPx: A4_COLUMN_LINE_HEIGHT_PX * scale,
+  }
+}
+
 /** Scale chordlib A4 HTML to fit a viewport; uses the tighter of height and width when both are known. */
 export function viewportScaleForA4(viewportHeightPx: number, viewportWidthPx?: number): number | undefined {
   if (viewportHeightPx <= 0) return undefined

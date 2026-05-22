@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import { BlobSlide } from '@/components/player/BlobSlide'
 import { ChordsSlide } from '@/components/player/ChordsSlide'
+import { ChordsThreeColumnSlide } from '@/components/player/ChordsThreeColumnSlide'
 import { PlayerBookSpread } from '@/components/player/PlayerBookSpread'
 import { PlayerTocSidebar } from '@/components/player/PlayerTocSidebar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
@@ -18,7 +19,8 @@ import { usePlayerScrollPreference } from '@/hooks/usePlayerScrollPreference'
 import { useOnline } from '@/hooks/use-online'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
 import { getChordEngine } from '@/lib/chord-engine'
-import { effectiveScrollType } from '@/lib/player/effective-scroll-type'
+import { chordFormatToRepresentation } from '@/lib/chord-format'
+import { effectiveScrollType, isThreeColumnScrollMode } from '@/lib/player/effective-scroll-type'
 import { bookSpreadRightIndex, isBookSpreadMode } from '@/lib/player/book-spread'
 import { scrollTypeForOrientation } from '@/lib/player-scroll-preference'
 import {
@@ -44,7 +46,6 @@ import {
 import type { PlayerEntityType } from '@/lib/player-route'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
 import { resolveSongDataKey } from '@/lib/setlist-song-links'
-import { cn } from '@/lib/utils'
 
 type Player = components['schemas']['Player']
 type PlayerItem = Player['items'][number]
@@ -196,7 +197,12 @@ export function PlayerBook({
           try {
             const engine = await getChordEngine()
             const key = resolveSongDataKey(nextItem.song.data as Record<string, unknown>)
-            engine.renderA4Html(nextItem.song.data, { key: key ?? undefined })
+            const renderOpts = { key: key ?? undefined, representation: chordFormatToRepresentation(chordFormat) }
+            if (isThreeColumnScrollMode(effectiveScroll)) {
+              engine.renderA4SectionHtmls(nextItem.song.data, renderOpts)
+            } else {
+              engine.renderA4Html(nextItem.song.data, renderOpts)
+            }
           } catch {
             // Prefetch is best-effort
           }
@@ -205,7 +211,7 @@ export function PlayerBook({
     })()
 
     return () => controller.abort()
-  }, [nav.index, online, itemsLen, player.items, allowNetworkFetch, bookSpread])
+  }, [nav.index, online, itemsLen, player.items, allowNetworkFetch, bookSpread, effectiveScroll, chordFormat])
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -267,6 +273,17 @@ export function PlayerBook({
         <BlobSlide
           blobId={item.blob_id}
           allowNetworkFetch={allowNetworkFetch}
+          fillParent={fillParent}
+        />
+      )
+    }
+
+    if (isThreeColumnScrollMode(effectiveScroll)) {
+      return (
+        <ChordsThreeColumnSlide
+          song={item.song}
+          displayKey={displayKeyForItem(item, itemIndex)}
+          chordFormat={chordFormat}
           fillParent={fillParent}
         />
       )
@@ -469,20 +486,13 @@ export function PlayerBook({
                 right={(() => {
                   const rightIndex = bookSpreadRightIndex(nav.index, itemsLen)
                   const rightItem = rightIndex == null ? null : player.items[rightIndex]
-                  if (!rightItem) return undefined
+                  if (!rightItem || rightIndex == null) return undefined
                   return renderPlayerItem(rightItem, rightIndex, true)
                 })()}
               />
-            ) : currentItem.type === 'blob' ? (
-              <BlobSlide blobId={currentItem.blob_id} allowNetworkFetch={allowNetworkFetch} />
-            ) : (
-              <ChordsSlide
-                song={currentItem.song}
-                displayKey={displayKey}
-                chordFormat={chordFormat}
-                orientation={sheetOrientation}
-              />
-            )}
+            ) : currentItem ? (
+              renderPlayerItem(currentItem, nav.index)
+            ) : null}
           </div>
 
           <AnimatePresence initial={false}>

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   effectiveScrollType,
+  isThreeColumnScrollMode,
   normalizeScrollType,
   PLAYER_SCROLL_TYPES,
   supportsIntraItemPaging,
@@ -11,6 +12,7 @@ describe('normalizeScrollType', () => {
   it('keeps supported modes', () => {
     expect(normalizeScrollType('one_page')).toBe('one_page')
     expect(normalizeScrollType('book')).toBe('book')
+    expect(normalizeScrollType('three_column')).toBe('three_column')
   })
 
   it('maps removed modes to page', () => {
@@ -24,6 +26,15 @@ describe('effectiveScrollType', () => {
   it('matches normalizeScrollType', () => {
     expect(effectiveScrollType('two_page')).toBe('one_page')
     expect(effectiveScrollType('book')).toBe('book')
+    expect(effectiveScrollType('three_column')).toBe('three_column')
+  })
+})
+
+describe('isThreeColumnScrollMode', () => {
+  it('detects three column mode', () => {
+    expect(isThreeColumnScrollMode('three_column')).toBe(true)
+    expect(isThreeColumnScrollMode('one_page')).toBe(false)
+    expect(isThreeColumnScrollMode('book')).toBe(false)
   })
 })
 
@@ -37,7 +48,7 @@ describe('supportsIntraItemPaging', () => {
 })
 
 describe('PLAYER_SCROLL_TYPES', () => {
-  it('exposes page and book only', () => {
-    expect(PLAYER_SCROLL_TYPES).toEqual(['one_page', 'book'])
+  it('exposes page, book, and three column', () => {
+    expect(PLAYER_SCROLL_TYPES).toEqual(['one_page', 'book', 'three_column'])
   })
 })

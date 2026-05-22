@@ -341,6 +341,11 @@ export function SettingsView() {
         label: t('settings.playerScroll.bookView'),
         description: t('settings.playerScroll.bookDescription'),
       },
+      {
+        value: 'three_column',
+        label: t('settings.playerScroll.threeColumnView'),
+        description: t('settings.playerScroll.threeColumnDescription'),
+      },
     ],
     [t],
   )

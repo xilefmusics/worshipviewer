@@ -16,6 +16,7 @@ function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
     parseUltimateGuitarHtml: vi.fn(),
     formatChordPro: vi.fn(() => '{title: Hello}'),
     renderA4Html: vi.fn(() => ({ html: '<div></div>', css: '' })),
+    renderA4SectionHtmls: vi.fn(() => ({ sections: ['<p></p>'], css: '' })),
     transpose: vi.fn(),
     ...overrides,
   }

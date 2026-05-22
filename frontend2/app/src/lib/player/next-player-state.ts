@@ -6,7 +6,7 @@ import {
   bookSpreadPrevIndex,
   isBookSpreadMode,
 } from '@/lib/player/book-spread'
-import { pagesPerItem, supportsIntraItemPaging } from '@/lib/player/effective-scroll-type'
+import { pagesPerItem, supportsIntraItemPaging, type PlayerScrollType } from '@/lib/player/effective-scroll-type'
 
 export type ScrollType = components['schemas']['ScrollType']
 
@@ -25,7 +25,7 @@ export type NextPlayerAction =
 export type PlayerNavConfig = {
   itemCount: number
   betweenItems: boolean
-  scrollType: ScrollType
+  scrollType: PlayerScrollType
   itemTypeAt: (index: number) => 'blob' | 'chords'
 }
 

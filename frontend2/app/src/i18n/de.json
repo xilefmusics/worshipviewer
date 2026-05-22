@@ -184,6 +184,7 @@
     "blobMissing": "Diese Datei konnte nicht geladen werden.",
     "blobCancel": "Download abbrechen",
     "chordsRenderFailed": "Dieses Lied konnte nicht dargestellt werden.",
+    "threeColumnEmpty": "Dieses Lied hat keine Abschnitte zum Anzeigen.",
     "invalidLink": "Ungültiger Player-Link.",
     "online": "Online",
     "offline": "Offline",
@@ -205,7 +206,8 @@
     "scrollMode": {
       "current": "Scrollmodus: {{mode}}, ändern",
       "one_page": "Blatt",
-      "book": "Buch"
+      "book": "Buch",
+      "three_column": "3 Spalten"
     },
     "orientation": {
       "current": "Ausrichtung: {{orientation}}, ändern",
@@ -271,7 +273,9 @@
       "pageDescription": "Blatt für Blatt scrollen.",
       "bookDescription": "Als wären sie in einem Buch.",
       "singleSheets": "Blatt",
-      "bookView": "Buch"
+      "bookView": "Buch",
+      "threeColumnView": "3 Spalten",
+      "threeColumnDescription": "Vollbild-Scrollen mit drei Spalten aus Songabschnitten."
     },
     "profilePicture": {
       "title": "Profilbild",

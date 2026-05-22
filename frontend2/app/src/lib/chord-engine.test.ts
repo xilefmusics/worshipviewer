@@ -37,6 +37,10 @@ describe('@worshipviewer/chordlib-wasm pkg', () => {
       const page = wasm.renderA4Html(json, undefined, undefined, undefined, 1)
       expect(page.html.length).toBeGreaterThan(0)
       expect(page.css.length).toBeGreaterThan(0)
+
+      const sectionsPage = wasm.renderA4SectionHtmls(json, undefined, undefined, undefined, 1)
+      expect(sectionsPage.sections.length).toBeGreaterThan(0)
+      expect(sectionsPage.css.length).toBeGreaterThan(0)
     },
   )
 })

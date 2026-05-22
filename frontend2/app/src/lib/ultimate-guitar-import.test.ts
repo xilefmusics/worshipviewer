@@ -21,6 +21,9 @@ const mockEngine: ChordEngine = {
   renderA4Html() {
     return { html: '', css: '' }
   },
+  renderA4SectionHtmls() {
+    return { sections: [], css: '' }
+  },
   transpose(song: ChordSongData) {
     return song
   },

@@ -30,6 +30,10 @@ export interface ChordEngine {
   parseUltimateGuitarHtml(html: string): ChordSongData
   formatChordPro(song: ChordSongData, options?: FormatChordProOptions): string
   renderA4Html(song: ChordSongData, options?: RenderA4HtmlOptions): { html: string; css: string }
+  renderA4SectionHtmls(
+    song: ChordSongData,
+    options?: RenderA4HtmlOptions,
+  ): { sections: string[]; css: string }
   transpose(song: ChordSongData, key: string): ChordSongData
 }
 

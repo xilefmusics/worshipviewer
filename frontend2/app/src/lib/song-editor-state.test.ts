@@ -37,6 +37,9 @@ function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
     renderA4Html() {
       return { html: '<div/>', css: '' }
     },
+    renderA4SectionHtmls() {
+      return { sections: ['<p/>'], css: '' }
+    },
     transpose(song: ChordSongData, key: string) {
       return { ...song, key: { level: 0 }, transposed: key }
     },

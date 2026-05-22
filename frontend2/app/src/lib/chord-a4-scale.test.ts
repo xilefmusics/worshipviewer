@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  A4_COLUMN_FONT_SIZE_PX,
+  A4_COLUMN_LINE_HEIGHT_PX,
+  A4_REFERENCE_COLUMN_WIDTH_PX,
   A4_REFERENCE_HEIGHT_PX,
   A4_REFERENCE_WIDTH_PX,
   bookSpreadLayout,
+  columnWidthInMultiColumnLayout,
   cssScaleToFitViewport,
   cssScaleToViewportWidth,
+  fontScaleForColumnWidth,
+  scaledColumnTypography,
   viewportScaleForA4,
 } from '@/lib/chord-a4-scale'
 
@@ -68,5 +74,26 @@ describe('bookSpreadLayout', () => {
     expect(layout.width).toBeCloseTo(390 * Math.SQRT2, 0)
     expect(layout.height).toBe(390)
     expect(layout.pageWidth).toBeCloseTo((390 * Math.SQRT2) / 2, 0)
+  })
+})
+
+describe('column typography scaling', () => {
+  it('matches chordlib A4 column width at scale 1', () => {
+    expect(A4_REFERENCE_COLUMN_WIDTH_PX).toBe(322)
+    expect(fontScaleForColumnWidth(A4_REFERENCE_COLUMN_WIDTH_PX)).toBe(1)
+    expect(scaledColumnTypography(1)).toEqual({
+      fontSizePx: A4_COLUMN_FONT_SIZE_PX,
+      lineHeightPx: A4_COLUMN_LINE_HEIGHT_PX,
+    })
+  })
+
+  it('derives column width from container layout', () => {
+    expect(columnWidthInMultiColumnLayout(1000, 3, 24, 32)).toBeCloseTo((1000 - 32 - 48) / 3, 5)
+  })
+
+  it('scales typography with column width', () => {
+    const scale = fontScaleForColumnWidth(A4_REFERENCE_COLUMN_WIDTH_PX / 2)
+    expect(scale).toBe(0.5)
+    expect(scaledColumnTypography(scale!)).toEqual({ fontSizePx: 6.5, lineHeightPx: 8.5 })
   })
 })
