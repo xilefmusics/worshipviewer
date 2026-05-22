@@ -195,15 +195,17 @@
     "toc": {
       "title": "Inhalt",
       "open": "Inhaltsverzeichnis öffnen",
-      "liked": "Favorit"
+      "liked": "Favorit",
+      "sortGroup": "Inhaltsverzeichnis-Anzeige",
+      "sortOrder": "Reihenfolge",
+      "sortAlphabetical": "A–Z",
+      "sortLiked": "Favoriten",
+      "emptyLiked": "Keine favorisierten Songs in dieser Liste."
     },
     "scrollMode": {
       "current": "Scrollmodus: {{mode}}, ändern",
-      "one_page": "Eine Seite",
-      "half_page": "Halbe Seite",
-      "two_page": "Zwei Seiten",
-      "book": "Buch",
-      "two_half_page": "Zwei halbe Seiten"
+      "one_page": "Blatt",
+      "book": "Buch"
     },
     "orientation": {
       "current": "Ausrichtung: {{orientation}}, ändern",
@@ -247,11 +249,21 @@
     },
     "chordFormat": {
       "title": "Akkordformat",
-      "description": "Lege fest, wie Akkorde in der Song-Editor-Vorschau angezeigt werden.",
+      "description": "Lege fest, wie Akkorde im Song-Editor und Player angezeigt werden.",
       "letters": "Buchstaben",
       "lettersDescription": "Zeigt Standard-Akkordsymbole wie C, G und Am.",
       "nashville": "Nashville",
       "nashvilleDescription": "Zeigt Nashville-Ziffern wie 1, 4 und 6m."
+    },
+    "playerScroll": {
+      "portraitTitle": "Player-Scrollmodus (Hochformat)",
+      "portraitDescription": "Lege fest, wie der Player bei aufrechtem Blatt weiterblättert.",
+      "landscapeTitle": "Player-Scrollmodus (Querformat)",
+      "landscapeDescription": "Lege fest, wie der Player bei querem Blatt weiterblättert.",
+      "pageDescription": "Blatt für Blatt scrollen.",
+      "bookDescription": "Als wären sie in einem Buch.",
+      "singleSheets": "Blatt",
+      "bookView": "Buch"
     },
     "profilePicture": {
       "title": "Profilbild",

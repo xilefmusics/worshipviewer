@@ -3,9 +3,6 @@ export type PlayerKeyboardAction =
   | 'next'
   | 'home'
   | 'end'
-  | 'toggleToc'
-  | 'toggleOrientation'
-  | 'openScrollMenu'
   | 'escape'
   | null
 
@@ -26,19 +23,18 @@ function isEditableTarget(target: EventTarget | null): boolean {
 export function playerKeyboardAction(
   key: string,
   target: EventTarget | null,
-  options?: { tocOpen?: boolean; popoverOpen?: boolean },
+  options?: { popoverOpen?: boolean },
 ): PlayerKeyboardAction {
   if (isEditableTarget(target)) return null
 
-  const tocOpen = options?.tocOpen ?? false
   const popoverOpen = options?.popoverOpen ?? false
 
   if (key === 'Escape') {
-    if (tocOpen || popoverOpen) return 'escape'
+    if (popoverOpen) return 'escape'
     return 'escape'
   }
 
-  if (tocOpen || popoverOpen) return null
+  if (popoverOpen) return null
 
   switch (key) {
     case 'ArrowLeft':
@@ -52,15 +48,6 @@ export function playerKeyboardAction(
       return 'home'
     case 'End':
       return 'end'
-    case 't':
-    case 'T':
-      return 'toggleToc'
-    case 'o':
-    case 'O':
-      return 'toggleOrientation'
-    case 's':
-    case 'S':
-      return 'openScrollMenu'
     default:
       return null
   }

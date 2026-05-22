@@ -195,15 +195,17 @@
     "toc": {
       "title": "Contents",
       "open": "Open table of contents",
-      "liked": "Liked"
+      "liked": "Liked",
+      "sortGroup": "Table of contents display",
+      "sortOrder": "Order",
+      "sortAlphabetical": "A–Z",
+      "sortLiked": "Liked",
+      "emptyLiked": "No liked songs in this list."
     },
     "scrollMode": {
       "current": "Scroll mode: {{mode}}, change",
-      "one_page": "One page",
-      "half_page": "Half page",
-      "two_page": "Two pages",
-      "book": "Book",
-      "two_half_page": "Two half pages"
+      "one_page": "Sheet",
+      "book": "Book"
     },
     "orientation": {
       "current": "Orientation: {{orientation}}, change",
@@ -247,11 +249,21 @@
     },
     "chordFormat": {
       "title": "Chord format",
-      "description": "Choose how chords are shown in the song editor preview.",
+      "description": "Choose how chords are shown in the song editor and player.",
       "letters": "Letters",
       "lettersDescription": "Show standard chord symbols such as C, G, and Am.",
       "nashville": "Nashville",
       "nashvilleDescription": "Show Nashville numbers such as 1, 4, and 6m."
+    },
+    "playerScroll": {
+      "portraitTitle": "Player scroll mode (portrait)",
+      "portraitDescription": "Choose how the player advances when the sheet is upright.",
+      "landscapeTitle": "Player scroll mode (landscape)",
+      "landscapeDescription": "Choose how the player advances when the sheet is sideways.",
+      "pageDescription": "Scroll sheet by sheet.",
+      "bookDescription": "As if they were inside a book.",
+      "singleSheets": "Sheet",
+      "bookView": "Book"
     },
     "profilePicture": {
       "title": "Profile picture",

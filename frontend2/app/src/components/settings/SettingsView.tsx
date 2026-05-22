@@ -20,6 +20,12 @@ import {
   type ChordFormatPreference,
   writeChordFormatPreference,
 } from '@/lib/chord-format'
+import {
+  readPlayerScrollPreferences,
+  writePlayerScrollLandscape,
+  writePlayerScrollPortrait,
+} from '@/lib/player-scroll-preference'
+import type { PlayerScrollType } from '@/lib/player/effective-scroll-type'
 import { clearAllLocalData } from '@/lib/clear-local'
 import { formatApproxBytes } from '@/lib/format-bytes'
 import {
@@ -259,6 +265,7 @@ export function SettingsView() {
   const [localePreference, setLocalePreferenceState] = useState(getLocalePreference)
   const [appearancePreference, setAppearancePreference] = useState(readAppearancePreference)
   const [chordFormatPreference, setChordFormatPreference] = useState(readChordFormatPreference)
+  const [scrollPreferences, setScrollPreferences] = useState(readPlayerScrollPreferences)
   const [cacheState, setCacheState] = useState<'idle' | 'clearing' | 'cleared' | 'failed'>('idle')
   const [approxBytes, setApproxBytes] = useState<number | null>(null)
   const [logoutPending, setLogoutPending] = useState(false)
@@ -295,6 +302,22 @@ export function SettingsView() {
         value: 'nashville',
         label: t('settings.chordFormat.nashville'),
         description: t('settings.chordFormat.nashvilleDescription'),
+      },
+    ],
+    [t],
+  )
+
+  const scrollModeOptions = useMemo<SettingsOption<PlayerScrollType>[]>(
+    () => [
+      {
+        value: 'one_page',
+        label: t('settings.playerScroll.singleSheets'),
+        description: t('settings.playerScroll.pageDescription'),
+      },
+      {
+        value: 'book',
+        label: t('settings.playerScroll.bookView'),
+        description: t('settings.playerScroll.bookDescription'),
       },
     ],
     [t],
@@ -345,6 +368,16 @@ export function SettingsView() {
   function setChordFormat(next: ChordFormatPreference) {
     setChordFormatPreference(next)
     writeChordFormatPreference(next)
+  }
+
+  function setPortraitScroll(next: PlayerScrollType) {
+    writePlayerScrollPortrait(next)
+    setScrollPreferences(readPlayerScrollPreferences())
+  }
+
+  function setLandscapeScroll(next: PlayerScrollType) {
+    writePlayerScrollLandscape(next)
+    setScrollPreferences(readPlayerScrollPreferences())
   }
 
   async function clearCache() {
@@ -411,6 +444,22 @@ export function SettingsView() {
         options={chordFormatOptions}
         value={chordFormatPreference}
         onChange={setChordFormat}
+      />
+
+      <SettingsSection
+        title={t('settings.playerScroll.portraitTitle')}
+        description={t('settings.playerScroll.portraitDescription')}
+        options={scrollModeOptions}
+        value={scrollPreferences.portrait}
+        onChange={setPortraitScroll}
+      />
+
+      <SettingsSection
+        title={t('settings.playerScroll.landscapeTitle')}
+        description={t('settings.playerScroll.landscapeDescription')}
+        options={scrollModeOptions}
+        value={scrollPreferences.landscape}
+        onChange={setLandscapeScroll}
       />
 
       {sessionUser ? <SettingsProfilePictureSection user={sessionUser} /> : null}

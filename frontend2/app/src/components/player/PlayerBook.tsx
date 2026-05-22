@@ -6,23 +6,18 @@ import { toast } from 'sonner'
 
 import { BlobSlide } from '@/components/player/BlobSlide'
 import { ChordsSlide } from '@/components/player/ChordsSlide'
-import { PlayerOnlineIndicator } from '@/components/player/PlayerOnlineIndicator'
-import { PlayerTocDrawer } from '@/components/player/PlayerTocDrawer'
+import { PlayerTocSidebar } from '@/components/player/PlayerTocSidebar'
+import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
 import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
-import { useIsPhoneWidth } from '@/hooks/useMediaQuery'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { usePlayerScrollPreference } from '@/hooks/usePlayerScrollPreference'
 import { useOnline } from '@/hooks/use-online'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
 import { getChordEngine } from '@/lib/chord-engine'
-import { writeChordFormatPreference, type ChordFormatPreference } from '@/lib/chord-format'
 import { effectiveScrollType } from '@/lib/player/effective-scroll-type'
+import { scrollTypeForOrientation } from '@/lib/player-scroll-preference'
 import {
   initialPlayerNavState,
   isAtEnd,
@@ -40,11 +35,8 @@ import { playerKeyboardAction } from '@/lib/player/player-keyboard'
 import { prefetchNextItemIndex } from '@/lib/player/prefetch-next-item'
 import {
   readPlayerViewState,
-  setChordFormatViewState,
   clearTransposeForItem,
-  setScrollTypeViewState,
   setTransposeForItem,
-  toggleOrientationViewState,
   writePlayerViewState,
   type PlayerViewState,
 } from '@/lib/player/player-view-state'
@@ -54,15 +46,6 @@ import { resolveSongDataKey } from '@/lib/setlist-song-links'
 import { cn } from '@/lib/utils'
 
 type Player = components['schemas']['Player']
-type ScrollType = components['schemas']['ScrollType']
-
-const SCROLL_TYPES: ScrollType[] = [
-  'one_page',
-  'half_page',
-  'two_page',
-  'book',
-  'two_half_page',
-]
 
 function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs' | '/setlists' {
   switch (type) {
@@ -75,8 +58,28 @@ function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs'
   }
 }
 
-function scrollTypeLabelKey(scrollType: ScrollType): string {
-  return `player.scrollType.${scrollType}`
+function backAriaKeyForPlayerType(type: PlayerEntityType): string {
+  switch (type) {
+    case 'collection':
+      return 'collections.editor.backToList'
+    case 'song':
+      return 'songs.editor.backToList'
+    case 'setlist':
+      return 'setlists.editor.backToList'
+  }
+}
+
+function isMiddlePointer(clientX: number, clientY: number, rect: DOMRect): boolean {
+  const relX = (rect.width > 0 ? (clientX - rect.left) / rect.width : 0.5)
+  const relY = (rect.height > 0 ? (clientY - rect.top) / rect.height : 0.5)
+  return relX >= 0.2 && relX <= 0.8 && relY >= 0.2 && relY <= 0.8
+}
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return Boolean(
+    target instanceof Element &&
+      target.closest('button, a, input, textarea, select, [role="button"], [role="link"]'),
+  )
 }
 
 type PlayerBookProps = {
@@ -98,32 +101,24 @@ export function PlayerBook({
 }: PlayerBookProps) {
   const { t } = useTranslation()
   const online = useOnline()
-  const isPhone = useIsPhoneWidth()
-  const globalChordFormat = useChordFormatPreference()
-  const tocTriggerRef = useRef<HTMLButtonElement>(null)
-  const [tocOpen, setTocOpen] = useState(false)
+  const chordFormat = useChordFormatPreference()
+  const scrollPreferences = usePlayerScrollPreference()
+  const isLandscapeViewport = useMediaQuery('(orientation: landscape)')
+  const sheetOrientation = isLandscapeViewport ? 'landscape' : 'portrait'
   const [popoverOpen, setPopoverOpen] = useState(false)
-  const [scrollMenuOpen, setScrollMenuOpen] = useState(false)
+  const [chromeVisible, setChromeVisible] = useState(false)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const chromeToggleHandledRef = useRef(false)
 
-  const defaults = useMemo(
-    () => ({
-      scrollType: player.scroll_type,
-      orientation: player.orientation,
-      scrollTypeCacheOtherOrientation: player.scroll_type_cache_other_orientation,
-    }),
-    [player],
-  )
-
-  const [viewState, setViewState] = useState<PlayerViewState>(() =>
-    readPlayerViewState(type, id, defaults),
-  )
+  const [viewState, setViewState] = useState<PlayerViewState>(() => readPlayerViewState(type, id))
 
   useEffect(() => {
     writePlayerViewState(type, id, viewState)
   }, [type, id, viewState])
 
-  const effectiveScroll = effectiveScrollType(viewState.scrollType, isPhone)
+  const effectiveScroll = effectiveScrollType(
+    scrollTypeForOrientation(sheetOrientation, scrollPreferences),
+  )
   const itemsLen = player.items.length
 
   const [nav, setNav] = useState<PlayerNavState>(() =>
@@ -145,9 +140,6 @@ export function PlayerBook({
   const showToc = player.toc.length > 0
   const showChordsControls = hasChordsItems(player.items)
   const evicted = useSetlistEvictionWatch(type === 'setlist' ? id : undefined, type === 'setlist')
-
-  const chordFormat: ChordFormatPreference =
-    viewState.chordFormat ?? globalChordFormat
 
   const dispatch = useCallback(
     (action: Parameters<typeof nextPlayerState>[1]) => {
@@ -194,10 +186,7 @@ export function PlayerBook({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      const action = playerKeyboardAction(e.key, e.target, {
-        tocOpen,
-        popoverOpen: popoverOpen || scrollMenuOpen,
-      })
+      const action = playerKeyboardAction(e.key, e.target, { popoverOpen })
       if (!action) return
 
       if (action === 'prev') {
@@ -220,39 +209,15 @@ export function PlayerBook({
         if (!navBlocked) dispatch({ type: 'end' })
         return
       }
-      if (action === 'toggleToc' && showToc) {
+      if (action === 'escape' && popoverOpen) {
         e.preventDefault()
-        setTocOpen((o) => !o)
-        return
-      }
-      if (action === 'toggleOrientation') {
-        e.preventDefault()
-        setViewState((s) => toggleOrientationViewState(s))
-        return
-      }
-      if (action === 'openScrollMenu') {
-        e.preventDefault()
-        setScrollMenuOpen(true)
-        return
-      }
-      if (action === 'escape') {
-        if (tocOpen) {
-          e.preventDefault()
-          setTocOpen(false)
-          tocTriggerRef.current?.focus()
-          return
-        }
-        if (popoverOpen || scrollMenuOpen) {
-          e.preventDefault()
-          setPopoverOpen(false)
-          setScrollMenuOpen(false)
-        }
+        setPopoverOpen(false)
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [dispatch, navBlocked, popoverOpen, scrollMenuOpen, showToc, tocOpen])
+  }, [dispatch, navBlocked, popoverOpen])
 
   const backTo = hubPathForPlayerType(type)
   const title = resourceTitle ?? tocRow?.title ?? ''
@@ -267,19 +232,20 @@ export function PlayerBook({
       ? resolvePlayerItemKey(currentItem, type, slotKey, localTranspose)
       : null
 
-  const scrollOptions = SCROLL_TYPES.filter((mode) => {
-    if (isPhone && (mode === 'two_page' || mode === 'two_half_page')) return false
-    return true
-  })
-
   function onTouchStart(e: React.TouchEvent) {
     const touch = e.touches[0]
     if (!touch) return
     touchStartRef.current = { x: touch.clientX, y: touch.clientY }
   }
 
+  function toggleChromeAt(clientX: number, clientY: number, target: EventTarget | null, rect: DOMRect) {
+    if (isInteractiveTarget(target)) return
+    if (!isMiddlePointer(clientX, clientY, rect)) return
+    setChromeVisible((visible) => !visible)
+    return true
+  }
+
   function onTouchEnd(e: React.TouchEvent) {
-    if (navBlocked) return
     const start = touchStartRef.current
     touchStartRef.current = null
     const touch = e.changedTouches[0]
@@ -287,10 +253,29 @@ export function PlayerBook({
 
     const dx = touch.clientX - start.x
     const dy = touch.clientY - start.y
-    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return
+    const isSwipe = Math.abs(dx) >= 48 && Math.abs(dx) >= Math.abs(dy) * 1.2
 
-    if (dx > 0) dispatch({ type: 'prev' })
-    else dispatch({ type: 'next' })
+    if (isSwipe) {
+      if (navBlocked) return
+      if (dx > 0) dispatch({ type: 'prev' })
+      else dispatch({ type: 'next' })
+      return
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect()
+    if (toggleChromeAt(touch.clientX, touch.clientY, e.target, rect)) {
+      chromeToggleHandledRef.current = true
+    }
+  }
+
+  function onMainClick(e: React.MouseEvent<HTMLElement>) {
+    if (chromeToggleHandledRef.current) {
+      chromeToggleHandledRef.current = false
+      return
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect()
+    toggleChromeAt(e.clientX, e.clientY, e.target, rect)
   }
 
   if (itemsLen === 0 || !currentItem) {
@@ -305,10 +290,13 @@ export function PlayerBook({
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[var(--color-bg)] text-[var(--color-foreground)]">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/80 sm:px-3 sm:py-3">
-        <Button type="button" variant="outline" size="sm" asChild className="shrink-0">
-          <Link to={backTo}>{t('player.close')}</Link>
+    <div className="flex h-dvh flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-foreground)]">
+      {chromeVisible ? (
+      <header className="z-10 flex shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 px-2 py-2 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/80 sm:px-3 sm:py-3">
+        <Button type="button" variant="outline" size="icon" asChild className="shrink-0">
+          <Link to={backTo} aria-label={t(backAriaKeyForPlayerType(type))}>
+            <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
+          </Link>
         </Button>
 
         <div className="min-w-0 flex-1 text-center">
@@ -319,62 +307,6 @@ export function PlayerBook({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          {showToc ? (
-            <Button
-              ref={tocTriggerRef}
-              type="button"
-              variant="outline"
-              size="icon"
-              className="size-8"
-              aria-label={t('player.toc.open')}
-              onClick={() => setTocOpen(true)}
-            >
-              <span aria-hidden>☰</span>
-            </Button>
-          ) : null}
-
-          <DropdownMenu open={scrollMenuOpen} onOpenChange={setScrollMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-8"
-                aria-label={t('player.scrollMode.current', {
-                  mode: t(scrollTypeLabelKey(viewState.scrollType)),
-                })}
-              >
-                <span aria-hidden>⇕</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {scrollOptions.map((mode) => (
-                <DropdownMenuItem
-                  key={mode}
-                  onSelect={() => {
-                    setViewState((s) => setScrollTypeViewState(s, mode))
-                    setScrollMenuOpen(false)
-                  }}
-                >
-                  {t(scrollTypeLabelKey(mode))}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="size-8"
-            aria-label={t('player.orientation.current', {
-              orientation: t(`player.orientation.${viewState.orientation}`),
-            })}
-            onClick={() => setViewState((s) => toggleOrientationViewState(s))}
-          >
-            <span aria-hidden>{viewState.orientation === 'portrait' ? '▯' : '▭'}</span>
-          </Button>
-
           {showChordsControls && currentItem.type === 'chords' ? (
             <PopoverRoot open={popoverOpen} onOpenChange={setPopoverOpen}>
               <PopoverTrigger asChild>
@@ -422,69 +354,58 @@ export function PlayerBook({
               </PopoverContent>
             </PopoverRoot>
           ) : null}
-
-          {showChordsControls ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="hidden h-8 px-2 text-xs sm:inline-flex"
-              aria-label={t('player.chordFormat.current', {
-                format: t(`settings.chordFormat.${chordFormat}`),
-              })}
-              onClick={() => {
-                const next: ChordFormatPreference =
-                  chordFormat === 'letters' ? 'nashville' : 'letters'
-                writeChordFormatPreference(next)
-                setViewState((s) => setChordFormatViewState(s, next))
-              }}
-            >
-              {t(`settings.chordFormat.${chordFormat}`)}
-            </Button>
-          ) : null}
-
-          <PlayerOnlineIndicator />
         </div>
       </header>
+      ) : null}
 
       {evicted ? (
-        <p className="bg-[var(--color-danger)]/10 px-4 py-2 text-center text-xs text-[var(--color-danger)]" role="status" aria-live="polite">
+        <p className="shrink-0 bg-[var(--color-danger)]/10 px-4 py-2 text-center text-xs text-[var(--color-danger)]" role="status" aria-live="polite">
           {t('player.evicted')}
         </p>
       ) : null}
 
-      <div
-        role="main"
-        aria-label={t('player.mainAria', { title: title || t('player.untitled') })}
-        className="min-h-0 flex-1"
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
-        <p className="sr-only" aria-live="polite">
-          {t('player.itemAnnounce', {
-            current: nav.index + 1,
-            total: itemsLen,
-            title: tocRow?.title ?? '',
-          })}
-        </p>
-
-        {currentItem.type === 'blob' ? (
-          <BlobSlide blobId={currentItem.blob_id} allowNetworkFetch={allowNetworkFetch} />
-        ) : (
-          <ChordsSlide
-            song={currentItem.song}
-            displayKey={displayKey}
-            chordFormat={chordFormat}
-            orientation={viewState.orientation}
-            scrollType={effectiveScroll}
-            pageOffset={nav.pageOffset}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {chromeVisible && showToc ? (
+          <PlayerTocSidebar
+            toc={player.toc}
+            currentIndex={nav.index}
+            onSelect={(idx) => dispatch({ type: 'jump', index: idx })}
           />
-        )}
+        ) : null}
+
+        <div
+          role="main"
+          aria-label={t('player.mainAria', { title: title || t('player.untitled') })}
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          onClick={onMainClick}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          <p className="sr-only" aria-live="polite">
+            {t('player.itemAnnounce', {
+              current: nav.index + 1,
+              total: itemsLen,
+              title: tocRow?.title ?? '',
+            })}
+          </p>
+
+          {currentItem.type === 'blob' ? (
+            <BlobSlide blobId={currentItem.blob_id} allowNetworkFetch={allowNetworkFetch} />
+          ) : (
+            <ChordsSlide
+              song={currentItem.song}
+              displayKey={displayKey}
+              chordFormat={chordFormat}
+              orientation={sheetOrientation}
+            />
+          )}
+        </div>
       </div>
 
+      {chromeVisible ? (
       <footer
         className={cn(
-          'sticky bottom-0 z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-[var(--color-border)]',
+          'z-10 grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-[var(--color-border)]',
           'bg-[var(--color-surface)]/95 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/80',
         )}
       >
@@ -511,16 +432,6 @@ export function PlayerBook({
           {t('player.next')}
         </Button>
       </footer>
-
-      {showToc ? (
-        <PlayerTocDrawer
-          open={tocOpen}
-          onOpenChange={setTocOpen}
-          toc={player.toc}
-          currentIndex={nav.index}
-          onSelect={(idx) => dispatch({ type: 'jump', index: idx })}
-          triggerRef={tocTriggerRef}
-        />
       ) : null}
     </div>
   )

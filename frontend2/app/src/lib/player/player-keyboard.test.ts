@@ -15,7 +15,7 @@ describe('playerKeyboardAction', () => {
     const body = mockTarget('BODY')
     expect(playerKeyboardAction('ArrowRight', body)).toBe('next')
     expect(playerKeyboardAction('PageUp', body)).toBe('prev')
-    expect(playerKeyboardAction('t', body)).toBe('toggleToc')
+    expect(playerKeyboardAction('t', body)).toBeNull()
   })
 
   it('ignores shortcuts when an input is focused', () => {
@@ -23,9 +23,9 @@ describe('playerKeyboardAction', () => {
     expect(playerKeyboardAction('ArrowRight', input)).toBeNull()
   })
 
-  it('returns escape for open overlays', () => {
+  it('returns escape when popover is open and blocks other keys', () => {
     const body = mockTarget('BODY')
-    expect(playerKeyboardAction('Escape', body, { tocOpen: true })).toBe('escape')
-    expect(playerKeyboardAction('ArrowRight', body, { tocOpen: true })).toBeNull()
+    expect(playerKeyboardAction('Escape', body, { popoverOpen: true })).toBe('escape')
+    expect(playerKeyboardAction('ArrowRight', body, { popoverOpen: true })).toBeNull()
   })
 })

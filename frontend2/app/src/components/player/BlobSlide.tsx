@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { useBlobUrl } from '@/hooks/useBlobUrl'
-import { cn } from '@/lib/utils'
 
 type BlobSlideProps = {
   blobId: string
@@ -47,18 +46,18 @@ export function BlobSlide({ blobId, allowNetworkFetch }: BlobSlideProps) {
 
   if (mime?.includes('pdf')) {
     return (
-      <div className="player-blob-page min-h-0 flex-1 bg-white">
-        <embed title="" src={url} className="min-h-[70vh] w-full flex-1 border-0 bg-white" />
+      <div className="player-blob-page flex min-h-0 flex-1 flex-col bg-white">
+        <embed title="" src={url} className="min-h-0 w-full flex-1 border-0 bg-white" />
       </div>
     )
   }
 
   return (
-    <div className="player-blob-page flex min-h-0 flex-1 items-start justify-center overflow-auto bg-white p-4">
+    <div className="player-blob-page flex min-h-0 flex-1 items-center justify-center overflow-auto bg-white p-4">
       <img
         src={url}
         alt=""
-        className={cn('max-h-[min(85vh,calc(100dvh-8rem))] max-w-full object-contain')}
+        className="max-h-full max-w-full object-contain"
         draggable={false}
       />
     </div>

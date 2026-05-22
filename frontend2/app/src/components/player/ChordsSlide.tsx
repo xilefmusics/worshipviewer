@@ -1,11 +1,11 @@
 import type { components } from '@/api/schema'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import { getChordEngine } from '@/lib/chord-engine'
-import { viewportScaleForA4 } from '@/lib/chord-a4-scale'
+import { cssScaleToFitViewport } from '@/lib/chord-a4-scale'
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
 import type { ChordSongData } from '@/ports/chord-engine'
 import { cn } from '@/lib/utils'
@@ -14,7 +14,6 @@ import './player-chords.css'
 
 type Song = components['schemas']['Song']
 type Orientation = components['schemas']['Orientation']
-type ScrollType = components['schemas']['ScrollType']
 
 type RenderState =
   | { status: 'loading' }
@@ -26,8 +25,6 @@ type ChordsSlideProps = {
   displayKey?: string | null
   chordFormat: ChordFormatPreference
   orientation: Orientation
-  scrollType: ScrollType
-  pageOffset: number
 }
 
 export function ChordsSlide({
@@ -35,27 +32,39 @@ export function ChordsSlide({
   displayKey,
   chordFormat,
   orientation,
-  scrollType,
-  pageOffset,
 }: ChordsSlideProps) {
   const { t } = useTranslation()
   const viewportRef = useRef<HTMLDivElement>(null)
-  const [viewportHeight, setViewportHeight] = useState(0)
+  const pageRef = useRef<HTMLDivElement>(null)
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
+  const [contentSize, setContentSize] = useState({ width: 0, height: 0 })
   const [renderState, setRenderState] = useState<RenderState>({ status: 'loading' })
   const [renderPass, setRenderPass] = useState(0)
 
   const songData = song.data as ChordSongData
-  const scale = viewportScaleForA4(viewportHeight)
   const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
+
+  const cssScale = useMemo(
+    () =>
+      cssScaleToFitViewport(
+        viewportSize.width,
+        viewportSize.height,
+        contentSize.width,
+        contentSize.height,
+      ),
+    [contentSize.height, contentSize.width, viewportSize.height, viewportSize.width],
+  )
 
   useEffect(() => {
     const el = viewportRef.current
     if (!el) return
-    const observer = new ResizeObserver(([entry]) => {
-      setViewportHeight(entry.contentRect.height)
-    })
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect()
+      setViewportSize({ width: rect.width, height: rect.height })
+    }
+    const observer = new ResizeObserver(() => updateSize())
     observer.observe(el)
-    setViewportHeight(el.getBoundingClientRect().height)
+    updateSize()
     return () => observer.disconnect()
   }, [])
 
@@ -64,15 +73,15 @@ export function ChordsSlide({
   }, [])
 
   useEffect(() => {
-    if (scale == null) return
     let cancelled = false
     setRenderState({ status: 'loading' })
+    setContentSize({ width: 0, height: 0 })
     void (async () => {
       try {
         const engine = await getChordEngine()
         const page = engine.renderA4Html(songData, {
           key: displayKey ?? undefined,
-          scale,
+          scale: 1,
           representation,
         })
         if (cancelled) return
@@ -86,22 +95,44 @@ export function ChordsSlide({
     return () => {
       cancelled = true
     }
-  }, [song.id, songData, displayKey, scale, renderPass, representation])
+  }, [song.id, songData, displayKey, renderPass, representation])
 
-  const halfPage = scrollType === 'half_page' || scrollType === 'two_half_page'
-  const pageTransform =
-    halfPage && pageOffset === 1 ? 'translateY(-50%)' : undefined
+  useLayoutEffect(() => {
+    if (renderState.status !== 'ready') return
+    const el = pageRef.current
+    if (!el) return
+
+    const measure = () => {
+      const width = el.scrollWidth
+      const height = el.scrollHeight
+      if (width > 0 && height > 0) {
+        setContentSize({ width, height })
+      }
+    }
+
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [renderState])
+
+  const scaledReady = renderState.status === 'ready' && cssScale != null
+  const measuring = renderState.status === 'ready' && cssScale == null
+  const visibleHeight =
+    scaledReady && cssScale != null ? contentSize.height * cssScale : undefined
+  const visibleWidth =
+    scaledReady && cssScale != null ? contentSize.width * cssScale : undefined
 
   return (
     <div
       ref={viewportRef}
       className={cn(
         'player-chords-viewport flex min-h-0 flex-1 flex-col overflow-auto',
-        renderState.status === 'ready' && 'player-chords-viewport--ready',
+        scaledReady && 'player-chords-viewport--ready',
         orientation === 'landscape' && 'player-chords-viewport--landscape',
       )}
     >
-      {renderState.status === 'loading' || scale == null ? (
+      {renderState.status === 'loading' || measuring ? (
         <p className="py-12 text-center text-sm text-[var(--color-muted-foreground)]">{t('common.load')}</p>
       ) : null}
 
@@ -117,23 +148,42 @@ export function ChordsSlide({
         </div>
       ) : null}
 
-      {renderState.status === 'ready' && scale != null ? (
-        <div
-          className={cn(
-            'mx-auto w-full max-w-[794px] shrink-0 overflow-hidden',
-            halfPage && 'h-full max-h-full',
-          )}
-        >
+      {renderState.status === 'ready' ? (
+        <>
           <style dangerouslySetInnerHTML={{ __html: scopeChordlibPageCss(renderState.css) }} />
           <div
             className={cn(
-              'player-chords-page mx-auto w-full bg-white',
-              orientation === 'landscape' && 'player-chords-page--landscape',
+              'mx-auto shrink-0 overflow-hidden',
+              measuring && 'pointer-events-none invisible absolute left-0 top-0',
             )}
-            style={pageTransform ? { transform: pageTransform } : undefined}
-            dangerouslySetInnerHTML={{ __html: renderState.html }}
-          />
-        </div>
+            style={
+              scaledReady
+                ? {
+                    width: visibleWidth,
+                    height: visibleHeight,
+                  }
+                : undefined
+            }
+          >
+            <div
+              ref={pageRef}
+              className={cn(
+                'player-chords-page origin-top-left',
+                orientation === 'landscape' && 'player-chords-page--landscape',
+              )}
+              style={
+                scaledReady
+                  ? {
+                      transform: `scale(${cssScale})`,
+                      width: contentSize.width,
+                      height: contentSize.height,
+                    }
+                  : undefined
+              }
+              dangerouslySetInnerHTML={{ __html: renderState.html }}
+            />
+          </div>
+        </>
       ) : null}
     </div>
   )
