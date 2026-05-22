@@ -53,19 +53,41 @@
 .player-chords-three-column__scroll {
   min-height: 0;
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
   padding: 1rem 1.5rem 1.25rem;
+}
+
+.player-chords-three-column__scroll--fit {
+  display: flex;
+  flex-direction: column;
 }
 
 .player-chords-three-column__scroll--clip {
   overflow: hidden;
 }
 
+.player-chords-three-column__scaled-wrap {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.player-chords-three-column__scaled-wrap--measuring {
+  visibility: hidden;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+}
+
 .player-chords-three-column__columns {
   column-count: var(--player-chords-column-count, 3);
   column-gap: 1.5rem;
   /* font-size / line-height set inline from A4 column-width reference (see ChordsThreeColumnSlide) */
+}
+
+.player-chords-three-column__columns--scaled {
+  transform-origin: top left;
 }
 
 .player-chords-three-column__columns p {

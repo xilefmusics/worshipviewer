@@ -10,6 +10,7 @@ import {
   columnWidthInMultiColumnLayout,
   cssScaleToFitViewport,
   cssScaleToViewportWidth,
+  cappedColumnFontScale,
   fontScaleForColumnWidth,
   scaledColumnTypography,
   viewportScaleForA4,
@@ -95,5 +96,18 @@ describe('column typography scaling', () => {
     const scale = fontScaleForColumnWidth(A4_REFERENCE_COLUMN_WIDTH_PX / 2)
     expect(scale).toBe(0.5)
     expect(scaledColumnTypography(scale!)).toEqual({ fontSizePx: 6.5, lineHeightPx: 8.5 })
+  })
+
+  it('caps column font scale to A4 viewport scale', () => {
+    const wideColumnScale = fontScaleForColumnWidth(A4_REFERENCE_COLUMN_WIDTH_PX * 1.5)!
+    const a4Cap = viewportScaleForA4(A4_REFERENCE_HEIGHT_PX, A4_REFERENCE_WIDTH_PX)!
+    expect(wideColumnScale).toBeGreaterThan(a4Cap)
+    expect(
+      cappedColumnFontScale(
+        A4_REFERENCE_COLUMN_WIDTH_PX * 1.5,
+        A4_REFERENCE_HEIGHT_PX,
+        A4_REFERENCE_WIDTH_PX,
+      ),
+    ).toBe(a4Cap)
   })
 })

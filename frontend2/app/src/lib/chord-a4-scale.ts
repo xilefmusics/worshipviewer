@@ -35,6 +35,20 @@ export function fontScaleForColumnWidth(columnWidthPx: number): number | undefin
   return columnWidthPx / A4_REFERENCE_COLUMN_WIDTH_PX
 }
 
+/** Column typography scale capped like A4 pages (min of width- and height-derived scale). */
+export function cappedColumnFontScale(
+  columnWidthPx: number,
+  viewportHeightPx: number,
+  viewportWidthPx: number,
+): number | undefined {
+  const widthScale = fontScaleForColumnWidth(columnWidthPx)
+  if (widthScale == null) return undefined
+  if (viewportHeightPx <= 0) return widthScale
+  const a4Cap = viewportScaleForA4(viewportHeightPx, viewportWidthPx)
+  if (a4Cap == null) return widthScale
+  return Math.min(widthScale, a4Cap)
+}
+
 export function scaledColumnTypography(scale: number): {
   fontSizePx: number
   lineHeightPx: number
