@@ -1,13 +1,21 @@
 import type { components } from '@/api/schema'
 
 export type ScrollType = components['schemas']['ScrollType']
-export type PlayerScrollType = 'one_page' | 'book' | 'two_column' | 'three_column'
+export type PlayerScrollType =
+  | 'one_page'
+  | 'book'
+  | 'two_column'
+  | 'two_column_next'
+  | 'three_column'
+  | 'three_column_next'
 
 export const PLAYER_SCROLL_TYPES: PlayerScrollType[] = [
   'one_page',
   'book',
   'two_column',
+  'two_column_next',
   'three_column',
+  'three_column_next',
 ]
 
 export function nextPlayerScrollType(current: PlayerScrollType): PlayerScrollType {
@@ -22,7 +30,9 @@ export function normalizeScrollType(
 ): PlayerScrollType {
   if (scrollType === 'book') return 'book'
   if (scrollType === 'two_column') return 'two_column'
+  if (scrollType === 'two_column_next') return 'two_column_next'
   if (scrollType === 'three_column') return 'three_column'
+  if (scrollType === 'three_column_next') return 'three_column_next'
   return 'one_page'
 }
 
@@ -34,12 +44,21 @@ export function effectiveScrollType(
 }
 
 export function isMultiColumnScrollMode(scrollType: PlayerScrollType): boolean {
-  return scrollType === 'two_column' || scrollType === 'three_column'
+  return (
+    scrollType === 'two_column' ||
+    scrollType === 'two_column_next' ||
+    scrollType === 'three_column' ||
+    scrollType === 'three_column_next'
+  )
+}
+
+export function isMultiColumnWithNextPreviewMode(scrollType: PlayerScrollType): boolean {
+  return scrollType === 'two_column_next' || scrollType === 'three_column_next'
 }
 
 export function multiColumnCount(scrollType: PlayerScrollType): 2 | 3 | null {
-  if (scrollType === 'two_column') return 2
-  if (scrollType === 'three_column') return 3
+  if (scrollType === 'two_column' || scrollType === 'two_column_next') return 2
+  if (scrollType === 'three_column' || scrollType === 'three_column_next') return 3
   return null
 }
 

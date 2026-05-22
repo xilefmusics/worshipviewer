@@ -210,7 +210,9 @@
       "one_page": "Blatt",
       "book": "Buch",
       "two_column": "2 Spalten",
-      "three_column": "3 Spalten"
+      "two_column_next": "2 Spalten + nächstes",
+      "three_column": "3 Spalten",
+      "three_column_next": "3 Spalten + nächstes"
     },
     "orientation": {
       "current": "Ausrichtung: {{orientation}}, ändern",
@@ -290,8 +292,12 @@
       "bookView": "Buch",
       "twoColumnView": "2 Spalten",
       "twoColumnDescription": "Vollbild-Scrollen mit zwei Spalten aus Songabschnitten.",
+      "twoColumnNextView": "2 Spalten + nächstes",
+      "twoColumnNextDescription": "Zwei Spalten mit dem nächsten Song im Spaltenfluss in Grau, auf den sichtbaren Platz begrenzt.",
       "threeColumnView": "3 Spalten",
-      "threeColumnDescription": "Vollbild-Scrollen mit drei Spalten aus Songabschnitten."
+      "threeColumnDescription": "Vollbild-Scrollen mit drei Spalten aus Songabschnitten.",
+      "threeColumnNextView": "3 Spalten + nächstes",
+      "threeColumnNextDescription": "Drei Spalten mit dem nächsten Song im Spaltenfluss in Grau, auf den sichtbaren Platz begrenzt."
     },
     "profilePicture": {
       "title": "Profilbild",

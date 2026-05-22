@@ -31,7 +31,9 @@ describe('nextPlayerScrollType', () => {
   it('cycles through supported player scroll modes', () => {
     expect(nextPlayerScrollType('one_page')).toBe('book')
     expect(nextPlayerScrollType('book')).toBe('two_column')
-    expect(nextPlayerScrollType('two_column')).toBe('three_column')
-    expect(nextPlayerScrollType('three_column')).toBe('one_page')
+    expect(nextPlayerScrollType('two_column')).toBe('two_column_next')
+    expect(nextPlayerScrollType('two_column_next')).toBe('three_column')
+    expect(nextPlayerScrollType('three_column')).toBe('three_column_next')
+    expect(nextPlayerScrollType('three_column_next')).toBe('one_page')
   })
 })

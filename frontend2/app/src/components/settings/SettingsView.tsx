@@ -367,9 +367,19 @@ export function SettingsView() {
         description: t('settings.playerScroll.twoColumnDescription'),
       },
       {
+        value: 'two_column_next',
+        label: t('settings.playerScroll.twoColumnNextView'),
+        description: t('settings.playerScroll.twoColumnNextDescription'),
+      },
+      {
         value: 'three_column',
         label: t('settings.playerScroll.threeColumnView'),
         description: t('settings.playerScroll.threeColumnDescription'),
+      },
+      {
+        value: 'three_column_next',
+        label: t('settings.playerScroll.threeColumnNextView'),
+        description: t('settings.playerScroll.threeColumnNextDescription'),
       },
     ],
     [t],

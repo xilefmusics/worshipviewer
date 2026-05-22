@@ -28,9 +28,19 @@ type RenderState =
 type ChordsThreeColumnSlideProps = {
   song: Song
   displayKey?: string | null
+  nextSong?: Song | null
+  nextDisplayKey?: string | null
   chordFormat: ChordFormatPreference
   columnCount?: 2 | 3
   fillParent?: boolean
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }
 
 function songSubtitleLine(songData: ChordSongData): string {
@@ -76,33 +86,22 @@ function songMetaLines(
   return { keyLine, tempoLine }
 }
 
-export function ChordsThreeColumnSlide({
-  song,
-  displayKey,
-  chordFormat,
-  columnCount = 3,
-  fillParent = false,
-}: ChordsThreeColumnSlideProps) {
-  const { t } = useTranslation()
-  const columnsRef = useRef<HTMLDivElement>(null)
+function useMultiColumnSongRender(
+  song: Song | null | undefined,
+  displayKey: string | null | undefined,
+  chordFormat: ChordFormatPreference,
+  renderPass: number,
+): RenderState {
   const [renderState, setRenderState] = useState<RenderState>({ status: 'loading' })
-  const [renderPass, setRenderPass] = useState(0)
-  const [columnTypography, setColumnTypography] = useState<{
-    fontSizePx: number
-    lineHeightPx: number
-  } | null>(null)
-
-  const songData = song.data as ChordSongData
+  const songData = song?.data as ChordSongData | undefined
   const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
-  const title = useMemo(() => songTitleFromData(songData), [songData])
-  const subtitle = useMemo(() => songSubtitleLine(songData), [songData])
-  const meta = useMemo(() => songMetaLines(songData, displayKey), [songData, displayKey])
-
-  const retry = useCallback(() => {
-    setRenderPass((n) => n + 1)
-  }, [])
 
   useEffect(() => {
+    if (!song || !songData) {
+      setRenderState({ status: 'loading' })
+      return
+    }
+
     let cancelled = false
     setRenderState({ status: 'loading' })
     void (async () => {
@@ -123,7 +122,152 @@ export function ChordsThreeColumnSlide({
     return () => {
       cancelled = true
     }
-  }, [song.id, songData, displayKey, renderPass, representation])
+  }, [song, song?.id, songData, displayKey, renderPass, representation])
+
+  return renderState
+}
+
+function wrapPreviewSections(sections: string[]): string {
+  return sections
+    .map(
+      (section) =>
+        `<div class="player-chords-three-column__preview-section">${section}</div>`,
+    )
+    .join('')
+}
+
+function previewHeadingHtml(song: Song, displayKey?: string | null): string {
+  const songData = song.data as ChordSongData
+  const title = escapeHtml(songTitleFromData(songData))
+  const subtitle = songSubtitleLine(songData)
+  const meta = songMetaLines(songData, displayKey)
+
+  let html = `<p class="player-chords-three-column__preview-section player-chords-three-column__preview-heading"><strong>${title}</strong>`
+  if (subtitle) {
+    html += `<br><span class="player-chords-three-column__preview-subtitle">${escapeHtml(subtitle)}</span>`
+  }
+  html += '</p>'
+
+  if (meta.keyLine) {
+    html += `<p class="player-chords-three-column__preview-section player-chords-three-column__preview-meta">${escapeHtml(meta.keyLine)}</p>`
+  }
+  if (meta.tempoLine) {
+    html += `<p class="player-chords-three-column__preview-section player-chords-three-column__preview-meta">${escapeHtml(meta.tempoLine)}</p>`
+  }
+
+  return html
+}
+
+function buildCombinedColumnHtml(
+  currentSections: string[],
+  nextSong: Song | null | undefined,
+  nextDisplayKey: string | null | undefined,
+  nextSections: string[],
+  visibleNextSectionCount: number,
+): string {
+  let html = currentSections.join('')
+
+  if (nextSong && visibleNextSectionCount > 0 && nextSections.length > 0) {
+    html += previewHeadingHtml(nextSong, nextDisplayKey)
+    html += wrapPreviewSections(nextSections.slice(0, visibleNextSectionCount))
+  }
+
+  return html
+}
+
+function buildCombinedColumnCss(
+  currentCss: string,
+  nextRenderState: RenderState,
+  includeNextPreview: boolean,
+): string {
+  let css = scopeChordlibPageCss(currentCss, '.player-chords-three-column__columns')
+  if (
+    includeNextPreview &&
+    nextRenderState.status === 'ready' &&
+    nextRenderState.css
+  ) {
+    css += `\n${scopeChordlibPageCss(nextRenderState.css, '.player-chords-three-column__columns')}`
+  }
+  return css
+}
+
+function availableColumnViewportHeight(viewport: HTMLElement): number {
+  const styles = getComputedStyle(viewport)
+  const paddingTop = Number.parseFloat(styles.paddingTop) || 0
+  const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0
+  return viewport.clientHeight - paddingTop - paddingBottom
+}
+
+export function ChordsThreeColumnSlide({
+  song,
+  displayKey,
+  nextSong,
+  nextDisplayKey,
+  chordFormat,
+  columnCount = 3,
+  fillParent = false,
+}: ChordsThreeColumnSlideProps) {
+  const { t } = useTranslation()
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const columnsRef = useRef<HTMLDivElement>(null)
+  const [renderPass, setRenderPass] = useState(0)
+  const [columnTypography, setColumnTypography] = useState<{
+    fontSizePx: number
+    lineHeightPx: number
+  } | null>(null)
+
+  const showNextPreview = nextSong != null
+  const songData = song.data as ChordSongData
+  const renderState = useMultiColumnSongRender(song, displayKey, chordFormat, renderPass)
+  const nextRenderState = useMultiColumnSongRender(nextSong, nextDisplayKey, chordFormat, 0)
+
+  const maxNextSections =
+    nextRenderState.status === 'ready' ? nextRenderState.sections.length : 0
+  const [fitNextSectionCount, setFitNextSectionCount] = useState(maxNextSections)
+  const maxNextSectionsRef = useRef(maxNextSections)
+  maxNextSectionsRef.current = maxNextSections
+
+  const resetFitNextSectionCount = useCallback(() => {
+    setFitNextSectionCount(maxNextSectionsRef.current)
+  }, [])
+
+  const title = useMemo(() => songTitleFromData(songData), [songData])
+  const subtitle = useMemo(() => songSubtitleLine(songData), [songData])
+  const meta = useMemo(() => songMetaLines(songData, displayKey), [songData, displayKey])
+
+  const retry = useCallback(() => {
+    setRenderPass((n) => n + 1)
+  }, [])
+
+  useEffect(() => {
+    resetFitNextSectionCount()
+  }, [maxNextSections, columnCount, song.id, displayKey, nextSong?.id, nextDisplayKey, resetFitNextSectionCount])
+
+  const combinedColumnHtml = useMemo(() => {
+    if (renderState.status !== 'ready') return null
+    if (!showNextPreview) return renderState.sections.join('')
+    const nextSections =
+      nextRenderState.status === 'ready' ? nextRenderState.sections : []
+    return buildCombinedColumnHtml(
+      renderState.sections,
+      nextSong,
+      nextDisplayKey,
+      nextSections,
+      fitNextSectionCount,
+    )
+  }, [
+    renderState,
+    showNextPreview,
+    nextSong,
+    nextDisplayKey,
+    nextRenderState,
+    fitNextSectionCount,
+  ])
+
+  const combinedColumnCss = useMemo(() => {
+    if (renderState.status !== 'ready') return ''
+    return buildCombinedColumnCss(renderState.css, nextRenderState, showNextPreview)
+  }, [renderState, nextRenderState, showNextPreview])
 
   useLayoutEffect(() => {
     if (renderState.status !== 'ready' || renderState.sections.length === 0) {
@@ -156,6 +300,32 @@ export function ChordsThreeColumnSlide({
     observer.observe(el)
     return () => observer.disconnect()
   }, [columnCount, renderState])
+
+  useLayoutEffect(() => {
+    if (!showNextPreview || maxNextSections === 0) return
+
+    const viewport = viewportRef.current
+    const columns = columnsRef.current
+    if (!viewport || !columns) return
+
+    const availableHeight = availableColumnViewportHeight(viewport)
+    if (availableHeight <= 0) return
+
+    if (columns.scrollHeight > availableHeight && fitNextSectionCount > 0) {
+      setFitNextSectionCount((count) => count - 1)
+    }
+  }, [showNextPreview, maxNextSections, fitNextSectionCount, combinedColumnHtml, columnTypography])
+
+  useLayoutEffect(() => {
+    if (!showNextPreview || maxNextSections === 0) return
+
+    const viewport = viewportRef.current
+    if (!viewport) return
+
+    const observer = new ResizeObserver(resetFitNextSectionCount)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [showNextPreview, maxNextSections, resetFitNextSectionCount])
 
   return (
     <div
@@ -196,15 +366,19 @@ export function ChordsThreeColumnSlide({
               </div>
             ) : null}
           </header>
-          <style
-            dangerouslySetInnerHTML={{
-              __html: scopeChordlibPageCss(renderState.css, '.player-chords-three-column__columns'),
-            }}
-          />
+          {combinedColumnCss ? (
+            <style dangerouslySetInnerHTML={{ __html: combinedColumnCss }} />
+          ) : null}
           {renderState.sections.length === 0 ? (
             <p className="player-chords-three-column__empty">{t('player.threeColumnEmpty')}</p>
-          ) : (
-            <div className="player-chords-three-column__scroll">
+          ) : combinedColumnHtml ? (
+            <div
+              ref={viewportRef}
+              className={cn(
+                'player-chords-three-column__scroll',
+                showNextPreview && 'player-chords-three-column__scroll--clip',
+              )}
+            >
               <div
                 ref={columnsRef}
                 className="player-chords-three-column__columns"
@@ -217,10 +391,10 @@ export function ChordsThreeColumnSlide({
                       }
                     : {}),
                 }}
-                dangerouslySetInnerHTML={{ __html: renderState.sections.join('') }}
+                dangerouslySetInnerHTML={{ __html: combinedColumnHtml }}
               />
             </div>
-          )}
+          ) : null}
         </>
       ) : null}
     </div>

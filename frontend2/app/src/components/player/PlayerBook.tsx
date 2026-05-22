@@ -29,6 +29,7 @@ import { chordFormatToRepresentation, writeChordFormatPreference } from '@/lib/c
 import {
   effectiveScrollType,
   isMultiColumnScrollMode,
+  isMultiColumnWithNextPreviewMode,
   multiColumnCount,
   nextPlayerScrollType,
 } from '@/lib/player/effective-scroll-type'
@@ -265,6 +266,9 @@ export function PlayerBook({
       if (rightIndex != null) prefetchIndices.add(rightIndex)
       const afterSpread = prefetchNextItemIndex(online, rightIndex ?? nav.index, itemsLen)
       if (afterSpread != null) prefetchIndices.add(afterSpread)
+    } else if (isMultiColumnWithNextPreviewMode(effectiveScroll)) {
+      const nextIndex = nav.index + 1
+      if (nextIndex < itemsLen) prefetchIndices.add(nextIndex)
     }
 
     if (prefetchIndices.size === 0) return
@@ -479,10 +483,19 @@ export function PlayerBook({
 
     const columnCount = multiColumnCount(effectiveScroll)
     if (columnCount != null) {
+      const showNextPreview = isMultiColumnWithNextPreviewMode(effectiveScroll)
+      const nextItem = showNextPreview ? player.items[itemIndex + 1] : undefined
+      const nextSong = nextItem?.type === 'chords' ? nextItem.song : undefined
       return (
         <ChordsThreeColumnSlide
           song={item.song}
           displayKey={displayKeyForItem(item, itemIndex)}
+          nextSong={nextSong}
+          nextDisplayKey={
+            nextItem?.type === 'chords'
+              ? displayKeyForItem(nextItem, itemIndex + 1)
+              : undefined
+          }
           chordFormat={chordFormat}
           columnCount={columnCount}
           fillParent={fillParent}

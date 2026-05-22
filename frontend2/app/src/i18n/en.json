@@ -210,7 +210,9 @@
       "one_page": "Sheet",
       "book": "Book",
       "two_column": "2 columns",
-      "three_column": "3 columns"
+      "two_column_next": "2 columns + next",
+      "three_column": "3 columns",
+      "three_column_next": "3 columns + next"
     },
     "orientation": {
       "current": "Orientation: {{orientation}}, change",
@@ -290,8 +292,12 @@
       "bookView": "Book",
       "twoColumnView": "2 columns",
       "twoColumnDescription": "Full-screen scroll with two columns of song sections.",
+      "twoColumnNextView": "2 columns + next",
+      "twoColumnNextDescription": "Two columns with the next song continuing in the column flow in gray, clipped to what fits on screen.",
       "threeColumnView": "3 columns",
-      "threeColumnDescription": "Full-screen scroll with three columns of song sections."
+      "threeColumnDescription": "Full-screen scroll with three columns of song sections.",
+      "threeColumnNextView": "3 columns + next",
+      "threeColumnNextDescription": "Three columns with the next song continuing in the column flow in gray, clipped to what fits on screen."
     },
     "profilePicture": {
       "title": "Profile picture",
