@@ -792,6 +792,7 @@ export function PlayerBook({
               >
                 <PlayerTocSidebar
                   toc={displayToc}
+                  items={player.items}
                   currentIndex={nav.index}
                   onSelect={(idx) => dispatch({ type: 'jump', index: idx })}
                 />

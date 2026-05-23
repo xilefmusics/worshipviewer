@@ -428,6 +428,7 @@ export function PlayerAv({
           <div className="player-av__toc shrink-0">
             <PlayerTocSidebar
               toc={player.toc}
+              items={player.items}
               currentIndex={session.itemIndex}
               onSelect={(idx) => goToItem(idx)}
             />

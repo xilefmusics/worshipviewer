@@ -205,7 +205,12 @@
       "sortOrder": "Order",
       "sortAlphabetical": "A–Z",
       "sortLiked": "Liked",
-      "emptyLiked": "No liked songs in this list."
+      "emptyLiked": "No liked songs in this list.",
+      "emptyFiltered": "No songs match the selected filters.",
+      "languageFilterGroup": "Filter by language",
+      "languageFilterAria": "Filter by {{language}}",
+      "tagFilterGroup": "Filter by tag",
+      "tagFilterAria": "Filter by {{tag}}"
     },
     "scrollMode": {
       "current": "Scroll mode: {{mode}}, change",
