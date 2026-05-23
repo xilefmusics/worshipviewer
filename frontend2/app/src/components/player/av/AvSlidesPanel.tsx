@@ -51,7 +51,7 @@ function useSlidePanelMultiColumn(): [RefObject<HTMLDivElement | null>, boolean]
 
 type AvSlidesPanelProps = {
   entries: AvSlideDeckEntry[]
-  currentSlideIndex: number
+  currentSlideIndex: number | null
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
   backgroundPreviewText: string

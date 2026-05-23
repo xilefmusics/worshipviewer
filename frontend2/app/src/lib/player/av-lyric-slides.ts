@@ -236,6 +236,30 @@ export function avPresentationIndexForSectionTitle(
   return null
 }
 
+/** Map a presentation slide index to the deck entry index shown in the slides panel. */
+export function avSlideDeckEntrySlideIndex(
+  outline: AvSectionOutline[],
+  presentationSlideIndex: number,
+): number | null {
+  let index = 0
+  for (const row of outline) {
+    for (let offset = 0; offset < row.len; offset += 1) {
+      if (index !== presentationSlideIndex) {
+        index += 1
+        continue
+      }
+      if (row.duplicate) {
+        const donor = findAvTextDonor(outline, row.title)
+        if (!donor) return null
+        const donorOffset = Math.min(offset, donor.len - 1)
+        return avPresentationIndexForSectionTitle(outline, donor.title, donorOffset)
+      }
+      return row.hasText ? index : null
+    }
+  }
+  return null
+}
+
 export function blobItemSlideText(title: string, subtitle?: string | null): string {
   if (subtitle?.trim()) return `${title}\n${subtitle.trim()}`
   return title

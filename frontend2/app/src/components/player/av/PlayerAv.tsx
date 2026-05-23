@@ -26,6 +26,7 @@ import {
 } from '@/lib/player/av-keyboard'
 import {
   avPresentationIndexForSectionTitle,
+  avSlideDeckEntrySlideIndex,
   buildAvOutlineRows,
   buildAvSlideDeckEntries,
 } from '@/lib/player/av-lyric-slides'
@@ -146,6 +147,10 @@ export function PlayerAv({
   )
   const outlineRows = useMemo(
     () => buildAvOutlineRows(currentItem.outline, session.slideIndex),
+    [currentItem.outline, session.slideIndex],
+  )
+  const selectedDeckSlideIndex = useMemo(
+    () => avSlideDeckEntrySlideIndex(currentItem.outline, session.slideIndex),
     [currentItem.outline, session.slideIndex],
   )
 
@@ -462,7 +467,7 @@ export function PlayerAv({
         >
           <AvSlidesPanel
             entries={slideDeckEntries}
-            currentSlideIndex={session.slideIndex}
+            currentSlideIndex={selectedDeckSlideIndex}
             contentLayer={prefs.contentLayer}
             backgroundLayer={prefs.backgroundLayer}
             backgroundPreviewText={currentText}

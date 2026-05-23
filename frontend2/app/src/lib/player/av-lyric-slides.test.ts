@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  avSlideDeckEntrySlideIndex,
   buildAvLyricSlides,
   buildAvOutlineRows,
   buildAvPresentationSlides,
@@ -213,6 +214,93 @@ describe('buildAvSlideDeckEntries', () => {
     expect(result.outline[2]?.duplicate).toBe(true)
     expect(result.outline[2]?.hasText).toBe(true)
     expect(buildAvSlideDeckEntries(result.outline, result.slides)).toHaveLength(2)
+  })
+})
+
+describe('avSlideDeckEntrySlideIndex', () => {
+  it('maps duplicate outline slides to the first section deck entry', () => {
+    const result = buildAvLyricSlides(
+      [
+        {
+          title: 'Chorus',
+          lines: [{ parts: [{ comment: false, languages: ['First chorus'] }] }],
+        },
+        {
+          title: 'Verse 1',
+          lines: [{ parts: [{ comment: false, languages: ['Verse line'] }] }],
+        },
+        {
+          title: 'Chorus',
+          lines: [],
+        },
+      ],
+      2,
+    )
+
+    const rows = buildAvOutlineRows(result.outline, 0)
+    const secondChorusSlideIndex = rows.find(
+      (row, index, all) =>
+        row.label === 'Chorus' && all.findIndex((candidate) => candidate.label === 'Chorus') !== index,
+    )?.slideIndex
+
+    expect(secondChorusSlideIndex).toBe(2)
+    expect(avSlideDeckEntrySlideIndex(result.outline, secondChorusSlideIndex!)).toBe(0)
+    expect(avSlideDeckEntrySlideIndex(result.outline, 0)).toBe(0)
+    expect(avSlideDeckEntrySlideIndex(result.outline, 1)).toBe(1)
+  })
+
+  it('maps duplicate sub-slides to the matching donor sub-slide', () => {
+    const { slides, outline } = buildAvLyricSlides(
+      [
+        {
+          title: 'Chorus',
+          lines: [
+            { parts: [{ comment: false, languages: ['Line one'] }] },
+            { parts: [{ comment: false, languages: ['Line two'] }] },
+            { parts: [{ comment: false, languages: ['Line three'] }] },
+          ],
+        },
+        {
+          title: 'Verse 1',
+          lines: [{ parts: [{ comment: false, languages: ['Verse line'] }] }],
+        },
+        {
+          title: 'Chorus',
+          lines: [],
+        },
+      ],
+      2,
+      0,
+      false,
+    )
+
+    expect(avSlideDeckEntrySlideIndex(outline, 3)).toBe(0)
+    expect(avSlideDeckEntrySlideIndex(outline, 4)).toBe(1)
+    expect(buildAvSlideDeckEntries(outline, slides).map((entry) => entry.slideIndex)).toEqual([0, 1, 2])
+  })
+
+  it('returns null for no-text outline slides without deck entries', () => {
+    const outline = [
+      {
+        title: 'Intro',
+        textIdx: Number.MAX_SAFE_INTEGER,
+        outlineIdx: 0,
+        len: 1,
+        duplicate: false,
+        hasText: false,
+      },
+      {
+        title: 'Verse 1',
+        textIdx: 0,
+        outlineIdx: 1,
+        len: 1,
+        duplicate: false,
+        hasText: true,
+      },
+    ]
+
+    expect(avSlideDeckEntrySlideIndex(outline, 0)).toBeNull()
+    expect(avSlideDeckEntrySlideIndex(outline, 1)).toBe(1)
   })
 })
 
