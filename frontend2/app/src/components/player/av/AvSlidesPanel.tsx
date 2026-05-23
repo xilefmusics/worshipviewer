@@ -1,0 +1,126 @@
+import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useTranslation } from 'react-i18next'
+
+import { AvSlideView } from '@/components/player/av/AvSlideView'
+import type {
+  AvBackgroundLayer,
+  AvContentLayer,
+  AvTransition,
+} from '@/lib/player/av-preferences'
+import type { AvSlideDeckEntry } from '@/lib/player/av-lyric-slides'
+import { cn } from '@/lib/utils'
+
+import './player-av.css'
+
+const SLIDE_COL_MIN_PX = 288
+const SLIDE_COL_GAP_PX = 16
+
+function firstSlideLine(text: string): string {
+  const line = text.split('\n')[0]?.trim()
+  return line || text.trim()
+}
+
+function slidePanelColumnCount(width: number): number {
+  return Math.floor((width + SLIDE_COL_GAP_PX) / (SLIDE_COL_MIN_PX + SLIDE_COL_GAP_PX))
+}
+
+function useSlidePanelMultiColumn(): [RefObject<HTMLDivElement | null>, boolean] {
+  const ref = useRef<HTMLDivElement>(null)
+  const [multiColumn, setMultiColumn] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    const update = (width: number) => {
+      setMultiColumn(slidePanelColumnCount(width) >= 2)
+    }
+
+    update(el.getBoundingClientRect().width)
+    const observer = new ResizeObserver(([entry]) => {
+      update(entry.contentRect.width)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return [ref, multiColumn]
+}
+
+type AvSlidesPanelProps = {
+  entries: AvSlideDeckEntry[]
+  currentSlideIndex: number
+  contentLayer: AvContentLayer
+  backgroundLayer: AvBackgroundLayer
+  transition: AvTransition
+  onSelectSlide: (slideIndex: number) => void
+}
+
+export function AvSlidesPanel({
+  entries,
+  currentSlideIndex,
+  contentLayer,
+  backgroundLayer,
+  transition,
+  onSelectSlide,
+}: AvSlidesPanelProps) {
+  const { t } = useTranslation()
+  const [panelRef, multiColumn] = useSlidePanelMultiColumn()
+
+  if (entries.length === 0) {
+    return (
+      <div className="av-slides-panel av-slides-panel--empty">
+        <p className="av-slides-panel__empty">{t('player.av.emptySlide')}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={panelRef}
+      className={cn('av-slides-panel', multiColumn && 'av-slides-panel--multi-column')}
+      role="list"
+      aria-label={t('player.av.slidesAria')}
+    >
+      {entries.map((entry) => {
+        const selected = entry.slideIndex === currentSlideIndex
+        const previewText = multiColumn ? entry.text : firstSlideLine(entry.text)
+        return (
+          <button
+            key={entry.slideIndex}
+            type="button"
+            role="listitem"
+            className={cn(
+              'av-slides-panel__card',
+              selected && 'av-slides-panel__card--selected',
+              entry.isSubSlide && 'av-slides-panel__card--sub',
+            )}
+            aria-current={selected ? 'true' : undefined}
+            aria-label={entry.label}
+            onClick={() => onSelectSlide(entry.slideIndex)}
+          >
+            <div className="av-slides-panel__header">{entry.label}</div>
+            <div
+              className={cn(
+                'av-slides-panel__preview',
+                multiColumn
+                  ? 'av-slides-panel__preview--full'
+                  : 'av-slides-panel__preview--compact',
+              )}
+            >
+              <AvSlideView
+                contentText={previewText}
+                contentLayer={contentLayer}
+                backgroundLayer={backgroundLayer}
+                transition={transition}
+                blackout={false}
+                compact={!multiColumn}
+                className={multiColumn ? undefined : 'av-slide-view--compact'}
+              />
+            </div>
+          </button>
+        )
+      })}
+    </div>
+  )
+}

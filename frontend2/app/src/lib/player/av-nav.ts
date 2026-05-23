@@ -1,6 +1,11 @@
 import type { components } from '@/api/schema'
 
-import { buildAvLyricSlides, blobItemSlideText } from '@/lib/player/av-lyric-slides'
+import {
+  type AvSectionOutline,
+  blobItemSlideText,
+  buildAvLyricSlides,
+  buildAvPresentationSlides,
+} from '@/lib/player/av-lyric-slides'
 import { itemTypeAt, tocEntryForIndex } from '@/lib/player/player-helpers'
 
 type Player = components['schemas']['Player']
@@ -8,6 +13,8 @@ type PlayerItem = components['schemas']['PlayerItem']
 
 export type AvItemSlides = {
   slides: string[]
+  sourceSlides: string[]
+  outline: AvSectionOutline[]
   kind: 'lyrics' | 'blob'
 }
 
@@ -16,20 +23,37 @@ export function avSlidesForItem(
   maxLinesPerSlide: number,
   fallbackTitle?: string,
 ): AvItemSlides {
-  if (!item) return { slides: [''], kind: 'blob' }
+  if (!item) return { slides: [''], sourceSlides: [''], outline: [], kind: 'blob' }
   if (item.type === 'blob') {
+    const text = blobItemSlideText(fallbackTitle?.trim() || 'Untitled')
     return {
-      slides: [blobItemSlideText(fallbackTitle?.trim() || 'Untitled')],
+      slides: [text],
+      sourceSlides: [text],
+      outline: [],
       kind: 'blob',
     }
   }
   const songData = item.song.data
   const title = songData.titles?.[0]?.trim() || 'Untitled'
-  const { slides } = buildAvLyricSlides(songData.sections, maxLinesPerSlide)
-  if (slides.length === 0) {
-    return { slides: [title], kind: 'lyrics' }
+  const lyricData = buildAvLyricSlides(songData.sections, maxLinesPerSlide)
+  if (lyricData.outline.length === 0 && lyricData.slides.length === 0) {
+    return { slides: [title], sourceSlides: [title], outline: [], kind: 'lyrics' }
   }
-  return { slides, kind: 'lyrics' }
+  const slides = buildAvPresentationSlides(lyricData.outline, lyricData.slides)
+  if (slides.length === 0) {
+    return {
+      slides: [title],
+      sourceSlides: lyricData.slides,
+      outline: lyricData.outline,
+      kind: 'lyrics',
+    }
+  }
+  return {
+    slides,
+    sourceSlides: lyricData.slides,
+    outline: lyricData.outline,
+    kind: 'lyrics',
+  }
 }
 
 export function avSlidesForPlayerItem(
@@ -109,6 +133,22 @@ export function avPrevPosition(
     return avPositionFromFlatIndex(flat, flatIndex - 1)
   }
   return null
+}
+
+export function avPrevSlideInItem(slideIndex: number): number | null {
+  return slideIndex > 0 ? slideIndex - 1 : null
+}
+
+export function avNextSlideInItem(slideCount: number, slideIndex: number): number | null {
+  return slideIndex < slideCount - 1 ? slideIndex + 1 : null
+}
+
+export function avPrevItemIndex(itemIndex: number): number | null {
+  return itemIndex > 0 ? itemIndex - 1 : null
+}
+
+export function avNextItemIndex(itemIndex: number, itemCount: number): number | null {
+  return itemIndex < itemCount - 1 ? itemIndex + 1 : null
 }
 
 export function avItemTitle(

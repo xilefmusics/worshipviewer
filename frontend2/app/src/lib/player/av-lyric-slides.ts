@@ -41,37 +41,33 @@ function buildSlidesFromSections(
   let slideIdxCounter = 0
 
   for (const section of sections) {
-    const repeatCount = Math.max(1, section.repeat_count ?? 1)
-    for (let repeat = 0; repeat < repeatCount; repeat += 1) {
-      const currentIdx = slideIdxCounter
-      let slideLenCounter = 0
-      let slide = ''
+    const currentIdx = slideIdxCounter
+    let slideLenCounter = 0
+    let slide = ''
 
-      for (const line of section.lines) {
-        const lineText = lyricFromLine(line, languageIndex)
-        if (!lineText.trim()) continue
+    for (const line of section.lines) {
+      const lineText = lyricFromLine(line, languageIndex)
+      if (!lineText.trim()) continue
 
-        const lineCount = slide ? slide.split('\n').length : 0
-        if (lineCount >= maxLinesPerSlide) {
-          slides.push(slide)
-          slideLenCounter += 1
-          slideIdxCounter += 1
-          slide = lineText
-        } else {
-          slide = slide ? `${slide}\n${lineText}` : lineText
-        }
-      }
-
-      if (slide.trim()) {
+      const lineCount = slide ? slide.split('\n').length : 0
+      if (lineCount >= maxLinesPerSlide) {
         slides.push(slide)
         slideLenCounter += 1
         slideIdxCounter += 1
+        slide = lineText
+      } else {
+        slide = slide ? `${slide}\n${lineText}` : lineText
       }
+    }
 
-      const mapKey = repeatCount > 1 ? `${section.title} (${repeat + 1})` : section.title
-      if (slideLenCounter > 0 && !sectionMap.has(mapKey)) {
-        sectionMap.set(mapKey, { textIdx: currentIdx, len: slideLenCounter })
-      }
+    if (slide.trim()) {
+      slides.push(slide)
+      slideLenCounter += 1
+      slideIdxCounter += 1
+    }
+
+    if (slideLenCounter > 0 && !sectionMap.has(section.title)) {
+      sectionMap.set(section.title, { textIdx: currentIdx, len: slideLenCounter })
     }
   }
 
@@ -87,24 +83,20 @@ function buildOutline(
   let outlineIdx = 0
 
   for (const section of sections) {
-    const repeatCount = Math.max(1, section.repeat_count ?? 1)
-    for (let repeat = 0; repeat < repeatCount; repeat += 1) {
-      const mapKey = repeatCount > 1 ? `${section.title} (${repeat + 1})` : section.title
-      const entry = sectionMap.get(mapKey)
-      const len = entry?.len ?? 0
-      const textIdx = entry?.textIdx ?? Number.MAX_SAFE_INTEGER
+    const entry = sectionMap.get(section.title)
+    const len = entry?.len ?? 0
+    const textIdx = entry?.textIdx ?? Number.MAX_SAFE_INTEGER
 
-      outline.push({
-        title: mapKey,
-        textIdx,
-        outlineIdx,
-        len: len || 1,
-        duplicate: seen.has(section.title),
-        hasText: textIdx !== Number.MAX_SAFE_INTEGER,
-      })
-      seen.add(section.title)
-      outlineIdx += len || 1
-    }
+    outline.push({
+      title: section.title,
+      textIdx,
+      outlineIdx,
+      len: len || 1,
+      duplicate: seen.has(section.title),
+      hasText: textIdx !== Number.MAX_SAFE_INTEGER,
+    })
+    seen.add(section.title)
+    outlineIdx += len || 1
   }
 
   return outline
@@ -133,7 +125,144 @@ export function findAvSectionOutline(
   return outline.find((row) => row.title === title || row.title.startsWith(`${title} (`))
 }
 
+/** Strip trailing " (N)" repeat suffix for section name matching. */
+export function baseSectionTitle(title: string): string {
+  return title.replace(/ \(\d+\)$/, '')
+}
+
+export function findAvTextDonor(
+  outline: AvSectionOutline[],
+  title: string,
+): AvSectionOutline | undefined {
+  const base = baseSectionTitle(title)
+  return outline.find((row) => row.hasText && baseSectionTitle(row.title) === base)
+}
+
+export function resolveAvOutlineSlideText(
+  outline: AvSectionOutline[],
+  slides: string[],
+  row: AvSectionOutline,
+  offset = 0,
+): string {
+  if (row.hasText) {
+    return slides[row.textIdx + offset] ?? ''
+  }
+  const donor = findAvTextDonor(outline, row.title)
+  if (!donor) return ''
+  const donorOffset = Math.min(offset, donor.len - 1)
+  return slides[donor.textIdx + donorOffset] ?? ''
+}
+
+/** Full navigable slide list aligned with the outline (includes empty/borrowed slides). */
+export function buildAvPresentationSlides(
+  outline: AvSectionOutline[],
+  slides: string[],
+): string[] {
+  if (outline.length === 0) {
+    return slides
+  }
+  const presentation: string[] = []
+  for (const row of outline) {
+    for (let offset = 0; offset < row.len; offset += 1) {
+      presentation.push(resolveAvOutlineSlideText(outline, slides, row, offset))
+    }
+  }
+  return presentation
+}
+
+export function avPresentationIndexForSectionTitle(
+  outline: AvSectionOutline[],
+  title: string,
+  offset = 0,
+): number | null {
+  let index = 0
+  for (const row of outline) {
+    if (row.title === title || row.title.startsWith(`${title} (`)) {
+      return index + offset
+    }
+    index += row.len
+  }
+  return null
+}
+
 export function blobItemSlideText(title: string, subtitle?: string | null): string {
   if (subtitle?.trim()) return `${title}\n${subtitle.trim()}`
   return title
+}
+
+export type AvSlideDeckEntry = {
+  slideIndex: number
+  label: string
+  text: string
+  isSubSlide: boolean
+  hasText: boolean
+}
+
+/** Clickable slide cards for the current item (legacy presenter Slides panel). */
+export function buildAvSlideDeckEntries(
+  outline: AvSectionOutline[],
+  sourceSlides: string[],
+): AvSlideDeckEntry[] {
+  const entries: AvSlideDeckEntry[] = []
+  let presentationIndex = 0
+  for (const row of outline) {
+    if (row.duplicate) {
+      presentationIndex += row.len
+      continue
+    }
+    for (let offset = 0; offset < row.len; offset += 1) {
+      if (row.hasText) {
+        entries.push({
+          slideIndex: presentationIndex,
+          label: offset === 0 ? row.title : `${row.title} (${offset + 1})`,
+          text: resolveAvOutlineSlideText(outline, sourceSlides, row, offset),
+          isSubSlide: offset > 0,
+          hasText: true,
+        })
+      }
+      presentationIndex += 1
+    }
+  }
+  if (entries.length === 0) {
+    for (let slideIndex = 0; slideIndex < sourceSlides.length; slideIndex += 1) {
+      entries.push({
+        slideIndex,
+        label: `Slide ${slideIndex + 1}`,
+        text: sourceSlides[slideIndex] ?? '',
+        isSubSlide: false,
+        hasText: true,
+      })
+    }
+  }
+  return entries
+}
+
+export type AvOutlineRow = {
+  slideIndex: number
+  label: string
+  isSubSlide: boolean
+  hasText: boolean
+  selected: boolean
+}
+
+/** Flat outline rows for the current item (legacy presenter Outline panel). */
+export function buildAvOutlineRows(
+  outline: AvSectionOutline[],
+  currentSlideIndex: number,
+): AvOutlineRow[] {
+  const rows: AvOutlineRow[] = []
+  let slideIndex = 0
+  for (const item of outline) {
+    for (let offset = 0; offset < item.len; offset += 1) {
+      rows.push({
+        slideIndex,
+        label: offset === 0 ? item.title : `${item.title} (${offset + 1})`,
+        isSubSlide: offset > 0,
+        hasText: item.hasText,
+        selected: slideIndex === currentSlideIndex,
+      })
+      slideIndex += 1
+    }
+  }
+  return rows
 }

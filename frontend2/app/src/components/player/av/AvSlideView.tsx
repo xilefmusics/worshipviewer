@@ -19,6 +19,7 @@ type AvSlideViewProps = {
   transition: AvTransition
   blackout: boolean
   className?: string
+  compact?: boolean
 }
 
 export function AvSlideView({
@@ -28,6 +29,7 @@ export function AvSlideView({
   transition,
   blackout,
   className,
+  compact = false,
 }: AvSlideViewProps) {
   const reduceMotion = useReducedMotion()
   const effectiveTransition = effectiveAvTransition(transition, reduceMotion ?? false)
@@ -62,7 +64,7 @@ export function AvSlideView({
             transition={{ duration }}
             className="h-full w-full"
           >
-            <AvSlideContent text={contentText} contentLayer={contentLayer} />
+            <AvSlideContent text={contentText} contentLayer={contentLayer} compact={compact} />
           </motion.div>
         </AnimatePresence>
       </div>

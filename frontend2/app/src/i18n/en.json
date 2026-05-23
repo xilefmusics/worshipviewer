@@ -254,7 +254,9 @@
       "openSettings": "AV player settings",
       "openOutput": "Open output",
       "outputAria": "Projection output",
-      "outputMissingSession": "Missing projection session."
+      "outputMissingSession": "Missing projection session.",
+      "slidesAria": "Slides for current item",
+      "outlineAria": "Section outline"
     }
   },
   "settings": {

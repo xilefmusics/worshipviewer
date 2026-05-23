@@ -254,7 +254,9 @@
       "openSettings": "AV-Player-Einstellungen",
       "openOutput": "Ausgabe öffnen",
       "outputAria": "Projektionsausgabe",
-      "outputMissingSession": "Projektionssitzung fehlt."
+      "outputMissingSession": "Projektionssitzung fehlt.",
+      "slidesAria": "Folien des aktuellen Elements",
+      "outlineAria": "Abschnittsübersicht"
     }
   },
   "settings": {
