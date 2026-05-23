@@ -9,4 +9,4 @@ pub use orientation::Orientation;
 pub use player::Player;
 pub use player_item::{PlayerBlobItem, PlayerChordsItem, PlayerItem};
 pub use scroll_type::ScrollType;
-pub use toc_item::{resolve_toc_nr, TocItem};
+pub use toc_item::TocItem;

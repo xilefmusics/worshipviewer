@@ -110,10 +110,7 @@ pub fn player_from_song_links(
             Player::from(SongLinkOwned {
                 liked: liked_set.contains(&link.song.id),
                 song: link.song,
-                nr: Some(shared::player::resolve_toc_nr(
-                    link.nr.as_deref(),
-                    idx + 1,
-                )),
+                nr: Some(link.nr.unwrap_or_else(|| (idx + 1).to_string())),
                 key: link.key,
             })
         })
@@ -302,37 +299,5 @@ mod tests {
         assert_eq!(toc.len(), 2);
         assert_eq!(toc[0].nr, "1");
         assert_eq!(toc[1].nr, "x");
-    }
-
-    #[test]
-    fn player_from_song_links_defaults_blank_nr_to_index() {
-        use shared::song::LinkOwned as SongLinkOwned;
-
-        let s1 = Song {
-            id: "a".into(),
-            ..Default::default()
-        };
-        let s2 = Song {
-            id: "b".into(),
-            ..Default::default()
-        };
-        let links = vec![
-            SongLinkOwned {
-                song: s1,
-                nr: Some("   ".into()),
-                key: None,
-                liked: false,
-            },
-            SongLinkOwned {
-                song: s2,
-                nr: Some("".into()),
-                key: None,
-                liked: false,
-            },
-        ];
-        let player = player_from_song_links(HashSet::new(), links).unwrap();
-        let toc = player.toc();
-        assert_eq!(toc[0].nr, "1");
-        assert_eq!(toc[1].nr, "2");
     }
 }
