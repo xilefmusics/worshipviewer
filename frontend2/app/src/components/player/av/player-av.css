@@ -161,6 +161,70 @@
   color: var(--color-foreground);
 }
 
+.player-av__section-shortcuts {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 0.5rem;
+}
+
+.player-av__section-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  background: var(--color-bg);
+  padding: 0.5rem;
+  color: var(--color-foreground);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.player-av__section-shortcut:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg));
+}
+
+.player-av__section-shortcut--active {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-bg));
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.player-av__section-shortcut--active .player-av__section-shortcut-key {
+  background: color-mix(in srgb, var(--color-primary) 18%, var(--color-muted));
+  color: var(--color-primary);
+}
+
+.player-av__section-shortcut-key {
+  display: inline-flex;
+  min-width: 1rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  background: var(--color-muted);
+  padding: 0.125rem 0.25rem;
+  color: var(--color-muted-foreground);
+  font-family: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.player-av__section-shortcut-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .player-av-warning {
   border-bottom: 1px solid var(--color-border);
   background: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
@@ -170,7 +234,22 @@
 }
 
 .player-av__body {
+  display: flex;
   overflow: hidden;
+  min-height: 0;
+}
+
+.player-av__toc {
+  display: flex;
+  min-height: 0;
+}
+
+.player-av__center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
 }
 
 .player-av__slides {
@@ -181,6 +260,7 @@
 .player-av__right {
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border-left: 1px solid var(--color-border);
   background: var(--color-surface);
   overflow: hidden;

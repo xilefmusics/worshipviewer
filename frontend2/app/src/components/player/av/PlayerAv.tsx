@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { AvOutlinePanel } from '@/components/player/av/AvOutlinePanel'
+import { AvSectionShortcuts } from '@/components/player/av/AvSectionShortcuts'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
 import { AvSlidesPanel } from '@/components/player/av/AvSlidesPanel'
 import { PlayerTocSidebar } from '@/components/player/PlayerTocSidebar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
+import { OutputIcon } from '@/components/icons/lucide-animated/output-icon'
 import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
 import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -98,9 +100,6 @@ export function PlayerAv({
   const { t } = useTranslation()
   const navigate = useNavigate()
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
-  const isSmViewport = useMediaQuery('(min-width: 640px)')
-  const tocInsetPx = isSmViewport ? 224 : 176
-
   const [prefs, setPrefs] = useState<AvPreferences>(() => readAvPreferences())
   const [session, setSession] = useState<AvSessionState>(() => {
     const saved = readAvSessionState(type, id)
@@ -331,21 +330,6 @@ export function PlayerAv({
         void navigate({ to: backTo })
         return
       }
-      if (action === 'toggleToc') {
-        e.preventDefault()
-        setTocVisible((visible) => !visible)
-        return
-      }
-      if (action === 'blackoutOn') {
-        e.preventDefault()
-        setSession((state) => ({ ...state, blackout: true }))
-        return
-      }
-      if (action === 'blackoutOff') {
-        e.preventDefault()
-        setSession((state) => ({ ...state, blackout: false }))
-        return
-      }
       if (action === 'toggleBlackout') {
         e.preventDefault()
         setSession((state) => ({ ...state, blackout: !state.blackout }))
@@ -420,23 +404,12 @@ export function PlayerAv({
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            className="min-h-11 shrink-0"
+            size="icon"
+            className="min-h-11 min-w-11 shrink-0"
             aria-label={t('player.av.openOutput')}
             onClick={() => openOutputWindow()}
           >
-            {t('player.av.openOutput')}
-          </Button>
-          <Button
-            type="button"
-            variant={session.blackout ? 'default' : 'outline'}
-            size="sm"
-            className="min-h-11 min-w-11"
-            aria-label={t('player.av.blackoutToggle')}
-            aria-pressed={session.blackout}
-            onClick={() => setSession((state) => ({ ...state, blackout: !state.blackout }))}
-          >
-            {t('player.av.blackout')}
+            <OutputIcon size={18} className="text-[var(--color-foreground)]" />
           </Button>
           <Button type="button" variant="outline" size="icon" asChild className="min-h-11 min-w-11">
             <Link
@@ -450,9 +423,9 @@ export function PlayerAv({
         </div>
       </header>
 
-      <div className="player-av__body relative flex min-h-0 flex-1">
+      <div className="player-av__body flex min-h-0 flex-1">
         {tocVisible && showToc ? (
-          <div className="player-av__toc absolute inset-y-0 left-0 z-10" style={{ width: tocInsetPx }}>
+          <div className="player-av__toc shrink-0">
             <PlayerTocSidebar
               toc={player.toc}
               currentIndex={session.itemIndex}
@@ -461,20 +434,26 @@ export function PlayerAv({
           </div>
         ) : null}
 
-        <div
-          className="player-av__slides min-h-0 flex-1 overflow-hidden"
-          style={{ paddingLeft: tocVisible && showToc ? tocInsetPx : 0 }}
-        >
-          <AvSlidesPanel
-            entries={slideDeckEntries}
-            currentSlideIndex={selectedDeckSlideIndex}
-            contentLayer={prefs.contentLayer}
-            backgroundLayer={prefs.backgroundLayer}
-            backgroundPreviewText={currentText}
-            transition={prefs.transition}
-            onSelectSlide={(slideIndex) => goToSlide(slideIndex)}
-            onSelectBackgroundPreset={setBackgroundPreset}
+        <div className="player-av__center min-h-0 min-w-0 flex flex-1 flex-col">
+          <AvSectionShortcuts
+            outline={currentItem.outline}
+            blackout={session.blackout}
+            onJump={jumpToSection}
+            onToggleBlackout={() => setSession((state) => ({ ...state, blackout: !state.blackout }))}
           />
+
+          <div className="player-av__slides min-h-0 flex-1 overflow-hidden">
+            <AvSlidesPanel
+              entries={slideDeckEntries}
+              currentSlideIndex={selectedDeckSlideIndex}
+              contentLayer={prefs.contentLayer}
+              backgroundLayer={prefs.backgroundLayer}
+              backgroundPreviewText={currentText}
+              transition={prefs.transition}
+              onSelectSlide={(slideIndex) => goToSlide(slideIndex)}
+              onSelectBackgroundPreset={setBackgroundPreset}
+            />
+          </div>
         </div>
 
         <aside className="player-av__right w-44 shrink-0 sm:w-56">

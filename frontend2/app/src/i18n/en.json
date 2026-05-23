@@ -260,7 +260,9 @@
       "backgroundAria": "Slide background",
       "backgroundTitle": "Background",
       "backgroundExpand": "Expand background selector",
-      "backgroundCollapse": "Collapse background selector"
+      "backgroundCollapse": "Collapse background selector",
+      "sectionShortcutsAria": "Jump to section",
+      "sectionJump": "Jump to {{section}} ({{key}})"
     }
   },
   "settings": {

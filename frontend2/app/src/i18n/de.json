@@ -260,7 +260,9 @@
       "backgroundAria": "Folienhintergrund",
       "backgroundTitle": "Hintergrund",
       "backgroundExpand": "Hintergrundauswahl einblenden",
-      "backgroundCollapse": "Hintergrundauswahl ausblenden"
+      "backgroundCollapse": "Hintergrundauswahl ausblenden",
+      "sectionShortcutsAria": "Zu Abschnitt springen",
+      "sectionJump": "Zu {{section}} springen ({{key}})"
     }
   },
   "settings": {
