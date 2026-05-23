@@ -1,4 +1,5 @@
 import type { HubEntity } from '@/lib/hub-entity'
+import type { PlayerMode } from '@/lib/player/player-mode'
 
 export type PlayerEntityType = 'collection' | 'song' | 'setlist'
 
@@ -13,12 +14,14 @@ export function buildPlayerSearch(
   type: PlayerEntityType,
   id: string,
   index?: number,
+  mode?: PlayerMode,
 ): {
   type: PlayerEntityType
   id: string
   index: number | undefined
+  mode: PlayerMode | undefined
 } {
-  return { type, id, index }
+  return { type, id, index, mode }
 }
 
 /** @deprecated Prefer {@link buildPlayerSearch} for typed TanStack Router search. */

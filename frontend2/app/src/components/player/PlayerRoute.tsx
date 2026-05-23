@@ -5,8 +5,10 @@ import { useTranslation } from 'react-i18next'
 
 import { fetchCollectionDetail } from '@/api/collections-detail'
 import { fetchSetlistDetail, fetchSongForHubSlot } from '@/api/setlists-detail'
+import { PlayerAv } from '@/components/player/av/PlayerAv'
 import { PlayerBook } from '@/components/player/PlayerBook'
 import { Button } from '@/components/ui/button'
+import type { PlayerMode } from '@/lib/player/player-mode'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { resolvePlayerForRoute } from '@/lib/offline/resolve-player'
 import {
@@ -21,6 +23,7 @@ export type PlayerRouteInnerProps = {
   type: PlayerEntityType
   id: string
   initialIndex?: number
+  mode: PlayerMode
 }
 
 function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs' | '/setlists' {
@@ -60,7 +63,7 @@ function usePlayerResourceTitle(type: PlayerEntityType, id: string, enabled: boo
   return data
 }
 
-export function PlayerRouteInner({ type, id, initialIndex }: PlayerRouteInnerProps) {
+export function PlayerRouteInner({ type, id, initialIndex, mode }: PlayerRouteInnerProps) {
   const { t } = useTranslation()
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: playerQueryKey(type, id),
@@ -138,16 +141,19 @@ export function PlayerRouteInner({ type, id, initialIndex }: PlayerRouteInnerPro
     return null
   }
 
-  return (
-    <PlayerBook
-      key={`${type}-${id}`}
-      type={type}
-      id={id}
-      player={player}
-      initialIndex={initialIndex}
-      allowNetworkFetch={allowNetworkFetch}
-      resourceTitle={resourceTitle}
-      deletedReconciled={data.deletedReconciled}
-    />
-  )
+  const sharedProps = {
+    type,
+    id,
+    player,
+    initialIndex,
+    allowNetworkFetch,
+    resourceTitle,
+    deletedReconciled: data.deletedReconciled,
+  }
+
+  if (mode === 'av') {
+    return <PlayerAv key={`${type}-${id}-av`} {...sharedProps} />
+  }
+
+  return <PlayerBook key={`${type}-${id}`} {...sharedProps} />
 }

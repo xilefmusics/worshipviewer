@@ -110,6 +110,7 @@ sequenceDiagram
 
 ## Sync-player readiness (not implemented yet)
 
+- **Player mode layering (E8.1):** `/player?mode=normal|av` selects a **view variant** on the same payload. **AV mode** syncs projection output via **`BroadcastChannel` + `localStorage` snapshot** (`av-projection-sync.ts`) until **`SyncTransport`** (E9) replaces ad-hoc cross-window transport. Output route **`/player/output?s=`** is a read-only mirror of AV control state — not a second player domain model.
 - **Player state** lives in a small Zustand store (or reducer) that emits **`PlayerEvent`**s: navigate index, scroll mode, orientation, etc.
 - **`SyncTransport`** subscribes and rebroadcasts; remote events apply to the same reducer.
 - **Sync iteration 1 (web):** `WebSocket` to a future `/api/v1/sync` (or room URL) — adapter `wsSyncTransport`.

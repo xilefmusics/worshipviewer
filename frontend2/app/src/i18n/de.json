@@ -122,6 +122,8 @@
     "actions": {
       "edit": "Bearbeiten",
       "play": "Abspielen",
+      "playNormal": "Im Normalmodus abspielen",
+      "playAv": "Im AV-Modus abspielen",
       "addToSetlist": "Zur Setliste hinzufügen",
       "duplicate": "Duplizieren",
       "duplicateSuccess": "„{{title}}“ erstellt.",
@@ -233,7 +235,27 @@
     "editSong": "Song bearbeiten",
     "editSetlist": "Setliste bearbeiten",
     "editCollection": "Sammlung bearbeiten",
-    "openSettings": "Player-Einstellungen"
+    "openSettings": "Player-Einstellungen",
+    "mode": {
+      "normal": "Normalmodus",
+      "av": "AV-Modus"
+    },
+    "av": {
+      "mainAria": "AV-Player — {{title}}",
+      "position": "Folie {{slide}} / {{slides}} · Element {{item}} / {{items}}",
+      "current": "Aktuell",
+      "next": "Nächste",
+      "emptySlide": "Leere Folie",
+      "noNext": "Keine nächste Folie",
+      "blackout": "Blackout",
+      "blackoutToggle": "Blackout umschalten",
+      "blackoutOn": "Blackout ein",
+      "slideAnnounce": "Folie {{current}} von {{total}} — {{title}}",
+      "openSettings": "AV-Player-Einstellungen",
+      "openOutput": "Ausgabe öffnen",
+      "outputAria": "Projektionsausgabe",
+      "outputMissingSession": "Projektionssitzung fehlt."
+    }
   },
   "settings": {
     "title": "Einstellungen",
@@ -242,7 +264,8 @@
     "tabs": {
       "aria": "Einstellungsbereiche",
       "general": "Allgemein",
-      "player": "Player"
+      "player": "Player",
+      "playerRoles": "Player-Rollen / AV"
     },
     "language": {
       "title": "Sprache",
@@ -307,6 +330,103 @@
       "threeColumnDescription": "Vollbild-Scrollen mit drei Spalten aus Songabschnitten.",
       "threeColumnNextView": "3 Spalten + nächstes",
       "threeColumnNextDescription": "Drei Spalten mit dem nächsten Song im Spaltenfluss in Grau, auf den sichtbaren Platz begrenzt."
+    },
+    "playerRoles": {
+      "defaultMode": {
+        "title": "Standard-Playermodus",
+        "description": "Tippen auf Songs, Setlisten und Sammlungen öffnet den Player in diesem Modus.",
+        "normal": "Normalmodus",
+        "normalDescription": "Buchmodus mit Akkordblättern und Anhängen.",
+        "av": "AV-Modus",
+        "avDescription": "Lyrik-Projektion mit getrennten Inhalts- und Hintergrundebenen."
+      },
+      "content": {
+        "title": "Inhaltsebene",
+        "description": "Typografie und Layout für projizierte Lyrics.",
+        "maxLines": "Zeilen pro Folie",
+        "fontSize": "Schriftgröße",
+        "textAlignTitle": "Textausrichtung",
+        "textAlignDescription": "Ausrichtung jeder Lyrikzeile.",
+        "alignLeft": "Links",
+        "alignLeftDescription": "Lyrics links ausrichten.",
+        "alignCenter": "Zentriert",
+        "alignCenterDescription": "Lyrics horizontal zentrieren.",
+        "alignRight": "Rechts",
+        "alignRightDescription": "Lyrics rechts ausrichten.",
+        "verticalAlignTitle": "Vertikale Position",
+        "verticalAlignDescription": "Platzierung der Lyrics auf der Folie.",
+        "verticalTop": "Oben",
+        "verticalTopDescription": "Lyrics oben platzieren.",
+        "verticalCenter": "Mitte",
+        "verticalCenterDescription": "Lyrics vertikal zentrieren.",
+        "verticalBottom": "Unten",
+        "verticalBottomDescription": "Lyrics unten platzieren.",
+        "textShadowTitle": "Textschatten",
+        "textShadowDescription": "Lesbarkeit über Hintergründen verbessern.",
+        "shadowNone": "Keiner",
+        "shadowNoneDescription": "Kein Textschatten.",
+        "shadowSubtle": "Dezent",
+        "shadowSubtleDescription": "Leichter Schatten für Kontrast.",
+        "shadowMedium": "Mittel",
+        "shadowMediumDescription": "Mäßiger Schatten.",
+        "shadowStrong": "Stark",
+        "shadowStrongDescription": "Starker Schatten für unruhige Hintergründe.",
+        "textTransformTitle": "Texttransform",
+        "textTransformDescription": "Schreibweise der Lyrics ändern.",
+        "transformNone": "Keine",
+        "transformNoneDescription": "Originalschreibweise beibehalten.",
+        "transformUppercase": "Großbuchstaben",
+        "transformUppercaseDescription": "Lyrics in Großbuchstaben.",
+        "transformLowercase": "Kleinbuchstaben",
+        "transformLowercaseDescription": "Lyrics in Kleinbuchstaben.",
+        "transformCapitalize": "Kapitalisieren",
+        "transformCapitalizeDescription": "Jedes Wort groß schreiben."
+      },
+      "background": {
+        "title": "Hintergrundebene",
+        "description": "Wähle, was hinter den Lyrics erscheint.",
+        "color": "Volltonfarbe",
+        "colorDescription": "Folie mit einer Farbe füllen.",
+        "gradient": "Verlauf",
+        "gradientDescription": "Zweifarbigen Verlauf verwenden.",
+        "image": "Bild",
+        "imageDescription": "Hintergrundbild-URL verwenden.",
+        "video": "Video",
+        "videoDescription": "Loop-Hintergrundvideo-URL verwenden.",
+        "detailsTitle": "Hintergrunddetails",
+        "detailsDescription": "Aktive Hintergrundquelle anpassen.",
+        "colorValue": "Hintergrundfarbe",
+        "gradientFrom": "Verlauf Start",
+        "gradientTo": "Verlauf Ende",
+        "mediaUrl": "Medien-URL",
+        "brightness": "Helligkeit"
+      },
+      "transition": {
+        "title": "Folienübergang",
+        "description": "Inhaltswechsel zwischen Folien animieren.",
+        "none": "Keiner",
+        "noneDescription": "Folien sofort wechseln.",
+        "fade": "Überblenden",
+        "fadeDescription": "Folien überblenden.",
+        "slide": "Schieben",
+        "slideDescription": "Inhalt horizontal schieben.",
+        "durationTitle": "Übergangsdauer",
+        "durationDescription": "Millisekunden für Folienübergänge (respektiert weniger Bewegung)."
+      },
+      "projection": {
+        "autoOpenTitle": "Projektionsausgabe",
+        "autoOpenDescription": "Beim AV-Start ein zweites Fenster für Beamer-Ausgabe öffnen.",
+        "autoOpenOn": "Automatisch öffnen",
+        "autoOpenOnDescription": "Ausgabefenster beim AV-Start öffnen.",
+        "autoOpenOff": "Nur manuell",
+        "autoOpenOffDescription": "Ausgabefenster über AV-Steuerung öffnen.",
+        "fullscreenTitle": "Ausgabe Vollbild",
+        "fullscreenDescription": "Doppelklick im Ausgabefenster für Vollbild.",
+        "fullscreenOn": "Vollbild erlauben",
+        "fullscreenOnDescription": "Doppelklick schaltet Vollbild im Ausgabefenster.",
+        "fullscreenOff": "Kein Vollbild-Shortcut",
+        "fullscreenOffDescription": "Doppelklick-Vollbild im Ausgabefenster deaktivieren."
+      }
     },
     "profilePicture": {
       "title": "Profilbild",

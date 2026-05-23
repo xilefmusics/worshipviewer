@@ -391,6 +391,19 @@ Promote any changes to exit criteria into [roadmap.md](./roadmap.md); keep this 
 | E8.R7 | **Hub Duplicate** | Long-press **Duplicate** on setlists/collections → GET detail, POST copy with `(copy)` suffix, navigate to new editor. |
 | E8.R8 | **CI gate** | GitHub Actions **`frontend-ci.yml`**: `pnpm -C frontend2` test, typecheck, lint, build (+ `build:wasm`). |
 
+### E8.1 interactive grill — user session (resolved)
+
+*Implementation choices locked during **E8.1** ([epic-e8.1-action-plan.md](./epic-e8.1-action-plan.md)).*
+
+| # | Topic | Decision |
+|---|--------|----------|
+| E8.1.R1 | **Mode launch** | Optional `/player?mode=normal\|av`; omit → global default from Settings. No in-player mode switch in E8.1. |
+| E8.1.R2 | **Context menu Play** | **Play in Normal mode** and **Play in AV mode** replace single Play on hub rows. Editor Play uses global default. |
+| E8.1.R3 | **AV keyboard** | Separate map from Normal (`av-keyboard.ts`): nav keys, **`R`** blackout on, **`r`** off, **`b`** toggle, section jumps `c`/`v`/`1`–`4`. |
+| E8.1.R4 | **Projection output** | Dual-window via `/player/output?s=`; **`BroadcastChannel` + localStorage** sync. Popup blocked → persistent single-screen warning + reopen control. |
+| E8.1.R5 | **AV layers** | **Content** and **background** modeled separately in `av-preferences.ts`; blob items render one title slide from TOC. |
+| E8.1.R6 | **Settings tab** | **`/settings?tab=playerRoles`** — default mode, content, background, transitions, projection prefs; AV player quick-link opens this tab. |
+
 ## Related docs
 
 - [Plan index](./plan.md)

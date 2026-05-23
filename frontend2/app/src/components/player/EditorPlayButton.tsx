@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { runEditorPlay } from '@/lib/player/editor-play'
+import { readPlayerDefaultMode } from '@/lib/player/player-mode-preference'
 import { buildPlayerSearch, type PlayerEntityType } from '@/lib/player-route'
 import { cn } from '@/lib/utils'
 
@@ -44,7 +45,15 @@ export function EditorPlayButton({
           needsFlush,
           flushNow,
           navigate: () => {
-            void navigate({ to: '/player', search: buildPlayerSearch(entityType, entityId) })
+            void navigate({
+              to: '/player',
+              search: buildPlayerSearch(
+                entityType,
+                entityId,
+                undefined,
+                readPlayerDefaultMode(),
+              ),
+            })
           },
         })
       }

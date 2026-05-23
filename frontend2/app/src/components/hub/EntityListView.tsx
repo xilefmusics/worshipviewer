@@ -58,6 +58,7 @@ import type { HubEntity } from '@/lib/hub-entity'
 import { hubEntityEditSplat } from '@/lib/hub-entity-edit'
 import { hubListKey, hubListRootKey } from '@/lib/hub-list-keys'
 import { hubEntityToPlayerType, buildPlayerSearch } from '@/lib/player-route'
+import { readPlayerDefaultMode } from '@/lib/player/player-mode-preference'
 import { emptyEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { useHubViewMode } from '@/hooks/useHubViewMode'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -436,9 +437,15 @@ function useHubListItemPlayerTap(entity: HubEntity, itemId: string) {
     dispatchContextMenuFromPointer(e)
   })
 
-  const openPlayer = useCallback(() => {
-    void navigate({ to: '/player', search: buildPlayerSearch(playType, itemId) })
-  }, [navigate, playType, itemId])
+  const openPlayer = useCallback(
+    (mode?: 'normal' | 'av') => {
+      void navigate({
+        to: '/player',
+        search: buildPlayerSearch(playType, itemId, undefined, mode ?? readPlayerDefaultMode()),
+      })
+    },
+    [navigate, playType, itemId],
+  )
 
   const listPointerProps = {
     onPointerDown: (e: PointerEvent<HTMLElement>) => {
@@ -633,7 +640,7 @@ function HubItemContextMenu({
             onSelect={() => {
               void navigate({
                 to: '/player',
-                search: buildPlayerSearch(playType, itemId),
+                search: buildPlayerSearch(playType, itemId, undefined, 'normal'),
               })
             }}
             onMouseEnter={() => setPlayHot(true)}
@@ -642,7 +649,19 @@ function HubItemContextMenu({
             onBlur={() => setPlayHot(false)}
           >
             <PlayIcon size={16} className={cn('shrink-0 text-[var(--color-foreground)]', playHot && 'opacity-90')} />
-            {t('hub.actions.play')}
+            {t('hub.actions.playNormal')}
+          </ContextMenuItem>
+          <ContextMenuItem
+            className="gap-2"
+            onSelect={() => {
+              void navigate({
+                to: '/player',
+                search: buildPlayerSearch(playType, itemId, undefined, 'av'),
+              })
+            }}
+          >
+            <PlayIcon size={16} className="shrink-0 text-[var(--color-foreground)]" />
+            {t('hub.actions.playAv')}
           </ContextMenuItem>
           {showDuplicate ? (
             <ContextMenuItem

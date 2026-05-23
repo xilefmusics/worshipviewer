@@ -9,13 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PlayerRouteImport } from './routes/player'
 import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as HubRouteImport } from './routes/_hub'
 import { Route as SplatRouteImport } from './routes/$'
+import { Route as PlayerRouteRouteImport } from './routes/player/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PlayerIndexRouteImport } from './routes/player/index'
+import { Route as PlayerOutputRouteImport } from './routes/player/output'
 import { Route as HubTeamsRouteImport } from './routes/_hub/teams'
 import { Route as HubSongsRouteImport } from './routes/_hub/songs'
 import { Route as HubSettingsRouteImport } from './routes/_hub/settings'
@@ -27,11 +29,6 @@ import { Route as HubSongsSongIdRouteImport } from './routes/_hub/songs.$songId'
 import { Route as HubSetlistsSetlistIdRouteImport } from './routes/_hub/setlists.$setlistId'
 import { Route as HubCollectionsCollectionIdRouteImport } from './routes/_hub/collections.$collectionId'
 
-const PlayerRoute = PlayerRouteImport.update({
-  id: '/player',
-  path: '/player',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LogoutRoute = LogoutRouteImport.update({
   id: '/logout',
   path: '/logout',
@@ -56,10 +53,25 @@ const SplatRoute = SplatRouteImport.update({
   path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlayerRouteRoute = PlayerRouteRouteImport.update({
+  id: '/player',
+  path: '/player',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PlayerIndexRoute = PlayerIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PlayerRouteRoute,
+} as any)
+const PlayerOutputRoute = PlayerOutputRouteImport.update({
+  id: '/output',
+  path: '/output',
+  getParentRoute: () => PlayerRouteRoute,
 } as any)
 const HubTeamsRoute = HubTeamsRouteImport.update({
   id: '/teams',
@@ -115,17 +127,19 @@ const HubCollectionsCollectionIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/player': typeof PlayerRouteRouteWithChildren
   '/$': typeof SplatRoute
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
-  '/player': typeof PlayerRoute
   '/collections': typeof HubCollectionsRouteWithChildren
   '/sessions': typeof HubSessionsRoute
   '/setlists': typeof HubSetlistsRouteWithChildren
   '/settings': typeof HubSettingsRoute
   '/songs': typeof HubSongsRouteWithChildren
   '/teams': typeof HubTeamsRouteWithChildren
+  '/player/output': typeof PlayerOutputRoute
+  '/player/': typeof PlayerIndexRoute
   '/collections/$collectionId': typeof HubCollectionsCollectionIdRoute
   '/setlists/$setlistId': typeof HubSetlistsSetlistIdRoute
   '/songs/$songId': typeof HubSongsSongIdRoute
@@ -137,13 +151,14 @@ export interface FileRoutesByTo {
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
-  '/player': typeof PlayerRoute
   '/collections': typeof HubCollectionsRouteWithChildren
   '/sessions': typeof HubSessionsRoute
   '/setlists': typeof HubSetlistsRouteWithChildren
   '/settings': typeof HubSettingsRoute
   '/songs': typeof HubSongsRouteWithChildren
   '/teams': typeof HubTeamsRouteWithChildren
+  '/player/output': typeof PlayerOutputRoute
+  '/player': typeof PlayerIndexRoute
   '/collections/$collectionId': typeof HubCollectionsCollectionIdRoute
   '/setlists/$setlistId': typeof HubSetlistsSetlistIdRoute
   '/songs/$songId': typeof HubSongsSongIdRoute
@@ -152,18 +167,20 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/player': typeof PlayerRouteRouteWithChildren
   '/$': typeof SplatRoute
   '/_hub': typeof HubRouteWithChildren
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
-  '/player': typeof PlayerRoute
   '/_hub/collections': typeof HubCollectionsRouteWithChildren
   '/_hub/sessions': typeof HubSessionsRoute
   '/_hub/setlists': typeof HubSetlistsRouteWithChildren
   '/_hub/settings': typeof HubSettingsRoute
   '/_hub/songs': typeof HubSongsRouteWithChildren
   '/_hub/teams': typeof HubTeamsRouteWithChildren
+  '/player/output': typeof PlayerOutputRoute
+  '/player/': typeof PlayerIndexRoute
   '/_hub/collections/$collectionId': typeof HubCollectionsCollectionIdRoute
   '/_hub/setlists/$setlistId': typeof HubSetlistsSetlistIdRoute
   '/_hub/songs/$songId': typeof HubSongsSongIdRoute
@@ -173,17 +190,19 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/player'
     | '/$'
     | '/join'
     | '/login'
     | '/logout'
-    | '/player'
     | '/collections'
     | '/sessions'
     | '/setlists'
     | '/settings'
     | '/songs'
     | '/teams'
+    | '/player/output'
+    | '/player/'
     | '/collections/$collectionId'
     | '/setlists/$setlistId'
     | '/songs/$songId'
@@ -195,13 +214,14 @@ export interface FileRouteTypes {
     | '/join'
     | '/login'
     | '/logout'
-    | '/player'
     | '/collections'
     | '/sessions'
     | '/setlists'
     | '/settings'
     | '/songs'
     | '/teams'
+    | '/player/output'
+    | '/player'
     | '/collections/$collectionId'
     | '/setlists/$setlistId'
     | '/songs/$songId'
@@ -209,18 +229,20 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/player'
     | '/$'
     | '/_hub'
     | '/join'
     | '/login'
     | '/logout'
-    | '/player'
     | '/_hub/collections'
     | '/_hub/sessions'
     | '/_hub/setlists'
     | '/_hub/settings'
     | '/_hub/songs'
     | '/_hub/teams'
+    | '/player/output'
+    | '/player/'
     | '/_hub/collections/$collectionId'
     | '/_hub/setlists/$setlistId'
     | '/_hub/songs/$songId'
@@ -229,23 +251,16 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PlayerRouteRoute: typeof PlayerRouteRouteWithChildren
   SplatRoute: typeof SplatRoute
   HubRoute: typeof HubRouteWithChildren
   JoinRoute: typeof JoinRoute
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
-  PlayerRoute: typeof PlayerRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/player': {
-      id: '/player'
-      path: '/player'
-      fullPath: '/player'
-      preLoaderRoute: typeof PlayerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/logout': {
       id: '/logout'
       path: '/logout'
@@ -281,12 +296,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/player': {
+      id: '/player'
+      path: '/player'
+      fullPath: '/player'
+      preLoaderRoute: typeof PlayerRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/player/': {
+      id: '/player/'
+      path: '/'
+      fullPath: '/player/'
+      preLoaderRoute: typeof PlayerIndexRouteImport
+      parentRoute: typeof PlayerRouteRoute
+    }
+    '/player/output': {
+      id: '/player/output'
+      path: '/output'
+      fullPath: '/player/output'
+      preLoaderRoute: typeof PlayerOutputRouteImport
+      parentRoute: typeof PlayerRouteRoute
     }
     '/_hub/teams': {
       id: '/_hub/teams'
@@ -361,6 +397,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface PlayerRouteRouteChildren {
+  PlayerOutputRoute: typeof PlayerOutputRoute
+  PlayerIndexRoute: typeof PlayerIndexRoute
+}
+
+const PlayerRouteRouteChildren: PlayerRouteRouteChildren = {
+  PlayerOutputRoute: PlayerOutputRoute,
+  PlayerIndexRoute: PlayerIndexRoute,
+}
+
+const PlayerRouteRouteWithChildren = PlayerRouteRoute._addFileChildren(
+  PlayerRouteRouteChildren,
+)
+
 interface HubCollectionsRouteChildren {
   HubCollectionsCollectionIdRoute: typeof HubCollectionsCollectionIdRoute
 }
@@ -431,12 +481,12 @@ const HubRouteWithChildren = HubRoute._addFileChildren(HubRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PlayerRouteRoute: PlayerRouteRouteWithChildren,
   SplatRoute: SplatRoute,
   HubRoute: HubRouteWithChildren,
   JoinRoute: JoinRoute,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,
-  PlayerRoute: PlayerRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

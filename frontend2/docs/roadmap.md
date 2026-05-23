@@ -173,17 +173,17 @@ flowchart LR
 
 **Depends on:** E8.
 
-**Exit:**
+**Exit:** *(implemented 2026-05-23 — manual checklist: laptop + external display)*
 
-- Player view-mode architecture is documented and implemented (role-specific rendering + controls from one player state model)
-- **AV mode** ships as the first role variant with lyric-focused projection output, navigation, blackout, and fullscreen behavior
-- AV mode keeps **slide content** and **background** independently configurable (separate layers/controls)
-- AV/role settings are managed in a **dedicated global Settings tab** with **quick player access** to that tab
-- Global default mode selector governs primary launch across songs/setlists/collections; context menu provides explicit **Play in Normal mode** and **Play in AV mode**
-- Existing **Normal mode** remains stable and selectable
-- Dual-window projection is required by design; when unavailable, fallback to single-screen AV with a persistent warning
-- The design leaves extension points for additional role variants (for example click/pad) without route-model rewrites
-- `pages-and-flows.md`, `app-shell.md`, and the E8.1 action plan document role-variant behavior with manual checklist coverage
+- [x] Player view-mode architecture is documented and implemented (role-specific rendering + controls from one player state model)
+- [x] **AV mode** ships as the first role variant with lyric-focused projection output, navigation, blackout, and fullscreen behavior
+- [x] AV mode keeps **slide content** and **background** independently configurable (separate layers/controls)
+- [x] AV/role settings are managed in a **dedicated global Settings tab** with **quick player access** to that tab
+- [x] Global default mode selector governs primary launch across songs/setlists/collections; context menu provides explicit **Play in Normal mode** and **Play in AV mode**
+- [x] Existing **Normal mode** remains stable and selectable
+- [x] Dual-window projection is required by design; when unavailable, fallback to single-screen AV with a persistent warning
+- [x] The design leaves extension points for additional role variants (for example click/pad) without route-model rewrites
+- [x] `pages-and-flows.md`, `app-shell.md`, and the E8.1 action plan document role-variant behavior with manual checklist coverage
 
 ---
 

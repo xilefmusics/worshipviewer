@@ -1,9 +1,12 @@
 import type { PlayerEntityType } from '@/lib/player-route'
+import type { PlayerMode } from '@/lib/player/player-mode'
+import { parsePlayerMode } from '@/lib/player/player-mode'
 
 export type PlayerEditorReturnContext = {
   playerType: PlayerEntityType
   playerId: string
   playerIndex: number
+  playerMode?: PlayerMode
 }
 
 function parsePlayerType(raw: unknown): PlayerEntityType | undefined {
@@ -28,8 +31,14 @@ export function parsePlayerEditorReturnSearch(
   const playerType = parsePlayerType(search.playerType)
   const playerId = typeof search.playerId === 'string' ? search.playerId : ''
   const playerIndex = parseOptionalPlayerIndex(search.playerIndex)
+  const playerMode = parsePlayerMode(search.playerMode)
   if (!playerType || !playerId || playerIndex == null) return null
-  return { playerType, playerId, playerIndex }
+  return {
+    playerType,
+    playerId,
+    playerIndex,
+    ...(playerMode ? { playerMode } : {}),
+  }
 }
 
 export function buildSongEditorReturnSearch(
@@ -38,11 +47,13 @@ export function buildSongEditorReturnSearch(
   playerType: PlayerEntityType
   playerId: string
   playerIndex: number
+  playerMode: PlayerMode | undefined
 } {
   return {
     playerType: context.playerType,
     playerId: context.playerId,
     playerIndex: context.playerIndex,
+    playerMode: context.playerMode,
   }
 }
 
@@ -65,10 +76,12 @@ export function buildPlayerReturnSearch(
   type: PlayerEntityType
   id: string
   index: number
+  mode: PlayerMode | undefined
 } {
   return {
     type: context.playerType,
     id: context.playerId,
     index: context.playerIndex,
+    mode: context.playerMode,
   }
 }

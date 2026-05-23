@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildPlayerSearchParams, type PlayerEntityType } from '@/lib/player-route'
+import { buildPlayerSearch, buildPlayerSearchParams, type PlayerEntityType } from '@/lib/player-route'
 
 describe('buildPlayerSearchParams', () => {
   it('returns type and id for each entity', () => {
@@ -8,5 +8,16 @@ describe('buildPlayerSearchParams', () => {
     for (const type of types) {
       expect(buildPlayerSearchParams(type, 'abc-123')).toEqual({ type, id: 'abc-123' })
     }
+  })
+})
+
+describe('buildPlayerSearch', () => {
+  it('includes optional mode and index', () => {
+    expect(buildPlayerSearch('song', 'id-1', 2, 'av')).toEqual({
+      type: 'song',
+      id: 'id-1',
+      index: 2,
+      mode: 'av',
+    })
   })
 })

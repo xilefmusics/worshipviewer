@@ -27,6 +27,21 @@ import {
   writePlayerScrollPortrait,
 } from '@/lib/player-scroll-preference'
 import {
+  DEFAULT_AV_PREFERENCES,
+  readAvPreferences,
+  writeAvPreferences,
+  type AvBackgroundKind,
+  type AvContentLayer,
+  type AvPreferences,
+  type AvTextAlign,
+  type AvTextShadow,
+  type AvTextTransform,
+  type AvTransitionStyle,
+  type AvVerticalAlign,
+} from '@/lib/player/av-preferences'
+import { readPlayerDefaultMode, writePlayerDefaultMode } from '@/lib/player/player-mode-preference'
+import type { PlayerMode } from '@/lib/player/player-mode'
+import {
   readSheetBackgroundPreference,
   type SheetBackgroundPreference,
   writeSheetBackgroundPreference,
@@ -58,7 +73,7 @@ type SettingsOption<T extends string> = {
   description: string
 }
 
-const settingsTabs: SettingsTab[] = ['general', 'player']
+const settingsTabs: SettingsTab[] = ['general', 'player', 'playerRoles']
 
 function getLocalePreference(): LocalePreference {
   return resolveLocalePreference(
@@ -284,6 +299,8 @@ export function SettingsView({
   const [chordFormatPreference, setChordFormatPreference] = useState(readChordFormatPreference)
   const [sheetBackgroundPreference, setSheetBackgroundPreference] = useState(readSheetBackgroundPreference)
   const [scrollPreferences, setScrollPreferences] = useState(readPlayerScrollPreferences)
+  const [defaultPlayerMode, setDefaultPlayerModeState] = useState<PlayerMode>(readPlayerDefaultMode)
+  const [avPreferences, setAvPreferencesState] = useState<AvPreferences>(readAvPreferences)
   const { viewMode: collectionsViewMode, setViewMode: setCollectionsViewMode } =
     useHubViewMode('collections')
   const [cacheState, setCacheState] = useState<'idle' | 'clearing' | 'cleared' | 'failed'>('idle')
@@ -400,6 +417,87 @@ export function SettingsView({
     [t],
   )
 
+  const defaultPlayerModeOptions = useMemo<SettingsOption<PlayerMode>[]>(
+    () => [
+      {
+        value: 'normal',
+        label: t('settings.playerRoles.defaultMode.normal'),
+        description: t('settings.playerRoles.defaultMode.normalDescription'),
+      },
+      {
+        value: 'av',
+        label: t('settings.playerRoles.defaultMode.av'),
+        description: t('settings.playerRoles.defaultMode.avDescription'),
+      },
+    ],
+    [t],
+  )
+
+  const avBackgroundKindOptions = useMemo<SettingsOption<AvBackgroundKind>[]>(
+    () => [
+      { value: 'color', label: t('settings.playerRoles.background.color'), description: t('settings.playerRoles.background.colorDescription') },
+      { value: 'gradient', label: t('settings.playerRoles.background.gradient'), description: t('settings.playerRoles.background.gradientDescription') },
+      { value: 'image', label: t('settings.playerRoles.background.image'), description: t('settings.playerRoles.background.imageDescription') },
+      { value: 'video', label: t('settings.playerRoles.background.video'), description: t('settings.playerRoles.background.videoDescription') },
+    ],
+    [t],
+  )
+
+  const avTextAlignOptions = useMemo<SettingsOption<AvTextAlign>[]>(
+    () => [
+      { value: 'left', label: t('settings.playerRoles.content.alignLeft'), description: t('settings.playerRoles.content.alignLeftDescription') },
+      { value: 'center', label: t('settings.playerRoles.content.alignCenter'), description: t('settings.playerRoles.content.alignCenterDescription') },
+      { value: 'right', label: t('settings.playerRoles.content.alignRight'), description: t('settings.playerRoles.content.alignRightDescription') },
+    ],
+    [t],
+  )
+
+  const avVerticalAlignOptions = useMemo<SettingsOption<AvVerticalAlign>[]>(
+    () => [
+      { value: 'top', label: t('settings.playerRoles.content.verticalTop'), description: t('settings.playerRoles.content.verticalTopDescription') },
+      { value: 'center', label: t('settings.playerRoles.content.verticalCenter'), description: t('settings.playerRoles.content.verticalCenterDescription') },
+      { value: 'bottom', label: t('settings.playerRoles.content.verticalBottom'), description: t('settings.playerRoles.content.verticalBottomDescription') },
+    ],
+    [t],
+  )
+
+  const avTextShadowOptions = useMemo<SettingsOption<AvTextShadow>[]>(
+    () => [
+      { value: 'none', label: t('settings.playerRoles.content.shadowNone'), description: t('settings.playerRoles.content.shadowNoneDescription') },
+      { value: 'subtle', label: t('settings.playerRoles.content.shadowSubtle'), description: t('settings.playerRoles.content.shadowSubtleDescription') },
+      { value: 'medium', label: t('settings.playerRoles.content.shadowMedium'), description: t('settings.playerRoles.content.shadowMediumDescription') },
+      { value: 'strong', label: t('settings.playerRoles.content.shadowStrong'), description: t('settings.playerRoles.content.shadowStrongDescription') },
+    ],
+    [t],
+  )
+
+  const avTextTransformOptions = useMemo<SettingsOption<AvTextTransform>[]>(
+    () => [
+      { value: 'none', label: t('settings.playerRoles.content.transformNone'), description: t('settings.playerRoles.content.transformNoneDescription') },
+      { value: 'uppercase', label: t('settings.playerRoles.content.transformUppercase'), description: t('settings.playerRoles.content.transformUppercaseDescription') },
+      { value: 'lowercase', label: t('settings.playerRoles.content.transformLowercase'), description: t('settings.playerRoles.content.transformLowercaseDescription') },
+      { value: 'capitalize', label: t('settings.playerRoles.content.transformCapitalize'), description: t('settings.playerRoles.content.transformCapitalizeDescription') },
+    ],
+    [t],
+  )
+
+  const avTransitionStyleOptions = useMemo<SettingsOption<AvTransitionStyle>[]>(
+    () => [
+      { value: 'none', label: t('settings.playerRoles.transition.none'), description: t('settings.playerRoles.transition.noneDescription') },
+      { value: 'fade', label: t('settings.playerRoles.transition.fade'), description: t('settings.playerRoles.transition.fadeDescription') },
+      { value: 'slide', label: t('settings.playerRoles.transition.slide'), description: t('settings.playerRoles.transition.slideDescription') },
+    ],
+    [t],
+  )
+
+  const avProjectionFullscreenOptions = useMemo<SettingsOption<'on' | 'off'>[]>(
+    () => [
+      { value: 'on', label: t('settings.playerRoles.projection.fullscreenOn'), description: t('settings.playerRoles.projection.fullscreenOnDescription') },
+      { value: 'off', label: t('settings.playerRoles.projection.fullscreenOff'), description: t('settings.playerRoles.projection.fullscreenOffDescription') },
+    ],
+    [t],
+  )
+
   const appearanceOptions = useMemo<SettingsOption<AppearancePreference>[]>(
     () => [
       {
@@ -460,6 +558,44 @@ export function SettingsView({
   function setLandscapeScroll(next: PlayerScrollType) {
     writePlayerScrollLandscape(next)
     setScrollPreferences(readPlayerScrollPreferences())
+  }
+
+  function setDefaultPlayerMode(next: PlayerMode) {
+    writePlayerDefaultMode(next)
+    setDefaultPlayerModeState(next)
+  }
+
+  function updateAvPreferences(next: AvPreferences) {
+    writeAvPreferences(next)
+    setAvPreferencesState(next)
+  }
+
+  function setAvContentLayer(partial: Partial<AvContentLayer>) {
+    updateAvPreferences({
+      ...avPreferences,
+      contentLayer: { ...avPreferences.contentLayer, ...partial },
+    })
+  }
+
+  function setAvBackgroundLayer(partial: Partial<AvPreferences['backgroundLayer']>) {
+    updateAvPreferences({
+      ...avPreferences,
+      backgroundLayer: { ...avPreferences.backgroundLayer, ...partial },
+    })
+  }
+
+  function setAvTransition(partial: Partial<AvPreferences['transition']>) {
+    updateAvPreferences({
+      ...avPreferences,
+      transition: { ...avPreferences.transition, ...partial },
+    })
+  }
+
+  function setAvProjection(partial: Partial<AvPreferences['projection']>) {
+    updateAvPreferences({
+      ...avPreferences,
+      projection: { ...avPreferences.projection, ...partial },
+    })
   }
 
   async function clearCache() {
@@ -660,6 +796,206 @@ export function SettingsView({
             options={scrollModeOptions}
             value={scrollPreferences.landscape}
             onChange={setLandscapeScroll}
+          />
+        </div>
+      ) : null}
+
+      {activeTab === 'playerRoles' ? (
+        <div
+          id="settings-panel-playerRoles"
+          role="tabpanel"
+          aria-labelledby="settings-tab-playerRoles"
+          className="flex flex-col gap-4"
+        >
+          <SettingsSection
+            title={t('settings.playerRoles.defaultMode.title')}
+            description={t('settings.playerRoles.defaultMode.description')}
+            options={defaultPlayerModeOptions}
+            value={defaultPlayerMode}
+            onChange={setDefaultPlayerMode}
+          />
+
+          <Card>
+            <CardHeader className="p-4 pb-3">
+              <CardTitle className="text-base">{t('settings.playerRoles.content.title')}</CardTitle>
+              <CardDescription>{t('settings.playerRoles.content.description')}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 p-4 pt-0">
+              <label className="flex flex-col gap-1 text-sm">
+                <span>{t('settings.playerRoles.content.maxLines')}</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={avPreferences.contentLayer.maxLinesPerSlide}
+                  onChange={(e) =>
+                    setAvContentLayer({
+                      maxLinesPerSlide: Number.parseInt(e.target.value, 10) || DEFAULT_AV_PREFERENCES.contentLayer.maxLinesPerSlide,
+                    })
+                  }
+                  className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span>{t('settings.playerRoles.content.fontSize')}</span>
+                <input
+                  type="number"
+                  min={20}
+                  max={120}
+                  value={avPreferences.contentLayer.fontSize}
+                  onChange={(e) =>
+                    setAvContentLayer({
+                      fontSize: Number.parseInt(e.target.value, 10) || DEFAULT_AV_PREFERENCES.contentLayer.fontSize,
+                    })
+                  }
+                  className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2"
+                />
+              </label>
+            </CardContent>
+          </Card>
+
+          <SettingsSection
+            title={t('settings.playerRoles.content.textAlignTitle')}
+            description={t('settings.playerRoles.content.textAlignDescription')}
+            options={avTextAlignOptions}
+            value={avPreferences.contentLayer.textAlign}
+            onChange={(value) => setAvContentLayer({ textAlign: value })}
+          />
+
+          <SettingsSection
+            title={t('settings.playerRoles.content.verticalAlignTitle')}
+            description={t('settings.playerRoles.content.verticalAlignDescription')}
+            options={avVerticalAlignOptions}
+            value={avPreferences.contentLayer.verticalAlign}
+            onChange={(value) => setAvContentLayer({ verticalAlign: value })}
+          />
+
+          <SettingsSection
+            title={t('settings.playerRoles.content.textShadowTitle')}
+            description={t('settings.playerRoles.content.textShadowDescription')}
+            options={avTextShadowOptions}
+            value={avPreferences.contentLayer.textShadow}
+            onChange={(value) => setAvContentLayer({ textShadow: value })}
+          />
+
+          <SettingsSection
+            title={t('settings.playerRoles.content.textTransformTitle')}
+            description={t('settings.playerRoles.content.textTransformDescription')}
+            options={avTextTransformOptions}
+            value={avPreferences.contentLayer.textTransform}
+            onChange={(value) => setAvContentLayer({ textTransform: value })}
+          />
+
+          <SettingsSection
+            title={t('settings.playerRoles.background.title')}
+            description={t('settings.playerRoles.background.description')}
+            options={avBackgroundKindOptions}
+            value={avPreferences.backgroundLayer.kind}
+            onChange={(value) => setAvBackgroundLayer({ kind: value })}
+          />
+
+          <Card>
+            <CardHeader className="p-4 pb-3">
+              <CardTitle className="text-base">{t('settings.playerRoles.background.detailsTitle')}</CardTitle>
+              <CardDescription>{t('settings.playerRoles.background.detailsDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 p-4 pt-0">
+              {avPreferences.backgroundLayer.kind === 'color' ? (
+                <label className="flex flex-col gap-1 text-sm">
+                  <span>{t('settings.playerRoles.background.colorValue')}</span>
+                  <input
+                    type="color"
+                    value={avPreferences.backgroundLayer.color}
+                    onChange={(e) => setAvBackgroundLayer({ color: e.target.value })}
+                    className="h-10 w-full rounded-md border border-[var(--color-border)]"
+                  />
+                </label>
+              ) : null}
+              {avPreferences.backgroundLayer.kind === 'gradient' ? (
+                <>
+                  <label className="flex flex-col gap-1 text-sm">
+                    <span>{t('settings.playerRoles.background.gradientFrom')}</span>
+                    <input
+                      type="color"
+                      value={avPreferences.backgroundLayer.gradientFrom}
+                      onChange={(e) => setAvBackgroundLayer({ gradientFrom: e.target.value })}
+                      className="h-10 w-full rounded-md border border-[var(--color-border)]"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-sm">
+                    <span>{t('settings.playerRoles.background.gradientTo')}</span>
+                    <input
+                      type="color"
+                      value={avPreferences.backgroundLayer.gradientTo}
+                      onChange={(e) => setAvBackgroundLayer({ gradientTo: e.target.value })}
+                      className="h-10 w-full rounded-md border border-[var(--color-border)]"
+                    />
+                  </label>
+                </>
+              ) : null}
+              {avPreferences.backgroundLayer.kind === 'image' || avPreferences.backgroundLayer.kind === 'video' ? (
+                <label className="flex flex-col gap-1 text-sm">
+                  <span>{t('settings.playerRoles.background.mediaUrl')}</span>
+                  <input
+                    type="url"
+                    value={avPreferences.backgroundLayer.mediaUrl}
+                    onChange={(e) => setAvBackgroundLayer({ mediaUrl: e.target.value })}
+                    className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2"
+                    placeholder="https://"
+                  />
+                </label>
+              ) : null}
+              <label className="flex flex-col gap-1 text-sm">
+                <span>{t('settings.playerRoles.background.brightness')}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={200}
+                  value={avPreferences.backgroundLayer.brightness}
+                  onChange={(e) =>
+                    setAvBackgroundLayer({ brightness: Number.parseInt(e.target.value, 10) })
+                  }
+                />
+              </label>
+            </CardContent>
+          </Card>
+
+          <SettingsSection
+            title={t('settings.playerRoles.transition.title')}
+            description={t('settings.playerRoles.transition.description')}
+            options={avTransitionStyleOptions}
+            value={avPreferences.transition.style}
+            onChange={(value) => setAvTransition({ style: value })}
+          />
+
+          <Card>
+            <CardHeader className="p-4 pb-3">
+              <CardTitle className="text-base">{t('settings.playerRoles.transition.durationTitle')}</CardTitle>
+              <CardDescription>{t('settings.playerRoles.transition.durationDescription')}</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <input
+                type="range"
+                min={0}
+                max={2000}
+                step={50}
+                value={avPreferences.transition.durationMs}
+                onChange={(e) =>
+                  setAvTransition({ durationMs: Number.parseInt(e.target.value, 10) })
+                }
+                className="w-full"
+              />
+            </CardContent>
+          </Card>
+
+          <SettingsSection
+            title={t('settings.playerRoles.projection.fullscreenTitle')}
+            description={t('settings.playerRoles.projection.fullscreenDescription')}
+            options={avProjectionFullscreenOptions}
+            value={avPreferences.projection.outputFullscreenOnDblClick ? 'on' : 'off'}
+            onChange={(value) =>
+              setAvProjection({ outputFullscreenOnDblClick: value === 'on' })
+            }
           />
         </div>
       ) : null}

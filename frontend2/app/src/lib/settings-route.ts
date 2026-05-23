@@ -3,10 +3,12 @@ import {
   type PlayerEditorReturnContext,
 } from '@/lib/player/player-editor-return'
 
-export type SettingsTab = 'general' | 'player'
+export type SettingsTab = 'general' | 'player' | 'playerRoles'
 
 export function parseSettingsTab(raw: unknown): SettingsTab {
-  return raw === 'player' ? 'player' : 'general'
+  if (raw === 'player') return 'player'
+  if (raw === 'playerRoles') return 'playerRoles'
+  return 'general'
 }
 
 export function buildSettingsSearch(

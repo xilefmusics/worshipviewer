@@ -44,6 +44,7 @@ import {
 import type { ChordEngine } from '@/ports/chord-engine'
 import { cn } from '@/lib/utils'
 import { buildPlayerSearch } from '@/lib/player-route'
+import { readPlayerDefaultMode } from '@/lib/player/player-mode-preference'
 import { runEditorPlay } from '@/lib/player/editor-play'
 
 type EditorTab = 'meta' | 'source' | 'preview'
@@ -341,7 +342,10 @@ export function SongEditorScreen({ songId }: { songId: string }) {
         return flushNow()
       },
       navigate: () => {
-        void navigate({ to: '/player', search: buildPlayerSearch('song', songId) })
+        void navigate({
+          to: '/player',
+          search: buildPlayerSearch('song', songId, undefined, readPlayerDefaultMode()),
+        })
       },
     })
   }, [editable, effectiveParseError, flushNow, navigate, songId])

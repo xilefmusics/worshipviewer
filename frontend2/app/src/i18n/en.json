@@ -122,6 +122,8 @@
     "actions": {
       "edit": "Edit",
       "play": "Play",
+      "playNormal": "Play in Normal mode",
+      "playAv": "Play in AV mode",
       "addToSetlist": "Add to setlist",
       "duplicate": "Duplicate",
       "duplicateSuccess": "Created “{{title}}”.",
@@ -233,7 +235,27 @@
     "editSong": "Edit song",
     "editSetlist": "Edit setlist",
     "editCollection": "Edit collection",
-    "openSettings": "Player settings"
+    "openSettings": "Player settings",
+    "mode": {
+      "normal": "Normal mode",
+      "av": "AV mode"
+    },
+    "av": {
+      "mainAria": "AV player — {{title}}",
+      "position": "Slide {{slide}} / {{slides}} · Item {{item}} / {{items}}",
+      "current": "Current",
+      "next": "Next",
+      "emptySlide": "Empty slide",
+      "noNext": "No next slide",
+      "blackout": "Blackout",
+      "blackoutToggle": "Toggle blackout",
+      "blackoutOn": "Blackout on",
+      "slideAnnounce": "Slide {{current}} of {{total}} — {{title}}",
+      "openSettings": "AV player settings",
+      "openOutput": "Open output",
+      "outputAria": "Projection output",
+      "outputMissingSession": "Missing projection session."
+    }
   },
   "settings": {
     "title": "Settings",
@@ -242,7 +264,8 @@
     "tabs": {
       "aria": "Settings sections",
       "general": "General",
-      "player": "Player"
+      "player": "Player",
+      "playerRoles": "Player roles / AV"
     },
     "language": {
       "title": "Language",
@@ -307,6 +330,103 @@
       "threeColumnDescription": "Full-screen scroll with three columns of song sections.",
       "threeColumnNextView": "3 columns + next",
       "threeColumnNextDescription": "Three columns with the next song continuing in the column flow in gray, clipped to what fits on screen."
+    },
+    "playerRoles": {
+      "defaultMode": {
+        "title": "Default player mode",
+        "description": "Primary tap on songs, setlists, and collections opens the player in this mode.",
+        "normal": "Normal mode",
+        "normalDescription": "Book-mode chord sheets and attachments.",
+        "av": "AV mode",
+        "avDescription": "Lyric projection with separate content and background layers."
+      },
+      "content": {
+        "title": "Content layer",
+        "description": "Typography and layout for projected lyrics.",
+        "maxLines": "Lines per slide",
+        "fontSize": "Font size",
+        "textAlignTitle": "Text alignment",
+        "textAlignDescription": "Align each line of lyrics.",
+        "alignLeft": "Left",
+        "alignLeftDescription": "Align lyrics to the left.",
+        "alignCenter": "Center",
+        "alignCenterDescription": "Center lyrics horizontally.",
+        "alignRight": "Right",
+        "alignRightDescription": "Align lyrics to the right.",
+        "verticalAlignTitle": "Vertical position",
+        "verticalAlignDescription": "Place lyrics within the slide.",
+        "verticalTop": "Top",
+        "verticalTopDescription": "Place lyrics near the top.",
+        "verticalCenter": "Center",
+        "verticalCenterDescription": "Center lyrics vertically.",
+        "verticalBottom": "Bottom",
+        "verticalBottomDescription": "Place lyrics near the bottom.",
+        "textShadowTitle": "Text shadow",
+        "textShadowDescription": "Improve readability over backgrounds.",
+        "shadowNone": "None",
+        "shadowNoneDescription": "No text shadow.",
+        "shadowSubtle": "Subtle",
+        "shadowSubtleDescription": "Light shadow for contrast.",
+        "shadowMedium": "Medium",
+        "shadowMediumDescription": "Moderate shadow.",
+        "shadowStrong": "Strong",
+        "shadowStrongDescription": "Heavy shadow for busy backgrounds.",
+        "textTransformTitle": "Text transform",
+        "textTransformDescription": "Change lyric casing.",
+        "transformNone": "None",
+        "transformNoneDescription": "Keep original casing.",
+        "transformUppercase": "Uppercase",
+        "transformUppercaseDescription": "Show lyrics in uppercase.",
+        "transformLowercase": "Lowercase",
+        "transformLowercaseDescription": "Show lyrics in lowercase.",
+        "transformCapitalize": "Capitalize",
+        "transformCapitalizeDescription": "Capitalize each word."
+      },
+      "background": {
+        "title": "Background layer",
+        "description": "Choose what appears behind lyrics.",
+        "color": "Solid color",
+        "colorDescription": "Fill the slide with a single color.",
+        "gradient": "Gradient",
+        "gradientDescription": "Use a two-color gradient.",
+        "image": "Image",
+        "imageDescription": "Use a background image URL.",
+        "video": "Video",
+        "videoDescription": "Use a looping background video URL.",
+        "detailsTitle": "Background details",
+        "detailsDescription": "Adjust the active background source.",
+        "colorValue": "Background color",
+        "gradientFrom": "Gradient start",
+        "gradientTo": "Gradient end",
+        "mediaUrl": "Media URL",
+        "brightness": "Brightness"
+      },
+      "transition": {
+        "title": "Slide transition",
+        "description": "Animate content changes between slides.",
+        "none": "None",
+        "noneDescription": "Switch slides instantly.",
+        "fade": "Fade",
+        "fadeDescription": "Cross-fade between slides.",
+        "slide": "Slide",
+        "slideDescription": "Slide content horizontally.",
+        "durationTitle": "Transition duration",
+        "durationDescription": "Milliseconds for slide transitions (respects reduced motion)."
+      },
+      "projection": {
+        "autoOpenTitle": "Projection output window",
+        "autoOpenDescription": "Open a second window for beamer output when AV mode starts.",
+        "autoOpenOn": "Open automatically",
+        "autoOpenOnDescription": "Try to open the output window on AV launch.",
+        "autoOpenOff": "Manual only",
+        "autoOpenOffDescription": "Open the output window from AV controls.",
+        "fullscreenTitle": "Output fullscreen",
+        "fullscreenDescription": "Double-click the output window to enter fullscreen.",
+        "fullscreenOn": "Allow fullscreen",
+        "fullscreenOnDescription": "Double-click toggles fullscreen on the output window.",
+        "fullscreenOff": "No fullscreen shortcut",
+        "fullscreenOffDescription": "Disable double-click fullscreen on the output window."
+      }
     },
     "profilePicture": {
       "title": "Profile picture",
