@@ -9,6 +9,8 @@ import {
   parseSourceWithEngine,
   patchSongDataFromParsed,
   songDataSnapshotsEqual,
+  songMetaTagsFromSongData,
+  songMetaTagsToWireRecord,
   type SongMetadataStrip,
 } from '@/lib/song-editor-state'
 import { buildSongPatchBody } from '@/lib/song-patch-body'
@@ -106,5 +108,63 @@ describe('songDataSnapshotsEqual', () => {
     const a = patchSongDataFromParsed({ titles: ['X'], sections: [] }, metadataStripFromSongData({ titles: ['X'], sections: [] }))
     const b = { ...a }
     expect(songDataSnapshotsEqual(a, b)).toBe(true)
+  })
+})
+
+describe('songMetaTagsFromSongData', () => {
+  it('returns sorted key/value pairs from tags', () => {
+    const tags = songMetaTagsFromSongData({
+      sections: [],
+      tags: { theme: 'Grace', author: 'John', mood: 'Upbeat' },
+    }).map(({ key, value }) => ({ key, value }))
+
+    expect(tags).toEqual([
+      { key: 'author', value: 'John' },
+      { key: 'mood', value: 'Upbeat' },
+      { key: 'theme', value: 'Grace' },
+    ])
+  })
+
+  it('returns empty list when tags are missing or empty', () => {
+    expect(songMetaTagsFromSongData({ sections: [] })).toEqual([])
+    expect(songMetaTagsFromSongData({ sections: [], tags: {} })).toEqual([])
+    expect(songMetaTagsFromSongData(null)).toEqual([])
+  })
+})
+
+describe('songMetaTagsToWireRecord', () => {
+  it('builds a wire record and skips blank keys', () => {
+    expect(
+      songMetaTagsToWireRecord([
+        { id: '1', key: ' theme ', value: ' Grace ' },
+        { id: '2', key: '', value: 'skip' },
+        { id: '3', key: 'author', value: 'John' },
+      ]),
+    ).toEqual({ theme: 'Grace', author: 'John' })
+  })
+
+  it('returns null when no valid entries remain', () => {
+    expect(songMetaTagsToWireRecord([])).toBeNull()
+    expect(songMetaTagsToWireRecord([{ id: '1', key: ' ', value: 'x' }])).toBeNull()
+  })
+})
+
+describe('patchSongDataFromParsed tags', () => {
+  it('uses strip tags instead of parsed tags', () => {
+    const patch = patchSongDataFromParsed(
+      { sections: [], tags: { old: 'value' } },
+      {
+        title: '',
+        subtitle: '',
+        artists: '',
+        copyright: '',
+        languages: '',
+        tempo: '',
+        timeSignature: '',
+        key: '',
+        tags: [{ id: '1', key: 'theme', value: 'Grace' }],
+      },
+    )
+    expect(patch.tags).toEqual({ theme: 'Grace' })
   })
 })

@@ -1,12 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { SongEditorActionsMenu } from '@/components/songs/SongEditorActionsMenu'
-import { EditorPlayButton } from '@/components/player/EditorPlayButton'
 import { SongEditorPreview } from '@/components/songs/SongEditorPreview'
 import { SongEditorSource } from '@/components/songs/SongEditorSource'
+import { PlusIcon } from '@/components/icons/lucide-animated/plus-icon'
+import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -27,6 +26,7 @@ import { songDetailQueryKey } from '@/lib/setlist-detail-key'
 import {
   applyMetadataStripToSource,
   formatSourceFromSongData,
+  createSongMetaTagEntry,
   metadataStripFromSongData,
   parseErrorsFromResult,
   parseSourceWithEngine,
@@ -43,9 +43,6 @@ import {
 } from '@/lib/ultimate-guitar-import'
 import type { ChordEngine } from '@/ports/chord-engine'
 import { cn } from '@/lib/utils'
-import { buildPlayerSearch } from '@/lib/player-route'
-import { readPlayerDefaultMode } from '@/lib/player/player-mode-preference'
-import { runEditorPlay } from '@/lib/player/editor-play'
 
 type EditorTab = 'meta' | 'source' | 'preview'
 
@@ -65,7 +62,6 @@ type UgImportUiState =
 export function SongEditorScreen({ songId }: { songId: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
   const online = useOnline()
   const chordFormat = useChordFormatPreference()
 
@@ -85,14 +81,13 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     tempo: '',
     timeSignature: '',
     key: '',
+    tags: [],
   })
   const [parseError, setParseError] = useState<string | null>(null)
   const [ugImportUi, setUgImportUi] = useState<UgImportUiState>({ kind: 'idle' })
   const [activeTab, setActiveTab] = useState<EditorTab>('source')
   const lastLoadedSongRef = useRef('')
   const [resumePrompt, setResumePrompt] = useState(false)
-  const [fileImportError, setFileImportError] = useState<string | null>(null)
-  const [fileExportError, setFileExportError] = useState<string | null>(null)
   const wentOfflineEditing = useRef(false)
 
   useEffect(() => {
@@ -151,11 +146,6 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   parseResultRef.current = parseResult
 
   const previewData = parseResult?.ok ? parseResult.data : null
-  const exportData = useMemo(() => {
-    if (previewData) return previewData
-    if (detail?.data) return detail.data as Record<string, unknown>
-    return null
-  }, [detail?.data, previewData])
   const parseErrors = useMemo(
     () => (parseResult ? parseErrorsFromResult(parseResult) : []),
     [parseResult],
@@ -323,6 +313,28 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     queueMicrotask(() => commitMetadataStrip())
   }, [commitMetadataStrip])
 
+  const updateMetaTag = useCallback((id: string, field: 'key' | 'value', value: string) => {
+    setMetadataStrip((strip) => ({
+      ...strip,
+      tags: strip.tags.map((tag) => (tag.id === id ? { ...tag, [field]: value } : tag)),
+    }))
+  }, [])
+
+  const addMetaTag = useCallback(() => {
+    setMetadataStrip((strip) => ({ ...strip, tags: [...strip.tags, createSongMetaTagEntry()] }))
+  }, [])
+
+  const removeMetaTag = useCallback(
+    (id: string) => {
+      setMetadataStrip((strip) => {
+        const next = { ...strip, tags: strip.tags.filter((tag) => tag.id !== id) }
+        queueMicrotask(() => commitMetadataStrip(next))
+        return next
+      })
+    },
+    [commitMetadataStrip],
+  )
+
   const saveAria = useMemo(() => {
     if (offlineFrozen) return t('songs.editor.bannerOfflineEditing')
     if (ugImportUi.kind === 'importing') return t('songs.editor.ugImporting')
@@ -332,23 +344,6 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     if (saveIcon === 'pending') return t('songs.editor.saveStatusPending')
     return t('songs.editor.saveStatusIdle')
   }, [effectiveParseError, offlineFrozen, patchInFlight, saveFailure, saveIcon, t, ugImportUi.kind])
-
-  const playFromEditor = useCallback(() => {
-    void runEditorPlay({
-      canPlay: !effectiveParseError,
-      needsFlush: editable,
-      flushNow: async () => {
-        if (effectiveParseError) return false
-        return flushNow()
-      },
-      navigate: () => {
-        void navigate({
-          to: '/player',
-          search: buildPlayerSearch('song', songId, undefined, readPlayerDefaultMode()),
-        })
-      },
-    })
-  }, [editable, effectiveParseError, flushNow, navigate, songId])
 
   async function discardResumeReload() {
     setResumePrompt(false)
@@ -425,37 +420,6 @@ export function SongEditorScreen({ songId }: { songId: string }) {
               )
             })}
           </nav>
-          <EditorPlayButton
-            entityType="song"
-            entityId={songId}
-            canPlay={!effectiveParseError}
-            needsFlush={editable}
-            flushNow={async () => {
-              if (effectiveParseError) return false
-              return flushNow()
-            }}
-            disabled={patchInFlight || !!saveFailure || Boolean(effectiveParseError)}
-            className="hidden sm:inline-flex"
-          />
-          <SongEditorActionsMenu
-            engine={engine}
-            exportData={exportData}
-            chordFormat={chordFormat}
-            canImport={Boolean(editable && online && engineReady)}
-            online={online}
-            hasPendingEdits={saveIcon === 'pending'}
-            onImportError={setFileImportError}
-            onExportError={setFileExportError}
-            onImportApplied={(source, data) => {
-              setFileImportError(null)
-              setSourceText(source)
-              setMetadataStrip(metadataStripFromSongData(data))
-              setParseError(null)
-              queueMicrotask(() => notifyDraftEdited())
-            }}
-            onPlay={playFromEditor}
-            playDisabled={patchInFlight || !!saveFailure || Boolean(effectiveParseError)}
-          />
         </div>
       </div>
       {!editable ? (
@@ -466,18 +430,6 @@ export function SongEditorScreen({ songId }: { songId: string }) {
       {offlineFrozen ? (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-3 py-2 text-sm">
           {t('songs.editor.bannerOfflineEditing')}
-        </div>
-      ) : null}
-      {fileImportError ? (
-        <div className="rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-3 py-2 text-sm text-[var(--color-foreground)]">
-          <p className="font-medium">{t('songs.editor.importFailed')}</p>
-          <p className="mt-1">{fileImportError}</p>
-        </div>
-      ) : null}
-      {fileExportError ? (
-        <div className="rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-3 py-2 text-sm text-[var(--color-foreground)]">
-          <p className="font-medium">{t('songs.editor.exportFailed')}</p>
-          <p className="mt-1">{fileExportError}</p>
         </div>
       ) : null}
       {ugImportUi.kind === 'url_hint' ? (
@@ -679,6 +631,58 @@ export function SongEditorScreen({ songId }: { songId: string }) {
                 </SelectContent>
               </Select>
             </label>
+            <div className="grid gap-2 sm:col-span-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm">{t('songs.editor.tagsLabel')}</span>
+                {!sourceBlocked ? (
+                  <Button type="button" variant="outline" size="sm" className="h-8 shrink-0" onClick={addMetaTag}>
+                    <PlusIcon size={16} />
+                    {t('songs.editor.tagsAdd')}
+                  </Button>
+                ) : null}
+              </div>
+              {metadataStrip.tags.length === 0 ? (
+                <p className="text-sm text-[var(--color-muted-foreground)]">{t('songs.editor.tagsEmpty')}</p>
+              ) : (
+                <ul className="grid gap-2" role="list">
+                  {metadataStrip.tags.map((tag) => (
+                    <li
+                      key={tag.id}
+                      className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2"
+                    >
+                      <Input
+                        value={tag.key}
+                        readOnly={sourceBlocked}
+                        placeholder={t('songs.editor.tagsKeyPlaceholder')}
+                        aria-label={t('songs.editor.tagsKeyLabel')}
+                        onChange={(e) => updateMetaTag(tag.id, 'key', e.target.value)}
+                        onBlur={onMetadataFieldBlur}
+                      />
+                      <Input
+                        value={tag.value}
+                        readOnly={sourceBlocked}
+                        placeholder={t('songs.editor.tagsValuePlaceholder')}
+                        aria-label={t('songs.editor.tagsValueLabel')}
+                        onChange={(e) => updateMetaTag(tag.id, 'value', e.target.value)}
+                        onBlur={onMetadataFieldBlur}
+                      />
+                      {!sourceBlocked ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0"
+                          aria-label={t('songs.editor.tagsRemoveAria')}
+                          onClick={() => removeMetaTag(tag.id)}
+                        >
+                          <TrashIcon size={18} />
+                        </Button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
       ) : null}

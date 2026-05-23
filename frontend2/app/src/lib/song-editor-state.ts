@@ -49,6 +49,54 @@ export type SongMetadataStrip = {
   /** `''` = unset; otherwise one of {@link SONG_EDITOR_TIME_SIGNATURES}. */
   timeSignature: string
   key: string
+  tags: SongMetaTagEntry[]
+}
+
+export type SongMetaTagEntry = {
+  id: string
+  key: string
+  value: string
+}
+
+export function createSongMetaTagEntry(key = '', value = '', id = crypto.randomUUID()): SongMetaTagEntry {
+  return { id, key, value }
+}
+
+export function formatSongMetaTagValue(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+/** ChordPro `{meta: name value}` pairs from `data.tags`, sorted by key. */
+export function songMetaTagsFromSongData(
+  data: ChordSongData | null | undefined,
+): SongMetaTagEntry[] {
+  const tags = data?.tags
+  if (!tags || typeof tags !== 'object' || Array.isArray(tags)) return []
+
+  return Object.entries(tags as Record<string, unknown>)
+    .map(([key, value]) => createSongMetaTagEntry(key, formatSongMetaTagValue(value)))
+    .filter(({ key, value }) => key.trim() || value.trim())
+    .sort((a, b) => a.key.localeCompare(b.key, undefined, { sensitivity: 'base' }))
+}
+
+export function songMetaTagsToWireRecord(
+  entries: SongMetaTagEntry[] | undefined,
+): Record<string, string> | null {
+  if (!entries?.length) return null
+  const record: Record<string, string> = {}
+  for (const { key, value } of entries) {
+    const trimmedKey = key.trim()
+    if (!trimmedKey) continue
+    record[trimmedKey] = value.trim()
+  }
+  return Object.keys(record).length ? record : null
 }
 
 export type ParseSourceResult =
@@ -113,6 +161,7 @@ export function metadataStripFromSongData(data: ChordSongData): SongMetadataStri
     tempo,
     timeSignature: timeSignatureFromSongTime(data.time),
     key: coerceMusicalKeyString(data.key) ?? '',
+    tags: songMetaTagsFromSongData(data),
   }
 }
 
@@ -126,6 +175,7 @@ function normalizeMetadataStrip(strip: Partial<SongMetadataStrip>): SongMetadata
     tempo: strip.tempo ?? '',
     timeSignature: strip.timeSignature ?? '',
     key: strip.key ?? '',
+    tags: strip.tags ?? [],
   }
 }
 
@@ -143,10 +193,7 @@ export function patchSongDataFromParsed(
       : ['']
 
   const keyWire = strip.key.trim() ? songLinkKeyEditorToWire(strip.key.trim()) : null
-  const tags =
-    parsed.tags && typeof parsed.tags === 'object' && !Array.isArray(parsed.tags)
-      ? (parsed.tags as Record<string, never>)
-      : null
+  const tags = songMetaTagsToWireRecord(strip.tags)
 
   return {
     titles,
@@ -183,6 +230,7 @@ export function applyMetadataStripToSource(
     tempo: patch.tempo,
     time: patch.time,
     key: patch.key,
+    tags: patch.tags ?? undefined,
   }
   return engine.formatChordPro(merged, songEditorFormatOptions(chordFormat, merged))
 }
