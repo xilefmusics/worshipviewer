@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { motion, useReducedMotion } from 'motion/react'
 import {
+  cloneElement,
   memo,
   useCallback,
   useEffect,
@@ -9,7 +10,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type PointerEvent,
+  type MouseEvent,
   type ReactElement,
 } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -415,13 +416,13 @@ export function EntityListView({ entity }: EntityListViewProps) {
 type DeleteTarget = { id: string; label: string; songCount?: number }
 type DeleteReq = (target: DeleteTarget) => void
 
-function dispatchContextMenuFromPointer(e: PointerEvent<HTMLElement>) {
-  e.currentTarget.dispatchEvent(
+function dispatchContextMenuFromPointer(target: HTMLElement, clientX: number, clientY: number) {
+  target.dispatchEvent(
     new MouseEvent('contextmenu', {
       bubbles: true,
       cancelable: true,
-      clientX: e.clientX,
-      clientY: e.clientY,
+      clientX,
+      clientY,
       view: window,
     }),
   )
@@ -431,10 +432,8 @@ function dispatchContextMenuFromPointer(e: PointerEvent<HTMLElement>) {
 function useHubListItemPlayerTap(entity: HubEntity, itemId: string) {
   const navigate = useNavigate()
   const playType = hubEntityToPlayerType(entity)
-  const suppressPrimaryAfterLongPressRef = useRef(false)
-  const baseLongPress = useLongPress((e) => {
-    suppressPrimaryAfterLongPressRef.current = true
-    dispatchContextMenuFromPointer(e)
+  const baseLongPress = useLongPress((_e, target) => {
+    dispatchContextMenuFromPointer(target, _e.clientX, _e.clientY)
   })
 
   const openPlayer = useCallback(
@@ -448,20 +447,13 @@ function useHubListItemPlayerTap(entity: HubEntity, itemId: string) {
   )
 
   const listPointerProps = {
-    onPointerDown: (e: PointerEvent<HTMLElement>) => {
-      suppressPrimaryAfterLongPressRef.current = false
-      baseLongPress.onPointerDown(e)
-    },
+    onPointerDown: baseLongPress.onPointerDown,
     onPointerUp: baseLongPress.onPointerUp,
     onPointerCancel: baseLongPress.onPointerCancel,
     onPointerLeave: baseLongPress.onPointerLeave,
   }
 
   const onClick = useCallback(() => {
-    if (suppressPrimaryAfterLongPressRef.current) {
-      suppressPrimaryAfterLongPressRef.current = false
-      return
-    }
     openPlayer()
   }, [openPlayer])
 
@@ -476,6 +468,10 @@ function useHubListItemPlayerTap(entity: HubEntity, itemId: string) {
   )
 
   return { listPointerProps, onClick, onKeyDown }
+}
+
+type HubListItemTriggerProps = {
+  onClick?: (e: MouseEvent<HTMLElement>) => void
 }
 
 function HubItemContextMenu({
@@ -496,7 +492,7 @@ function HubItemContextMenu({
   networkOnline: boolean
   /** When set (songs hub), enables “Add to setlist”. */
   hubSong?: Song
-  children: ReactElement
+  children: ReactElement<HubListItemTriggerProps>
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -508,6 +504,7 @@ function HubItemContextMenu({
   const [duplicateHot, setDuplicateHot] = useState(false)
   const [deleteHot, setDeleteHot] = useState(false)
   const [addToSetlistOpen, setAddToSetlistOpen] = useState(false)
+  const suppressNextClickRef = useRef(false)
 
   const playType = hubEntityToPlayerType(entity)
   const showAddToSetlist = Boolean(
@@ -594,10 +591,24 @@ function HubItemContextMenu({
     [chordFormat, hubSong, t],
   )
 
+  const triggerChild = cloneElement(children, {
+    onClick: (e: MouseEvent<HTMLElement>) => {
+      if (suppressNextClickRef.current) {
+        suppressNextClickRef.current = false
+        return
+      }
+      children.props.onClick?.(e)
+    },
+  })
+
   return (
     <>
-      <ContextMenu>
-        <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+      <ContextMenu
+        onOpenChange={(open) => {
+          if (open) suppressNextClickRef.current = true
+        }}
+      >
+        <ContextMenuTrigger asChild>{triggerChild}</ContextMenuTrigger>
         <ContextMenuContent>
           <ContextMenuItem
             className="gap-2"
