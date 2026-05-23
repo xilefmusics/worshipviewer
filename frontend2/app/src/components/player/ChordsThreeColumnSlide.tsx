@@ -350,7 +350,8 @@ export function ChordsThreeColumnSlide({
         COLUMN_GAP_PX,
         0,
       )
-      const scale = fontScaleForColumnWidth(columnWidth)
+      const scale =
+        columnCount === 3 ? fontScaleForColumnWidth(columnWidth) : 1
       if (scale == null) return
 
       const typography = scaledColumnTypography(scale)
