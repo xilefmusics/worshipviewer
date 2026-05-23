@@ -256,7 +256,11 @@
       "outputAria": "Projektionsausgabe",
       "outputMissingSession": "Projektionssitzung fehlt.",
       "slidesAria": "Folien des aktuellen Elements",
-      "outlineAria": "Abschnittsübersicht"
+      "outlineAria": "Abschnittsübersicht",
+      "backgroundAria": "Folienhintergrund",
+      "backgroundTitle": "Hintergrund",
+      "backgroundExpand": "Hintergrundauswahl einblenden",
+      "backgroundCollapse": "Hintergrundauswahl ausblenden"
     }
   },
   "settings": {
@@ -385,23 +389,14 @@
         "transformCapitalizeDescription": "Jedes Wort groß schreiben."
       },
       "background": {
-        "title": "Hintergrundebene",
+        "title": "Hintergrund",
         "description": "Wähle, was hinter den Lyrics erscheint.",
-        "color": "Volltonfarbe",
-        "colorDescription": "Folie mit einer Farbe füllen.",
-        "gradient": "Verlauf",
-        "gradientDescription": "Zweifarbigen Verlauf verwenden.",
-        "image": "Bild",
-        "imageDescription": "Hintergrundbild-URL verwenden.",
-        "video": "Video",
-        "videoDescription": "Loop-Hintergrundvideo-URL verwenden.",
-        "detailsTitle": "Hintergrunddetails",
-        "detailsDescription": "Aktive Hintergrundquelle anpassen.",
-        "colorValue": "Hintergrundfarbe",
-        "gradientFrom": "Verlauf Start",
-        "gradientTo": "Verlauf Ende",
-        "mediaUrl": "Medien-URL",
-        "brightness": "Helligkeit"
+        "black": "Schwarz",
+        "blackDescription": "Einfarbiger schwarzer Hintergrund.",
+        "red": "Rot",
+        "redDescription": "Roter radialer Verlauf.",
+        "ray": "Ray",
+        "rayDescription": "Ray-Licht-Hintergrundbild."
       },
       "transition": {
         "title": "Folienübergang",

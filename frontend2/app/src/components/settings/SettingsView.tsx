@@ -30,7 +30,7 @@ import {
   DEFAULT_AV_PREFERENCES,
   readAvPreferences,
   writeAvPreferences,
-  type AvBackgroundKind,
+  type AvBackgroundPreset,
   type AvContentLayer,
   type AvPreferences,
   type AvTextAlign,
@@ -67,7 +67,7 @@ import type { PlayerEditorReturnContext } from '@/lib/player/player-editor-retur
 import { buildSettingsSearch, type SettingsTab } from '@/lib/settings-route'
 import { cn } from '@/lib/utils'
 
-type SettingsOption<T extends string> = {
+type SettingsOption<T extends string | number> = {
   value: T
   label: string
   description: string
@@ -82,7 +82,7 @@ function getLocalePreference(): LocalePreference {
   )
 }
 
-function OptionButton<T extends string>({
+function OptionButton<T extends string | number>({
   option,
   selected,
   onSelect,
@@ -125,7 +125,7 @@ function OptionButton<T extends string>({
   )
 }
 
-function SettingsSection<T extends string>({
+function SettingsSection<T extends string | number>({
   title,
   description,
   options,
@@ -433,12 +433,11 @@ export function SettingsView({
     [t],
   )
 
-  const avBackgroundKindOptions = useMemo<SettingsOption<AvBackgroundKind>[]>(
+  const avBackgroundPresetOptions = useMemo<SettingsOption<AvBackgroundPreset>[]>(
     () => [
-      { value: 'color', label: t('settings.playerRoles.background.color'), description: t('settings.playerRoles.background.colorDescription') },
-      { value: 'gradient', label: t('settings.playerRoles.background.gradient'), description: t('settings.playerRoles.background.gradientDescription') },
-      { value: 'image', label: t('settings.playerRoles.background.image'), description: t('settings.playerRoles.background.imageDescription') },
-      { value: 'video', label: t('settings.playerRoles.background.video'), description: t('settings.playerRoles.background.videoDescription') },
+      { value: 0, label: t('settings.playerRoles.background.black'), description: t('settings.playerRoles.background.blackDescription') },
+      { value: 1, label: t('settings.playerRoles.background.red'), description: t('settings.playerRoles.background.redDescription') },
+      { value: 2, label: t('settings.playerRoles.background.ray'), description: t('settings.playerRoles.background.rayDescription') },
     ],
     [t],
   )
@@ -577,10 +576,10 @@ export function SettingsView({
     })
   }
 
-  function setAvBackgroundLayer(partial: Partial<AvPreferences['backgroundLayer']>) {
+  function setAvBackgroundPreset(preset: AvBackgroundPreset) {
     updateAvPreferences({
       ...avPreferences,
-      backgroundLayer: { ...avPreferences.backgroundLayer, ...partial },
+      backgroundLayer: { preset },
     })
   }
 
@@ -889,76 +888,10 @@ export function SettingsView({
           <SettingsSection
             title={t('settings.playerRoles.background.title')}
             description={t('settings.playerRoles.background.description')}
-            options={avBackgroundKindOptions}
-            value={avPreferences.backgroundLayer.kind}
-            onChange={(value) => setAvBackgroundLayer({ kind: value })}
+            options={avBackgroundPresetOptions}
+            value={avPreferences.backgroundLayer.preset}
+            onChange={setAvBackgroundPreset}
           />
-
-          <Card>
-            <CardHeader className="p-4 pb-3">
-              <CardTitle className="text-base">{t('settings.playerRoles.background.detailsTitle')}</CardTitle>
-              <CardDescription>{t('settings.playerRoles.background.detailsDescription')}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3 p-4 pt-0">
-              {avPreferences.backgroundLayer.kind === 'color' ? (
-                <label className="flex flex-col gap-1 text-sm">
-                  <span>{t('settings.playerRoles.background.colorValue')}</span>
-                  <input
-                    type="color"
-                    value={avPreferences.backgroundLayer.color}
-                    onChange={(e) => setAvBackgroundLayer({ color: e.target.value })}
-                    className="h-10 w-full rounded-md border border-[var(--color-border)]"
-                  />
-                </label>
-              ) : null}
-              {avPreferences.backgroundLayer.kind === 'gradient' ? (
-                <>
-                  <label className="flex flex-col gap-1 text-sm">
-                    <span>{t('settings.playerRoles.background.gradientFrom')}</span>
-                    <input
-                      type="color"
-                      value={avPreferences.backgroundLayer.gradientFrom}
-                      onChange={(e) => setAvBackgroundLayer({ gradientFrom: e.target.value })}
-                      className="h-10 w-full rounded-md border border-[var(--color-border)]"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1 text-sm">
-                    <span>{t('settings.playerRoles.background.gradientTo')}</span>
-                    <input
-                      type="color"
-                      value={avPreferences.backgroundLayer.gradientTo}
-                      onChange={(e) => setAvBackgroundLayer({ gradientTo: e.target.value })}
-                      className="h-10 w-full rounded-md border border-[var(--color-border)]"
-                    />
-                  </label>
-                </>
-              ) : null}
-              {avPreferences.backgroundLayer.kind === 'image' || avPreferences.backgroundLayer.kind === 'video' ? (
-                <label className="flex flex-col gap-1 text-sm">
-                  <span>{t('settings.playerRoles.background.mediaUrl')}</span>
-                  <input
-                    type="url"
-                    value={avPreferences.backgroundLayer.mediaUrl}
-                    onChange={(e) => setAvBackgroundLayer({ mediaUrl: e.target.value })}
-                    className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2"
-                    placeholder="https://"
-                  />
-                </label>
-              ) : null}
-              <label className="flex flex-col gap-1 text-sm">
-                <span>{t('settings.playerRoles.background.brightness')}</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={200}
-                  value={avPreferences.backgroundLayer.brightness}
-                  onChange={(e) =>
-                    setAvBackgroundLayer({ brightness: Number.parseInt(e.target.value, 10) })
-                  }
-                />
-              </label>
-            </CardContent>
-          </Card>
 
           <SettingsSection
             title={t('settings.playerRoles.transition.title')}

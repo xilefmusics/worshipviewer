@@ -256,7 +256,11 @@
       "outputAria": "Projection output",
       "outputMissingSession": "Missing projection session.",
       "slidesAria": "Slides for current item",
-      "outlineAria": "Section outline"
+      "outlineAria": "Section outline",
+      "backgroundAria": "Slide background",
+      "backgroundTitle": "Background",
+      "backgroundExpand": "Expand background selector",
+      "backgroundCollapse": "Collapse background selector"
     }
   },
   "settings": {
@@ -385,23 +389,14 @@
         "transformCapitalizeDescription": "Capitalize each word."
       },
       "background": {
-        "title": "Background layer",
+        "title": "Background",
         "description": "Choose what appears behind lyrics.",
-        "color": "Solid color",
-        "colorDescription": "Fill the slide with a single color.",
-        "gradient": "Gradient",
-        "gradientDescription": "Use a two-color gradient.",
-        "image": "Image",
-        "imageDescription": "Use a background image URL.",
-        "video": "Video",
-        "videoDescription": "Use a looping background video URL.",
-        "detailsTitle": "Background details",
-        "detailsDescription": "Adjust the active background source.",
-        "colorValue": "Background color",
-        "gradientFrom": "Gradient start",
-        "gradientTo": "Gradient end",
-        "mediaUrl": "Media URL",
-        "brightness": "Brightness"
+        "black": "Black",
+        "blackDescription": "Solid black background.",
+        "red": "Red",
+        "redDescription": "Red radial gradient.",
+        "ray": "Ray",
+        "rayDescription": "Ray light background image."
       },
       "transition": {
         "title": "Slide transition",

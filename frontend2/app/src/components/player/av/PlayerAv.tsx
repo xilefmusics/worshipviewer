@@ -32,6 +32,8 @@ import {
 import {
   buildAvProjectionPayload,
   readAvPreferences,
+  writeAvPreferences,
+  type AvBackgroundPreset,
   type AvPreferences,
 } from '@/lib/player/av-preferences'
 import {
@@ -97,7 +99,7 @@ export function PlayerAv({
   const isSmViewport = useMediaQuery('(min-width: 640px)')
   const tocInsetPx = isSmViewport ? 224 : 176
 
-  const [prefs] = useState<AvPreferences>(() => readAvPreferences())
+  const [prefs, setPrefs] = useState<AvPreferences>(() => readAvPreferences())
   const [session, setSession] = useState<AvSessionState>(() => {
     const saved = readAvSessionState(type, id)
     const startItem = initialIndex ?? saved.itemIndex ?? player.index
@@ -210,6 +212,14 @@ export function PlayerAv({
         })
     setAnnouncement(label)
   }, [session.blackout, session.slideIndex, slideCount, t, title])
+
+  const setBackgroundPreset = useCallback((preset: AvBackgroundPreset) => {
+    setPrefs((prev) => {
+      const next = { ...prev, backgroundLayer: { preset } }
+      writeAvPreferences(next)
+      return next
+    })
+  }, [])
 
   const goToSlide = useCallback(
     (slideIndex: number, clearBlackout = true) => {
@@ -446,8 +456,10 @@ export function PlayerAv({
             currentSlideIndex={session.slideIndex}
             contentLayer={prefs.contentLayer}
             backgroundLayer={prefs.backgroundLayer}
+            backgroundPreviewText={currentText}
             transition={prefs.transition}
             onSelectSlide={(slideIndex) => goToSlide(slideIndex)}
+            onSelectBackgroundPreset={setBackgroundPreset}
           />
         </div>
 

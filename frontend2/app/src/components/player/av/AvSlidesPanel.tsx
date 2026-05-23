@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { AvBackgroundSelector } from '@/components/player/av/AvBackgroundSelector'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
 import type {
   AvBackgroundLayer,
+  AvBackgroundPreset,
   AvContentLayer,
   AvTransition,
 } from '@/lib/player/av-preferences'
@@ -52,8 +54,10 @@ type AvSlidesPanelProps = {
   currentSlideIndex: number
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
+  backgroundPreviewText: string
   transition: AvTransition
   onSelectSlide: (slideIndex: number) => void
+  onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
 }
 
 export function AvSlidesPanel({
@@ -61,27 +65,40 @@ export function AvSlidesPanel({
   currentSlideIndex,
   contentLayer,
   backgroundLayer,
+  backgroundPreviewText,
   transition,
   onSelectSlide,
+  onSelectBackgroundPreset,
 }: AvSlidesPanelProps) {
   const { t } = useTranslation()
   const [panelRef, multiColumn] = useSlidePanelMultiColumn()
 
+  const backgroundPreviewLine = firstSlideLine(backgroundPreviewText)
+
   if (entries.length === 0) {
     return (
-      <div className="av-slides-panel av-slides-panel--empty">
-        <p className="av-slides-panel__empty">{t('player.av.emptySlide')}</p>
+      <div className="av-slides-panel-shell">
+        <div className="av-slides-panel av-slides-panel--empty">
+          <p className="av-slides-panel__empty">{t('player.av.emptySlide')}</p>
+        </div>
+        <AvBackgroundSelector
+          preset={backgroundLayer.preset}
+          previewText={backgroundPreviewLine}
+          contentLayer={contentLayer}
+          onSelectPreset={onSelectBackgroundPreset}
+        />
       </div>
     )
   }
 
   return (
-    <div
-      ref={panelRef}
-      className={cn('av-slides-panel', multiColumn && 'av-slides-panel--multi-column')}
-      role="list"
-      aria-label={t('player.av.slidesAria')}
-    >
+    <div className="av-slides-panel-shell">
+      <div
+        ref={panelRef}
+        className={cn('av-slides-panel', multiColumn && 'av-slides-panel--multi-column')}
+        role="list"
+        aria-label={t('player.av.slidesAria')}
+      >
       {entries.map((entry) => {
         const selected = entry.slideIndex === currentSlideIndex
         const previewText = multiColumn ? entry.text : firstSlideLine(entry.text)
@@ -115,12 +132,20 @@ export function AvSlidesPanel({
                 transition={transition}
                 blackout={false}
                 compact={!multiColumn}
+                showBackground={false}
                 className={multiColumn ? undefined : 'av-slide-view--compact'}
               />
             </div>
           </button>
         )
       })}
+      </div>
+      <AvBackgroundSelector
+        preset={backgroundLayer.preset}
+        previewText={backgroundPreviewLine}
+        contentLayer={contentLayer}
+        onSelectPreset={onSelectBackgroundPreset}
+      />
     </div>
   )
 }

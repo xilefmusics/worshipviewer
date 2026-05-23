@@ -20,6 +20,8 @@ type AvSlideViewProps = {
   blackout: boolean
   className?: string
   compact?: boolean
+  /** When false, omit the projection background (for UI thumbnails over a checkerboard). */
+  showBackground?: boolean
 }
 
 export function AvSlideView({
@@ -30,6 +32,7 @@ export function AvSlideView({
   blackout,
   className,
   compact = false,
+  showBackground = true,
 }: AvSlideViewProps) {
   const reduceMotion = useReducedMotion()
   const effectiveTransition = effectiveAvTransition(transition, reduceMotion ?? false)
@@ -41,7 +44,9 @@ export function AvSlideView({
 
   return (
     <div className={cn('av-slide-view', className)}>
-      <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__background" />
+      {showBackground ? (
+        <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__background" />
+      ) : null}
       <div className="av-slide-view__content">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div

@@ -5,8 +5,11 @@ export type AvVerticalAlign = 'top' | 'center' | 'bottom'
 export type AvHorizontalAlign = 'left' | 'center' | 'right'
 export type AvTextShadow = 'none' | 'subtle' | 'medium' | 'strong'
 export type AvTextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize'
-export type AvBackgroundKind = 'color' | 'gradient' | 'image' | 'video'
+/** Legacy presenter backgrounds: 0 = black, 1 = red gradient, 2 = ray image. */
+export type AvBackgroundPreset = 0 | 1 | 2
 export type AvTransitionStyle = 'none' | 'fade' | 'slide'
+
+export const AV_BACKGROUND_PRESETS = [0, 1, 2] as const satisfies readonly AvBackgroundPreset[]
 
 export type AvContentLayer = {
   maxLinesPerSlide: number
@@ -19,13 +22,7 @@ export type AvContentLayer = {
 }
 
 export type AvBackgroundLayer = {
-  kind: AvBackgroundKind
-  color: string
-  gradientFrom: string
-  gradientTo: string
-  gradientAngle: number
-  mediaUrl: string
-  brightness: number
+  preset: AvBackgroundPreset
 }
 
 export type AvTransition = {
@@ -57,13 +54,7 @@ export const DEFAULT_AV_PREFERENCES: AvPreferences = {
     textTransform: 'uppercase',
   },
   backgroundLayer: {
-    kind: 'color',
-    color: '#000000',
-    gradientFrom: '#1a1a2e',
-    gradientTo: '#16213e',
-    gradientAngle: 135,
-    mediaUrl: '',
-    brightness: 100,
+    preset: 2,
   },
   transition: {
     style: 'fade',
@@ -85,6 +76,11 @@ function parseEnum<T extends string>(
   fallback: T,
 ): T {
   return allowed.includes(value as T) ? (value as T) : fallback
+}
+
+function parseBackgroundPreset(value: unknown, fallback: AvBackgroundPreset): AvBackgroundPreset {
+  const num = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10)
+  return num === 0 || num === 1 || num === 2 ? num : fallback
 }
 
 function mergeContentLayer(raw: Partial<AvContentLayer> | undefined): AvContentLayer {
@@ -116,25 +112,18 @@ function mergeContentLayer(raw: Partial<AvContentLayer> | undefined): AvContentL
   }
 }
 
-function mergeBackgroundLayer(raw: Partial<AvBackgroundLayer> | undefined): AvBackgroundLayer {
+function mergeBackgroundLayer(raw: Partial<AvBackgroundLayer> & Record<string, unknown> | undefined): AvBackgroundLayer {
   const defaults = DEFAULT_AV_PREFERENCES.backgroundLayer
-  return {
-    kind: parseEnum(
-      raw?.kind,
-      ['color', 'gradient', 'image', 'video'],
-      defaults.kind,
-    ),
-    color: typeof raw?.color === 'string' && raw.color ? raw.color : defaults.color,
-    gradientFrom:
-      typeof raw?.gradientFrom === 'string' && raw.gradientFrom
-        ? raw.gradientFrom
-        : defaults.gradientFrom,
-    gradientTo:
-      typeof raw?.gradientTo === 'string' && raw.gradientTo ? raw.gradientTo : defaults.gradientTo,
-    gradientAngle: clampNumber(raw?.gradientAngle, defaults.gradientAngle, 0, 360),
-    mediaUrl: typeof raw?.mediaUrl === 'string' ? raw.mediaUrl : defaults.mediaUrl,
-    brightness: clampNumber(raw?.brightness, defaults.brightness, 0, 200),
+  if (raw?.preset !== undefined) {
+    return { preset: parseBackgroundPreset(raw.preset, defaults.preset) }
   }
+  // Migrate earlier frontend2 free-form background settings.
+  if (typeof raw?.kind === 'string') {
+    if (raw.kind === 'gradient') return { preset: 1 }
+    if (raw.kind === 'image' || raw.kind === 'video') return { preset: 2 }
+    return { preset: 0 }
+  }
+  return defaults
 }
 
 function mergeTransition(raw: Partial<AvTransition> | undefined): AvTransition {
