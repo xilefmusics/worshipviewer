@@ -7,7 +7,7 @@ import {
   TocSortLikedIcon,
   TocSortOrderIcon,
 } from '@/components/icons/toc-sort-icons'
-import { displayTocEntries, type TocDisplayMode } from '@/lib/player/toc-display'
+import { displayTocEntries, tocDisplayNr, type TocDisplayMode } from '@/lib/player/toc-display'
 import {
   buildTocMetadataBySongId,
   collectTocLanguageFilterOptions,
@@ -221,7 +221,7 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
                   )}
                   onClick={() => onSelect(row.idx)}
                 >
-                  {row.nr}. {row.title}
+                  {tocDisplayNr(toc, row)}. {row.title}
                   {row.liked ? (
                     <>
                       {' '}

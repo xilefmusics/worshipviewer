@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { displayTocEntries } from '@/lib/player/toc-display'
+import { displayTocEntries, tocDisplayNr } from '@/lib/player/toc-display'
 
 const toc = [
   { idx: 0, nr: '1', title: 'Zebra', liked: false },
@@ -23,5 +23,21 @@ describe('displayTocEntries', () => {
 
   it('filters to liked rows only', () => {
     expect(displayTocEntries(toc, 'liked')).toEqual([toc[1]])
+  })
+})
+
+describe('tocDisplayNr', () => {
+  it('uses explicit nr when present', () => {
+    expect(tocDisplayNr(toc, toc[1]!)).toBe('2')
+  })
+
+  it('falls back to 1-based order index when nr is blank', () => {
+    const row = { idx: 1, nr: '', title: 'Alpha', liked: true }
+    expect(tocDisplayNr(toc, row)).toBe('2')
+  })
+
+  it('keeps collection order number when sorted alphabetically', () => {
+    const row = { idx: 0, nr: '', title: 'Zebra', liked: false }
+    expect(tocDisplayNr(toc, row)).toBe('1')
   })
 })

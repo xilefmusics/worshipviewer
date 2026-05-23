@@ -6,6 +6,14 @@ type TocItem = components['schemas']['TocItem']
 
 export type TocDisplayMode = 'order' | 'alphabetical' | 'liked'
 
+/** Display number for a TOC row; falls back to 1-based position in the source list. */
+export function tocDisplayNr(toc: TocItem[], row: TocItem): string {
+  const nr = row.nr.trim()
+  if (nr) return nr
+  const orderIndex = toc.findIndex((entry) => entry.idx === row.idx)
+  return String(orderIndex >= 0 ? orderIndex + 1 : row.idx + 1)
+}
+
 export type TocMetadataFilters = {
   metadataBySongId: Map<string, TocSongMetadata>
   activeLanguageIds: ReadonlySet<string>

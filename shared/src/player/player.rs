@@ -1,4 +1,4 @@
-use super::{Orientation, PlayerItem, ScrollType, TocItem};
+use super::{Orientation, PlayerItem, ScrollType, TocItem, resolve_toc_nr};
 use crate::song::LinkOwned as SongLinkOwned;
 
 use serde::{Deserialize, Serialize};
@@ -340,7 +340,7 @@ impl From<SongLinkOwned> for Player {
                     idx: 0,
                     title: link.song.data.title().to_string(),
                     id: Some(link.song.id.clone()),
-                    nr: link.nr.clone().unwrap_or_default(),
+                    nr: resolve_toc_nr(link.nr.as_deref(), 1),
                     liked: link.liked,
                 }]
             },

@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { motion, useReducedMotion } from 'motion/react'
 import {
-  cloneElement,
   memo,
   useCallback,
   useEffect,
@@ -10,7 +9,6 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type MouseEvent,
   type ReactElement,
 } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -432,7 +430,9 @@ function dispatchContextMenuFromPointer(target: HTMLElement, clientX: number, cl
 function useHubListItemPlayerTap(entity: HubEntity, itemId: string) {
   const navigate = useNavigate()
   const playType = hubEntityToPlayerType(entity)
+  const suppressNextClickRef = useRef(false)
   const baseLongPress = useLongPress((_e, target) => {
+    suppressNextClickRef.current = true
     dispatchContextMenuFromPointer(target, _e.clientX, _e.clientY)
   })
 
@@ -454,8 +454,16 @@ function useHubListItemPlayerTap(entity: HubEntity, itemId: string) {
   }
 
   const onClick = useCallback(() => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false
+      return
+    }
     openPlayer()
   }, [openPlayer])
+
+  const onContextMenu = useCallback(() => {
+    suppressNextClickRef.current = true
+  }, [])
 
   const onKeyDown = useCallback(
     (e: KeyboardEvent<HTMLElement>) => {
@@ -467,11 +475,7 @@ function useHubListItemPlayerTap(entity: HubEntity, itemId: string) {
     [openPlayer],
   )
 
-  return { listPointerProps, onClick, onKeyDown }
-}
-
-type HubListItemTriggerProps = {
-  onClick?: (e: MouseEvent<HTMLElement>) => void
+  return { listPointerProps, onClick, onContextMenu, onKeyDown }
 }
 
 function HubItemContextMenu({
@@ -492,7 +496,7 @@ function HubItemContextMenu({
   networkOnline: boolean
   /** When set (songs hub), enables “Add to setlist”. */
   hubSong?: Song
-  children: ReactElement<HubListItemTriggerProps>
+  children: ReactElement
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -504,7 +508,6 @@ function HubItemContextMenu({
   const [duplicateHot, setDuplicateHot] = useState(false)
   const [deleteHot, setDeleteHot] = useState(false)
   const [addToSetlistOpen, setAddToSetlistOpen] = useState(false)
-  const suppressNextClickRef = useRef(false)
 
   const playType = hubEntityToPlayerType(entity)
   const showAddToSetlist = Boolean(
@@ -591,24 +594,10 @@ function HubItemContextMenu({
     [chordFormat, hubSong, t],
   )
 
-  const triggerChild = cloneElement(children, {
-    onClick: (e: MouseEvent<HTMLElement>) => {
-      if (suppressNextClickRef.current) {
-        suppressNextClickRef.current = false
-        return
-      }
-      children.props.onClick?.(e)
-    },
-  })
-
   return (
     <>
-      <ContextMenu
-        onOpenChange={(open) => {
-          if (open) suppressNextClickRef.current = true
-        }}
-      >
-        <ContextMenuTrigger asChild>{triggerChild}</ContextMenuTrigger>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
         <ContextMenuContent>
           <ContextMenuItem
             className="gap-2"
@@ -801,7 +790,7 @@ const CollectionCard = memo(function CollectionCard({
   networkOnline: boolean
 }) {
   const reduceMotion = useReducedMotion()
-  const { listPointerProps, onClick, onKeyDown } = useHubListItemPlayerTap(
+  const { listPointerProps, onClick, onContextMenu, onKeyDown } = useHubListItemPlayerTap(
     'collections',
     collection.id,
   )
@@ -820,6 +809,7 @@ const CollectionCard = memo(function CollectionCard({
         className="flex cursor-pointer flex-col gap-1.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] sm:gap-2"
         {...listPointerProps}
         onClick={onClick}
+        onContextMenu={onContextMenu}
         role="button"
         tabIndex={0}
         whileTap={reduceMotion ? undefined : tapFeedback}
@@ -857,7 +847,7 @@ const CollectionRow = memo(function CollectionRow({
 }) {
   const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
-  const { listPointerProps, onClick, onKeyDown } = useHubListItemPlayerTap(
+  const { listPointerProps, onClick, onContextMenu, onKeyDown } = useHubListItemPlayerTap(
     'collections',
     collection.id,
   )
@@ -876,6 +866,7 @@ const CollectionRow = memo(function CollectionRow({
         className="flex cursor-pointer gap-3 border-b border-[var(--color-border)] py-3 outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
         {...listPointerProps}
         onClick={onClick}
+        onContextMenu={onContextMenu}
         role="button"
         tabIndex={0}
         whileTap={reduceMotion ? undefined : tapFeedback}
@@ -917,7 +908,7 @@ const SongRow = memo(function SongRow({
   const { t } = useTranslation()
   const { data: user } = useSession()
   const reduceMotion = useReducedMotion()
-  const { listPointerProps, onClick, onKeyDown } = useHubListItemPlayerTap('songs', song.id)
+  const { listPointerProps, onClick, onContextMenu, onKeyDown } = useHubListItemPlayerTap('songs', song.id)
   const title = songTitle(song)
   const sub = songSubtitle(song)
   const { data: ownerTeam, isPending: ownerTeamPending, isError: ownerTeamError } =
@@ -942,6 +933,7 @@ const SongRow = memo(function SongRow({
         className="flex cursor-pointer gap-3 border-b border-[var(--color-border)] py-3 outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
         {...listPointerProps}
         onClick={onClick}
+        onContextMenu={onContextMenu}
         role="button"
         tabIndex={0}
         whileTap={reduceMotion ? undefined : tapFeedback}
@@ -979,7 +971,7 @@ const SetlistRow = memo(function SetlistRow({
   const { t } = useTranslation()
   const { data: user } = useSession()
   const reduceMotion = useReducedMotion()
-  const { listPointerProps, onClick, onKeyDown } = useHubListItemPlayerTap('setlists', setlist.id)
+  const { listPointerProps, onClick, onContextMenu, onKeyDown } = useHubListItemPlayerTap('setlists', setlist.id)
   const { data: ownerTeam, isPending: ownerTeamPending, isError: ownerTeamError } =
     useTeamDetail(setlist.owner)
 
@@ -1001,6 +993,7 @@ const SetlistRow = memo(function SetlistRow({
         className="flex cursor-pointer gap-3 border-b border-[var(--color-border)] py-3 outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
         {...listPointerProps}
         onClick={onClick}
+        onContextMenu={onContextMenu}
         role="button"
         tabIndex={0}
         whileTap={reduceMotion ? undefined : tapFeedback}
