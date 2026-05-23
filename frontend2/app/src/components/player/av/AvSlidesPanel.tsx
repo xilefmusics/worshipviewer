@@ -72,6 +72,14 @@ export function AvSlidesPanel({
 }: AvSlidesPanelProps) {
   const { t } = useTranslation()
   const [panelRef, multiColumn] = useSlidePanelMultiColumn()
+  const slideRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
+
+  useEffect(() => {
+    if (currentSlideIndex == null) return
+    slideRefs.current
+      .get(currentSlideIndex)
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  }, [currentSlideIndex, entries])
 
   const backgroundPreviewLine = firstSlideLine(backgroundPreviewText)
 
@@ -105,6 +113,10 @@ export function AvSlidesPanel({
         return (
           <button
             key={entry.slideIndex}
+            ref={(el) => {
+              if (el) slideRefs.current.set(entry.slideIndex, el)
+              else slideRefs.current.delete(entry.slideIndex)
+            }}
             type="button"
             role="listitem"
             className={cn(
