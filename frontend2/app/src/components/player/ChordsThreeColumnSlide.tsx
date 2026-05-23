@@ -232,6 +232,24 @@ export function shiftOverflowSection(columns: number[][], columnIndex: number): 
   return nextColumns
 }
 
+/** Whether packed column indices still match the current section list. */
+export function isPackedColumnsValid(
+  packedColumns: number[][],
+  sectionCount: number,
+): boolean {
+  if (sectionCount === 0) return packedColumns.length === 0
+
+  let packedCount = 0
+  for (const column of packedColumns) {
+    for (const index of column) {
+      if (!Number.isInteger(index) || index < 0 || index >= sectionCount) return false
+      packedCount++
+    }
+  }
+
+  return packedCount === sectionCount
+}
+
 function availableColumnViewportSize(columnArea: HTMLElement): { width: number; height: number } {
   return {
     width: columnArea.clientWidth,
@@ -260,7 +278,9 @@ ${CONTENT_HOST_SELECTOR} .columns {
   return css
 }
 
-function renderColumnSection(section: ColumnSection, index: number) {
+function renderColumnSection(section: ColumnSection | undefined, index: number) {
+  if (!section) return null
+
   return (
     <div key={index} className="player-chords-three-column__section" data-section-index={index}>
       <div dangerouslySetInnerHTML={{ __html: section.html }} />
@@ -300,6 +320,10 @@ export function ChordsThreeColumnSlide({
     columnHeightPx: number
   } | null>(null)
   const [packedColumns, setPackedColumns] = useState<number[][] | null>(null)
+  const packingContextRef = useRef<{
+    columnCount: 2 | 3
+    sections: ColumnSection[] | null
+  }>({ columnCount, sections: null })
 
   const showNextPreview = nextSong != null
   const songData = song.data as ChordSongData
@@ -325,6 +349,18 @@ export function ChordsThreeColumnSlide({
       nextSections,
     )
   }, [renderState, showNextPreview, nextSong, nextDisplayKey, nextRenderState])
+
+  const previousPackingContext = packingContextRef.current
+  if (
+    previousPackingContext.columnCount !== columnCount ||
+    previousPackingContext.sections !== columnSections
+  ) {
+    packingContextRef.current = { columnCount, sections: columnSections }
+    if (packedColumns !== null) setPackedColumns(null)
+    if (previousPackingContext.columnCount !== columnCount && columnLayout !== null) {
+      setColumnLayout(null)
+    }
+  }
 
   const combinedColumnCss = useMemo(() => {
     if (renderState.status !== 'ready') return ''
@@ -397,7 +433,8 @@ export function ChordsThreeColumnSlide({
   }, [columnLayout, columnSections, combinedColumnCss])
 
   useLayoutEffect(() => {
-    if (!columnLayout || !packedColumns) return
+    if (!columnLayout || !packedColumns || !columnSections) return
+    if (!isPackedColumnsValid(packedColumns, columnSections.length)) return
 
     const rowEl = rowRef.current
     if (!rowEl) return
@@ -416,7 +453,11 @@ export function ChordsThreeColumnSlide({
     }
   }, [columnLayout, packedColumns, combinedColumnCss, columnSections])
 
-  const layoutReady = columnLayout != null && packedColumns != null
+  const layoutReady =
+    columnLayout != null &&
+    packedColumns != null &&
+    columnSections != null &&
+    isPackedColumnsValid(packedColumns, columnSections.length)
 
   return (
     <div

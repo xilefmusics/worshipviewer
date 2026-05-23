@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  isPackedColumnsValid,
   packSectionsIntoColumns,
   shiftOverflowSection,
 } from './ChordsThreeColumnSlide'
@@ -40,5 +41,19 @@ describe('shiftOverflowSection', () => {
 
   it('creates a new column when shifting from the last column', () => {
     expect(shiftOverflowSection([[0, 1]], 0)).toEqual([[0], [1]])
+  })
+})
+
+describe('isPackedColumnsValid', () => {
+  it('accepts packing that covers every section index once', () => {
+    expect(isPackedColumnsValid([[0, 1], [2]], 3)).toBe(true)
+  })
+
+  it('rejects out-of-range section indices from stale packing', () => {
+    expect(isPackedColumnsValid([[0, 1, 2, 3]], 3)).toBe(false)
+  })
+
+  it('rejects packing that omits sections', () => {
+    expect(isPackedColumnsValid([[0, 1]], 3)).toBe(false)
   })
 })
