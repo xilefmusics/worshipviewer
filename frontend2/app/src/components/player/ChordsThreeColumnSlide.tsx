@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import {
-  cappedColumnFontScale,
   columnWidthInMultiColumnLayout,
+  fontScaleForColumnWidth,
   scaledColumnTypography,
 } from '@/lib/chord-a4-scale'
 import { getChordEngine } from '@/lib/chord-engine'
@@ -186,6 +186,11 @@ function buildCombinedColumnCss(
   ) {
     css += `\n${scopeChordlibPageCss(nextRenderState.css, '.player-chords-three-column__columns')}`
   }
+  css += `
+.player-chords-three-column__columns .columns {
+  font-size: inherit;
+  line-height: inherit;
+}`
   return css
 }
 
@@ -293,9 +298,7 @@ export function ChordsThreeColumnSlide({
         columnGap,
         paddingLeft + paddingRight,
       )
-      const viewportWidth = viewportEl?.clientWidth ?? rect.width
-      const availableHeight = viewportEl ? availableColumnViewportHeight(viewportEl) : 0
-      const scale = cappedColumnFontScale(columnWidth, availableHeight, viewportWidth)
+      const scale = fontScaleForColumnWidth(columnWidth)
       if (scale == null) return
       setColumnTypography(scaledColumnTypography(scale))
       setLayoutScale(null)
