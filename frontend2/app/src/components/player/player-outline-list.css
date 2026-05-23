@@ -1,0 +1,50 @@
+.player-outline-list {
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.5rem 0;
+  list-style: none;
+  touch-action: pan-y;
+}
+
+.player-outline-list--fill {
+  min-height: 0;
+  flex: 1;
+}
+
+.av-outline-panel .player-outline-list {
+  height: 100%;
+}
+
+.player-outline-list__item {
+  display: block;
+  width: calc(100% - 1rem);
+  margin: 0.25rem 0.5rem;
+  padding: 0.35rem 1rem;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--color-foreground);
+  font-size: 0.875rem;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-outline-list__item:hover:not(:disabled) {
+  background: var(--color-muted);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.player-outline-list__item--selected {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.player-outline-list__item--sub {
+  padding-left: 1.75rem;
+}

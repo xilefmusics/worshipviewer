@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { AvOutlineRow } from '@/lib/player/av-lyric-slides'
 import { cn } from '@/lib/utils'
 
+import '../player-outline-list.css'
 import './player-av.css'
 
 type AvOutlinePanelProps = {
@@ -19,15 +20,15 @@ export function AvOutlinePanel({ rows, onSelectSlide }: AvOutlinePanelProps) {
 
   return (
     <nav className="av-outline-panel" aria-label={t('player.av.outlineAria')}>
-      <ul className="av-outline-panel__list">
+      <ul className="player-outline-list">
         {rows.map((row) => (
           <li key={`${row.slideIndex}-${row.label}`}>
             <button
               type="button"
               className={cn(
-                'av-outline-panel__item',
-                row.selected && 'av-outline-panel__item--selected',
-                row.isSubSlide && 'av-outline-panel__item--sub',
+                'player-outline-list__item',
+                row.selected && 'player-outline-list__item--selected',
+                row.isSubSlide && 'player-outline-list__item--sub',
               )}
               aria-current={row.selected ? 'true' : undefined}
               onClick={() => onSelectSlide(row.slideIndex)}

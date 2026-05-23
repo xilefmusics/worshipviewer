@@ -270,8 +270,8 @@
     "tabs": {
       "aria": "Einstellungsbereiche",
       "general": "Allgemein",
-      "player": "Player",
-      "playerRoles": "Player-Rollen / AV"
+      "player": "Player Default",
+      "playerRoles": "Player AV"
     },
     "language": {
       "title": "Sprache",
@@ -292,6 +292,14 @@
       "lightDescription": "Verwendet immer das helle Design.",
       "dark": "Dunkel",
       "darkDescription": "Verwendet immer das dunkle Design."
+    },
+    "defaultPlayerMode": {
+      "title": "Standard-Playermodus",
+      "description": "Tippen auf Songs, Setlisten und Sammlungen öffnet den Player in diesem Modus.",
+      "normal": "Normalmodus",
+      "normalDescription": "Buchmodus mit Akkordblättern und Anhängen.",
+      "av": "AV-Modus",
+      "avDescription": "Lyrik-Projektion mit getrennten Inhalts- und Hintergrundebenen."
     },
     "collectionsViewMode": {
       "title": "Sammlungsansicht",
@@ -338,14 +346,6 @@
       "threeColumnNextDescription": "Drei Spalten mit dem nächsten Song im Spaltenfluss in Grau, auf den sichtbaren Platz begrenzt."
     },
     "playerRoles": {
-      "defaultMode": {
-        "title": "Standard-Playermodus",
-        "description": "Tippen auf Songs, Setlisten und Sammlungen öffnet den Player in diesem Modus.",
-        "normal": "Normalmodus",
-        "normalDescription": "Buchmodus mit Akkordblättern und Anhängen.",
-        "av": "AV-Modus",
-        "avDescription": "Lyrik-Projektion mit getrennten Inhalts- und Hintergrundebenen."
-      },
       "content": {
         "title": "Inhaltsebene",
         "description": "Typografie und Layout für projizierte Lyrics.",

@@ -10,6 +10,8 @@ import {
 import { displayTocEntries, type TocDisplayMode } from '@/lib/player/toc-display'
 import { cn } from '@/lib/utils'
 
+import './player-outline-list.css'
+
 type TocItem = components['schemas']['TocItem']
 
 type PlayerTocSidebarProps = {
@@ -81,7 +83,7 @@ export function PlayerTocSidebar({ toc, currentIndex, onSelect }: PlayerTocSideb
       </div>
 
       <ul
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 touch-pan-y"
+        className="player-outline-list player-outline-list--fill"
         role="listbox"
         aria-label={t('player.toc.title')}
       >
@@ -98,22 +100,21 @@ export function PlayerTocSidebar({ toc, currentIndex, onSelect }: PlayerTocSideb
                   type="button"
                   role="option"
                   aria-current={active ? 'true' : undefined}
+                  aria-label={row.title}
                   className={cn(
-                    'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors',
-                    active
-                      ? 'border border-[var(--color-primary)] bg-[var(--color-primary)]/10'
-                      : 'hover:bg-[var(--color-muted)]',
+                    'player-outline-list__item',
+                    active && 'player-outline-list__item--selected',
                   )}
                   onClick={() => onSelect(row.idx)}
                 >
-                  <span className="shrink-0 rounded-md bg-[var(--color-muted)] px-2 py-0.5 text-xs font-medium">
-                    {row.nr}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{row.title}</span>
+                  {row.nr}. {row.title}
                   {row.liked ? (
-                    <span aria-label={t('player.toc.liked')} className="shrink-0 text-[var(--color-danger)]">
-                      ♥
-                    </span>
+                    <>
+                      {' '}
+                      <span aria-label={t('player.toc.liked')} className="text-[var(--color-danger)]">
+                        ♥
+                      </span>
+                    </>
                   ) : null}
                 </button>
               </li>

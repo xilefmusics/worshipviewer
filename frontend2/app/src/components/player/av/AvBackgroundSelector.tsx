@@ -33,7 +33,7 @@ export function AvBackgroundSelector({
   onSelectPreset,
 }: AvBackgroundSelectorProps) {
   const { t } = useTranslation()
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
 
   return (
     <div className="av-background-selector-panel">

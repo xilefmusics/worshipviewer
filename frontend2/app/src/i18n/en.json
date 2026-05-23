@@ -270,8 +270,8 @@
     "tabs": {
       "aria": "Settings sections",
       "general": "General",
-      "player": "Player",
-      "playerRoles": "Player roles / AV"
+      "player": "Player Default",
+      "playerRoles": "Player AV"
     },
     "language": {
       "title": "Language",
@@ -292,6 +292,14 @@
       "lightDescription": "Always use the light theme.",
       "dark": "Dark",
       "darkDescription": "Always use the dark theme."
+    },
+    "defaultPlayerMode": {
+      "title": "Default player mode",
+      "description": "Primary tap on songs, setlists, and collections opens the player in this mode.",
+      "normal": "Normal mode",
+      "normalDescription": "Book-mode chord sheets and attachments.",
+      "av": "AV mode",
+      "avDescription": "Lyric projection with separate content and background layers."
     },
     "collectionsViewMode": {
       "title": "Collections layout",
@@ -338,14 +346,6 @@
       "threeColumnNextDescription": "Three columns with the next song continuing in the column flow in gray, clipped to what fits on screen."
     },
     "playerRoles": {
-      "defaultMode": {
-        "title": "Default player mode",
-        "description": "Primary tap on songs, setlists, and collections opens the player in this mode.",
-        "normal": "Normal mode",
-        "normalDescription": "Book-mode chord sheets and attachments.",
-        "av": "AV mode",
-        "avDescription": "Lyric projection with separate content and background layers."
-      },
       "content": {
         "title": "Content layer",
         "description": "Typography and layout for projected lyrics.",

@@ -311,43 +311,6 @@
   overflow: hidden;
 }
 
-.av-outline-panel__list {
-  height: 100%;
-  margin: 0;
-  overflow-y: auto;
-  padding: 0.5rem 0;
-  list-style: none;
-}
-
-.av-outline-panel__item {
-  display: block;
-  width: calc(100% - 1rem);
-  margin: 0.25rem 0.5rem;
-  padding: 0.35rem 1rem;
-  border: none;
-  border-radius: 9999px;
-  background: transparent;
-  color: var(--color-foreground);
-  font-size: 0.875rem;
-  text-align: left;
-  cursor: pointer;
-}
-
-.av-outline-panel__item:hover:not(:disabled) {
-  background: var(--color-muted);
-  color: var(--color-primary);
-  font-weight: 600;
-}
-
-.av-outline-panel__item--selected {
-  color: var(--color-primary);
-  font-weight: 700;
-}
-
-.av-outline-panel__item--sub {
-  padding-left: 1.75rem;
-}
-
 .av-background-selector-panel {
   flex-shrink: 0;
   border-top: 1px solid var(--color-border);

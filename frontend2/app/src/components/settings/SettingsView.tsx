@@ -421,13 +421,13 @@ export function SettingsView({
     () => [
       {
         value: 'normal',
-        label: t('settings.playerRoles.defaultMode.normal'),
-        description: t('settings.playerRoles.defaultMode.normalDescription'),
+        label: t('settings.defaultPlayerMode.normal'),
+        description: t('settings.defaultPlayerMode.normalDescription'),
       },
       {
         value: 'av',
-        label: t('settings.playerRoles.defaultMode.av'),
-        description: t('settings.playerRoles.defaultMode.avDescription'),
+        label: t('settings.defaultPlayerMode.av'),
+        description: t('settings.defaultPlayerMode.avDescription'),
       },
     ],
     [t],
@@ -697,6 +697,14 @@ export function SettingsView({
             onChange={setCollectionsViewMode}
           />
 
+          <SettingsSection
+            title={t('settings.defaultPlayerMode.title')}
+            description={t('settings.defaultPlayerMode.description')}
+            options={defaultPlayerModeOptions}
+            value={defaultPlayerMode}
+            onChange={setDefaultPlayerMode}
+          />
+
           {sessionUser ? <SettingsProfilePictureSection user={sessionUser} /> : null}
 
           <Card>
@@ -806,14 +814,6 @@ export function SettingsView({
           aria-labelledby="settings-tab-playerRoles"
           className="flex flex-col gap-4"
         >
-          <SettingsSection
-            title={t('settings.playerRoles.defaultMode.title')}
-            description={t('settings.playerRoles.defaultMode.description')}
-            options={defaultPlayerModeOptions}
-            value={defaultPlayerMode}
-            onChange={setDefaultPlayerMode}
-          />
-
           <Card>
             <CardHeader className="p-4 pb-3">
               <CardTitle className="text-base">{t('settings.playerRoles.content.title')}</CardTitle>
