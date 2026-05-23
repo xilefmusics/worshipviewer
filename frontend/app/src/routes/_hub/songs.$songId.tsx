@@ -17,5 +17,5 @@ export const Route = createFileRoute('/_hub/songs/$songId')({
 
 function SongEditorRoute() {
   const { songId } = Route.useParams()
-  return <SongEditorScreen songId={songId} />
+  return <SongEditorScreen key={songId} songId={songId} />
 }

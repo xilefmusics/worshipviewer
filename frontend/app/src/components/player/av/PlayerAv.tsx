@@ -120,7 +120,6 @@ export function PlayerAv({
     return { ...saved, itemIndex: startItem, slideIndex: startSlide }
   })
   const [tocVisible] = useState(true)
-  const [announcement, setAnnouncement] = useState('')
 
   const sessionIdRef = useRef(createAvProjectionSessionId())
   const syncRef = useRef<AvProjectionSync | null>(null)
@@ -153,6 +152,15 @@ export function PlayerAv({
   )
 
   const slideCount = currentItem.slides.length
+  const announcement = useMemo(() => {
+    if (session.screenState === 'blackout') return t('player.av.blackoutOn')
+    if (session.screenState === 'blank') return t('player.av.blankOn')
+    return t('player.av.slideAnnounce', {
+      current: session.slideIndex + 1,
+      total: slideCount,
+      title: title || t('player.untitled'),
+    })
+  }, [session.screenState, session.slideIndex, slideCount, t, title])
   const slideDeckEntries = useMemo(
     () => buildAvSlideDeckEntries(currentItem.outline, currentItem.sourceSlides),
     [currentItem.outline, currentItem.sourceSlides],
@@ -227,20 +235,6 @@ export function PlayerAv({
     })
     syncRef.current?.broadcast(payload)
   }, [currentText, nextText, prefs, reduceMotion, session.screenState, t, title])
-
-  useEffect(() => {
-    const label =
-      session.screenState === 'blackout'
-        ? t('player.av.blackoutOn')
-        : session.screenState === 'blank'
-          ? t('player.av.blankOn')
-          : t('player.av.slideAnnounce', {
-              current: session.slideIndex + 1,
-              total: slideCount,
-              title: title || t('player.untitled'),
-            })
-    setAnnouncement(label)
-  }, [session.screenState, session.slideIndex, slideCount, t, title])
 
   const setBackgroundPreset = useCallback((preset: AvBackgroundPreset) => {
     setPrefs((prev) => {

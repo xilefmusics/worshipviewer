@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useSheetBackgroundPreference } from '@/hooks/useSheetBackgroundPreference'
@@ -36,13 +36,14 @@ export function useRemappedBlobImageUrl(
   const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
   const themeAttribute = useThemeAttribute()
   const shouldRemap = enabled && sheetBackground === 'app' && invertImages
-  const [displayUrl, setDisplayUrl] = useState<string | null>(sourceUrl)
+  const remapKey =
+    shouldRemap && sourceUrl
+      ? `${sourceUrl}:${systemDark}:${themeAttribute}:${invertImages}`
+      : null
+  const [remapCache, setRemapCache] = useState<{ key: string; url: string } | null>(null)
 
   useEffect(() => {
-    if (!sourceUrl || !shouldRemap) {
-      setDisplayUrl(sourceUrl)
-      return
-    }
+    if (!remapKey || !sourceUrl) return
 
     let cancelled = false
     let remappedUrl: string | null = null
@@ -54,9 +55,9 @@ export function useRemappedBlobImageUrl(
           URL.revokeObjectURL(remappedUrl)
           return
         }
-        setDisplayUrl(remappedUrl)
+        setRemapCache({ key: remapKey, url: remappedUrl })
       } catch {
-        if (!cancelled) setDisplayUrl(sourceUrl)
+        if (!cancelled) setRemapCache({ key: remapKey, url: sourceUrl })
       }
     })()
 
@@ -64,7 +65,12 @@ export function useRemappedBlobImageUrl(
       cancelled = true
       if (remappedUrl) URL.revokeObjectURL(remappedUrl)
     }
-  }, [shouldRemap, sourceUrl, systemDark, themeAttribute, invertImages])
+  }, [remapKey, sourceUrl])
 
-  return displayUrl
+  return useMemo(() => {
+    if (!sourceUrl) return null
+    if (!shouldRemap) return sourceUrl
+    if (remapCache?.key === remapKey) return remapCache.url
+    return sourceUrl
+  }, [remapCache, remapKey, shouldRemap, sourceUrl])
 }

@@ -40,12 +40,29 @@ export function ChordsSlide({
   const viewportRef = useRef<HTMLDivElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
-  const [contentSize, setContentSize] = useState({ width: 0, height: 0 })
-  const [renderState, setRenderState] = useState<RenderState>({ status: 'loading' })
+  const [renderCache, setRenderCache] = useState<{ key: string; state: RenderState }>({
+    key: '',
+    state: { status: 'loading' },
+  })
+  const [contentSizeCache, setContentSizeCache] = useState<{
+    key: string
+    size: { width: number; height: number }
+  }>({
+    key: '',
+    size: { width: 0, height: 0 },
+  })
   const [renderPass, setRenderPass] = useState(0)
 
   const songData = song.data as ChordSongData
   const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
+  const renderKey = `${song.id}:${displayKey ?? ''}:${renderPass}:${representation}`
+  const renderState = useMemo(
+    (): RenderState =>
+      renderCache.key === renderKey ? renderCache.state : { status: 'loading' },
+    [renderCache, renderKey],
+  )
+  const contentSize =
+    contentSizeCache.key === renderKey ? contentSizeCache.size : { width: 0, height: 0 }
 
   const cssScale = useMemo(
     () =>
@@ -77,8 +94,6 @@ export function ChordsSlide({
 
   useEffect(() => {
     let cancelled = false
-    setRenderState({ status: 'loading' })
-    setContentSize({ width: 0, height: 0 })
     void (async () => {
       try {
         const engine = await getChordEngine()
@@ -88,17 +103,17 @@ export function ChordsSlide({
           representation,
         })
         if (cancelled) return
-        setRenderState({ status: 'ready', html: page.html, css: page.css })
+        setRenderCache({ key: renderKey, state: { status: 'ready', html: page.html, css: page.css } })
       } catch (e) {
         if (cancelled) return
         const message = e instanceof Error ? e.message : String(e)
-        setRenderState({ status: 'error', message })
+        setRenderCache({ key: renderKey, state: { status: 'error', message } })
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [song.id, songData, displayKey, renderPass, representation])
+  }, [renderKey, songData, displayKey, representation])
 
   useLayoutEffect(() => {
     if (renderState.status !== 'ready') return
@@ -109,7 +124,7 @@ export function ChordsSlide({
       const width = el.scrollWidth
       const height = el.scrollHeight
       if (width > 0 && height > 0) {
-        setContentSize({ width, height })
+        setContentSizeCache({ key: renderKey, size: { width, height } })
       }
     }
 
@@ -117,7 +132,7 @@ export function ChordsSlide({
     const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [renderState])
+  }, [renderKey, renderState])
 
   const scaledReady = renderState.status === 'ready' && cssScale != null
   const measuring = renderState.status === 'ready' && cssScale == null

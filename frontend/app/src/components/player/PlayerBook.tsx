@@ -176,13 +176,21 @@ export function PlayerBook({
   const [likeBurstActive, setLikeBurstActive] = useState(false)
 
   const [viewState, setViewState] = useState<PlayerViewState>(() => readPlayerViewState(type, id))
-  const [likedBySongId, setLikedBySongId] = useState<Record<string, boolean>>(() =>
-    initialLikedBySongId(player),
+  const serverLikes = useMemo(() => initialLikedBySongId(player), [player])
+  const [likeState, setLikeState] = useState<{
+    player: Player
+    delta: Record<string, boolean>
+  }>(() => ({
+    player,
+    delta: {},
+  }))
+  const likedBySongId = useMemo(
+    () => ({
+      ...serverLikes,
+      ...(likeState.player === player ? likeState.delta : {}),
+    }),
+    [likeState, player, serverLikes],
   )
-
-  useEffect(() => {
-    setLikedBySongId(initialLikedBySongId(player))
-  }, [player])
 
   useEffect(() => {
     writePlayerViewState(type, id, viewState)
@@ -206,11 +214,13 @@ export function PlayerBook({
   })
 
   useEffect(() => {
-    setViewState((state) => {
-      const indexMatch = state.itemIndex === nav.index
-      const offsetMatch = state.pageOffset === nav.pageOffset
-      if (indexMatch && offsetMatch) return state
-      return setPlayerNavPosition(state, nav.index, nav.pageOffset)
+    queueMicrotask(() => {
+      setViewState((state) => {
+        const indexMatch = state.itemIndex === nav.index
+        const offsetMatch = state.pageOffset === nav.pageOffset
+        if (indexMatch && offsetMatch) return state
+        return setPlayerNavPosition(state, nav.index, nav.pageOffset)
+      })
     })
   }, [nav.index, nav.pageOffset])
 
@@ -253,13 +263,25 @@ export function PlayerBook({
     const songId = currentItem.song.id
     const previousLiked = likedBySongId[songId] ?? currentItem.song.user_specific_addons.liked
     const nextLiked = !previousLiked
-    setLikedBySongId((state) => ({ ...state, [songId]: nextLiked }))
+    setLikeState((state) => ({
+      player,
+      delta: {
+        ...(state.player === player ? state.delta : {}),
+        [songId]: nextLiked,
+      },
+    }))
     if (nextLiked) triggerLikeBurst()
     void setSongLikeStatus(queryClient, { id: songId, liked: nextLiked }).catch(() => {
-      setLikedBySongId((state) => ({ ...state, [songId]: previousLiked }))
+      setLikeState((state) => ({
+        player,
+        delta: {
+          ...(state.player === player ? state.delta : {}),
+          [songId]: previousLiked,
+        },
+      }))
       toast.error(t('player.loadFailed'))
     })
-  }, [allowNetworkFetch, currentItem, likedBySongId, online, queryClient, t, triggerLikeBurst])
+  }, [allowNetworkFetch, currentItem, likedBySongId, online, player, queryClient, t, triggerLikeBurst])
 
   useEffect(() => {
     if (deletedReconciled) {

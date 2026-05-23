@@ -12,11 +12,9 @@ export function useHubViewMode(entity: HubEntity): {
   viewMode: HubViewMode
   setViewMode: (mode: HubViewMode) => void
 } {
-  const [viewMode, setViewModeState] = useState(() => readHubViewMode(entity))
-
-  useEffect(() => {
-    setViewModeState(readHubViewMode(entity))
-  }, [entity])
+  const [override, setOverride] = useState<{ entity: HubEntity; mode: HubViewMode } | null>(null)
+  const viewMode =
+    override?.entity === entity ? override.mode : readHubViewMode(entity)
 
   useEffect(() => {
     if (entity !== 'collections') return
@@ -24,7 +22,7 @@ export function useHubViewMode(entity: HubEntity): {
     const onChange = (event: Event) => {
       const detail = (event as CustomEvent<{ entity: HubEntity; mode: HubViewMode }>).detail
       if (detail?.entity === 'collections') {
-        setViewModeState(detail.mode)
+        setOverride({ entity: 'collections', mode: detail.mode })
       }
     }
 
@@ -36,7 +34,7 @@ export function useHubViewMode(entity: HubEntity): {
     (mode: HubViewMode) => {
       if (entity !== 'collections') return
       writeHubViewMode(entity, mode)
-      setViewModeState(mode)
+      setOverride({ entity, mode })
     },
     [entity],
   )

@@ -69,8 +69,14 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   const { canEdit } = useCanEditSong(detail?.owner)
   const editable = Boolean(canEdit && detail && !detail.not_a_song)
 
-  const [engineState, setEngineState] = useState<EngineState>({ status: 'loading' })
   const [enginePass, setEnginePass] = useState(0)
+  const [engineCache, setEngineCache] = useState<{ key: string; state: EngineState }>({
+    key: '',
+    state: { status: 'loading' },
+  })
+  const engineKey = String(enginePass)
+  const engineState: EngineState =
+    engineCache.key === engineKey ? engineCache.state : { status: 'loading' }
   const [sourceText, setSourceText] = useState('')
   const [metadataStrip, setMetadataStrip] = useState<SongMetadataStrip>({
     title: '',
@@ -91,29 +97,22 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   const wentOfflineEditing = useRef(false)
 
   useEffect(() => {
-    lastLoadedSongRef.current = ''
-    setActiveTab('source')
-    setUgImportUi({ kind: 'idle' })
-  }, [songId])
-
-  useEffect(() => {
     let cancelled = false
-    setEngineState({ status: 'loading' })
     void (async () => {
       try {
         const engine = await getChordEngine()
         if (cancelled) return
-        setEngineState({ status: 'ready', engine })
+        setEngineCache({ key: engineKey, state: { status: 'ready', engine } })
       } catch (e) {
         if (cancelled) return
         const message = e instanceof Error ? e.message : String(e)
-        setEngineState({ status: 'error', message })
+        setEngineCache({ key: engineKey, state: { status: 'error', message } })
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [enginePass])
+  }, [engineKey])
 
   useEffect(() => {
     if (!online && editable) wentOfflineEditing.current = true
@@ -143,7 +142,9 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     return parseSourceWithEngine(engine, sourceText)
   }, [engine, sourceText])
   const parseResultRef = useRef(parseResult)
-  parseResultRef.current = parseResult
+  useEffect(() => {
+    parseResultRef.current = parseResult
+  }, [parseResult])
 
   const previewData = parseResult?.ok ? parseResult.data : null
   const parseErrors = useMemo(
@@ -157,9 +158,11 @@ export function SongEditorScreen({ songId }: { songId: string }) {
 
   useEffect(() => {
     if (!effectiveParseError) {
-      setDisplayedParseError(null)
-      setDisplayedParseErrors([])
-      return
+      const clearId = setTimeout(() => {
+        setDisplayedParseError(null)
+        setDisplayedParseErrors([])
+      }, 0)
+      return () => clearTimeout(clearId)
     }
     const errors = parseErrors
     const id = setTimeout(() => {
@@ -210,13 +213,17 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     if (!engine) return
     const current = parseResultRef.current
     if (!current?.ok) return
-    setSourceText(formatSourceFromSongData(engine, current.data, chordFormat))
+    queueMicrotask(() => {
+      setSourceText(formatSourceFromSongData(engine, current.data, chordFormat))
+    })
   }, [chordFormat, engine])
 
   useEffect(() => {
     if (!engine || !detail || saveRevision === 0) return
-    setSourceText(formatSourceFromSongData(engine, detail.data as Record<string, unknown>, chordFormat))
-    setParseError(null)
+    queueMicrotask(() => {
+      setSourceText(formatSourceFromSongData(engine, detail.data as Record<string, unknown>, chordFormat))
+      setParseError(null)
+    })
   }, [saveRevision, engine, detail, chordFormat])
 
   const blockingAll =
@@ -225,15 +232,15 @@ export function SongEditorScreen({ songId }: { songId: string }) {
 
   useEffect(() => {
     if (!engine || !editable || sourceBlocked) {
-      setUgImportUi({ kind: 'idle' })
+      queueMicrotask(() => setUgImportUi({ kind: 'idle' }))
       return
     }
     if (parseResult?.ok) {
-      setUgImportUi({ kind: 'idle' })
+      queueMicrotask(() => setUgImportUi({ kind: 'idle' }))
       return
     }
 
-    setUgImportUi({ kind: 'idle' })
+    queueMicrotask(() => setUgImportUi({ kind: 'idle' }))
     const trimmed = sourceText.trim()
     const timer = setTimeout(() => {
       if (parseResultRef.current?.ok) return
@@ -267,18 +274,15 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   const retryAfterUntil = saveFailure?.retryAfterUntil
   const [retrySec, setRetrySec] = useState(0)
   useEffect(() => {
-    if (!retryAfterUntil) {
-      setRetrySec(0)
-      return
-    }
+    if (!retryAfterUntil) return
     const tick = () => {
-      const left = Math.max(0, Math.ceil((retryAfterUntil - Date.now()) / 1000))
-      setRetrySec(left)
+      setRetrySec(Math.max(0, Math.ceil((retryAfterUntil - Date.now()) / 1000)))
     }
     tick()
     const id = setInterval(tick, 500)
     return () => clearInterval(id)
   }, [retryAfterUntil])
+  const displayRetrySec = retryAfterUntil ? retrySec : 0
 
   const onSourceChange = useCallback(
     (next: string) => {
@@ -466,10 +470,10 @@ export function SongEditorScreen({ songId }: { songId: string }) {
               type="button"
               variant="outline"
               size="sm"
-              disabled={retrySec > 0}
+              disabled={displayRetrySec > 0}
               onClick={() => void retrySave()}
             >
-              {retrySec > 0 ? t('songs.editor.retryIn', { seconds: retrySec }) : t('songs.editor.retry')}
+              {displayRetrySec > 0 ? t('songs.editor.retryIn', { seconds: displayRetrySec }) : t('songs.editor.retry')}
             </Button>
             <Button
               type="button"

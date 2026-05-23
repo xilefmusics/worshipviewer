@@ -1,5 +1,5 @@
 import type { components } from '@/api/schema'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -59,31 +59,25 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
     [metadataBySongId],
   )
 
-  useEffect(() => {
-    const validLanguages = new Set(languageFilters.map((row) => row.id))
-    setActiveLanguageIds((current) => {
-      const next = new Set([...current].filter((id) => validLanguages.has(id)))
-      return next.size === current.size ? current : next
-    })
-  }, [languageFilters])
+  const visibleLanguageIds = useMemo(() => {
+    const valid = new Set(languageFilters.map((row) => row.id))
+    return new Set([...activeLanguageIds].filter((id) => valid.has(id)))
+  }, [activeLanguageIds, languageFilters])
 
-  useEffect(() => {
-    const validTags = new Set(tagFilters.map((row) => row.id))
-    setActiveTagIds((current) => {
-      const next = new Set([...current].filter((id) => validTags.has(id)))
-      return next.size === current.size ? current : next
-    })
-  }, [tagFilters])
+  const visibleTagIds = useMemo(() => {
+    const valid = new Set(tagFilters.map((row) => row.id))
+    return new Set([...activeTagIds].filter((id) => valid.has(id)))
+  }, [activeTagIds, tagFilters])
 
   const entries = useMemo(
     () =>
       displayTocEntries(toc, mode, {
         items,
         metadataBySongId,
-        activeLanguageIds,
-        activeTagIds,
+        activeLanguageIds: visibleLanguageIds,
+        activeTagIds: visibleTagIds,
       }),
-    [activeLanguageIds, activeTagIds, items, metadataBySongId, mode, toc],
+    [visibleLanguageIds, visibleTagIds, items, metadataBySongId, mode, toc],
   )
 
   const modeLabels: Record<TocDisplayMode, string> = {
@@ -93,7 +87,7 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
   }
 
   const hasMetadataFilters = languageFilters.length > 0 || tagFilters.length > 0
-  const filtersActive = activeLanguageIds.size > 0 || activeTagIds.size > 0
+  const filtersActive = visibleLanguageIds.size > 0 || visibleTagIds.size > 0
   const emptyMessage =
     mode === 'liked' && !filtersActive
       ? t('player.toc.emptyLiked')
@@ -148,7 +142,7 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
                 className="flex flex-wrap gap-1"
               >
                 {languageFilters.map((filter) => {
-                  const selected = activeLanguageIds.has(filter.id)
+                  const selected = visibleLanguageIds.has(filter.id)
                   return (
                     <button
                       key={filter.id}
@@ -177,7 +171,7 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
                 className="flex flex-wrap gap-1"
               >
                 {tagFilters.map((filter) => {
-                  const selected = activeTagIds.has(filter.id)
+                  const selected = visibleTagIds.has(filter.id)
                   return (
                     <button
                       key={filter.id}

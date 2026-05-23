@@ -4,7 +4,7 @@ import {
   isPackedColumnsValid,
   packSectionsIntoColumns,
   shiftOverflowSection,
-} from './ChordsThreeColumnSlide'
+} from './chords-three-column-pack'
 
 describe('packSectionsIntoColumns', () => {
   it('fills the first column before starting the next', () => {

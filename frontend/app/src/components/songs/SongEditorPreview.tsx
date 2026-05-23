@@ -39,14 +39,33 @@ export function SongEditorPreview({
   const viewportRef = useRef<HTMLDivElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
-  const [contentSize, setContentSize] = useState({ width: 0, height: 0 })
-  const [renderState, setRenderState] = useState<RenderState>({ status: 'idle' })
+  const [renderCache, setRenderCache] = useState<{ key: string; state: RenderState }>({
+    key: '',
+    state: { status: 'idle' },
+  })
+  const [contentSizeCache, setContentSizeCache] = useState<{
+    key: string
+    size: { width: number; height: number }
+  }>({
+    key: '',
+    size: { width: 0, height: 0 },
+  })
   const [renderPass, setRenderPass] = useState(0)
 
   const displayKey = useMemo(
     () => (songData ? resolveSongDataKey(songData as Record<string, unknown>) : null),
     [songData],
   )
+  const activeRenderKey =
+    !songData || parseError ? null : `${renderPass}:${displayKey ?? ''}:${chordRepresentation}`
+  const renderState = useMemo((): RenderState => {
+    if (activeRenderKey == null) return { status: 'idle' }
+    return renderCache.key === activeRenderKey ? renderCache.state : { status: 'loading' }
+  }, [activeRenderKey, renderCache])
+  const contentSize =
+    activeRenderKey && contentSizeCache.key === activeRenderKey
+      ? contentSizeCache.size
+      : { width: 0, height: 0 }
 
   const cssScale = useMemo(
     () => cssScaleToViewportWidth(viewportSize.width, contentSize.width),
@@ -71,31 +90,32 @@ export function SongEditorPreview({
   }, [])
 
   useEffect(() => {
-    if (!songData || parseError) {
-      setRenderState({ status: 'idle' })
-      setContentSize({ width: 0, height: 0 })
-      return
-    }
+    if (!activeRenderKey || !songData) return
+
     let cancelled = false
-    setRenderState({ status: 'loading' })
-    setContentSize({ width: 0, height: 0 })
-    try {
-      const page = engine.renderA4Html(songData, {
-        key: displayKey ?? undefined,
-        representation: chordRepresentation,
-        scale: 1,
-      })
+    queueMicrotask(() => {
       if (cancelled) return
-      setRenderState({ status: 'ready', html: page.html, css: page.css })
-    } catch (e) {
-      if (cancelled) return
-      const message = e instanceof Error ? e.message : String(e)
-      setRenderState({ status: 'error', message })
-    }
+      try {
+        const page = engine.renderA4Html(songData, {
+          key: displayKey ?? undefined,
+          representation: chordRepresentation,
+          scale: 1,
+        })
+        if (cancelled) return
+        setRenderCache({
+          key: activeRenderKey,
+          state: { status: 'ready', html: page.html, css: page.css },
+        })
+      } catch (e) {
+        if (cancelled) return
+        const message = e instanceof Error ? e.message : String(e)
+        setRenderCache({ key: activeRenderKey, state: { status: 'error', message } })
+      }
+    })
     return () => {
       cancelled = true
     }
-  }, [engine, songData, displayKey, chordRepresentation, parseError, renderPass])
+  }, [activeRenderKey, engine, songData, displayKey, chordRepresentation])
 
   useLayoutEffect(() => {
     if (renderState.status !== 'ready') return
@@ -105,8 +125,8 @@ export function SongEditorPreview({
     const measure = () => {
       const width = el.scrollWidth
       const height = el.scrollHeight
-      if (width > 0 && height > 0) {
-        setContentSize({ width, height })
+      if (width > 0 && height > 0 && activeRenderKey) {
+        setContentSizeCache({ key: activeRenderKey, size: { width, height } })
       }
     }
 
@@ -114,7 +134,7 @@ export function SongEditorPreview({
     const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [renderState])
+  }, [activeRenderKey, renderState])
 
   const scaledReady = renderState.status === 'ready' && cssScale != null
   const measuring = renderState.status === 'ready' && cssScale == null

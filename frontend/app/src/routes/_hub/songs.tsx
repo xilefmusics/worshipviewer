@@ -45,7 +45,7 @@ function SongsRoute() {
     const pages = teamsQ.data?.pages ?? []
     const teams = pages.flatMap((p) => p.items)
     return teams.some((tm) => canEditTeamLibrary(tm, user.id))
-  }, [teamsQ.data?.pages, user?.id])
+  }, [teamsQ.data?.pages, user])
 
   useEffect(() => {
     if (isSongEditor) return
