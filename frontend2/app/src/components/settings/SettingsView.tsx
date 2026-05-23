@@ -727,29 +727,6 @@ export function SettingsView({
             onChange={setDefaultPlayerMode}
           />
 
-          <Card>
-            <CardHeader className="p-4 pb-3">
-              <CardTitle className="text-base">{t('settings.lyricWhitespace.title')}</CardTitle>
-              <CardDescription>{t('settings.lyricWhitespace.description')}</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <label className="flex items-start gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
-                  checked={collapseLyricWhitespace}
-                  onChange={(e) => setCollapseLyricWhitespace(e.target.checked)}
-                />
-                <span className="flex flex-col gap-0.5">
-                  <span>{t('settings.lyricWhitespace.collapse')}</span>
-                  <span className="text-xs text-[var(--color-muted-foreground)]">
-                    {t('settings.lyricWhitespace.collapseDescription')}
-                  </span>
-                </span>
-              </label>
-            </CardContent>
-          </Card>
-
           {sessionUser ? <SettingsProfilePictureSection user={sessionUser} /> : null}
 
           <Card>
@@ -972,6 +949,29 @@ export function SettingsView({
             value={avPreferences.contentLayer.textTransform}
             onChange={(value) => setAvContentLayer({ textTransform: value })}
           />
+
+          <Card>
+            <CardHeader className="p-4 pb-3">
+              <CardTitle className="text-base">{t('settings.lyricWhitespace.title')}</CardTitle>
+              <CardDescription>{t('settings.lyricWhitespace.description')}</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
+                  checked={collapseLyricWhitespace}
+                  onChange={(e) => setCollapseLyricWhitespace(e.target.checked)}
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span>{t('settings.lyricWhitespace.collapse')}</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
+                    {t('settings.lyricWhitespace.collapseDescription')}
+                  </span>
+                </span>
+              </label>
+            </CardContent>
+          </Card>
 
           <SettingsSection
             title={t('settings.playerRoles.background.title')}
