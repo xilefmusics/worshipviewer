@@ -38,8 +38,32 @@ function pagesFor(config: PlayerNavConfig, index: number): number {
   return pagesPerItem(config.scrollType, config.itemTypeAt(index))
 }
 
-export function initialPlayerNavState(serverIndex: number, itemCount: number): PlayerNavState {
-  return { index: clampIndex(serverIndex, itemCount), pageOffset: 0 }
+export function initialPlayerNavState(
+  serverIndex: number,
+  itemCount: number,
+  pageOffset = 0,
+): PlayerNavState {
+  return {
+    index: clampIndex(serverIndex, itemCount),
+    pageOffset: Math.max(0, Math.trunc(pageOffset)),
+  }
+}
+
+export function resolveInitialPlayerNav(
+  options: {
+    savedItemIndex?: number
+    savedPageOffset?: number
+    initialIndex?: number
+    serverIndex: number
+    itemCount: number
+  },
+): PlayerNavState {
+  if (options.initialIndex != null) {
+    return initialPlayerNavState(options.initialIndex, options.itemCount, 0)
+  }
+  const index = options.savedItemIndex ?? options.serverIndex
+  const pageOffset = options.savedPageOffset ?? 0
+  return initialPlayerNavState(index, options.itemCount, pageOffset)
 }
 
 export function nextPlayerState(

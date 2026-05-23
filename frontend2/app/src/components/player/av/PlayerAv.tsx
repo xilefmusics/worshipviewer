@@ -104,7 +104,8 @@ export function PlayerAv({
   const [session, setSession] = useState<AvSessionState>(() => {
     const saved = readAvSessionState(type, id)
     const startItem = initialIndex ?? saved.itemIndex ?? player.index
-    return { ...saved, itemIndex: startItem }
+    const startSlide = initialIndex != null ? 0 : saved.slideIndex
+    return { ...saved, itemIndex: startItem, slideIndex: startSlide }
   })
   const [tocVisible, setTocVisible] = useState(true)
   const [announcement, setAnnouncement] = useState('')

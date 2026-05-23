@@ -4,6 +4,8 @@ import { parseOptionalPlayerIndex } from '@/lib/player/player-editor-return'
 export type PlayerViewState = {
   transposeByItem: Record<number, string | null>
   itemIndex?: number
+  /** Intra-item page when scroll mode supports paging within an item. */
+  pageOffset?: number
 }
 
 export function playerViewStorageKey(type: PlayerEntityType, id: string): string {
@@ -22,9 +24,11 @@ export function readPlayerViewState(
     }
     const parsed = JSON.parse(raw) as Partial<PlayerViewState>
     const itemIndex = parseOptionalPlayerIndex(parsed.itemIndex)
+    const pageOffset = parseOptionalPlayerIndex(parsed.pageOffset)
     return {
       transposeByItem: parsed.transposeByItem ?? {},
       ...(itemIndex != null ? { itemIndex } : {}),
+      ...(pageOffset != null ? { pageOffset } : {}),
     }
   } catch {
     return { transposeByItem: {} }
@@ -67,4 +71,12 @@ export function clearTransposeForItem(state: PlayerViewState, itemIndex: number)
 
 export function setPlayerItemIndex(state: PlayerViewState, itemIndex: number): PlayerViewState {
   return { ...state, itemIndex }
+}
+
+export function setPlayerNavPosition(
+  state: PlayerViewState,
+  itemIndex: number,
+  pageOffset: number,
+): PlayerViewState {
+  return { ...state, itemIndex, pageOffset }
 }

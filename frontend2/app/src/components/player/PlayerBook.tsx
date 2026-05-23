@@ -41,8 +41,8 @@ import {
   writePlayerScrollPortrait,
 } from '@/lib/player-scroll-preference'
 import {
-  initialPlayerNavState,
   nextPlayerState,
+  resolveInitialPlayerNav,
   type PlayerNavState,
 } from '@/lib/player/next-player-state'
 import {
@@ -57,7 +57,7 @@ import { resolveTransposeKey } from '@/lib/player/transpose-key'
 import {
   readPlayerViewState,
   clearTransposeForItem,
-  setPlayerItemIndex,
+  setPlayerNavPosition,
   setTransposeForItem,
   writePlayerViewState,
   type PlayerViewState,
@@ -195,16 +195,24 @@ export function PlayerBook({
   const itemsLen = player.items.length
 
   const [nav, setNav] = useState<PlayerNavState>(() => {
-    const savedIndex = readPlayerViewState(type, id).itemIndex
-    const startIndex = initialIndex ?? savedIndex ?? player.index
-    return initialPlayerNavState(startIndex, itemsLen)
+    const saved = readPlayerViewState(type, id)
+    return resolveInitialPlayerNav({
+      savedItemIndex: saved.itemIndex,
+      savedPageOffset: saved.pageOffset,
+      initialIndex,
+      serverIndex: player.index,
+      itemCount: itemsLen,
+    })
   })
 
   useEffect(() => {
-    setViewState((state) =>
-      state.itemIndex === nav.index ? state : setPlayerItemIndex(state, nav.index),
-    )
-  }, [nav.index])
+    setViewState((state) => {
+      const indexMatch = state.itemIndex === nav.index
+      const offsetMatch = state.pageOffset === nav.pageOffset
+      if (indexMatch && offsetMatch) return state
+      return setPlayerNavPosition(state, nav.index, nav.pageOffset)
+    })
+  }, [nav.index, nav.pageOffset])
 
   const navConfig = useMemo(
     () => ({
