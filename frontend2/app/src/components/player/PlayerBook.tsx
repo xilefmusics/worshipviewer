@@ -784,7 +784,11 @@ export function PlayerBook({
                 })()}
               />
             ) : currentItem ? (
-              renderPlayerItem(currentItem, nav.index)
+              renderPlayerItem(
+                currentItem,
+                nav.index,
+                isMultiColumnScrollMode(effectiveScroll),
+              )
             ) : null}
           </motion.div>
 

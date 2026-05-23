@@ -2,9 +2,6 @@
   display: flex;
   min-height: 0;
   min-width: 0;
-  height: 100%;
-  width: 100%;
-  flex: 1;
   flex-direction: column;
   color: var(--player-sheet-fg);
   background: var(--player-sheet-bg);
@@ -51,6 +48,7 @@
 }
 
 .player-chords-three-column__scroll {
+  position: relative;
   min-height: 0;
   flex: 1;
   overflow: hidden;
@@ -58,47 +56,39 @@
   padding: 1rem 1.5rem 1.25rem;
 }
 
-.player-chords-three-column__scroll--fit {
-  display: flex;
-  flex-direction: column;
-}
-
-.player-chords-three-column__scroll--clip {
+.player-chords-three-column__column-area {
+  position: absolute;
+  inset: 1rem 1.5rem 1.25rem;
   overflow: hidden;
 }
 
-.player-chords-three-column__scaled-wrap {
-  min-height: 0;
-  overflow: hidden;
-}
-
-.player-chords-three-column__scaled-wrap--measuring {
+.player-chords-three-column__measure {
   visibility: hidden;
   position: absolute;
   left: 0;
   top: 0;
-  width: 100%;
+  pointer-events: none;
 }
 
-.player-chords-three-column__columns {
-  column-count: var(--player-chords-column-count, 3);
-  column-gap: 1.5rem;
-  /* font-size / line-height set inline from A4 column-width reference (see ChordsThreeColumnSlide) */
+.player-chords-three-column__row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  height: 100%;
+  width: max-content;
 }
 
-.player-chords-three-column__columns--scaled {
-  transform-origin: top left;
+.player-chords-three-column__column {
+  flex-shrink: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.player-chords-three-column__columns p {
+.player-chords-three-column__content p {
   margin: 0 0 2.3077em;
-  break-inside: avoid;
-  page-break-inside: avoid;
 }
 
 .player-chords-three-column__preview-section {
-  break-inside: avoid;
-  page-break-inside: avoid;
   color: var(--color-muted-foreground);
   opacity: 0.72;
 }

@@ -25,6 +25,11 @@ type RenderState =
   | { status: 'ready'; sections: string[]; css: string }
   | { status: 'error'; message: string }
 
+type ColumnSection = {
+  html: string
+  preview: boolean
+}
+
 type ChordsThreeColumnSlideProps = {
   song: Song
   displayKey?: string | null
@@ -34,6 +39,9 @@ type ChordsThreeColumnSlideProps = {
   columnCount?: 2 | 3
   fillParent?: boolean
 }
+
+const COLUMN_GAP_PX = 24 // 1.5rem — keep in sync with player-chords-three-column.css
+const CONTENT_HOST_SELECTOR = '.player-chords-three-column__content'
 
 function escapeHtml(text: string): string {
   return text
@@ -127,15 +135,6 @@ function useMultiColumnSongRender(
   return renderState
 }
 
-function wrapPreviewSections(sections: string[]): string {
-  return sections
-    .map(
-      (section) =>
-        `<div class="player-chords-three-column__preview-section">${section}</div>`,
-    )
-    .join('')
-}
-
 function previewHeadingHtml(song: Song, displayKey?: string | null): string {
   const songData = song.data as ChordSongData
   const title = escapeHtml(songTitleFromData(songData))
@@ -156,21 +155,88 @@ function previewHeadingHtml(song: Song, displayKey?: string | null): string {
   return html
 }
 
-function buildCombinedColumnHtml(
+function buildColumnSections(
   currentSections: string[],
   nextSong: Song | null | undefined,
   nextDisplayKey: string | null | undefined,
   nextSections: string[],
-  visibleNextSectionCount: number,
-): string {
-  let html = currentSections.join('')
+): ColumnSection[] {
+  const sections: ColumnSection[] = currentSections.map((html) => ({ html, preview: false }))
 
-  if (nextSong && visibleNextSectionCount > 0 && nextSections.length > 0) {
-    html += previewHeadingHtml(nextSong, nextDisplayKey)
-    html += wrapPreviewSections(nextSections.slice(0, visibleNextSectionCount))
+  if (nextSong && nextSections.length > 0) {
+    sections.push({ html: previewHeadingHtml(nextSong, nextDisplayKey), preview: true })
+    for (const section of nextSections) {
+      sections.push({
+        html: `<div class="player-chords-three-column__preview-section">${section}</div>`,
+        preview: true,
+      })
+    }
   }
 
-  return html
+  return sections
+}
+
+/** Measure how much vertical space each section consumes when stacked in a column. */
+export function measureStackedSectionHeights(measureRoot: HTMLElement): number[] {
+  const sectionEls = measureRoot.querySelectorAll('[data-section-index]')
+  if (sectionEls.length === 0) return []
+
+  const rootTop = measureRoot.getBoundingClientRect().top
+  const heights: number[] = []
+
+  for (let index = 0; index < sectionEls.length; index++) {
+    const el = sectionEls[index] as HTMLElement
+    const rect = el.getBoundingClientRect()
+    const previousBottom =
+      index === 0 ? rootTop : (sectionEls[index - 1] as HTMLElement).getBoundingClientRect().bottom
+    heights.push(Math.ceil(rect.bottom - previousBottom))
+  }
+
+  return heights
+}
+
+/** Pack section indices into columns, filling each column top-to-bottom before starting the next. */
+export function packSectionsIntoColumns(
+  sectionHeights: number[],
+  maxColumnHeight: number,
+): number[][] {
+  if (sectionHeights.length === 0) return []
+
+  const columns: number[][] = [[]]
+  let usedHeight = 0
+
+  for (let index = 0; index < sectionHeights.length; index++) {
+    const sectionHeight = sectionHeights[index]
+    const currentColumnHasContent = columns[columns.length - 1].length > 0
+    if (currentColumnHasContent && usedHeight + sectionHeight > maxColumnHeight) {
+      columns.push([])
+      usedHeight = 0
+    }
+    columns[columns.length - 1].push(index)
+    usedHeight += sectionHeight
+  }
+
+  return columns
+}
+
+/** Move one trailing section from a column into the next column. */
+export function shiftOverflowSection(columns: number[][], columnIndex: number): number[][] | null {
+  if (columns[columnIndex]?.length === 0) return null
+
+  const nextColumns = columns.map((column) => [...column])
+  const moved = nextColumns[columnIndex].pop()
+  if (moved == null) return null
+
+  if (!nextColumns[columnIndex + 1]) nextColumns.push([])
+  nextColumns[columnIndex + 1].unshift(moved)
+  return nextColumns
+}
+
+function availableColumnViewportSize(columnArea: HTMLElement): { width: number; height: number } {
+  return {
+    width: columnArea.clientWidth,
+    height: columnArea.clientHeight,
+  }
 }
 
 function buildCombinedColumnCss(
@@ -178,27 +244,38 @@ function buildCombinedColumnCss(
   nextRenderState: RenderState,
   includeNextPreview: boolean,
 ): string {
-  let css = scopeChordlibPageCss(currentCss, '.player-chords-three-column__columns')
+  let css = scopeChordlibPageCss(currentCss, CONTENT_HOST_SELECTOR)
   if (
     includeNextPreview &&
     nextRenderState.status === 'ready' &&
     nextRenderState.css
   ) {
-    css += `\n${scopeChordlibPageCss(nextRenderState.css, '.player-chords-three-column__columns')}`
+    css += `\n${scopeChordlibPageCss(nextRenderState.css, CONTENT_HOST_SELECTOR)}`
   }
   css += `
-.player-chords-three-column__columns .columns {
+${CONTENT_HOST_SELECTOR} .columns {
   font-size: inherit;
   line-height: inherit;
 }`
   return css
 }
 
-function availableColumnViewportHeight(viewport: HTMLElement): number {
-  const styles = getComputedStyle(viewport)
-  const paddingTop = Number.parseFloat(styles.paddingTop) || 0
-  const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0
-  return viewport.clientHeight - paddingTop - paddingBottom
+function renderColumnSection(section: ColumnSection, index: number) {
+  return (
+    <div key={index} className="player-chords-three-column__section" data-section-index={index}>
+      <div dangerouslySetInnerHTML={{ __html: section.html }} />
+    </div>
+  )
+}
+
+function columnTypographyStyle(columnLayout: {
+  fontSizePx: number
+  lineHeightPx: number
+}): { fontSize: string; lineHeight: string } {
+  return {
+    fontSize: `${columnLayout.fontSizePx}px`,
+    lineHeight: `${columnLayout.lineHeightPx}px`,
+  }
 }
 
 export function ChordsThreeColumnSlide({
@@ -212,29 +289,22 @@ export function ChordsThreeColumnSlide({
 }: ChordsThreeColumnSlideProps) {
   const { t } = useTranslation()
   const viewportRef = useRef<HTMLDivElement>(null)
-  const columnsRef = useRef<HTMLDivElement>(null)
+  const columnAreaRef = useRef<HTMLDivElement>(null)
+  const measureRef = useRef<HTMLDivElement>(null)
+  const rowRef = useRef<HTMLDivElement>(null)
   const [renderPass, setRenderPass] = useState(0)
-  const [columnTypography, setColumnTypography] = useState<{
+  const [columnLayout, setColumnLayout] = useState<{
     fontSizePx: number
     lineHeightPx: number
+    columnWidthPx: number
+    columnHeightPx: number
   } | null>(null)
-  const [contentHeight, setContentHeight] = useState(0)
-  const [layoutScale, setLayoutScale] = useState<number | null>(null)
+  const [packedColumns, setPackedColumns] = useState<number[][] | null>(null)
 
   const showNextPreview = nextSong != null
   const songData = song.data as ChordSongData
   const renderState = useMultiColumnSongRender(song, displayKey, chordFormat, renderPass)
   const nextRenderState = useMultiColumnSongRender(nextSong, nextDisplayKey, chordFormat, 0)
-
-  const maxNextSections =
-    nextRenderState.status === 'ready' ? nextRenderState.sections.length : 0
-  const [fitNextSectionCount, setFitNextSectionCount] = useState(maxNextSections)
-  const maxNextSectionsRef = useRef(maxNextSections)
-  maxNextSectionsRef.current = maxNextSections
-
-  const resetFitNextSectionCount = useCallback(() => {
-    setFitNextSectionCount(maxNextSectionsRef.current)
-  }, [])
 
   const title = useMemo(() => songTitleFromData(songData), [songData])
   const subtitle = useMemo(() => songSubtitleLine(songData), [songData])
@@ -244,30 +314,17 @@ export function ChordsThreeColumnSlide({
     setRenderPass((n) => n + 1)
   }, [])
 
-  useEffect(() => {
-    resetFitNextSectionCount()
-  }, [maxNextSections, columnCount, song.id, displayKey, nextSong?.id, nextDisplayKey, resetFitNextSectionCount])
-
-  const combinedColumnHtml = useMemo(() => {
+  const columnSections = useMemo((): ColumnSection[] | null => {
     if (renderState.status !== 'ready') return null
-    if (!showNextPreview) return renderState.sections.join('')
     const nextSections =
-      nextRenderState.status === 'ready' ? nextRenderState.sections : []
-    return buildCombinedColumnHtml(
+      showNextPreview && nextRenderState.status === 'ready' ? nextRenderState.sections : []
+    return buildColumnSections(
       renderState.sections,
-      nextSong,
+      showNextPreview ? nextSong : undefined,
       nextDisplayKey,
       nextSections,
-      fitNextSectionCount,
     )
-  }, [
-    renderState,
-    showNextPreview,
-    nextSong,
-    nextDisplayKey,
-    nextRenderState,
-    fitNextSectionCount,
-  ])
+  }, [renderState, showNextPreview, nextSong, nextDisplayKey, nextRenderState])
 
   const combinedColumnCss = useMemo(() => {
     if (renderState.status !== 'ready') return ''
@@ -276,112 +333,96 @@ export function ChordsThreeColumnSlide({
 
   useLayoutEffect(() => {
     if (renderState.status !== 'ready' || renderState.sections.length === 0) {
-      setColumnTypography(null)
-      setContentHeight(0)
-      setLayoutScale(null)
+      setColumnLayout(null)
       return
     }
 
-    const columnsEl = columnsRef.current
-    const viewportEl = viewportRef.current
-    if (!columnsEl) return
+    const columnAreaEl = columnAreaRef.current
+    if (!columnAreaEl) return
 
-    const updateTypography = () => {
-      const rect = columnsEl.getBoundingClientRect()
-      const styles = getComputedStyle(columnsEl)
-      const paddingLeft = Number.parseFloat(styles.paddingLeft) || 0
-      const paddingRight = Number.parseFloat(styles.paddingRight) || 0
-      const columnGap = Number.parseFloat(styles.columnGap) || Number.parseFloat(styles.gap) || 0
+    const updateLayout = () => {
+      const { width, height } = availableColumnViewportSize(columnAreaEl)
+      if (width <= 0 || height <= 0) return
+
       const columnWidth = columnWidthInMultiColumnLayout(
-        rect.width,
+        width,
         columnCount,
-        columnGap,
-        paddingLeft + paddingRight,
+        COLUMN_GAP_PX,
+        0,
       )
       const scale = fontScaleForColumnWidth(columnWidth)
       if (scale == null) return
-      setColumnTypography(scaledColumnTypography(scale))
-      setLayoutScale(null)
+
+      const typography = scaledColumnTypography(scale)
+      setColumnLayout({
+        ...typography,
+        columnWidthPx: columnWidth,
+        columnHeightPx: Math.floor(height),
+      })
     }
 
-    updateTypography()
-    const observer = new ResizeObserver(updateTypography)
-    observer.observe(columnsEl)
-    if (viewportEl) observer.observe(viewportEl)
+    updateLayout()
+    const observer = new ResizeObserver(updateLayout)
+    observer.observe(columnAreaEl)
+    if (viewportRef.current) observer.observe(viewportRef.current)
     return () => observer.disconnect()
-  }, [columnCount, renderState])
+  }, [columnCount, renderState, columnSections])
 
   useLayoutEffect(() => {
-    if (renderState.status !== 'ready' || !columnTypography) {
-      setContentHeight(0)
-      setLayoutScale(null)
+    if (!columnLayout || !columnSections) {
+      setPackedColumns(null)
       return
     }
 
-    const viewport = viewportRef.current
-    const columns = columnsRef.current
-    if (!viewport || !columns) return
+    const measureEl = measureRef.current
+    if (!measureEl) return
 
-    const measureLayoutScale = () => {
-      const availableHeight = availableColumnViewportHeight(viewport)
-      const height = columns.scrollHeight
-      if (availableHeight <= 0 || height <= 0) return
-      setContentHeight(height)
-      setLayoutScale(Math.min(1, availableHeight / height))
+    const measureAndPack = () => {
+      const sectionEls = measureEl.querySelectorAll('[data-section-index]')
+      if (sectionEls.length !== columnSections.length) return
+
+      const heights = measureStackedSectionHeights(measureEl)
+      if (heights.length !== columnSections.length || heights.some((height) => height <= 0)) return
+
+      setPackedColumns(packSectionsIntoColumns(heights, columnLayout.columnHeightPx))
     }
 
-    measureLayoutScale()
-    const observer = new ResizeObserver(measureLayoutScale)
-    observer.observe(columns)
-    observer.observe(viewport)
+    measureAndPack()
+    void document.fonts.ready.then(measureAndPack)
+
+    const observer = new ResizeObserver(measureAndPack)
+    observer.observe(measureEl)
     return () => observer.disconnect()
-  }, [renderState, columnTypography, combinedColumnHtml, fitNextSectionCount])
+  }, [columnLayout, columnSections, combinedColumnCss])
 
   useLayoutEffect(() => {
-    if (!showNextPreview || maxNextSections === 0 || layoutScale == null) return
+    if (!columnLayout || !packedColumns) return
 
-    const viewport = viewportRef.current
-    const columns = columnsRef.current
-    if (!viewport || !columns) return
+    const rowEl = rowRef.current
+    if (!rowEl) return
 
-    const availableHeight = availableColumnViewportHeight(viewport)
-    if (availableHeight <= 0) return
+    const columnEls = rowEl.querySelectorAll('.player-chords-three-column__column')
+    if (columnEls.length === 0) return
 
-    const fittedHeight = contentHeight * layoutScale
-    if (fittedHeight > availableHeight + 1 && fitNextSectionCount > 0) {
-      setFitNextSectionCount((count) => count - 1)
+    for (let columnIndex = 0; columnIndex < columnEls.length; columnIndex++) {
+      const columnEl = columnEls[columnIndex] as HTMLElement
+      if (columnEl.scrollHeight <= columnLayout.columnHeightPx + 1) continue
+      if (packedColumns[columnIndex]?.length <= 1) continue
+
+      const nextColumns = shiftOverflowSection(packedColumns, columnIndex)
+      if (nextColumns) setPackedColumns(nextColumns)
+      return
     }
-  }, [
-    showNextPreview,
-    maxNextSections,
-    fitNextSectionCount,
-    combinedColumnHtml,
-    columnTypography,
-    layoutScale,
-    contentHeight,
-  ])
+  }, [columnLayout, packedColumns, combinedColumnCss, columnSections])
 
-  useLayoutEffect(() => {
-    if (!showNextPreview || maxNextSections === 0) return
-
-    const viewport = viewportRef.current
-    if (!viewport) return
-
-    const observer = new ResizeObserver(resetFitNextSectionCount)
-    observer.observe(viewport)
-    return () => observer.disconnect()
-  }, [showNextPreview, maxNextSections, resetFitNextSectionCount])
-
-  const scaledReady = columnTypography != null && layoutScale != null
-  const measuring = columnTypography != null && layoutScale == null
-  const visibleHeight =
-    scaledReady && layoutScale != null ? contentHeight * layoutScale : undefined
+  const layoutReady = columnLayout != null && packedColumns != null
 
   return (
     <div
       className={cn(
         'player-chords-three-column',
-        fillParent && 'h-full w-full',
+        'h-full min-h-0 w-full',
+        fillParent && 'flex-1',
       )}
     >
       {renderState.status === 'loading' ? (
@@ -421,42 +462,48 @@ export function ChordsThreeColumnSlide({
           ) : null}
           {renderState.sections.length === 0 ? (
             <p className="player-chords-three-column__empty">{t('player.threeColumnEmpty')}</p>
-          ) : combinedColumnHtml ? (
-            <div
-              ref={viewportRef}
-              className={cn(
-                'player-chords-three-column__scroll',
-                scaledReady && 'player-chords-three-column__scroll--fit',
-                showNextPreview && 'player-chords-three-column__scroll--clip',
-              )}
-            >
-              <div
-                className={cn(
-                  'player-chords-three-column__scaled-wrap',
-                  measuring && 'player-chords-three-column__scaled-wrap--measuring',
-                )}
-                style={scaledReady ? { height: visibleHeight } : undefined}
-              >
-                <div
-                  ref={columnsRef}
-                  className={cn(
-                    'player-chords-three-column__columns',
-                    scaledReady && layoutScale < 1 && 'player-chords-three-column__columns--scaled',
-                  )}
-                  style={{
-                    '--player-chords-column-count': columnCount,
-                    ...(columnTypography
-                      ? {
-                          fontSize: `${columnTypography.fontSizePx}px`,
-                          lineHeight: `${columnTypography.lineHeightPx}px`,
-                        }
-                      : {}),
-                    ...(scaledReady && layoutScale < 1
-                      ? { transform: `scale(${layoutScale})` }
-                      : {}),
-                  }}
-                  dangerouslySetInnerHTML={{ __html: combinedColumnHtml }}
-                />
+          ) : columnSections ? (
+            <div ref={viewportRef} className="player-chords-three-column__scroll">
+              <div ref={columnAreaRef} className="player-chords-three-column__column-area">
+                {columnLayout ? (
+                  <div
+                    ref={measureRef}
+                    className="player-chords-three-column__measure player-chords-three-column__content"
+                    style={{
+                      width: `${columnLayout.columnWidthPx}px`,
+                      ...columnTypographyStyle(columnLayout),
+                    }}
+                    aria-hidden
+                  >
+                    {columnSections.map((section, index) => renderColumnSection(section, index))}
+                  </div>
+                ) : null}
+                {layoutReady && columnLayout && packedColumns ? (
+                  <div
+                    ref={rowRef}
+                    className="player-chords-three-column__row"
+                    style={{
+                      gap: `${COLUMN_GAP_PX}px`,
+                      height: `${columnLayout.columnHeightPx}px`,
+                      ...columnTypographyStyle(columnLayout),
+                    }}
+                  >
+                    {packedColumns.map((sectionIndices, columnIndex) => (
+                      <div
+                        key={columnIndex}
+                        className="player-chords-three-column__column player-chords-three-column__content"
+                        style={{
+                          width: `${columnLayout.columnWidthPx}px`,
+                          height: `${columnLayout.columnHeightPx}px`,
+                        }}
+                      >
+                        {sectionIndices.map((sectionIndex) =>
+                          renderColumnSection(columnSections[sectionIndex], sectionIndex),
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
           ) : null}
