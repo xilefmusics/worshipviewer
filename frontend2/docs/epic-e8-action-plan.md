@@ -6,7 +6,7 @@
 
 **Normative UX:** [pages-and-flows.md](./pages-and-flows.md), [app-shell.md](./app-shell.md), [setlist-editor.md](./setlist-editor.md), [song-editor.md](./song-editor.md), [api-integration.md](./api-integration.md), [architecture.md](./architecture.md), [openapi.json](./openapi.json).
 
-**Next:** [E9 — Sync transport and Tauri readiness](./roadmap.md#e9--sync-transport-and-tauri-readiness)
+**Next:** [E8.1 — Player role variants (AV mode first)](./roadmap.md#e81--player-role-variants-av-mode-first)
 
 ---
 
@@ -44,7 +44,7 @@ The following are **deliberately not** in E8. They belong to later epics and sho
 | **Tauri shell smoke** + native blob adapter | **E9** |
 | **Print / PDF from `/player`** | **Out of scope v1** per [grill 2026-04-21](./grill-session.md#resilience-ops-and-edge-cases). PDF **export** lives in **E6**, not the player. |
 | **Native fullscreen API** (Fullscreen API toggle) | Standalone PWA install removes browser chrome (E3); a separate `requestFullscreen` toggle is **not** in v1. |
-| **Multi-display / projector cast** | Future — not in v1. |
+| **Role-based AV projection mode** (lyrics/beamer) | **E8.1** — ships as a **player variant**, not as a separate legacy-like presenter subsystem. |
 | **Audio playback / metronome / click track** | Future / native shell. |
 | **`liked` toggle inside the player** | **Lists only** — same rule as song editor ([song-editor.md](./song-editor.md#play-navigation)). |
 | **Edit affordance inside the player** | None. Player is read-only chrome; **Back** returns to the **hub list** ([grill](./grill-session.md#shell-navigation-ux)). |
@@ -430,7 +430,7 @@ Walk through these on a fresh build (one phone, one tablet/iPad with keyboard, o
 24. Docs in §13 merged in the same PR / epic — no contradiction between code and `pages-and-flows.md` / `setlist-editor.md` / `song-editor.md`.
 25. **Required Vitest suites** (see [§12](#12-tests)) green in CI.
 
-When all rows pass, **E8 is complete** — proceed to [E9 — Sync transport and Tauri readiness](./roadmap.md#e9--sync-transport-and-tauri-readiness).
+When all rows pass, **E8 is complete** — proceed to [E8.1 — Player role variants (AV mode first)](./roadmap.md#e81--player-role-variants-av-mode-first).
 
 ---
 

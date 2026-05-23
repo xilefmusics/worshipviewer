@@ -12,7 +12,7 @@ Work is grouped into **epics** in **strict order**. Each epic is a **complete in
 | **Depends on** | Prior epic id.                           |
 
 
-**Epic ids** (`E1` … `E10`) are stable labels for planning and issue linking.
+**Epic ids** (`E1` … `E10` plus `E8.1`) are stable labels for planning and issue linking.
 
 ---
 
@@ -28,9 +28,10 @@ flowchart LR
   E6[E6 Import and export]
   E7[E7 Content editors]
   E8[E8 Player]
+  E8_1[E8.1 Player role variants]
   E9[E9 Sync and Tauri]
   E10[E10 Production polish]
-  E1 --> E2 --> E3 --> E4 --> E5 --> E6 --> E7 --> E8 --> E9 --> E10
+  E1 --> E2 --> E3 --> E4 --> E5 --> E6 --> E7 --> E8 --> E8_1 --> E9 --> E10
 ```
 
 
@@ -164,11 +165,33 @@ flowchart LR
 
 ---
 
+## E8.1 — Player role variants (AV mode first)
+
+**Step-by-step execution:** [epic-e8.1-action-plan.md](./epic-e8.1-action-plan.md).
+
+**Outcome:** The rehearsal player becomes **role-aware**: the existing player surface keeps **Normal mode** (today's chord/book behavior) and gains a role-based view mode model. The first delivered variant is **AV mode** for projected lyrics/beamer screens, implemented as a player variant (not a separate legacy subsystem), with room for later variants (for example click/pad/service-operator modes).
+
+**Depends on:** E8.
+
+**Exit:**
+
+- Player view-mode architecture is documented and implemented (role-specific rendering + controls from one player state model)
+- **AV mode** ships as the first role variant with lyric-focused projection output, navigation, blackout, and fullscreen behavior
+- AV mode keeps **slide content** and **background** independently configurable (separate layers/controls)
+- AV/role settings are managed in a **dedicated global Settings tab** with **quick player access** to that tab
+- Global default mode selector governs primary launch across songs/setlists/collections; context menu provides explicit **Play in Normal mode** and **Play in AV mode**
+- Existing **Normal mode** remains stable and selectable
+- Dual-window projection is required by design; when unavailable, fallback to single-screen AV with a persistent warning
+- The design leaves extension points for additional role variants (for example click/pad) without route-model rewrites
+- `pages-and-flows.md`, `app-shell.md`, and the E8.1 action plan document role-variant behavior with manual checklist coverage
+
+---
+
 ## E9 — Sync transport and Tauri readiness
 
 **Outcome:** `**SyncTransport`** port + inert **“Paired devices”** UI; `**PlatformCapabilities`** port; validate `**dist/`** in **Tauri** shell (no feature-complete native audio yet).
 
-**Depends on:** E8.
+**Depends on:** E8.1.
 
 **Exit:**
 
@@ -202,6 +225,7 @@ flowchart LR
 | **Interchange**           | E1–E6  | Import/export ChordPro, WorshipPro, and PDF for songs, setlists, and collections. |
 | **Authoring**             | E1–E7  | Full CRUD on library entities.                                                    |
 | **Rehearsal-ready**       | E1–E8  | Player completes the core loop.                                                   |
+| **Role-ready player**    | E1–E8.1 | Player role variants begin with AV mode while Normal mode stays intact.           |
 | **Platform-ready**        | E1–E9  | Sync/Tauri adapters.                                                              |
 | **GA**                    | E1–E10 | Polish + automated smoke.                                                         |
 

@@ -43,7 +43,7 @@ Opening an **editor** from a deep link (e.g. `/collections/:id`) should keep the
 
 **Secondary routes** (Settings, Teams, Sessions) sit **outside** the three-tab model — profile menu, palette (where available), or deep links.
 
-**Settings** (see [Pages and flows](./pages-and-flows.md)) owns **language** (explicit locale vs browser default, with **English** fallback for unsupported choices) and **appearance** (light / dark / system).
+**Settings** (see [Pages and flows](./pages-and-flows.md)) owns **language** (explicit locale vs browser default, with **English** fallback for unsupported choices), **appearance** (light / dark / system), and a dedicated **Player roles / AV** tab (E8.1) for default mode and AV rendering behavior.
 
 ## Lists: view modes and gestures
 
@@ -54,8 +54,8 @@ Opening an **editor** from a deep link (e.g. `/collections/:id`) should keep the
 | Setlists | **List** | List only |
 
 - Persist **collections** layout in `localStorage` (`wv.hub.viewMode.collections`).
-- **Tap** → open **`/player`** for **Collections / Songs / Setlists** (**implemented** in app). **E2** milestone initially used a **silent no-op** tap until navigation landed ([epic-e2-action-plan.md](./epic-e2-action-plan.md)). **Teams:** tap → **team editor** only.
-- **Long-press** (~500 ms) or **right-click** → **context menu / bottom sheet**: Edit, Delete, Play (where relevant), Duplicate (if API supports). **Collections**, **Songs**, and **Setlists** add **Export** (PDF, ChordPro, WorshipPro) from **E6** ([roadmap](./roadmap.md)). **Destructive** actions use a **confirm dialog** (or mobile sheet with the same meaning) before commit. **Teams** and **Sessions** lists follow the same gesture model; actions depend on the API (e.g. revoke session). **Discovery:** **no** first-run coachmark — document long-press under **Help** or an equivalent entry from **Settings**.
+- **Tap** → open **`/player`** for **Collections / Songs / Setlists** using the global default player mode (Normal or AV, configured in Settings). **E2** milestone initially used a **silent no-op** tap until navigation landed ([epic-e2-action-plan.md](./epic-e2-action-plan.md)). **Teams:** tap → **team editor** only.
+- **Long-press** (~500 ms) or **right-click** → **context menu / bottom sheet**: Edit, Delete, **Play in Normal mode**, **Play in AV mode**, Duplicate (if API supports). **Collections**, **Songs**, and **Setlists** add **Export** (PDF, ChordPro, WorshipPro) from **E6** ([roadmap](./roadmap.md)). **Destructive** actions use a **confirm dialog** (or mobile sheet with the same meaning) before commit. **Teams** and **Sessions** lists follow the same gesture model; actions depend on the API (e.g. revoke session). **Discovery:** **no** first-run coachmark — document long-press under **Help** or an equivalent entry from **Settings**.
 - **Haptics**: `navigator.vibrate` on long-press where available; no-op on iOS.
 
 ### Lists: pagination, refresh, and states
