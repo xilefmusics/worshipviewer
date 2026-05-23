@@ -338,7 +338,9 @@
       "white": "Weiß",
       "whiteDescription": "Immer weiße Seite, auch im Dunkelmodus (gut zum Drucken und für Scans).",
       "app": "App-Hintergrund",
-      "appDescription": "Nutzt die App-Oberflächenfarbe, damit Blätter zur restlichen Oberfläche passen."
+      "appDescription": "Nutzt die App-Oberflächenfarbe, damit Blätter zur restlichen Oberfläche passen.",
+      "invertImages": "Bilder invertieren",
+      "invertImagesDescription": "Passt gescannte Blattbilder an App-Hintergrund und Schriftfarben an, wenn App-Hintergrund aktiv ist."
     },
     "playerScroll": {
       "portraitTitle": "Player-Scrollmodus (Hochformat)",

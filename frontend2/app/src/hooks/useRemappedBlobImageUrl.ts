@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useSheetBackgroundPreference } from '@/hooks/useSheetBackgroundPreference'
+import { useSheetImageInvertPreference } from '@/hooks/useSheetImageInvertPreference'
 import { remapSheetImageFromUrl } from '@/lib/sheet-image-remap'
 
 function useThemeAttribute(): string | undefined {
@@ -31,9 +32,10 @@ export function useRemappedBlobImageUrl(
   enabled = true,
 ): string | null {
   const sheetBackground = useSheetBackgroundPreference()
+  const invertImages = useSheetImageInvertPreference()
   const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
   const themeAttribute = useThemeAttribute()
-  const shouldRemap = enabled && sheetBackground === 'app'
+  const shouldRemap = enabled && sheetBackground === 'app' && invertImages
   const [displayUrl, setDisplayUrl] = useState<string | null>(sourceUrl)
 
   useEffect(() => {
@@ -62,7 +64,7 @@ export function useRemappedBlobImageUrl(
       cancelled = true
       if (remappedUrl) URL.revokeObjectURL(remappedUrl)
     }
-  }, [shouldRemap, sourceUrl, systemDark, themeAttribute])
+  }, [shouldRemap, sourceUrl, systemDark, themeAttribute, invertImages])
 
   return displayUrl
 }

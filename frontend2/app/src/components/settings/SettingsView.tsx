@@ -50,6 +50,10 @@ import {
   type SheetBackgroundPreference,
   writeSheetBackgroundPreference,
 } from '@/lib/sheet-background'
+import {
+  readSheetImageInvertPreference,
+  writeSheetImageInvertPreference,
+} from '@/lib/sheet-image-invert-preference'
 import type { PlayerScrollType } from '@/lib/player/effective-scroll-type'
 import type { HubViewMode } from '@/lib/hub-view-mode'
 import { clearAllLocalData } from '@/lib/clear-local'
@@ -302,6 +306,7 @@ export function SettingsView({
   const [appearancePreference, setAppearancePreference] = useState(readAppearancePreference)
   const [chordFormatPreference, setChordFormatPreference] = useState(readChordFormatPreference)
   const [sheetBackgroundPreference, setSheetBackgroundPreference] = useState(readSheetBackgroundPreference)
+  const [invertSheetImages, setInvertSheetImagesState] = useState(readSheetImageInvertPreference)
   const [scrollPreferences, setScrollPreferences] = useState(readPlayerScrollPreferences)
   const [defaultPlayerMode, setDefaultPlayerModeState] = useState<PlayerMode>(readPlayerDefaultMode)
   const [collapseLyricWhitespace, setCollapseLyricWhitespaceState] = useState(
@@ -554,6 +559,11 @@ export function SettingsView({
   function setSheetBackground(next: SheetBackgroundPreference) {
     setSheetBackgroundPreference(next)
     writeSheetBackgroundPreference(next)
+  }
+
+  function setInvertSheetImages(enabled: boolean) {
+    setInvertSheetImagesState(enabled)
+    writeSheetImageInvertPreference(enabled)
   }
 
   function setPortraitScroll(next: PlayerScrollType) {
@@ -816,13 +826,40 @@ export function SettingsView({
             onChange={setChordFormat}
           />
 
-          <SettingsSection
-            title={t('settings.sheetBackground.title')}
-            description={t('settings.sheetBackground.description')}
-            options={sheetBackgroundOptions}
-            value={sheetBackgroundPreference}
-            onChange={setSheetBackground}
-          />
+          <Card>
+            <CardHeader className="p-4 pb-3">
+              <CardTitle className="text-base">{t('settings.sheetBackground.title')}</CardTitle>
+              <CardDescription>{t('settings.sheetBackground.description')}</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div role="radiogroup" aria-label={t('settings.sheetBackground.title')}>
+                {sheetBackgroundOptions.map((option) => (
+                  <OptionButton
+                    key={option.value}
+                    option={option}
+                    selected={sheetBackgroundPreference === option.value}
+                    onSelect={setSheetBackground}
+                  />
+                ))}
+              </div>
+            </CardContent>
+            <CardContent className="border-t border-[var(--color-border)] p-4">
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
+                  checked={invertSheetImages}
+                  onChange={(e) => setInvertSheetImages(e.target.checked)}
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span>{t('settings.sheetBackground.invertImages')}</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
+                    {t('settings.sheetBackground.invertImagesDescription')}
+                  </span>
+                </span>
+              </label>
+            </CardContent>
+          </Card>
 
           <SettingsSection
             title={t('settings.playerScroll.portraitTitle')}

@@ -338,7 +338,9 @@
       "white": "White",
       "whiteDescription": "Always use a white page, including in dark mode (best for printing and scans).",
       "app": "App background",
-      "appDescription": "Match the app surface color so sheets blend with the rest of the interface."
+      "appDescription": "Match the app surface color so sheets blend with the rest of the interface.",
+      "invertImages": "Invert images",
+      "invertImagesDescription": "Remap scanned sheet images to match the app background and ink colors when using app background."
     },
     "playerScroll": {
       "portraitTitle": "Player scroll mode (portrait)",
