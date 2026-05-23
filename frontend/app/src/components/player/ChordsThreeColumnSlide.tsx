@@ -31,6 +31,8 @@ type RenderState =
   | { status: 'ready'; sections: string[]; css: string }
   | { status: 'error'; message: string }
 
+const LOADING_RENDER_STATE: RenderState = { status: 'loading' }
+
 type ColumnSection = {
   html: string
   preview: boolean
@@ -108,7 +110,7 @@ function useMultiColumnSongRender(
 ): RenderState {
   const [renderCache, setRenderCache] = useState<{ key: string; state: RenderState }>({
     key: '',
-    state: { status: 'loading' },
+    state: LOADING_RENDER_STATE,
   })
   const songData = song?.data as ChordSongData | undefined
   const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
@@ -142,7 +144,7 @@ function useMultiColumnSongRender(
   }, [song, songData, displayKey, renderKey, representation])
 
   if (!song || !songData || renderCache.key !== renderKey) {
-    return { status: 'loading' }
+    return LOADING_RENDER_STATE
   }
   return renderCache.state
 }
