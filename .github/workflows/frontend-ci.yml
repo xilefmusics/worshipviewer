@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - "frontend2/**"
+      - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
   pull_request:
     branches:
       - main
     paths:
-      - "frontend2/**"
+      - "frontend/**"
       - ".github/workflows/frontend-ci.yml"
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend2
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: "20"
           cache: pnpm
-          cache-dependency-path: frontend2/pnpm-lock.yaml
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
