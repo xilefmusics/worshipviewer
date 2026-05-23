@@ -1,0 +1,80 @@
+.player-chords-viewport--ready {
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.player-chords-viewport--editor.player-chords-viewport--ready {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+}
+
+/* Stage-readable chord sheet surface (chordlib HTML inherits these constraints). */
+:root {
+  --player-sheet-bg: #fff;
+  --player-sheet-fg: #000;
+}
+
+:root[data-sheet-background='app'] {
+  --player-sheet-bg: var(--color-surface);
+  --player-sheet-fg: var(--color-foreground);
+}
+
+.player-chords-page {
+  color: var(--player-sheet-fg);
+}
+
+.player-chords-page .page {
+  background: var(--player-sheet-bg);
+}
+
+.player-chords-page span,
+.player-chords-page h1,
+.player-chords-page h2,
+.player-chords-page h3,
+.player-chords-page p {
+  color: inherit;
+}
+
+.player-chords-viewport--landscape .player-chords-page--landscape {
+  max-width: min(1123px, 100%);
+}
+
+.player-blob-page {
+  background: var(--player-sheet-bg);
+}
+
+.player-blob-page embed {
+  background: var(--player-sheet-bg);
+}
+
+.player-book-spread {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.player-book-spread__wrapper {
+  display: flex;
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.player-book-spread__page {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.player-book-spread__page + .player-book-spread__page {
+  border-left: 1px solid var(--color-border);
+}

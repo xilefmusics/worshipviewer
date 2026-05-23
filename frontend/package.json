@@ -1,0 +1,17 @@
+{
+  "name": "worshipviewer-frontend",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter app dev",
+    "build:wasm": "wasm-pack build crates/chordlib-wasm --target web --out-dir ../../packages/chordlib-wasm/pkg --release",
+    "build": "pnpm build:wasm && pnpm --filter app build",
+    "lint": "pnpm --filter app lint",
+    "typecheck": "pnpm --filter app typecheck",
+    "openapi:sync": "pnpm --filter app openapi:sync",
+    "test": "pnpm --filter app test"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  },
+  "packageManager": "pnpm@10.33.0"
+}

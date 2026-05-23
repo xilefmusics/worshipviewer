@@ -9,6 +9,10 @@ target
 **/testdata
 **/blobs
 
+# Ignore Node dependencies and frontend build output
+**/node_modules
+frontend/app/dist
+
 # Ignore Cargo.lock if it's not needed for the build
 Cargo.lock
 

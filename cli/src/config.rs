@@ -39,9 +39,8 @@ pub struct FileConfig {
 }
 
 pub fn load_file_config() -> Result<FileConfig, Box<dyn std::error::Error>> {
-    let home: PathBuf = home_dir().ok_or_else(|| {
-        io::Error::other("failed to determine home directory")
-    })?;
+    let home: PathBuf =
+        home_dir().ok_or_else(|| io::Error::other("failed to determine home directory"))?;
 
     let path = home.join(".worshipviewer").join("config.toml");
     let contents = match fs::read_to_string(&path) {

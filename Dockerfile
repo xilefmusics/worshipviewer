@@ -1,11 +1,13 @@
 FROM rust:1.94.1-slim AS builder
 
 RUN export CARGO_BUILD_JOBS=$(nproc) && \
-    cargo install cargo-binstall && \
-    cargo binstall trunk --version 0.21.14 --no-confirm && \
     rustup target add wasm32-unknown-unknown && \
     apt-get update && \
     apt-get install -y --no-install-recommends pkg-config libssl-dev build-essential ca-certificates curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    corepack enable && corepack prepare pnpm@10.33.0 --activate && \
+    curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh && \
     VENOM_VERSION=1.2.0 && \
     curl -L "https://github.com/ovh/venom/releases/download/v${VENOM_VERSION}/venom.linux-amd64" -o /usr/local/bin/venom && \
     chmod +x /usr/local/bin/venom
@@ -23,8 +25,7 @@ RUN if [ -n "${GIT_COMMIT_SHA:-}" ]; then export GIT_COMMIT_SHA; else unset GIT_
 WORKDIR /wrk
 COPY ./frontend ./frontend
 WORKDIR /wrk/frontend
-# Same `GIT_COMMIT_SHA` / `option_env!` contract as the backend `cargo build` above (see backend `about` / CI build-args).
-RUN if [ -n "${GIT_COMMIT_SHA:-}" ]; then export GIT_COMMIT_SHA; else unset GIT_COMMIT_SHA; fi && trunk build --release
+RUN pnpm install --frozen-lockfile && pnpm build
 
 FROM scratch AS tester
 
@@ -53,7 +54,7 @@ COPY --from=builder /usr/local/bin/venom /usr/local/bin/venom
 COPY --from=builder /wrk/backend/tests /app/tests
 COPY --from=builder /wrk/backend/target/release/backend /app/worshipviewer
 COPY --from=builder /wrk/backend/db-migrations /app/db-migrations
-COPY --from=builder /wrk/frontend/dist/ /app/static
+COPY --from=builder /wrk/frontend/app/dist/ /app/static
 
 WORKDIR /app
 
@@ -87,7 +88,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 
 COPY --from=tester /app/worshipviewer /app/worshipviewer
 COPY --from=builder /wrk/backend/db-migrations/ /app/db-migrations
-COPY --from=builder /wrk/frontend/dist/ /app/static
+COPY --from=builder /wrk/frontend/app/dist/ /app/static
 
 EXPOSE 8080
 # Cloud Run (and other platforms) set PORT; the process must accept traffic on 0.0.0.0, not

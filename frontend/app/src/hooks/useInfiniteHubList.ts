@@ -1,0 +1,56 @@
+import type { InfiniteData, InfiniteQueryObserverResult, NotifyOnChangeProps } from '@tanstack/query-core'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
+
+import {
+  fetchCollectionsPage,
+  fetchSetlistsPage,
+  fetchSongsPage,
+} from '@/api/list-fetch'
+import { useHubSearch } from '@/hooks/useHubSearch'
+import type { HubEntity } from '@/lib/hub-entity'
+import { hubListKey } from '@/lib/hub-list-keys'
+import { getNextPageIndex } from '@/lib/list-pagination'
+
+/** Only subscribe to result fields the hub list needs — avoids re-renders on background refetch / fetchStatus churn. */
+const hubListNotifyOnChangeProps = [
+  'data',
+  'error',
+  'isPending',
+  'isLoading',
+  'isError',
+  'status',
+  'isFetchingNextPage',
+  'isFetchNextPageError',
+  'hasNextPage',
+  'fetchNextPage',
+  'refetch',
+] as const satisfies ReadonlyArray<keyof InfiniteQueryObserverResult<InfiniteData<unknown>>>
+
+const hubListNotify: NotifyOnChangeProps = hubListNotifyOnChangeProps as unknown as NotifyOnChangeProps
+
+export function useInfiniteHubList(entity: HubEntity) {
+  const { debouncedQ } = useHubSearch()
+  const queryClient = useQueryClient()
+  const q = debouncedQ
+
+  return useInfiniteQuery({
+    queryKey: hubListKey(entity, q),
+    initialPageParam: 0,
+    notifyOnChangeProps: hubListNotify,
+    /** Fresh after restore: refetch; snapshots never expire on disk. */
+    staleTime: 0,
+    gcTime: Number.POSITIVE_INFINITY,
+    queryFn: async ({ pageParam, signal }) => {
+      const page = pageParam as number
+      switch (entity) {
+        case 'collections':
+          return fetchCollectionsPage(queryClient, { page, q, signal })
+        case 'songs':
+          return fetchSongsPage(queryClient, { page, q, signal })
+        case 'setlists':
+          return fetchSetlistsPage(queryClient, { page, q, signal })
+      }
+    },
+    getNextPageParam: (_last, allPages) => getNextPageIndex(allPages),
+  })
+}

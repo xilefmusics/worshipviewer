@@ -37,36 +37,41 @@ docker run --rm -p 8080:8080 --platform linux/amd64 xilefmusics/worshipviewer:la
 
 ## Local development
 
-The Yew frontend uses `window.location.origin` as the API base. If you run **only** `trunk serve` on one port and the API on another, the browser will call the **wrong host** for `/api` unless you unify origins. Practical options:
+The React frontend lives in [`frontend/`](frontend/) (pnpm monorepo with a Vite SPA in `frontend/app/`). In production and in the Docker image, the backend serves the built SPA from the same origin as `/api` and `/auth`.
 
-| Approach | What you do |
-|----------|-------------|
-| **A — Reverse proxy (recommended for two processes)** | Run the backend on `8080`, Trunk on `8081`, and put Caddy (or similar) in front on one port so `/api*` goes to the backend and everything else to Trunk. See [Serve backend and frontend on the same port](#serve-backend-and-frontend-on-the-same-port-caddy-reverse-proxy). |
-| **B — Single backend process** | Build the SPA with Trunk, then serve it from the backend via `STATIC_DIR` (default `static`, resolved relative to the process). Example: `trunk build` in `frontend/`, then point `STATIC_DIR` at Trunk’s output directory (commonly `frontend/dist`) or copy the build into `backend/static` and run `cargo run` from `backend/`. |
-| **C — Trunk proxy** | Configure Trunk’s dev proxy so API requests from the dev server reach the backend (see Trunk docs for `[build.proxy]`). |
-
-The Docker image in this repo is built with **Rust 1.94.1** and **Trunk 0.21.14** (see the root `Dockerfile`) for reproducible builds.
+For local dev, run the **Vite dev server** and let it **proxy** API traffic to your chosen backend. Leave **`VITE_API_BASE_URL` unset** (empty) so the browser stays same-origin with the dev server.
 
 ### Install prerequisites
 
-You need a recent **Rust** toolchain and the **wasm32** target for the frontend. **Node.js is not required** (Trunk handles the WASM bundle).
-
-**macOS** (Homebrew):
+**Frontend** (Node.js 20 + pnpm 10):
 
 ```bash
-brew install rustup
-rustup update stable
-rustup target add wasm32-unknown-unknown
-cargo install trunk
-# Optional: reverse proxy for same-origin dev
-brew install caddy
+corepack enable
+corepack prepare pnpm@10.33.0 --activate
 ```
 
-**Linux / Windows:** Install [`rustup`](https://rustup.rs/) from the official site, then `rustup update stable`, `rustup target add wasm32-unknown-unknown`, and `cargo install trunk`. Use your distro’s Caddy package or another proxy if you follow option A above.
+**Chordlib WASM** (built automatically by `pnpm build`; required for song editor and player preview):
 
-**Trunk and `NO_COLOR`:** Some environments set `NO_COLOR=1`, which can make Trunk fail with an error about `--no-color`. If that happens, run Trunk with a clean environment, for example: `env -u NO_COLOR trunk build` or `env -u NO_COLOR trunk serve`.
+```bash
+rustup target add wasm32-unknown-unknown
+curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+```
 
-### Start the backend
+**Backend** (optional for frontend-only UI work against production):
+
+```bash
+# macOS
+brew install rustup
+rustup update stable
+
+# Linux / Windows: https://rustup.rs/
+```
+
+The Docker image is built with **Rust 1.94.1**, **Node.js 20**, **pnpm 10.33.0**, and **wasm-pack** (see the root [`Dockerfile`](Dockerfile)).
+
+### Start the frontend against the local dev backend (recommended)
+
+**Terminal 1 — backend:**
 
 ```bash
 cd backend && \
@@ -75,59 +80,62 @@ cd backend && \
   cargo run
 ```
 
-Notes:
+Default listen address is `127.0.0.1:8080`. The initial admin session id is `admin`.
 
-- Default HTTP listen address is `127.0.0.1:8080` (`HOST` / `PORT` override this).
-- The initial admin session has the ID: `admin`.
-- Authentication can use the `sso_session` cookie or a Bearer token.
+**Terminal 2 — frontend:**
+
+```bash
+pnpm -C frontend dev
+```
+
+Open the URL Vite prints (default `http://127.0.0.1:5173`). The dev server proxies `/api` and `/auth` to `http://127.0.0.1:8080` by default, so session cookies behave like production.
+
+To override the proxy target, create `frontend/app/.env.development.local`:
+
+```bash
+VITE_DEV_PROXY_TARGET=http://127.0.0.1:8080
+```
+
+### Start the frontend against the production backend
+
+Useful for UI work against live data. Create `frontend/app/.env.development.local`:
+
+```bash
+VITE_DEV_PROXY_TARGET=https://app.worshipviewer.com
+```
+
+Then:
+
+```bash
+pnpm -C frontend dev
+```
+
+**Caveats:**
+
+- The Vite proxy avoids browser CORS issues (the backend does not emit CORS headers).
+- **Session cookies from production will not authenticate localhost** (they are domain-bound). Use this for read-only UI checks or public endpoints; for full auth flows, use the [local backend](#start-the-frontend-against-the-local-dev-backend-recommended) or log in on [app.worshipviewer.com](https://app.worshipviewer.com) directly.
+- Do **not** set `VITE_API_BASE_URL` for normal dev — reserve it for exceptional cross-origin setups that require explicit backend alignment (CORS, cookies, HTTPS).
+
+### Single-process / production-like local run
+
+Mirrors the Docker deployment model (backend serves the built SPA):
+
+```bash
+pnpm -C frontend build
+cd backend && \
+  INITIAL_ADMIN_USER_EMAIL="admin@example.com" \
+  INITIAL_ADMIN_USER_TEST_SESSION=true \
+  STATIC_DIR=../frontend/app/dist \
+  cargo run
+```
+
+Open `http://127.0.0.1:8080` — one process serves both API and SPA.
+
+The in-app song editor expects **ChordPro** text (via **chordlib**). To import from **Ultimate Guitar**, save the tab page in your browser and paste the HTML into the song editor source — it converts to Worship Pro automatically. **Ultimate Guitar is not fetched over HTTP** by the app.
 
 **Production safety:** The backend **refuses to start** if `INITIAL_ADMIN_USER_TEST_SESSION` is set while `WORSHIP_PRODUCTION` is true or `RUST_ENV=production`. Do not enable the test session in production.
 
 **Logs:** The backend uses [`tracing`](https://docs.rs/tracing). Set [`RUST_LOG`](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) for verbosity (for example `RUST_LOG=backend=debug,surrealdb=info`). Use `LOG_FORMAT=json` for newline-delimited JSON on stdout (also the default when `WORSHIP_PRODUCTION=true` or `RUST_ENV=production`). Incoming `traceparent` may supply the span id used as `X-Request-Id` and the `request_id` field on the per-request span. See [`docs/architecture/backend-request-flow.md`](docs/architecture/backend-request-flow.md) for full logging and audit-event notes.
-
-### Start the frontend
-
-```bash
-cd frontend && \
-  trunk serve --port 8081
-```
-
-Use this together with a **same-origin** setup (proxy or static dir) as described [above](#local-development).
-
-The in-app song editor expects **ChordPro** text (via **chordlib**). **Ultimate Guitar is not fetched over HTTP** by chordlib anymore: paste ChordPro you already have, or download UG/tab HTML yourself and convert outside the app.
-
-### Serve backend and frontend on the same port (Caddy reverse proxy)
-
-```bash
-echo '{
-  "apps": {
-    "http": {
-      "servers": {
-        "srv": {
-          "listen": [":8082"],
-          "routes": [
-            {
-              "match": [{"path": ["/api*"]}],
-              "handle": [{
-                "handler": "reverse_proxy",
-                "upstreams": [{"dial": "localhost:8080"}]
-              }]
-            },
-            {
-              "handle": [{
-                "handler": "reverse_proxy",
-                "upstreams": [{"dial": "localhost:8081"}]
-              }]
-            }
-          ]
-        }
-      }
-    }
-  }
-}' | caddy run --config -
-```
-
-Then open `http://127.0.0.1:8082` (or adjust the listen address in the JSON). Verify the JSON against your installed **Caddy 2** version if anything fails to load.
 
 ### Persist data across backend restarts
 
@@ -248,7 +256,7 @@ worshipviewer songs update \
 
 ### Auth quickstart for local development
 
-When you start the backend [as shown above](#start-the-backend), you get an initial admin session with id `admin` and the `sso_session` cookie.
+When you start the backend [as shown above](#start-the-frontend-against-the-local-dev-backend-recommended), you get an initial admin session with id `admin` and the `sso_session` cookie.
 
 Example `~/.worshipviewer/config.toml`:
 

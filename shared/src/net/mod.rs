@@ -139,13 +139,5 @@ mod desktop;
 #[cfg(all(feature = "cli", not(target_arch = "wasm32")))]
 pub use desktop::DesktopHttpClient;
 
-#[cfg(all(feature = "frontend", target_arch = "wasm32"))]
-mod wasm;
-#[cfg(all(feature = "frontend", target_arch = "wasm32"))]
-pub use wasm::WasmHttpClient;
-
 #[cfg(all(feature = "cli", not(target_arch = "wasm32")))]
 pub type DefaultHttpClient = DesktopHttpClient;
-
-#[cfg(all(feature = "frontend", target_arch = "wasm32"))]
-pub type DefaultHttpClient = WasmHttpClient;

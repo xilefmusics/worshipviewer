@@ -22,7 +22,7 @@ Where it happens (check all that apply and fill details):
 
 | | |
 | --- | --- |
-| Deployment | `app.worshipviewer.com` / Docker image tag / `trunk serve` / other: |
+| Deployment | `app.worshipviewer.com` / Docker image tag / `pnpm dev` / other: |
 | Account / role | |
 | Song / set / asset | If relevant, name or minimal example (no private data) |
 

@@ -1,0 +1,120 @@
+.player-chords-three-column {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  color: var(--player-sheet-fg);
+  background: var(--player-sheet-bg);
+}
+
+.player-chords-three-column__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.75rem 1rem 0;
+}
+
+.player-chords-three-column__title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.player-chords-three-column__subtitle {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-muted-foreground);
+}
+
+.player-chords-three-column__meta {
+  flex-shrink: 0;
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.125rem;
+  text-align: right;
+  font-size: 0.8125rem;
+  color: var(--color-muted-foreground);
+}
+
+.player-chords-three-column__meta-line {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.player-chords-three-column__scroll {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  padding: 1rem 1.5rem 1.25rem;
+}
+
+.player-chords-three-column__column-area {
+  position: absolute;
+  inset: 1rem 1.5rem 1.25rem;
+  overflow: hidden;
+}
+
+.player-chords-three-column__measure {
+  visibility: hidden;
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+
+.player-chords-three-column__row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  height: 100%;
+  width: max-content;
+}
+
+.player-chords-three-column__column {
+  flex-shrink: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.player-chords-three-column__content p {
+  margin: 0 0 2.3077em;
+}
+
+.player-chords-three-column__preview-section {
+  color: var(--color-muted-foreground);
+  opacity: 0.72;
+}
+
+.player-chords-three-column__preview-section p {
+  margin: 0 0 2.3077em;
+}
+
+.player-chords-three-column__preview-heading {
+  margin: 0 0 1.25em;
+  font-size: 1.05em;
+  line-height: 1.35;
+}
+
+.player-chords-three-column__preview-subtitle {
+  font-size: 0.92em;
+}
+
+.player-chords-three-column__preview-meta {
+  font-size: 0.92em;
+  line-height: 1.3;
+}
+
+.player-chords-three-column__empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+}

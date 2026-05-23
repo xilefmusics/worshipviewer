@@ -6,10 +6,7 @@ use crate::like::LikeStatus;
 use crate::monitoring::{HttpAuditLog, MonitoringMetricsQuery};
 use crate::move_owner::MoveOwner;
 use crate::net::HttpClient;
-#[cfg(any(
-    all(feature = "cli", not(target_arch = "wasm32")),
-    all(feature = "frontend", target_arch = "wasm32")
-))]
+#[cfg(all(feature = "cli", not(target_arch = "wasm32")))]
 use crate::net::{DefaultHttpClient, HttpClientConfig};
 use crate::player::Player;
 use crate::setlist::{CreateSetlist, Setlist, UpdateSetlist};
@@ -36,10 +33,7 @@ impl<C: HttpClient> ApiClient<C> {
     }
 }
 
-#[cfg(any(
-    all(feature = "cli", not(target_arch = "wasm32")),
-    all(feature = "frontend", target_arch = "wasm32")
-))]
+#[cfg(all(feature = "cli", not(target_arch = "wasm32")))]
 impl ApiClient<DefaultHttpClient> {
     pub fn with_default(config: HttpClientConfig) -> Self {
         Self {

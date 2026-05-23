@@ -159,12 +159,3 @@ impl From<reqwest::Error> for NetworkClientError {
         }
     }
 }
-
-#[cfg(feature = "frontend")]
-impl From<gloo_net::Error> for NetworkClientError {
-    fn from(err: gloo_net::Error) -> Self {
-        Self::Unexpected {
-            message: err.to_string(),
-        }
-    }
-}
