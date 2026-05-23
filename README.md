@@ -67,8 +67,6 @@ rustup update stable
 # Linux / Windows: https://rustup.rs/
 ```
 
-The `chordlib` crate must be available as a **sibling checkout** of this repo (`../chordlib` relative to `worshipviewer/`), same as for `cargo build` in `backend/`.
-
 The Docker image is built with **Rust 1.94.1**, **Node.js 20**, **pnpm 10.33.0**, and **wasm-pack** (see the root [`Dockerfile`](Dockerfile)).
 
 ### Start the frontend against the local dev backend (recommended)
