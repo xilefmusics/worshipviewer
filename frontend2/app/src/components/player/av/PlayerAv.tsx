@@ -29,6 +29,7 @@ import {
   buildAvOutlineRows,
   buildAvSlideDeckEntries,
 } from '@/lib/player/av-lyric-slides'
+import { readLyricCollapseWhitespacePreference } from '@/lib/lyric-whitespace-preference'
 import {
   buildAvProjectionPayload,
   readAvPreferences,
@@ -120,16 +121,20 @@ export function PlayerAv({
   const navBlocked = evicted
   const backTo = hubPathForPlayerType(type)
 
+  const collapseLyricWhitespace = readLyricCollapseWhitespacePreference()
+
   const currentItem = useMemo(
     () =>
       avSlidesForPlayerItem(player.items, session.itemIndex, {
         maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
         balanceSlideLines: prefs.contentLayer.balanceSlideLines,
+        collapseLyricWhitespace,
       }),
     [
       player.items,
       prefs.contentLayer.maxLinesPerSlide,
       prefs.contentLayer.balanceSlideLines,
+      collapseLyricWhitespace,
       session.itemIndex,
     ],
   )

@@ -41,6 +41,7 @@ export function avSlidesForItem(
     split.maxLinesPerSlide,
     0,
     split.balanceSlideLines,
+    split.collapseLyricWhitespace,
   )
   if (lyricData.outline.length === 0 && lyricData.slides.length === 0) {
     return { slides: [title], sourceSlides: [title], outline: [], kind: 'lyrics' }

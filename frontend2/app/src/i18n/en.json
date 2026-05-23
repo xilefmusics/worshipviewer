@@ -301,6 +301,12 @@
       "av": "AV mode",
       "avDescription": "Lyric projection with separate content and background layers."
     },
+    "lyricWhitespace": {
+      "title": "Lyrics spacing",
+      "description": "Control how spaces appear in projected lyrics.",
+      "collapse": "Use single spaces between words",
+      "collapseDescription": "Replace multiple spaces, tabs, and other whitespace with a single space in lyrics."
+    },
     "collectionsViewMode": {
       "title": "Collections layout",
       "description": "Choose how collections appear in the library. Songs and setlists always use list view.",

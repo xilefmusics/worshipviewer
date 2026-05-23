@@ -1,4 +1,5 @@
 import type { components } from '@/api/schema'
+import { normalizeLyricWhitespace } from '@/lib/lyric-whitespace-preference'
 
 type Section = components['schemas']['Section']
 type Line = components['schemas']['Line']
@@ -27,8 +28,13 @@ function lyricFromPart(part: Part, languageIndex: number): string {
   return typeof value === 'string' ? value : ''
 }
 
-function lyricFromLine(line: Line, languageIndex: number): string {
-  return line.parts.map((part) => lyricFromPart(part, languageIndex)).join('')
+function lyricFromLine(
+  line: Line,
+  languageIndex: number,
+  collapseLyricWhitespace: boolean,
+): string {
+  const text = line.parts.map((part) => lyricFromPart(part, languageIndex)).join('')
+  return collapseLyricWhitespace ? normalizeLyricWhitespace(text) : text
 }
 
 /** Split a section's line count into per-slide sizes. */
@@ -86,6 +92,7 @@ function buildSlidesFromSections(
   maxLinesPerSlide: number,
   languageIndex: number,
   balanceSlideLines: boolean,
+  collapseLyricWhitespace: boolean,
 ): { slides: string[]; sectionMap: Map<string, { textIdx: number; len: number }> } {
   const slides: string[] = []
   const sectionMap = new Map<string, { textIdx: number; len: number }>()
@@ -96,7 +103,7 @@ function buildSlidesFromSections(
     const sectionLines: string[] = []
 
     for (const line of section.lines) {
-      const lineText = lyricFromLine(line, languageIndex)
+      const lineText = lyricFromLine(line, languageIndex, collapseLyricWhitespace)
       if (lineText.trim()) sectionLines.push(lineText)
     }
 
@@ -147,6 +154,7 @@ export function buildAvLyricSlides(
   maxLinesPerSlide: number,
   languageIndex = 0,
   balanceSlideLines = true,
+  collapseLyricWhitespace = true,
 ): AvLyricSlidesResult {
   if (!sections?.length) {
     return { slides: [], outline: [] }
@@ -156,6 +164,7 @@ export function buildAvLyricSlides(
     maxLinesPerSlide,
     languageIndex,
     balanceSlideLines,
+    collapseLyricWhitespace,
   )
   return { slides, outline: buildOutline(sections, sectionMap) }
 }

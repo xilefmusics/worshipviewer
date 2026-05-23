@@ -301,6 +301,12 @@
       "av": "AV-Modus",
       "avDescription": "Lyrik-Projektion mit getrennten Inhalts- und Hintergrundebenen."
     },
+    "lyricWhitespace": {
+      "title": "Lyrik-Abstände",
+      "description": "Steuere, wie Leerzeichen in projizierten Liedtexten erscheinen.",
+      "collapse": "Einzelne Leerzeichen zwischen Wörtern",
+      "collapseDescription": "Ersetzt mehrere Leerzeichen, Tabulatoren und andere Leerraumzeichen in Liedtexten durch ein einzelnes Leerzeichen."
+    },
     "collectionsViewMode": {
       "title": "Sammlungsansicht",
       "description": "Lege fest, wie Sammlungen in der Bibliothek erscheinen. Lieder und Setlisten sind immer Listenansicht.",

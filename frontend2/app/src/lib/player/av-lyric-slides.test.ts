@@ -82,6 +82,58 @@ describe('buildAvLyricSlides', () => {
     )
     expect(result.slides).toEqual([])
   })
+
+  it('collapses consecutive whitespace in lyrics by default', () => {
+    const result = buildAvLyricSlides(
+      [
+        {
+          title: 'Verse 1',
+          lines: [{ parts: [{ comment: false, languages: ['Word1   word2\t\tword3'] }] }],
+        },
+      ],
+      2,
+    )
+
+    expect(result.slides).toEqual(['Word1 word2 word3'])
+  })
+
+  it('preserves consecutive whitespace when disabled', () => {
+    const result = buildAvLyricSlides(
+      [
+        {
+          title: 'Verse 1',
+          lines: [{ parts: [{ comment: false, languages: ['Word1   word2\t\tword3'] }] }],
+        },
+      ],
+      2,
+      0,
+      true,
+      false,
+    )
+
+    expect(result.slides).toEqual(['Word1   word2\t\tword3'])
+  })
+
+  it('collapses whitespace across joined lyric parts', () => {
+    const result = buildAvLyricSlides(
+      [
+        {
+          title: 'Verse 1',
+          lines: [
+            {
+              parts: [
+                { comment: false, languages: ['Hello   '] },
+                { comment: false, languages: ['  world'] },
+              ],
+            },
+          ],
+        },
+      ],
+      2,
+    )
+
+    expect(result.slides).toEqual(['Hello world'])
+  })
 })
 
 describe('buildAvSlideDeckEntries', () => {

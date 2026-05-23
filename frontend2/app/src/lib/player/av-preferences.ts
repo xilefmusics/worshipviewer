@@ -35,7 +35,9 @@ export type AvProjectionPrefs = {
   outputFullscreenOnDblClick: boolean
 }
 
-export type AvLyricSplitPrefs = Pick<AvContentLayer, 'maxLinesPerSlide' | 'balanceSlideLines'>
+export type AvLyricSplitPrefs = Pick<AvContentLayer, 'maxLinesPerSlide' | 'balanceSlideLines'> & {
+  collapseLyricWhitespace: boolean
+}
 
 export type AvPreferences = {
   contentLayer: AvContentLayer

@@ -22,6 +22,10 @@ import {
   writeChordFormatPreference,
 } from '@/lib/chord-format'
 import {
+  readLyricCollapseWhitespacePreference,
+  writeLyricCollapseWhitespacePreference,
+} from '@/lib/lyric-whitespace-preference'
+import {
   readPlayerScrollPreferences,
   writePlayerScrollLandscape,
   writePlayerScrollPortrait,
@@ -300,6 +304,9 @@ export function SettingsView({
   const [sheetBackgroundPreference, setSheetBackgroundPreference] = useState(readSheetBackgroundPreference)
   const [scrollPreferences, setScrollPreferences] = useState(readPlayerScrollPreferences)
   const [defaultPlayerMode, setDefaultPlayerModeState] = useState<PlayerMode>(readPlayerDefaultMode)
+  const [collapseLyricWhitespace, setCollapseLyricWhitespaceState] = useState(
+    readLyricCollapseWhitespacePreference,
+  )
   const [avPreferences, setAvPreferencesState] = useState<AvPreferences>(readAvPreferences)
   const { viewMode: collectionsViewMode, setViewMode: setCollectionsViewMode } =
     useHubViewMode('collections')
@@ -564,6 +571,11 @@ export function SettingsView({
     setDefaultPlayerModeState(next)
   }
 
+  function setCollapseLyricWhitespace(next: boolean) {
+    writeLyricCollapseWhitespacePreference(next)
+    setCollapseLyricWhitespaceState(next)
+  }
+
   function updateAvPreferences(next: AvPreferences) {
     writeAvPreferences(next)
     setAvPreferencesState(next)
@@ -704,6 +716,29 @@ export function SettingsView({
             value={defaultPlayerMode}
             onChange={setDefaultPlayerMode}
           />
+
+          <Card>
+            <CardHeader className="p-4 pb-3">
+              <CardTitle className="text-base">{t('settings.lyricWhitespace.title')}</CardTitle>
+              <CardDescription>{t('settings.lyricWhitespace.description')}</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
+                  checked={collapseLyricWhitespace}
+                  onChange={(e) => setCollapseLyricWhitespace(e.target.checked)}
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span>{t('settings.lyricWhitespace.collapse')}</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
+                    {t('settings.lyricWhitespace.collapseDescription')}
+                  </span>
+                </span>
+              </label>
+            </CardContent>
+          </Card>
 
           {sessionUser ? <SettingsProfilePictureSection user={sessionUser} /> : null}
 
