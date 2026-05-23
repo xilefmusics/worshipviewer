@@ -5,6 +5,7 @@ import {
   getDefaultViewMode,
   readCollectionsViewMode,
   readHubViewMode,
+  resolveCollectionsLayoutMode,
   writeCollectionsViewMode,
 } from '@/lib/hub-view-mode'
 
@@ -48,5 +49,23 @@ describe('hub view mode', () => {
     const storage = mockStorage()
     storage.setItem(COLLECTIONS_VIEW_MODE_KEY, 'grid')
     expect(readCollectionsViewMode(storage)).toBe('card')
+  })
+
+  it('persists adaptive collections preference', () => {
+    const storage = mockStorage()
+    writeCollectionsViewMode('adaptive', storage)
+    expect(readCollectionsViewMode(storage)).toBe('adaptive')
+  })
+})
+
+describe('resolveCollectionsLayoutMode', () => {
+  it('uses cards in landscape and list in portrait for adaptive', () => {
+    expect(resolveCollectionsLayoutMode('adaptive', true)).toBe('card')
+    expect(resolveCollectionsLayoutMode('adaptive', false)).toBe('list')
+  })
+
+  it('passes through fixed list and card preferences', () => {
+    expect(resolveCollectionsLayoutMode('list', true)).toBe('list')
+    expect(resolveCollectionsLayoutMode('card', false)).toBe('card')
   })
 })

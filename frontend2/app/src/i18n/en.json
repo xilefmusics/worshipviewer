@@ -270,7 +270,9 @@
       "list": "List",
       "listDescription": "Show collections as rows with cover thumbnails.",
       "card": "Cards",
-      "cardDescription": "Show collections as cover cards (A4 aspect ratio)."
+      "cardDescription": "Show collections as cover cards (A4 aspect ratio).",
+      "adaptive": "Adaptive",
+      "adaptiveDescription": "Show cards in landscape and list in portrait."
     },
     "chordFormat": {
       "title": "Chord format",

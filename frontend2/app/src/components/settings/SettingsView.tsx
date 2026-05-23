@@ -339,6 +339,11 @@ export function SettingsView({
         label: t('settings.collectionsViewMode.list'),
         description: t('settings.collectionsViewMode.listDescription'),
       },
+      {
+        value: 'adaptive',
+        label: t('settings.collectionsViewMode.adaptive'),
+        description: t('settings.collectionsViewMode.adaptiveDescription'),
+      },
     ],
     [t],
   )

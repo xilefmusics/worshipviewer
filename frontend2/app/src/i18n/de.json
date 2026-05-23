@@ -270,7 +270,9 @@
       "list": "Liste",
       "listDescription": "Sammlungen als Zeilen mit Cover-Vorschaubild.",
       "card": "Karten",
-      "cardDescription": "Sammlungen als Cover-Karten (A4-Seitenverhältnis)."
+      "cardDescription": "Sammlungen als Cover-Karten (A4-Seitenverhältnis).",
+      "adaptive": "Adaptiv",
+      "adaptiveDescription": "Karten im Querformat und Liste im Hochformat."
     },
     "chordFormat": {
       "title": "Akkordformat",

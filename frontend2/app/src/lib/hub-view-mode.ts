@@ -1,6 +1,9 @@
 import type { HubEntity } from '@/lib/hub-entity'
 
-export type HubViewMode = 'list' | 'card'
+export type HubLayoutMode = 'list' | 'card'
+
+/** Stored collections layout preference (includes orientation-adaptive mode). */
+export type HubViewMode = HubLayoutMode | 'adaptive'
 
 export const COLLECTIONS_VIEW_MODE_KEY = 'wv.hub.viewMode.collections'
 export const HUB_VIEW_MODE_CHANGE_EVENT = 'wv-hub-view-mode-change'
@@ -13,7 +16,16 @@ export function getDefaultViewMode(entity: HubEntity): HubViewMode {
 }
 
 function isHubViewMode(value: string | null): value is HubViewMode {
-  return value === 'list' || value === 'card'
+  return value === 'list' || value === 'card' || value === 'adaptive'
+}
+
+/** Resolve stored preference to the layout used for rendering. */
+export function resolveCollectionsLayoutMode(
+  preference: HubViewMode,
+  isLandscape: boolean,
+): HubLayoutMode {
+  if (preference === 'adaptive') return isLandscape ? 'card' : 'list'
+  return preference
 }
 
 export function readCollectionsViewMode(

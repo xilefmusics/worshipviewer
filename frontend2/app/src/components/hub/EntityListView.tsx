@@ -60,6 +60,8 @@ import { hubListKey, hubListRootKey } from '@/lib/hub-list-keys'
 import { hubEntityToPlayerType, buildPlayerSearch } from '@/lib/player-route'
 import { emptyEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { useHubViewMode } from '@/hooks/useHubViewMode'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { resolveCollectionsLayoutMode } from '@/lib/hub-view-mode'
 import { getTeamDisplayName } from '@/lib/team-display-name'
 import { cn } from '@/lib/utils'
 
@@ -96,8 +98,12 @@ export function EntityListView({ entity }: EntityListViewProps) {
   const pullStartRef = useRef<number | null>(null)
   const pullDyRef = useRef(0)
 
-  const { viewMode: collectionsViewMode } = useHubViewMode('collections')
-  const viewMode = entity === 'collections' ? collectionsViewMode : 'list'
+  const { viewMode: collectionsViewPreference } = useHubViewMode('collections')
+  const isLandscape = useMediaQuery('(orientation: landscape)')
+  const viewMode =
+    entity === 'collections'
+      ? resolveCollectionsLayoutMode(collectionsViewPreference, isLandscape)
+      : 'list'
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
   useEffect(() => {
