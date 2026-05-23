@@ -13,6 +13,7 @@ export const AV_BACKGROUND_PRESETS = [0, 1, 2] as const satisfies readonly AvBac
 
 export type AvContentLayer = {
   maxLinesPerSlide: number
+  balanceSlideLines: boolean
   fontSize: number
   textAlign: AvTextAlign
   verticalAlign: AvVerticalAlign
@@ -34,6 +35,8 @@ export type AvProjectionPrefs = {
   outputFullscreenOnDblClick: boolean
 }
 
+export type AvLyricSplitPrefs = Pick<AvContentLayer, 'maxLinesPerSlide' | 'balanceSlideLines'>
+
 export type AvPreferences = {
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
@@ -46,6 +49,7 @@ export const AV_PREFERENCES_STORAGE_KEY = 'avPreferences'
 export const DEFAULT_AV_PREFERENCES: AvPreferences = {
   contentLayer: {
     maxLinesPerSlide: 2,
+    balanceSlideLines: true,
     fontSize: 60,
     textAlign: 'center',
     verticalAlign: 'center',
@@ -87,6 +91,7 @@ function mergeContentLayer(raw: Partial<AvContentLayer> | undefined): AvContentL
   const defaults = DEFAULT_AV_PREFERENCES.contentLayer
   return {
     maxLinesPerSlide: clampNumber(raw?.maxLinesPerSlide, defaults.maxLinesPerSlide, 1, 10),
+    balanceSlideLines: raw?.balanceSlideLines ?? defaults.balanceSlideLines,
     fontSize: clampNumber(raw?.fontSize, defaults.fontSize, 20, 120),
     textAlign: parseEnum(raw?.textAlign, ['left', 'center', 'right'], defaults.textAlign),
     verticalAlign: parseEnum(

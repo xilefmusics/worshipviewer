@@ -350,6 +350,8 @@
         "title": "Content layer",
         "description": "Typography and layout for projected lyrics.",
         "maxLines": "Lines per slide",
+        "balanceSlideLines": "Balance lines across slides",
+        "balanceSlideLinesDescription": "Avoid a single leftover line on the last slide by putting one extra line on the previous slide (for example 2 + 3 instead of 2 + 2 + 1).",
         "fontSize": "Font size",
         "textAlignTitle": "Text alignment",
         "textAlignDescription": "Align each line of lyrics.",

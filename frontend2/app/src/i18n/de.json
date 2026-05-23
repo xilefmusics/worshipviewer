@@ -350,6 +350,8 @@
         "title": "Inhaltsebene",
         "description": "Typografie und Layout für projizierte Lyrics.",
         "maxLines": "Zeilen pro Folie",
+        "balanceSlideLines": "Zeilen auf Folien ausgleichen",
+        "balanceSlideLinesDescription": "Vermeidet eine einzelne Restzeile auf der letzten Folie, indem eine Zeile mehr auf die vorherige Folie gelegt wird (z. B. 2 + 3 statt 2 + 2 + 1).",
         "fontSize": "Schriftgröße",
         "textAlignTitle": "Textausrichtung",
         "textAlignDescription": "Ausrichtung jeder Lyrikzeile.",

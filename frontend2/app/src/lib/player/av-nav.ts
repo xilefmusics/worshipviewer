@@ -6,6 +6,7 @@ import {
   buildAvLyricSlides,
   buildAvPresentationSlides,
 } from '@/lib/player/av-lyric-slides'
+import type { AvLyricSplitPrefs } from '@/lib/player/av-preferences'
 import { itemTypeAt, tocEntryForIndex } from '@/lib/player/player-helpers'
 
 type Player = components['schemas']['Player']
@@ -20,7 +21,7 @@ export type AvItemSlides = {
 
 export function avSlidesForItem(
   item: PlayerItem | undefined,
-  maxLinesPerSlide: number,
+  split: AvLyricSplitPrefs,
   fallbackTitle?: string,
 ): AvItemSlides {
   if (!item) return { slides: [''], sourceSlides: [''], outline: [], kind: 'blob' }
@@ -35,7 +36,12 @@ export function avSlidesForItem(
   }
   const songData = item.song.data
   const title = songData.titles?.[0]?.trim() || 'Untitled'
-  const lyricData = buildAvLyricSlides(songData.sections, maxLinesPerSlide)
+  const lyricData = buildAvLyricSlides(
+    songData.sections,
+    split.maxLinesPerSlide,
+    0,
+    split.balanceSlideLines,
+  )
   if (lyricData.outline.length === 0 && lyricData.slides.length === 0) {
     return { slides: [title], sourceSlides: [title], outline: [], kind: 'lyrics' }
   }
@@ -59,9 +65,9 @@ export function avSlidesForItem(
 export function avSlidesForPlayerItem(
   items: PlayerItem[],
   itemIndex: number,
-  maxLinesPerSlide: number,
+  split: AvLyricSplitPrefs,
 ): AvItemSlides {
-  return avSlidesForItem(items[itemIndex], maxLinesPerSlide)
+  return avSlidesForItem(items[itemIndex], split)
 }
 
 export type AvFlatSlide = {
@@ -72,13 +78,13 @@ export type AvFlatSlide = {
 
 export function buildAvFlatSlides(
   items: PlayerItem[],
-  maxLinesPerSlide: number,
+  split: AvLyricSplitPrefs,
   toc: Player['toc'] = [],
 ): AvFlatSlide[] {
   const flat: AvFlatSlide[] = []
   for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
     const tocTitle = tocEntryForIndex(toc, itemIndex)?.title
-    const { slides } = avSlidesForItem(items[itemIndex], maxLinesPerSlide, tocTitle)
+    const { slides } = avSlidesForItem(items[itemIndex], split, tocTitle)
     for (let slideIndex = 0; slideIndex < slides.length; slideIndex += 1) {
       flat.push({ itemIndex, slideIndex, text: slides[slideIndex] ?? '' })
     }
@@ -169,15 +175,15 @@ export function avItemHasLyrics(items: PlayerItem[], itemIndex: number): boolean
   return itemTypeAt(items, itemIndex) === 'chords'
 }
 
-export function avTotalSlides(items: PlayerItem[], maxLinesPerSlide: number): number {
-  return buildAvFlatSlides(items, maxLinesPerSlide).length
+export function avTotalSlides(items: PlayerItem[], split: AvLyricSplitPrefs): number {
+  return buildAvFlatSlides(items, split).length
 }
 
 export type AvPlayerContext = {
   player: Player
-  maxLinesPerSlide: number
+  split: AvLyricSplitPrefs
 }
 
 export function rebuildAvFlat(ctx: AvPlayerContext): AvFlatSlide[] {
-  return buildAvFlatSlides(ctx.player.items, ctx.maxLinesPerSlide, ctx.player.toc)
+  return buildAvFlatSlides(ctx.player.items, ctx.split, ctx.player.toc)
 }

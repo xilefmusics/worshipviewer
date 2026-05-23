@@ -122,12 +122,16 @@ export function PlayerAv({
 
   const currentItem = useMemo(
     () =>
-      avSlidesForPlayerItem(
-        player.items,
-        session.itemIndex,
-        prefs.contentLayer.maxLinesPerSlide,
-      ),
-    [player.items, prefs.contentLayer.maxLinesPerSlide, session.itemIndex],
+      avSlidesForPlayerItem(player.items, session.itemIndex, {
+        maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
+        balanceSlideLines: prefs.contentLayer.balanceSlideLines,
+      }),
+    [
+      player.items,
+      prefs.contentLayer.maxLinesPerSlide,
+      prefs.contentLayer.balanceSlideLines,
+      session.itemIndex,
+    ],
   )
 
   const slideCount = currentItem.slides.length

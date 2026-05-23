@@ -5,11 +5,29 @@ import {
   buildAvOutlineRows,
   buildAvPresentationSlides,
   buildAvSlideDeckEntries,
+  distributeSlideLineCounts,
   resolveAvOutlineSlideText,
 } from '@/lib/player/av-lyric-slides'
 
+describe('distributeSlideLineCounts', () => {
+  it('splits evenly when lines divide cleanly', () => {
+    expect(distributeSlideLineCounts(6, 2, true)).toEqual([2, 2, 2])
+  })
+
+  it('balances a trailing single line onto the previous slide', () => {
+    expect(distributeSlideLineCounts(5, 2, true)).toEqual([2, 3])
+    expect(distributeSlideLineCounts(7, 2, true)).toEqual([2, 2, 3])
+    expect(distributeSlideLineCounts(3, 2, true)).toEqual([3])
+  })
+
+  it('keeps strict chunking when balancing is disabled', () => {
+    expect(distributeSlideLineCounts(5, 2, false)).toEqual([2, 2, 1])
+    expect(distributeSlideLineCounts(3, 2, false)).toEqual([2, 1])
+  })
+})
+
 describe('buildAvLyricSlides', () => {
-  it('splits lines by maxLinesPerSlide', () => {
+  it('splits lines by maxLinesPerSlide when balancing is disabled', () => {
     const result = buildAvLyricSlides(
       [
         {
@@ -22,10 +40,33 @@ describe('buildAvLyricSlides', () => {
         },
       ],
       2,
+      0,
+      false,
     )
 
     expect(result.slides).toEqual(['Line one\nLine two', 'Line three'])
     expect(result.outline[0]?.title).toBe('Verse 1')
+    expect(result.outline[0]?.len).toBe(2)
+  })
+
+  it('balances leftover lines onto the previous slide by default', () => {
+    const result = buildAvLyricSlides(
+      [
+        {
+          title: 'Verse 1',
+          lines: [
+            { parts: [{ comment: false, languages: ['Line one'] }] },
+            { parts: [{ comment: false, languages: ['Line two'] }] },
+            { parts: [{ comment: false, languages: ['Line three'] }] },
+            { parts: [{ comment: false, languages: ['Line four'] }] },
+            { parts: [{ comment: false, languages: ['Line five'] }] },
+          ],
+        },
+      ],
+      2,
+    )
+
+    expect(result.slides).toEqual(['Line one\nLine two', 'Line three\nLine four\nLine five'])
     expect(result.outline[0]?.len).toBe(2)
   })
 
@@ -57,6 +98,8 @@ describe('buildAvSlideDeckEntries', () => {
         },
       ],
       2,
+      0,
+      false,
     )
 
     const entries = buildAvSlideDeckEntries(outline, slides)

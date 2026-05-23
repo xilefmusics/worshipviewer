@@ -31,10 +31,61 @@ function lyricFromLine(line: Line, languageIndex: number): string {
   return line.parts.map((part) => lyricFromPart(part, languageIndex)).join('')
 }
 
+/** Split a section's line count into per-slide sizes. */
+export function distributeSlideLineCounts(
+  lineCount: number,
+  maxPerSlide: number,
+  balanceSlideLines: boolean,
+): number[] {
+  if (lineCount <= 0) return []
+  if (lineCount <= maxPerSlide) return [lineCount]
+
+  if (!balanceSlideLines) {
+    const counts: number[] = []
+    let remaining = lineCount
+    while (remaining > 0) {
+      counts.push(Math.min(maxPerSlide, remaining))
+      remaining -= counts[counts.length - 1]!
+    }
+    return counts
+  }
+
+  const slideCount = Math.ceil(lineCount / maxPerSlide)
+  const remainder = lineCount % maxPerSlide
+
+  if (remainder === 0) {
+    return Array.from({ length: slideCount }, () => maxPerSlide)
+  }
+  if (remainder === 1 && slideCount > 1) {
+    const balancedSlideCount = slideCount - 1
+    return [
+      ...Array.from({ length: balancedSlideCount - 1 }, () => maxPerSlide),
+      maxPerSlide + 1,
+    ]
+  }
+  return [...Array.from({ length: slideCount - 1 }, () => maxPerSlide), remainder]
+}
+
+function chunkLines(
+  lines: string[],
+  maxLinesPerSlide: number,
+  balanceSlideLines: boolean,
+): string[] {
+  const counts = distributeSlideLineCounts(lines.length, maxLinesPerSlide, balanceSlideLines)
+  const slides: string[] = []
+  let offset = 0
+  for (const count of counts) {
+    slides.push(lines.slice(offset, offset + count).join('\n'))
+    offset += count
+  }
+  return slides
+}
+
 function buildSlidesFromSections(
   sections: Section[],
   maxLinesPerSlide: number,
   languageIndex: number,
+  balanceSlideLines: boolean,
 ): { slides: string[]; sectionMap: Map<string, { textIdx: number; len: number }> } {
   const slides: string[] = []
   const sectionMap = new Map<string, { textIdx: number; len: number }>()
@@ -42,32 +93,21 @@ function buildSlidesFromSections(
 
   for (const section of sections) {
     const currentIdx = slideIdxCounter
-    let slideLenCounter = 0
-    let slide = ''
+    const sectionLines: string[] = []
 
     for (const line of section.lines) {
       const lineText = lyricFromLine(line, languageIndex)
-      if (!lineText.trim()) continue
-
-      const lineCount = slide ? slide.split('\n').length : 0
-      if (lineCount >= maxLinesPerSlide) {
-        slides.push(slide)
-        slideLenCounter += 1
-        slideIdxCounter += 1
-        slide = lineText
-      } else {
-        slide = slide ? `${slide}\n${lineText}` : lineText
-      }
+      if (lineText.trim()) sectionLines.push(lineText)
     }
 
-    if (slide.trim()) {
+    const sectionSlides = chunkLines(sectionLines, maxLinesPerSlide, balanceSlideLines)
+    for (const slide of sectionSlides) {
       slides.push(slide)
-      slideLenCounter += 1
       slideIdxCounter += 1
     }
 
-    if (slideLenCounter > 0 && !sectionMap.has(section.title)) {
-      sectionMap.set(section.title, { textIdx: currentIdx, len: slideLenCounter })
+    if (sectionSlides.length > 0 && !sectionMap.has(section.title)) {
+      sectionMap.set(section.title, { textIdx: currentIdx, len: sectionSlides.length })
     }
   }
 
@@ -106,6 +146,7 @@ export function buildAvLyricSlides(
   sections: Section[] | undefined | null,
   maxLinesPerSlide: number,
   languageIndex = 0,
+  balanceSlideLines = true,
 ): AvLyricSlidesResult {
   if (!sections?.length) {
     return { slides: [], outline: [] }
@@ -114,6 +155,7 @@ export function buildAvLyricSlides(
     sections,
     maxLinesPerSlide,
     languageIndex,
+    balanceSlideLines,
   )
   return { slides, outline: buildOutline(sections, sectionMap) }
 }

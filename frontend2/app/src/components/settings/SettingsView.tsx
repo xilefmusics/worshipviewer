@@ -835,6 +835,22 @@ export function SettingsView({
                   className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2"
                 />
               </label>
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
+                  checked={avPreferences.contentLayer.balanceSlideLines}
+                  onChange={(e) =>
+                    setAvContentLayer({ balanceSlideLines: e.target.checked })
+                  }
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span>{t('settings.playerRoles.content.balanceSlideLines')}</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
+                    {t('settings.playerRoles.content.balanceSlideLinesDescription')}
+                  </span>
+                </span>
+              </label>
               <label className="flex flex-col gap-1 text-sm">
                 <span>{t('settings.playerRoles.content.fontSize')}</span>
                 <input
