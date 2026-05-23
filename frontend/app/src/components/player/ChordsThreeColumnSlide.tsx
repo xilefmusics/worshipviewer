@@ -31,6 +31,8 @@ type RenderState =
   | { status: 'ready'; sections: string[]; css: string }
   | { status: 'error'; message: string }
 
+const LOADING_RENDER_STATE: RenderState = { status: 'loading' }
+
 type ColumnSection = {
   html: string
   preview: boolean
@@ -142,7 +144,7 @@ function useMultiColumnSongRender(
   }, [song, songData, displayKey, renderKey, representation])
 
   if (!song || !songData || renderCache.key !== renderKey) {
-    return { status: 'loading' }
+    return LOADING_RENDER_STATE
   }
   return renderCache.state
 }
@@ -269,6 +271,7 @@ export function ChordsThreeColumnSlide({
   const songData = song.data as ChordSongData
   const renderState = useMultiColumnSongRender(song, displayKey, chordFormat, renderPass)
   const nextRenderState = useMultiColumnSongRender(nextSong, nextDisplayKey, chordFormat, 0)
+  const nextPreviewRenderState = showNextPreview ? nextRenderState : null
 
   const title = useMemo(() => songTitleFromData(songData), [songData])
   const subtitle = useMemo(() => songSubtitleLine(songData), [songData])
@@ -281,14 +284,23 @@ export function ChordsThreeColumnSlide({
   const columnSections = useMemo((): ColumnSection[] | null => {
     if (renderState.status !== 'ready') return null
     const nextSections =
-      showNextPreview && nextRenderState.status === 'ready' ? nextRenderState.sections : []
+      nextPreviewRenderState?.status === 'ready' ? nextPreviewRenderState.sections : []
     return buildColumnSections(
       renderState.sections,
       showNextPreview ? nextSong : undefined,
       nextDisplayKey,
       nextSections,
     )
-  }, [renderState, showNextPreview, nextSong, nextDisplayKey, nextRenderState])
+  }, [renderState, showNextPreview, nextSong, nextDisplayKey, nextPreviewRenderState])
+
+  const combinedColumnCss = useMemo(() => {
+    if (renderState.status !== 'ready') return ''
+    return buildCombinedColumnCss(
+      renderState.css,
+      nextPreviewRenderState ?? LOADING_RENDER_STATE,
+      showNextPreview,
+    )
+  }, [renderState, nextPreviewRenderState, showNextPreview])
 
   const layoutKey =
     renderState.status === 'ready' && renderState.sections.length > 0
@@ -302,11 +314,6 @@ export function ChordsThreeColumnSlide({
     packingContextKey && packedColumnsCache?.key === packingContextKey
       ? packedColumnsCache.columns
       : null
-
-  const combinedColumnCss = useMemo(() => {
-    if (renderState.status !== 'ready') return ''
-    return buildCombinedColumnCss(renderState.css, nextRenderState, showNextPreview)
-  }, [renderState, nextRenderState, showNextPreview])
 
   useLayoutEffect(() => {
     if (!layoutKey) return
@@ -329,13 +336,24 @@ export function ChordsThreeColumnSlide({
       if (scale == null) return
 
       const typography = scaledColumnTypography(scale)
-      setColumnLayoutCache({
-        key: layoutKey,
-        layout: {
-          ...typography,
-          columnWidthPx: columnWidth,
-          columnHeightPx: Math.floor(height),
-        },
+      setColumnLayoutCache((prev) => {
+        if (
+          prev?.key === layoutKey &&
+          prev.layout.fontSizePx === typography.fontSizePx &&
+          prev.layout.lineHeightPx === typography.lineHeightPx &&
+          prev.layout.columnWidthPx === columnWidth &&
+          prev.layout.columnHeightPx === Math.floor(height)
+        ) {
+          return prev
+        }
+        return {
+          key: layoutKey,
+          layout: {
+            ...typography,
+            columnWidthPx: columnWidth,
+            columnHeightPx: Math.floor(height),
+          },
+        }
       })
     }
 
@@ -344,7 +362,7 @@ export function ChordsThreeColumnSlide({
     observer.observe(columnAreaEl)
     if (viewportRef.current) observer.observe(viewportRef.current)
     return () => observer.disconnect()
-  }, [layoutKey, columnCount, renderState, columnSections])
+  }, [layoutKey, columnCount, renderState.status, columnSections?.length])
 
   useLayoutEffect(() => {
     if (!packingContextKey || !columnLayout || !columnSections) return

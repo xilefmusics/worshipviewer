@@ -9,7 +9,6 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type PointerEvent,
   type ReactElement,
 } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -415,13 +414,13 @@ export function EntityListView({ entity }: EntityListViewProps) {
 type DeleteTarget = { id: string; label: string; songCount?: number }
 type DeleteReq = (target: DeleteTarget) => void
 
-function dispatchContextMenuFromPointer(e: PointerEvent<HTMLElement>) {
-  e.currentTarget.dispatchEvent(
+function dispatchContextMenuFromPointer(target: HTMLElement, clientX: number, clientY: number) {
+  target.dispatchEvent(
     new MouseEvent('contextmenu', {
       bubbles: true,
       cancelable: true,
-      clientX: e.clientX,
-      clientY: e.clientY,
+      clientX,
+      clientY,
       view: window,
     }),
   )
@@ -431,10 +430,10 @@ function dispatchContextMenuFromPointer(e: PointerEvent<HTMLElement>) {
 function useHubListItemPlayerTap(entity: HubEntity, itemId: string) {
   const navigate = useNavigate()
   const playType = hubEntityToPlayerType(entity)
-  const suppressPrimaryAfterLongPressRef = useRef(false)
-  const baseLongPress = useLongPress((e) => {
-    suppressPrimaryAfterLongPressRef.current = true
-    dispatchContextMenuFromPointer(e)
+  const suppressNextClickRef = useRef(false)
+  const baseLongPress = useLongPress((_e, target) => {
+    suppressNextClickRef.current = true
+    dispatchContextMenuFromPointer(target, _e.clientX, _e.clientY)
   })
 
   const openPlayer = useCallback(
@@ -448,22 +447,23 @@ function useHubListItemPlayerTap(entity: HubEntity, itemId: string) {
   )
 
   const listPointerProps = {
-    onPointerDown: (e: PointerEvent<HTMLElement>) => {
-      suppressPrimaryAfterLongPressRef.current = false
-      baseLongPress.onPointerDown(e)
-    },
+    onPointerDown: baseLongPress.onPointerDown,
     onPointerUp: baseLongPress.onPointerUp,
     onPointerCancel: baseLongPress.onPointerCancel,
     onPointerLeave: baseLongPress.onPointerLeave,
   }
 
   const onClick = useCallback(() => {
-    if (suppressPrimaryAfterLongPressRef.current) {
-      suppressPrimaryAfterLongPressRef.current = false
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false
       return
     }
     openPlayer()
   }, [openPlayer])
+
+  const onContextMenu = useCallback(() => {
+    suppressNextClickRef.current = true
+  }, [])
 
   const onKeyDown = useCallback(
     (e: KeyboardEvent<HTMLElement>) => {
@@ -475,7 +475,7 @@ function useHubListItemPlayerTap(entity: HubEntity, itemId: string) {
     [openPlayer],
   )
 
-  return { listPointerProps, onClick, onKeyDown }
+  return { listPointerProps, onClick, onContextMenu, onKeyDown }
 }
 
 function HubItemContextMenu({
@@ -790,7 +790,7 @@ const CollectionCard = memo(function CollectionCard({
   networkOnline: boolean
 }) {
   const reduceMotion = useReducedMotion()
-  const { listPointerProps, onClick, onKeyDown } = useHubListItemPlayerTap(
+  const { listPointerProps, onClick, onContextMenu, onKeyDown } = useHubListItemPlayerTap(
     'collections',
     collection.id,
   )
@@ -809,6 +809,7 @@ const CollectionCard = memo(function CollectionCard({
         className="flex cursor-pointer flex-col gap-1.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] sm:gap-2"
         {...listPointerProps}
         onClick={onClick}
+        onContextMenu={onContextMenu}
         role="button"
         tabIndex={0}
         whileTap={reduceMotion ? undefined : tapFeedback}
@@ -846,7 +847,7 @@ const CollectionRow = memo(function CollectionRow({
 }) {
   const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
-  const { listPointerProps, onClick, onKeyDown } = useHubListItemPlayerTap(
+  const { listPointerProps, onClick, onContextMenu, onKeyDown } = useHubListItemPlayerTap(
     'collections',
     collection.id,
   )
@@ -865,6 +866,7 @@ const CollectionRow = memo(function CollectionRow({
         className="flex cursor-pointer gap-3 border-b border-[var(--color-border)] py-3 outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
         {...listPointerProps}
         onClick={onClick}
+        onContextMenu={onContextMenu}
         role="button"
         tabIndex={0}
         whileTap={reduceMotion ? undefined : tapFeedback}
@@ -906,7 +908,7 @@ const SongRow = memo(function SongRow({
   const { t } = useTranslation()
   const { data: user } = useSession()
   const reduceMotion = useReducedMotion()
-  const { listPointerProps, onClick, onKeyDown } = useHubListItemPlayerTap('songs', song.id)
+  const { listPointerProps, onClick, onContextMenu, onKeyDown } = useHubListItemPlayerTap('songs', song.id)
   const title = songTitle(song)
   const sub = songSubtitle(song)
   const { data: ownerTeam, isPending: ownerTeamPending, isError: ownerTeamError } =
@@ -931,6 +933,7 @@ const SongRow = memo(function SongRow({
         className="flex cursor-pointer gap-3 border-b border-[var(--color-border)] py-3 outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
         {...listPointerProps}
         onClick={onClick}
+        onContextMenu={onContextMenu}
         role="button"
         tabIndex={0}
         whileTap={reduceMotion ? undefined : tapFeedback}
@@ -968,7 +971,7 @@ const SetlistRow = memo(function SetlistRow({
   const { t } = useTranslation()
   const { data: user } = useSession()
   const reduceMotion = useReducedMotion()
-  const { listPointerProps, onClick, onKeyDown } = useHubListItemPlayerTap('setlists', setlist.id)
+  const { listPointerProps, onClick, onContextMenu, onKeyDown } = useHubListItemPlayerTap('setlists', setlist.id)
   const { data: ownerTeam, isPending: ownerTeamPending, isError: ownerTeamError } =
     useTeamDetail(setlist.owner)
 
@@ -990,6 +993,7 @@ const SetlistRow = memo(function SetlistRow({
         className="flex cursor-pointer gap-3 border-b border-[var(--color-border)] py-3 outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
         {...listPointerProps}
         onClick={onClick}
+        onContextMenu={onContextMenu}
         role="button"
         tabIndex={0}
         whileTap={reduceMotion ? undefined : tapFeedback}
