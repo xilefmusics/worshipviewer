@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { DEFAULT_AV_PREFERENCES } from '@/lib/player/av-preferences'
+import { DEFAULT_AV_PREFERENCES, type AvProjectionPayload } from '@/lib/player/av-preferences'
 import {
   createAvProjectionSync,
   readAvProjectionSnapshot,
@@ -16,12 +16,12 @@ describe('av-projection-sync', () => {
         map.set(key, value)
       },
     }
-    const payload = {
+    const payload: AvProjectionPayload = {
       contentText: 'Hello',
       contentLayer: DEFAULT_AV_PREFERENCES.contentLayer,
       backgroundLayer: DEFAULT_AV_PREFERENCES.backgroundLayer,
       transition: DEFAULT_AV_PREFERENCES.transition,
-      blackout: false,
+      screenState: 'live',
       itemTitle: 'Song',
       nextPreview: 'Next',
     }
@@ -39,12 +39,12 @@ describe('av-projection-sync', () => {
       },
     }
     const sync = createAvProjectionSync('session-2', storage)
-    const payload = {
+    const payload: AvProjectionPayload = {
       contentText: 'Slide',
       contentLayer: DEFAULT_AV_PREFERENCES.contentLayer,
       backgroundLayer: DEFAULT_AV_PREFERENCES.backgroundLayer,
       transition: DEFAULT_AV_PREFERENCES.transition,
-      blackout: true,
+      screenState: 'blackout',
       itemTitle: 'Title',
       nextPreview: null,
     }

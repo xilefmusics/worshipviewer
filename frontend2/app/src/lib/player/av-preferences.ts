@@ -8,6 +8,7 @@ export type AvTextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize'
 /** Legacy presenter backgrounds: 0 = black, 1 = red gradient, 2 = ray image. */
 export type AvBackgroundPreset = 0 | 1 | 2
 export type AvTransitionStyle = 'none' | 'fade' | 'slide'
+export type AvScreenState = 'live' | 'blank' | 'blackout'
 
 export const AV_BACKGROUND_PRESETS = [0, 1, 2] as const satisfies readonly AvBackgroundPreset[]
 
@@ -187,7 +188,7 @@ export type AvProjectionPayload = {
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
   transition: AvTransition
-  blackout: boolean
+  screenState: AvScreenState
   itemTitle: string
   nextPreview: string | null
 }
@@ -197,11 +198,15 @@ export function buildAvProjectionPayload(input: {
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
   transition: AvTransition
-  blackout: boolean
+  screenState?: AvScreenState
+  /** @deprecated Use screenState instead. */
+  blackout?: boolean
   itemTitle: string
   nextPreview: string | null
   prefersReducedMotion?: boolean
 }): AvProjectionPayload {
+  const screenState =
+    input.screenState ?? (input.blackout ? 'blackout' : 'live')
   return {
     contentText: input.contentText,
     contentLayer: input.contentLayer,
@@ -210,7 +215,7 @@ export function buildAvProjectionPayload(input: {
       input.transition,
       input.prefersReducedMotion ?? false,
     ),
-    blackout: input.blackout,
+    screenState,
     itemTitle: input.itemTitle,
     nextPreview: input.nextPreview,
   }

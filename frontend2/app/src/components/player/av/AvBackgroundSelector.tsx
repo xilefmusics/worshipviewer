@@ -95,7 +95,7 @@ export function AvBackgroundSelector({
                       contentLayer={contentLayer}
                       backgroundLayer={{ preset: optionPreset }}
                       transition={NO_TRANSITION}
-                      blackout={false}
+                      screenState="live"
                       compact
                       className="av-slide-view--compact av-slide-view--background-thumb"
                     />

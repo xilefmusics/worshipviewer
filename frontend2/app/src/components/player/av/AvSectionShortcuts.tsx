@@ -1,10 +1,12 @@
 import { useTranslation } from 'react-i18next'
 
 import {
+  AV_BLANK_SHORTCUT_KEY,
   AV_BLACKOUT_SHORTCUT_KEY,
   avAvailableSectionJumpShortcuts,
   type AvSectionJumpShortcut,
 } from '@/lib/player/av-keyboard'
+import type { AvScreenState } from '@/lib/player/av-preferences'
 import type { AvSectionOutline } from '@/lib/player/av-lyric-slides'
 import { cn } from '@/lib/utils'
 
@@ -12,15 +14,17 @@ import './player-av.css'
 
 type AvSectionShortcutsProps = {
   outline: AvSectionOutline[]
-  blackout: boolean
+  screenState: AvScreenState
   onJump: (sectionTitle: string) => void
+  onToggleBlank: () => void
   onToggleBlackout: () => void
 }
 
 export function AvSectionShortcuts({
   outline,
-  blackout,
+  screenState,
   onJump,
+  onToggleBlank,
   onToggleBlackout,
 }: AvSectionShortcutsProps) {
   const { t } = useTranslation()
@@ -33,13 +37,30 @@ export function AvSectionShortcuts({
       ))}
       <button
         type="button"
-        className={cn('player-av__section-shortcut', blackout && 'player-av__section-shortcut--active')}
+        className={cn(
+          'player-av__section-shortcut',
+          screenState === 'blank' && 'player-av__section-shortcut--active',
+        )}
+        aria-keyshortcuts={AV_BLANK_SHORTCUT_KEY}
+        aria-label={t('player.av.blankToggle')}
+        aria-pressed={screenState === 'blank'}
+        onClick={onToggleBlank}
+      >
+        <kbd className="player-av__section-shortcut-key">{AV_BLANK_SHORTCUT_KEY.toUpperCase()}</kbd>
+        <span className="player-av__section-shortcut-label">{t('player.av.blank')}</span>
+      </button>
+      <button
+        type="button"
+        className={cn(
+          'player-av__section-shortcut',
+          screenState === 'blackout' && 'player-av__section-shortcut--active',
+        )}
         aria-keyshortcuts={AV_BLACKOUT_SHORTCUT_KEY}
         aria-label={t('player.av.blackoutToggle')}
-        aria-pressed={blackout}
+        aria-pressed={screenState === 'blackout'}
         onClick={onToggleBlackout}
       >
-        <kbd className="player-av__section-shortcut-key">{AV_BLACKOUT_SHORTCUT_KEY.toUpperCase()}</kbd>
+        <kbd className="player-av__section-shortcut-key">{AV_BLACKOUT_SHORTCUT_KEY}</kbd>
         <span className="player-av__section-shortcut-label">{t('player.av.blackout')}</span>
       </button>
     </div>

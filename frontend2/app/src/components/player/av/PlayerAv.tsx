@@ -23,6 +23,7 @@ import {
   avSlidesForPlayerItem,
 } from '@/lib/player/av-nav'
 import {
+  AV_OPEN_OUTPUT_SHORTCUT_KEY,
   avKeyboardAction,
   avSectionJumpTitle,
 } from '@/lib/player/av-keyboard'
@@ -39,6 +40,7 @@ import {
   writeAvPreferences,
   type AvBackgroundPreset,
   type AvPreferences,
+  type AvScreenState,
 } from '@/lib/player/av-preferences'
 import {
   createAvProjectionSessionId,
@@ -88,6 +90,16 @@ function backAriaKeyForPlayerType(type: PlayerEntityType): string {
     case 'setlist':
       return 'setlists.editor.backToList'
   }
+}
+
+function toggleBlankScreenState(state: AvScreenState): AvScreenState {
+  if (state === 'blank') return 'live'
+  return 'blank'
+}
+
+function toggleBlackoutScreenState(state: AvScreenState): AvScreenState {
+  if (state === 'blackout') return 'live'
+  return 'blackout'
 }
 
 export function PlayerAv({
@@ -155,9 +167,9 @@ export function PlayerAv({
   )
 
   const currentText = useMemo(() => {
-    if (session.blackout) return ''
+    if (session.screenState !== 'live') return ''
     return currentItem.slides[session.slideIndex] ?? currentItem.slides[0] ?? ''
-  }, [currentItem.slides, session.blackout, session.slideIndex])
+  }, [currentItem.slides, session.screenState, session.slideIndex])
 
   const nextText = useMemo(() => {
     const nextIndex = avNextSlideInItem(slideCount, session.slideIndex)
@@ -208,24 +220,27 @@ export function PlayerAv({
       contentLayer: prefs.contentLayer,
       backgroundLayer: prefs.backgroundLayer,
       transition: prefs.transition,
-      blackout: session.blackout,
+      screenState: session.screenState,
       itemTitle: title || t('player.untitled'),
       nextPreview: nextText,
       prefersReducedMotion: reduceMotion ?? false,
     })
     syncRef.current?.broadcast(payload)
-  }, [currentText, nextText, prefs, reduceMotion, session.blackout, t, title])
+  }, [currentText, nextText, prefs, reduceMotion, session.screenState, t, title])
 
   useEffect(() => {
-    const label = session.blackout
-      ? t('player.av.blackoutOn')
-      : t('player.av.slideAnnounce', {
-          current: session.slideIndex + 1,
-          total: slideCount,
-          title: title || t('player.untitled'),
-        })
+    const label =
+      session.screenState === 'blackout'
+        ? t('player.av.blackoutOn')
+        : session.screenState === 'blank'
+          ? t('player.av.blankOn')
+          : t('player.av.slideAnnounce', {
+              current: session.slideIndex + 1,
+              total: slideCount,
+              title: title || t('player.untitled'),
+            })
     setAnnouncement(label)
-  }, [session.blackout, session.slideIndex, slideCount, t, title])
+  }, [session.screenState, session.slideIndex, slideCount, t, title])
 
   const setBackgroundPreset = useCallback((preset: AvBackgroundPreset) => {
     setPrefs((prev) => {
@@ -236,22 +251,36 @@ export function PlayerAv({
   }, [])
 
   const goToSlide = useCallback(
-    (slideIndex: number, clearBlackout = true) => {
+    (slideIndex: number, clearScreenState = true) => {
       const clamped = Math.max(0, Math.min(slideIndex, Math.max(slideCount - 1, 0)))
       setSession((state) => ({
         ...state,
         slideIndex: clamped,
-        blackout: clearBlackout ? false : state.blackout,
+        screenState: clearScreenState ? 'live' : state.screenState,
       }))
     },
     [slideCount],
   )
 
   const goToItem = useCallback((itemIndex: number) => {
-    setSession((state) => ({
+    setSession(() => ({
       itemIndex,
       slideIndex: 0,
-      blackout: false,
+      screenState: 'live',
+    }))
+  }, [])
+
+  const toggleBlank = useCallback(() => {
+    setSession((state) => ({
+      ...state,
+      screenState: toggleBlankScreenState(state.screenState),
+    }))
+  }, [])
+
+  const toggleBlackout = useCallback(() => {
+    setSession((state) => ({
+      ...state,
+      screenState: toggleBlackoutScreenState(state.screenState),
     }))
   }, [])
 
@@ -331,9 +360,19 @@ export function PlayerAv({
         void navigate({ to: backTo })
         return
       }
+      if (action === 'toggleBlank') {
+        e.preventDefault()
+        toggleBlank()
+        return
+      }
       if (action === 'toggleBlackout') {
         e.preventDefault()
-        setSession((state) => ({ ...state, blackout: !state.blackout }))
+        toggleBlackout()
+        return
+      }
+      if (action === 'openOutput') {
+        e.preventDefault()
+        openOutputWindow()
         return
       }
       if (action === 'jumpSection') {
@@ -357,7 +396,10 @@ export function PlayerAv({
     jumpToSection,
     navBlocked,
     navigate,
+    openOutputWindow,
     slideCount,
+    toggleBlank,
+    toggleBlackout,
     tocVisible,
   ])
 
@@ -408,6 +450,7 @@ export function PlayerAv({
             size="icon"
             className="min-h-11 min-w-11 shrink-0"
             aria-label={t('player.av.openOutput')}
+            aria-keyshortcuts={AV_OPEN_OUTPUT_SHORTCUT_KEY}
             onClick={() => openOutputWindow()}
           >
             <OutputIcon size={18} className="text-[var(--color-foreground)]" />
@@ -439,9 +482,10 @@ export function PlayerAv({
         <div className="player-av__center min-h-0 min-w-0 flex flex-1 flex-col">
           <AvSectionShortcuts
             outline={currentItem.outline}
-            blackout={session.blackout}
+            screenState={session.screenState}
             onJump={jumpToSection}
-            onToggleBlackout={() => setSession((state) => ({ ...state, blackout: !state.blackout }))}
+            onToggleBlank={toggleBlank}
+            onToggleBlackout={toggleBlackout}
           />
 
           <div className="player-av__slides min-h-0 flex-1 overflow-hidden">
@@ -465,7 +509,7 @@ export function PlayerAv({
               contentLayer={prefs.contentLayer}
               backgroundLayer={prefs.backgroundLayer}
               transition={prefs.transition}
-              blackout={session.blackout}
+              screenState={session.screenState}
             />
           </div>
 

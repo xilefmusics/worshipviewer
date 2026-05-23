@@ -142,7 +142,7 @@ export function AvSlidesPanel({
                 contentLayer={contentLayer}
                 backgroundLayer={backgroundLayer}
                 transition={transition}
-                blackout={false}
+                screenState="live"
                 compact={!multiColumn}
                 showBackground={false}
                 className={multiColumn ? undefined : 'av-slide-view--compact'}

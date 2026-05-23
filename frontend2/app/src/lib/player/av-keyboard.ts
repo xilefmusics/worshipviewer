@@ -9,7 +9,9 @@ export type AvKeyboardAction =
   | 'home'
   | 'end'
   | 'escape'
+  | 'toggleBlank'
   | 'toggleBlackout'
+  | 'openOutput'
   | 'jumpSection'
   | null
 
@@ -57,16 +59,26 @@ export function avKeyboardAction(
     case 'End':
       return 'end'
     case 'r':
+      return 'toggleBlank'
+    case 'R':
       return 'toggleBlackout'
+    case 'o':
+      return 'openOutput'
     case 't':
     case 'e':
     case 'b':
     case 'c':
     case 'v':
+    case 'p':
     case '1':
     case '2':
     case '3':
     case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
       return 'jumpSection'
     default:
       return null
@@ -78,15 +90,23 @@ export type AvSectionJumpShortcut = {
   sectionTitle: string
 }
 
-export const AV_BLACKOUT_SHORTCUT_KEY = 'r'
+export const AV_BLANK_SHORTCUT_KEY = 'r'
+export const AV_BLACKOUT_SHORTCUT_KEY = 'R'
+export const AV_OPEN_OUTPUT_SHORTCUT_KEY = 'o'
 
 export const AV_SECTION_JUMP_SHORTCUTS: readonly AvSectionJumpShortcut[] = [
   { key: 'c', sectionTitle: 'Chorus' },
   { key: 'v', sectionTitle: 'Verse' },
+  { key: 'p', sectionTitle: 'Pre-Chorus' },
   { key: '1', sectionTitle: 'Verse 1' },
   { key: '2', sectionTitle: 'Verse 2' },
   { key: '3', sectionTitle: 'Verse 3' },
   { key: '4', sectionTitle: 'Verse 4' },
+  { key: '5', sectionTitle: 'Verse 5' },
+  { key: '6', sectionTitle: 'Verse 6' },
+  { key: '7', sectionTitle: 'Verse 7' },
+  { key: '8', sectionTitle: 'Verse 8' },
+  { key: '9', sectionTitle: 'Verse 9' },
   { key: 'b', sectionTitle: 'Bridge' },
   { key: 't', sectionTitle: 'Tag' },
   { key: 'e', sectionTitle: 'Ending' },

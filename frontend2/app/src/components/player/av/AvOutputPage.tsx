@@ -32,7 +32,7 @@ export function AvOutputPage({
     contentLayer: DEFAULT_AV_PREFERENCES.contentLayer,
     backgroundLayer: DEFAULT_AV_PREFERENCES.backgroundLayer,
     transition: DEFAULT_AV_PREFERENCES.transition,
-    blackout: false,
+    screenState: 'live',
     itemTitle: '',
     nextPreview: null,
   }
@@ -53,7 +53,7 @@ export function AvOutputPage({
         contentLayer={viewPayload.contentLayer}
         backgroundLayer={viewPayload.backgroundLayer}
         transition={viewPayload.transition}
-        blackout={viewPayload.blackout}
+        screenState={viewPayload.screenState}
       />
     </div>
   )

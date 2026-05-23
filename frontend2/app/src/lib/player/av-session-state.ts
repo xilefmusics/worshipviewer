@@ -1,14 +1,23 @@
 import type { PlayerEntityType } from '@/lib/player-route'
+import type { AvScreenState } from '@/lib/player/av-preferences'
 import { parseOptionalPlayerIndex } from '@/lib/player/player-editor-return'
 
 export type AvSessionState = {
   itemIndex: number
   slideIndex: number
-  blackout: boolean
+  screenState: AvScreenState
 }
 
 export function avSessionStorageKey(type: PlayerEntityType, id: string): string {
   return `playerAvSession:${type}:${id}`
+}
+
+function parseScreenState(parsed: Partial<AvSessionState> & { blackout?: boolean }): AvScreenState {
+  if (parsed.screenState === 'live' || parsed.screenState === 'blank' || parsed.screenState === 'blackout') {
+    return parsed.screenState
+  }
+  if (parsed.blackout) return 'blackout'
+  return 'live'
 }
 
 export function readAvSessionState(
@@ -19,18 +28,18 @@ export function readAvSessionState(
   try {
     const raw = storage.getItem(avSessionStorageKey(type, id))
     if (!raw) {
-      return { itemIndex: 0, slideIndex: 0, blackout: false }
+      return { itemIndex: 0, slideIndex: 0, screenState: 'live' }
     }
-    const parsed = JSON.parse(raw) as Partial<AvSessionState>
+    const parsed = JSON.parse(raw) as Partial<AvSessionState> & { blackout?: boolean }
     const itemIndex = parseOptionalPlayerIndex(parsed.itemIndex) ?? 0
     const slideIndex = parseOptionalPlayerIndex(parsed.slideIndex) ?? 0
     return {
       itemIndex,
       slideIndex,
-      blackout: Boolean(parsed.blackout),
+      screenState: parseScreenState(parsed),
     }
   } catch {
-    return { itemIndex: 0, slideIndex: 0, blackout: false }
+    return { itemIndex: 0, slideIndex: 0, screenState: 'live' }
   }
 }
 

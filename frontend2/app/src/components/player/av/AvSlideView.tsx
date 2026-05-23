@@ -1,8 +1,10 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { useTranslation } from 'react-i18next'
 
 import type {
   AvBackgroundLayer as AvBackgroundLayerPrefs,
   AvContentLayer,
+  AvScreenState,
   AvTransition,
 } from '@/lib/player/av-preferences'
 import { effectiveAvTransition } from '@/lib/player/av-preferences'
@@ -17,7 +19,7 @@ type AvSlideViewProps = {
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayerPrefs
   transition: AvTransition
-  blackout: boolean
+  screenState: AvScreenState
   className?: string
   compact?: boolean
   /** When false, omit the projection background (for UI thumbnails over a checkerboard). */
@@ -29,17 +31,29 @@ export function AvSlideView({
   contentLayer,
   backgroundLayer,
   transition,
-  blackout,
+  screenState,
   className,
   compact = false,
   showBackground = true,
 }: AvSlideViewProps) {
+  const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
   const effectiveTransition = effectiveAvTransition(transition, reduceMotion ?? false)
   const duration = effectiveTransition.durationMs / 1000
 
-  if (blackout) {
+  if (screenState === 'blackout') {
     return <div className={cn('av-slide-view av-slide-view--blackout', className)} aria-hidden />
+  }
+
+  if (screenState === 'blank') {
+    return (
+      <div className={cn('av-slide-view', className)} aria-hidden>
+        {showBackground ? (
+          <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__background" />
+        ) : null}
+        <p className="sr-only">{t('player.av.blankOn')}</p>
+      </div>
+    )
   }
 
   return (
