@@ -31,7 +31,9 @@ import { getTeamDisplayName, isPersonalTeamName } from '@/lib/team-display-name'
 import {
   buildPlayerReturnSearch,
   parsePlayerEditorReturnSearch,
+  type PlayerEditorReturnContext,
 } from '@/lib/player/player-editor-return'
+import { playerQueryKey } from '@/lib/setlist-detail-key'
 import { isUserTeamAdmin } from '@/lib/team-permissions'
 import { teamDetailKey, teamsListRootKey } from '@/lib/teams-sessions-keys'
 import { cn } from '@/lib/utils'
@@ -187,6 +189,16 @@ function HubChrome({
 
   if (!user) return null
 
+  function navigateBackToPlayer(context: PlayerEditorReturnContext) {
+    void queryClient.invalidateQueries({
+      queryKey: playerQueryKey(context.playerType, context.playerId),
+    })
+    void navigate({
+      to: '/player',
+      search: buildPlayerReturnSearch(context),
+    })
+  }
+
   const detailTitle = isTeamDetail
     ? detailTeam
       ? getTeamDisplayName(detailTeam, user.id, t)
@@ -307,10 +319,7 @@ function HubChrome({
                 variant="outline"
                 onClick={() => {
                   if (setlistEditorPlayerReturn) {
-                    void navigate({
-                      to: '/player',
-                      search: buildPlayerReturnSearch(setlistEditorPlayerReturn),
-                    })
+                    navigateBackToPlayer(setlistEditorPlayerReturn)
                     return
                   }
                   void navigate({ to: '/setlists' })
@@ -336,10 +345,7 @@ function HubChrome({
                 variant="outline"
                 onClick={() => {
                   if (collectionEditorPlayerReturn) {
-                    void navigate({
-                      to: '/player',
-                      search: buildPlayerReturnSearch(collectionEditorPlayerReturn),
-                    })
+                    navigateBackToPlayer(collectionEditorPlayerReturn)
                     return
                   }
                   void navigate({ to: '/collections' })
@@ -365,10 +371,7 @@ function HubChrome({
                 variant="outline"
                 onClick={() => {
                   if (songEditorPlayerReturn) {
-                    void navigate({
-                      to: '/player',
-                      search: buildPlayerReturnSearch(songEditorPlayerReturn),
-                    })
+                    navigateBackToPlayer(songEditorPlayerReturn)
                     return
                   }
                   void navigate({ to: '/songs' })
@@ -394,10 +397,7 @@ function HubChrome({
                 variant="outline"
                 onClick={() => {
                   if (settingsPlayerReturn) {
-                    void navigate({
-                      to: '/player',
-                      search: buildPlayerReturnSearch(settingsPlayerReturn),
-                    })
+                    navigateBackToPlayer(settingsPlayerReturn)
                     return
                   }
                   void navigate({ to: '/collections' })

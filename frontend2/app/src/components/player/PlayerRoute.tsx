@@ -11,6 +11,7 @@ import type { PlayerEntityType } from '@/lib/player-route'
 import { resolvePlayerForRoute } from '@/lib/offline/resolve-player'
 import {
   collectionDetailKey,
+  playerQueryKey,
   playerResourceTitleKey,
   setlistDetailKey,
   songDetailQueryKey,
@@ -62,8 +63,9 @@ function usePlayerResourceTitle(type: PlayerEntityType, id: string, enabled: boo
 export function PlayerRouteInner({ type, id, initialIndex }: PlayerRouteInnerProps) {
   const { t } = useTranslation()
   const { data, isPending, isError, error, refetch } = useQuery({
-    queryKey: ['player', type, id],
+    queryKey: playerQueryKey(type, id),
     queryFn: ({ signal }) => resolvePlayerForRoute(type, id, signal),
+    refetchOnMount: 'always',
   })
 
   const player =

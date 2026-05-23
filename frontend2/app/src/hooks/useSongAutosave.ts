@@ -9,7 +9,7 @@ import type { components } from '@/api/schema'
 import { hubListRootKey } from '@/lib/hub-list-keys'
 import { parseRetryAfterSeconds } from '@/lib/http-retry-after'
 import { buildSongPatchBody } from '@/lib/song-patch-body'
-import { songDetailQueryKey } from '@/lib/setlist-detail-key'
+import { playerQueriesRootKey, songDetailQueryKey } from '@/lib/setlist-detail-key'
 import {
   patchSongDataFromSongData,
   SONG_EDITOR_TYPING_DEBOUNCE_MS,
@@ -94,6 +94,7 @@ export function useSongAutosave({
     (data: Song) => {
       queryClient.setQueryData(songDetailQueryKey(songId), data)
       invalidateHubPassive()
+      void queryClient.invalidateQueries({ queryKey: playerQueriesRootKey() })
     },
     [invalidateHubPassive, queryClient, songId],
   )

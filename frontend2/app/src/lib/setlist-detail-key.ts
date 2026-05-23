@@ -1,5 +1,14 @@
 import type { PlayerEntityType } from '@/lib/player-route'
 
+/** Root key for `/player` payload queries (`['player', type, id]`). */
+export function playerQueriesRootKey() {
+  return ['player'] as const
+}
+
+export function playerQueryKey(type: PlayerEntityType, id: string) {
+  return [...playerQueriesRootKey(), type, id] as const
+}
+
 export function setlistDetailKey(id: string) {
   return ['setlistDetail', id] as const
 }
