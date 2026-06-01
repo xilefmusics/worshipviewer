@@ -1084,6 +1084,7 @@ mod tests {
                             id: s2.id.clone(),
                             nr: Some("9".into()),
                             key: None,
+                            tempo: None,
                         }]),
                         owner: None,
                     },

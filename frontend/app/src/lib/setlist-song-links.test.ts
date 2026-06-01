@@ -15,6 +15,8 @@ import {
   removeAt,
   resolveSongDataKey,
   songLinkForCollectionMutation,
+  songLinkForSetlistMutation,
+  songLinkTempoEditorToWire,
   type EditorSongLink,
 } from '@/lib/setlist-song-links'
 
@@ -49,6 +51,64 @@ describe('songLinkKeyEditorToWire', () => {
   it('returns null for default / missing key', () => {
     expect(songLinkKeyEditorToWire(null)).toBeNull()
     expect(songLinkKeyEditorToWire('')).toBeNull()
+  })
+})
+
+describe('songLinkTempoEditorToWire', () => {
+  it('normalizes valid BPM values', () => {
+    expect(songLinkTempoEditorToWire(120.4)).toBe(120)
+    expect(songLinkTempoEditorToWire('88')).toBeNull()
+  })
+
+  it('returns null for inherit / invalid values', () => {
+    expect(songLinkTempoEditorToWire(null)).toBeNull()
+    expect(songLinkTempoEditorToWire(undefined)).toBeNull()
+    expect(songLinkTempoEditorToWire(0)).toBeNull()
+    expect(songLinkTempoEditorToWire(1000)).toBeNull()
+  })
+})
+
+describe('songLinkForSetlistMutation', () => {
+  it('includes tempo override on wire payload', () => {
+    expect(
+      songLinkForSetlistMutation({ id: 's1', key: 'C', tempo: 96 }),
+    ).toEqual({ id: 's1', key: { level: 3 }, tempo: 96 })
+  })
+
+  it('serializes inherit tempo as null', () => {
+    expect(songLinkForSetlistMutation({ id: 's1', key: null, tempo: null })).toEqual({
+      id: 's1',
+      key: null,
+      tempo: null,
+    })
+  })
+})
+
+describe('normalizeSongLinksForEditor', () => {
+  it('carries tempo from wire links', () => {
+    const links: WireSongLink[] = [{ id: 'a', key: null, tempo: 72 }]
+    expect(normalizeSongLinksForEditor(links)).toEqual([{ id: 'a', key: null, tempo: 72 }])
+  })
+
+  it('keeps id and key only', () => {
+    expect(normalizeSongLinksForEditor([{ id: 'a', key: { level: 3 }, nr: '1' }])).toEqual([
+      { id: 'a', key: 'C', tempo: null },
+    ])
+    expect(normalizeSongLinksForEditor([{ id: 'b', key: null }])).toEqual([
+      { id: 'b', key: null, tempo: null },
+    ])
+  })
+
+  it('normalizes opaque song ids to strings', () => {
+    expect(normalizeSongLinksForEditor([{ id: 99 as unknown as string, key: null }])).toEqual([
+      { id: '99', key: null, tempo: null },
+    ])
+  })
+
+  it('coerces wire `{ level }` keys to chord symbols', () => {
+    expect(
+      normalizeSongLinksForEditor([{ id: 'a', key: { level: 8 } } as WireSongLink]),
+    ).toEqual([{ id: 'a', key: 'F', tempo: null }])
   })
 })
 
@@ -128,27 +188,6 @@ describe('resolveSongDataKey', () => {
   it('returns null when missing', () => {
     expect(resolveSongDataKey(undefined)).toBeNull()
     expect(resolveSongDataKey({ tags: {} })).toBeNull()
-  })
-})
-
-describe('normalizeSongLinksForEditor', () => {
-  it('keeps id and key only', () => {
-    expect(normalizeSongLinksForEditor([{ id: 'a', key: { level: 3 }, nr: '1' }])).toEqual([
-      { id: 'a', key: 'C' },
-    ])
-    expect(normalizeSongLinksForEditor([{ id: 'b', key: null }])).toEqual([{ id: 'b', key: null }])
-  })
-
-  it('normalizes opaque song ids to strings', () => {
-    expect(normalizeSongLinksForEditor([{ id: 99 as unknown as string, key: null }])).toEqual([
-      { id: '99', key: null },
-    ])
-  })
-
-  it('coerces wire `{ level }` keys to chord symbols', () => {
-    expect(
-      normalizeSongLinksForEditor([{ id: 'a', key: { level: 8 } } as WireSongLink]),
-    ).toEqual([{ id: 'a', key: 'F' }])
   })
 })
 

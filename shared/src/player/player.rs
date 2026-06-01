@@ -327,6 +327,9 @@ impl From<SongLinkOwned> for Player {
                     if let Some(key) = link.key {
                         song.data.transpose(key);
                     }
+                    if let Some(tempo) = link.tempo {
+                        song.data.tempo = Some(tempo);
+                    }
                     items.push(PlayerItem::Chords(Box::new(super::PlayerChordsItem {
                         song,
                     })))
@@ -349,6 +352,59 @@ impl From<SongLinkOwned> for Player {
             orientation: Orientation::Portrait,
             between_items: bool::default(),
             index: usize::default(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::player::PlayerItem;
+    use crate::song::{LinkOwned as SongLinkOwned, Song};
+    use chordlib::types::Song as ChordSong;
+
+    fn song_with_tempo(tempo: Option<u32>) -> Song {
+        let mut data = ChordSong::default();
+        data.titles = vec!["Test Song".into()];
+        data.tempo = tempo;
+        Song {
+            id: "song-1".into(),
+            data,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn song_link_owned_applies_tempo_override_in_player() {
+        let link = SongLinkOwned {
+            song: song_with_tempo(Some(120)),
+            nr: None,
+            key: None,
+            tempo: Some(88),
+            liked: false,
+        };
+        let player = Player::from(link);
+        let (item, _) = player.item();
+        match item {
+            PlayerItem::Chords(chords) => assert_eq!(chords.song.data.tempo, Some(88)),
+            _ => panic!("expected chords player item"),
+        }
+    }
+
+    #[test]
+    fn song_link_owned_without_tempo_override_keeps_song_tempo() {
+        let link = SongLinkOwned {
+            song: song_with_tempo(Some(120)),
+            nr: None,
+            key: None,
+            tempo: None,
+            liked: false,
+        };
+        let player = Player::from(link);
+        let (item, _) = player.item();
+        match item {
+            PlayerItem::Chords(chords) => assert_eq!(chords.song.data.tempo, Some(120)),
+            _ => panic!("expected chords player item"),
         }
     }
 }

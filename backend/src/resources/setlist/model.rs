@@ -62,6 +62,7 @@ mod tests {
                     id: "s1".into(),
                     nr: Some("1".into()),
                     key: None,
+                    tempo: None,
                 }],
             },
         );

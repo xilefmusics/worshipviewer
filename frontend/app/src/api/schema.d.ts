@@ -1563,6 +1563,11 @@ export interface components {
             key?: null | components["schemas"]["SimpleChord"];
             /** @description Optional display position in the parent list (e.g. `1`, `2a`). */
             nr?: string | null;
+            /**
+             * Format: int32
+             * @description Tempo override in BPM for this slot; `None` inherits the song's `data.tempo`.
+             */
+            tempo?: number | null;
         };
         /**
          * @description Query parameters for `GET /api/v1/songs`: pagination plus optional sort and filters.

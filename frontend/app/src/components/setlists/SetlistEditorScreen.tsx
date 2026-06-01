@@ -583,6 +583,16 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
                     })
                     queueMicrotask(() => notifyDraftEdited())
                   }}
+                  onPatchTempo={(tempo) => {
+                    setSlotRows((prev) => {
+                      const next = [...prev]
+                      const cur = next[idx]
+                      if (!cur) return prev
+                      next[idx] = { ...cur, link: { ...cur.link, tempo } }
+                      return next
+                    })
+                    queueMicrotask(() => notifyDraftEdited())
+                  }}
                   onRemove={() => removeAtIndex(idx)}
                 />
               )
@@ -623,6 +633,7 @@ type SortProps = {
   patchInFlight: boolean
   onAnnounce: (s: string) => void
   onPatchKey: (key: string | null) => void
+  onPatchTempo: (tempo: number | null) => void
   onRemove: () => void
 }
 
@@ -666,10 +677,16 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
 
   const bpm = !hydrationPending && !brokenHydration ? normalizedTempoBpm(hydratedSong?.data.tempo) : null
   const meter = !hydrationPending && !brokenHydration ? formattedTimeSignature(hydratedSong?.data.time) : null
-  let tempoMeterLine: string | null = null
-  if (bpm != null && meter) tempoMeterLine = t('setlists.editor.songTempoAndMeter', { bpm, meter })
-  else if (bpm != null) tempoMeterLine = t('setlists.editor.songTempoOnly', { bpm })
-  else if (meter) tempoMeterLine = t('setlists.editor.songMeterOnly', { meter })
+  const pinnedBpm = normalizedTempoBpm(row.link.tempo)
+  const displayBpm = pinnedBpm ?? bpm
+  const isTempoInherited = pinnedBpm == null
+  const showSongOriginalTempoCaption =
+    !hydrationPending && !brokenHydration && Boolean(hydratedSong) && bpm != null
+  let songOriginalTempoLine: string | null = null
+  if (showSongOriginalTempoCaption && bpm != null) {
+    if (meter) songOriginalTempoLine = t('setlists.editor.songTempoAndMeter', { bpm, meter })
+    else songOriginalTempoLine = t('setlists.editor.songOriginalTempo', { bpm })
+  }
 
   return (
     <li
@@ -711,38 +728,48 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
               <p className={cn('min-w-0 line-clamp-2 font-medium leading-snug', brokenHydration && 'text-[var(--color-danger)]')}>
                 {titleLabel || '—'}
               </p>
-              <div className="inline-flex max-w-[11rem] min-w-0 flex-col justify-self-end">
+              <div className="inline-flex max-w-[11rem] min-w-0 flex-col justify-self-end gap-1">
                 {!brokenHydration && hydratedSong ? (
-                  <PopoverRoot>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                          'h-9 w-full justify-start px-2 text-xs',
-                          isDefaultInherited && 'border-dashed text-[var(--color-muted-foreground)]',
-                        )}
-                        disabled={!canEditUi || blockingAll}
-                      >
-                        {t('setlists.editor.keyChip', { symbol: displayChip ?? '—' })}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-48 p-2" align="end">
-                      <div className="grid max-h-60 grid-cols-3 gap-1 overflow-y-auto p-1">
-                        {MUSICAL_KEYS.map((k) => (
-                          <button
-                            key={k}
-                            type="button"
-                            className="rounded px-2 py-1 text-xs hover:bg-[var(--color-muted)]"
-                            onClick={() => props.onPatchKey(k)}
-                          >
-                            {k}
-                          </button>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </PopoverRoot>
+                  <>
+                    <PopoverRoot>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            'h-9 w-full justify-start px-2 text-xs',
+                            isDefaultInherited && 'border-dashed text-[var(--color-muted-foreground)]',
+                          )}
+                          disabled={!canEditUi || blockingAll}
+                        >
+                          {t('setlists.editor.keyChip', { symbol: displayChip ?? '—' })}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-2" align="end">
+                        <div className="grid max-h-60 grid-cols-3 gap-1 overflow-y-auto p-1">
+                          {MUSICAL_KEYS.map((k) => (
+                            <button
+                              key={k}
+                              type="button"
+                              className="rounded px-2 py-1 text-xs hover:bg-[var(--color-muted)]"
+                              onClick={() => props.onPatchKey(k)}
+                            >
+                              {k}
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </PopoverRoot>
+                    <TempoOverrideChip
+                      displayBpm={displayBpm}
+                      pinnedBpm={pinnedBpm}
+                      isInherited={isTempoInherited}
+                      canEditUi={canEditUi}
+                      blockingAll={blockingAll}
+                      onPatchTempo={props.onPatchTempo}
+                    />
+                  </>
                 ) : null}
               </div>
 
@@ -751,10 +778,15 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
                   <p className="truncate text-xs text-[var(--color-muted-foreground)]">{artistsLine}</p>
                 ) : null}
               </div>
-              <div className="inline-flex max-w-[11rem] min-w-0 flex-col justify-self-end">
+              <div className="inline-flex max-w-[11rem] min-w-0 flex-col justify-self-end gap-1">
                 {showSongOriginalKeyCaption ? (
                   <p className="w-full truncate text-xs text-[var(--color-muted-foreground)]">
                     {t('setlists.editor.songOriginalKey', { symbol: defaultKey ?? '—' })}
+                  </p>
+                ) : null}
+                {songOriginalTempoLine ? (
+                  <p className="w-full truncate text-xs text-[var(--color-muted-foreground)]">
+                    {songOriginalTempoLine}
                   </p>
                 ) : null}
               </div>
@@ -770,8 +802,10 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
                 ) : null}
               </div>
               <div className="inline-flex max-w-[11rem] min-w-0 flex-col justify-self-end">
-                {tempoMeterLine ? (
-                  <p className="w-full truncate text-xs text-[var(--color-muted-foreground)]">{tempoMeterLine}</p>
+                {meter && !showSongOriginalTempoCaption ? (
+                  <p className="w-full truncate text-xs text-[var(--color-muted-foreground)]">
+                    {t('setlists.editor.songMeterOnly', { meter })}
+                  </p>
                 ) : null}
               </div>
             </>
@@ -799,3 +833,112 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
     </li>
   )
 })
+
+function parseTempoDraft(value: string): number | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const n = Number(trimmed)
+  if (!Number.isFinite(n)) return null
+  return normalizedTempoBpm(Math.round(n))
+}
+
+type TempoOverrideChipProps = {
+  displayBpm: number | null
+  pinnedBpm: number | null
+  isInherited: boolean
+  canEditUi: boolean
+  blockingAll: boolean
+  onPatchTempo: (tempo: number | null) => void
+}
+
+function TempoOverrideChip({
+  displayBpm,
+  pinnedBpm,
+  isInherited,
+  canEditUi,
+  blockingAll,
+  onPatchTempo,
+}: TempoOverrideChipProps) {
+  const { t } = useTranslation()
+  const [draft, setDraft] = useState('')
+  const [open, setOpen] = useState(false)
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) {
+      setDraft(
+        pinnedBpm != null ? String(pinnedBpm) : displayBpm != null ? String(displayBpm) : '',
+      )
+    }
+    setOpen(nextOpen)
+  }
+
+  function applyDraft() {
+    const parsed = parseTempoDraft(draft)
+    if (parsed == null) {
+      onPatchTempo(null)
+      setOpen(false)
+      return
+    }
+    onPatchTempo(parsed)
+    setOpen(false)
+  }
+
+  return (
+    <PopoverRoot open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(
+            'h-9 w-full justify-start px-2 text-xs',
+            isInherited && 'border-dashed text-[var(--color-muted-foreground)]',
+          )}
+          disabled={!canEditUi || blockingAll}
+          aria-label={t('setlists.editor.tempoPopoverAria')}
+        >
+          {displayBpm != null
+            ? t('setlists.editor.tempoChip', { bpm: displayBpm })
+            : t('setlists.editor.tempoChipPlaceholder')}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-2" align="end">
+        <div className="grid gap-2">
+          <label className="grid gap-1 text-xs">
+            <span className="font-medium">{t('setlists.editor.tempoInputLabel')}</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={999}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  applyDraft()
+                }
+              }}
+            />
+          </label>
+          <div className="flex flex-col gap-1">
+            <Button type="button" size="sm" onClick={() => applyDraft()}>
+              {t('setlists.editor.tempoApply')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                onPatchTempo(null)
+                setOpen(false)
+              }}
+            >
+              {t('setlists.editor.tempoResetToDefault')}
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </PopoverRoot>
+  )
+}

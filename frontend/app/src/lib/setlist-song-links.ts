@@ -1,11 +1,14 @@
 import type { components } from '@/api/schema'
 
+import { normalizedTempoBpm } from '@/lib/song-display-meta'
+
 export type SongLink = components['schemas']['SongLink']
 
 /** Editor slot with a coerced chord symbol; wire `SongLink.key` is `{ level }`. */
 export type EditorSongLink = {
   id: string
   key: string | null
+  tempo?: number | null
   nr?: string | null
 }
 
@@ -90,11 +93,17 @@ export function songLinkKeyEditorToWire(key: unknown): SimpleChord | null {
 }
 
 /** One wire `SongLink` for PATCH/POST `songs`; server expects `key` as `{ level }` or JSON `null`. */
-export function songLinkForSetlistMutation(link: EditorSongLink): Pick<SongLink, 'id' | 'key'> {
+export function songLinkForSetlistMutation(link: EditorSongLink): Pick<SongLink, 'id' | 'key' | 'tempo'> {
   return {
     id: normalizeSongLinkId(link.id),
     key: songLinkKeyEditorToWire(link.key),
+    tempo: songLinkTempoEditorToWire(link.tempo),
   }
+}
+
+/** Normalize editor tempo to wire BPM or `null` (inherit song default). */
+export function songLinkTempoEditorToWire(tempo: unknown): number | null {
+  return normalizedTempoBpm(tempo)
 }
 
 /** Opaque IDs should be strings on the wire; JSON may deserialize numeric-looking ids locally. */
@@ -287,6 +296,7 @@ export function normalizeSongLinksForEditor(links: SongLink[] | null | undefined
   return (links ?? []).map((l) => ({
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
+    tempo: normalizedTempoBpm(l.tempo),
   }))
 }
 

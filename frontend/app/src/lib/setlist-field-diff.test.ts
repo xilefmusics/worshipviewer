@@ -43,8 +43,8 @@ describe('buildSetlistPatchBody', () => {
       }),
     ).toEqual({
       songs: [
-        { id: 'y', key: null },
-        { id: 'x', key: { level: 3 } },
+        { id: 'y', key: null, tempo: null },
+        { id: 'x', key: { level: 3 }, tempo: null },
       ],
     })
   })
@@ -69,7 +69,7 @@ describe('buildSetlistPatchBody', () => {
         owner: ownerA,
         songs: [{ id: 'x', key: null }],
       }),
-    ).toEqual({ songs: [{ id: 'x', key: null }] })
+    ).toEqual({ songs: [{ id: 'x', key: null, tempo: null }] })
   })
 
   it('treats matching baseline and draft keys as unchanged', () => {
@@ -92,7 +92,7 @@ describe('buildSetlistPatchBody', () => {
         owner: ownerA,
         songs: [{ id: 'x', key: 'F' }],
       }),
-    ).toEqual({ songs: [{ id: 'x', key: { level: 8 } }] })
+    ).toEqual({ songs: [{ id: 'x', key: { level: 8 }, tempo: null }] })
   })
 
   it('stringifies numeric song ids for PATCH bodies', () => {
@@ -107,7 +107,7 @@ describe('buildSetlistPatchBody', () => {
         owner: ownerA,
         songs: [{ id: '7', key: 'C' }],
       }),
-    ).toEqual({ songs: [{ id: '7', key: { level: 3 } }] })
+    ).toEqual({ songs: [{ id: '7', key: { level: 3 }, tempo: null }] })
   })
 
   it('sends owner when changed', () => {
@@ -118,5 +118,28 @@ describe('buildSetlistPatchBody', () => {
         songs: [{ id: 'x', key: 'C' }],
       }),
     ).toEqual({ owner: 'team-b' })
+  })
+
+  it('detects slot tempo drift', () => {
+    expect(
+      buildSetlistPatchBody(base, {
+        title: 'A',
+        owner: ownerA,
+        songs: [{ id: 'x', key: 'C', tempo: 88 }],
+      }),
+    ).toEqual({ songs: [{ id: 'x', key: { level: 3 }, tempo: 88 }] })
+  })
+
+  it('treats matching tempo overrides as unchanged', () => {
+    expect(
+      buildSetlistPatchBody(
+        {
+          title: 'A',
+          owner: ownerA,
+          songs: [{ id: 'x', key: 'C', tempo: 88 }],
+        },
+        { title: 'A', owner: ownerA, songs: [{ id: 'x', key: 'C', tempo: 88 }] },
+      ),
+    ).toBeNull()
   })
 })

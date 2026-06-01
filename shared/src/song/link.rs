@@ -18,11 +18,14 @@ pub struct Link {
     /// Transposition key for this slot (same `{ "level": … }` object as `Song.data.key`).
     #[cfg_attr(feature = "backend", schema(value_type = Option<SimpleChordSchema>))]
     pub key: Option<SimpleChord>,
+    /// Tempo override in BPM for this slot; `None` inherits the song's `data.tempo`.
+    pub tempo: Option<u32>,
 }
 
 pub struct LinkOwned {
     pub song: Song,
     pub nr: Option<String>,
     pub key: Option<SimpleChord>,
+    pub tempo: Option<u32>,
     pub liked: bool,
 }

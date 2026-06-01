@@ -836,6 +836,38 @@ testcases:
           - result.bodyjson.owner ShouldEqual "{{.get-setlist-owner-personal-team.owner_personal_team_id}}"
           - result.bodyjson.title ShouldEqual "Updated Sunday Set"
 
+  # PATCH /setlists/{id} — per-entry tempo override
+  - name: patch-setlist-tempo-override
+    steps:
+      - type: http
+        method: PATCH
+        url: "{{.base_url}}/api/v1/setlists/{{.post-setlist-success.setlistid}}"
+        headers:
+          Authorization: "Bearer {{.create-setlist-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "songs": [
+              { "id": "{{.create-setlist-song-one.songid}}", "nr": "1", "tempo": 140 },
+              { "id": "{{.create-setlist-song-two.songid}}", "nr": "2" }
+            ]
+          }
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.songs ShouldHaveLength 2
+          - result.bodyjson.songs.songs0.tempo ShouldEqual 140
+
+  - name: get-setlist-player-tempo-override
+    steps:
+      - type: http
+        method: GET
+        url: "{{.base_url}}/api/v1/setlists/{{.post-setlist-success.setlistid}}/player"
+        headers:
+          Authorization: "Bearer {{.create-setlist-owner-session.sessionid}}"
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.items.items0.song.data.tempo ShouldEqual 140
+
   # BLC: BLC-SETL-008, BLC-SETL-003
   - name: put-setlist-success-write-user
     steps:
