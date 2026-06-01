@@ -157,6 +157,7 @@ test('B5: delete a team', async ({ page, seed }) => {
   await expect(page).toHaveURL(new RegExp(`/teams/${team.id}`))
 })
 
+// Flow: B6
 test('B6: upload and remove team cover', async ({ page, seed }) => {
   const token = uniqueToken('b6')
   const team = await seed.createTeam(`${token}-cover`)
