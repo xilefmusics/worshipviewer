@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result as AnyResult};
 use openidconnect::core::{CoreClient, CoreProviderMetadata};
+use openidconnect::reqwest::Client as OidcHttpClient;
 use openidconnect::{ClientId, ClientSecret, IssuerUrl, RedirectUrl};
 use openidconnect::{EndpointMaybeSet, EndpointNotSet, EndpointSet};
-use reqwest::Client as ReqwestClient;
 use tracing::info;
 
 use crate::settings::Settings;
@@ -55,7 +55,7 @@ impl FromStr for OidcProvider {
 #[derive(Debug)]
 pub struct OidcClientRegistration {
     client: Arc<DiscoveredOidcClient>,
-    http: ReqwestClient,
+    http: OidcHttpClient,
     scopes: Vec<String>,
 }
 
@@ -64,7 +64,7 @@ impl OidcClientRegistration {
         self.client.as_ref()
     }
 
-    pub fn http(&self) -> &ReqwestClient {
+    pub fn http(&self) -> &OidcHttpClient {
         &self.http
     }
 
@@ -128,10 +128,10 @@ async fn build_client(
     client_id: &str,
     client_secret: Option<&str>,
     redirect_url: &str,
-) -> AnyResult<(DiscoveredOidcClient, ReqwestClient)> {
-    let http = ReqwestClient::builder()
+) -> AnyResult<(DiscoveredOidcClient, OidcHttpClient)> {
+    let http = OidcHttpClient::builder()
         // Following redirects opens the client up to SSRF vulnerabilities.
-        .redirect(reqwest::redirect::Policy::none())
+        .redirect(openidconnect::reqwest::redirect::Policy::none())
         .build()
         .context("build OIDC HTTP client")?;
     let issuer = IssuerUrl::new(issuer_url.to_string())

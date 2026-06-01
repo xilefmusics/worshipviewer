@@ -31,22 +31,6 @@ LET $u = IF $s == NONE {
     FROM ONLY $s.user
 };
 
-LET $t = IF $u == NONE {
-    []
-} ELSE {
-    SELECT
-        id,
-        owner,
-        IF owner = $u.id THEN
-            'admin'
-        ELSE
-            members[WHERE user = $u.id][0].role
-        END AS role
-    FROM team
-    WHERE id != $public
-      AND (owner = $u.id OR members.user CONTAINS $u.id)
-};
-
 RETURN IF $s == NONE {
     NONE
 } ELSE {
@@ -56,7 +40,22 @@ RETURN IF $s == NONE {
             expired: $s.expires_at != NONE AND $s.expires_at <= time::now()
         },
         user: $u,
-        teams: $t
+        teams: IF $u == NONE {
+            []
+        } ELSE {
+            SELECT VALUE {
+                id: id,
+                owner: owner,
+                role: IF owner = $u.id THEN
+                    'admin'
+                ELSE
+                    members[WHERE user = $u.id][0].role
+                END
+            }
+            FROM team
+            WHERE id != $public
+              AND (owner = $u.id OR members.user CONTAINS $u.id)
+        }
     }
 };
 ",
@@ -72,7 +71,7 @@ RETURN IF $s == NONE {
         .map_err(|e| crate::log_and_convert!(AppError::database, "auth_ctx.check", e))?;
 
     let raw: Option<AuthCtxRow> = response
-        .take(4)
+        .take(3)
         .map_err(|e| crate::log_and_convert!(AppError::database, "auth_ctx.take", e))?;
 
     let Some(row) = raw else {
@@ -102,28 +101,23 @@ LET $u = SELECT id, role, email, default_collection, oauth_picture_url,
            oauth_avatar_blob AS oauth_avatar_blob_id, avatar_blob AS avatar_blob_id
     FROM ONLY $user_rec;
 
-LET $t = IF $u == NONE {
-    []
-} ELSE {
-    SELECT
-        id,
-        owner,
-        IF owner = $u.id THEN
-            'admin'
-        ELSE
-            members[WHERE user = $u.id][0].role
-        END AS role
-    FROM team
-    WHERE id != $public
-      AND (owner = $u.id OR members.user CONTAINS $u.id)
-};
-
 RETURN IF $u == NONE {
     NONE
 } ELSE {
     {
         user: $u,
-        teams: $t
+        teams: SELECT VALUE {
+            id: id,
+            owner: owner,
+            role: IF owner = $u.id THEN
+                'admin'
+            ELSE
+                members[WHERE user = $u.id][0].role
+            END
+        }
+        FROM team
+        WHERE id != $public
+          AND (owner = $u.id OR members.user CONTAINS $u.id)
     }
 };
 ",
@@ -139,7 +133,7 @@ RETURN IF $u == NONE {
         .map_err(|e| crate::log_and_convert!(AppError::database, "auth_ctx_bootstrap.check", e))?;
 
     let raw: Option<AuthCtxBootstrapRow> = response
-        .take(3)
+        .take(2)
         .map_err(|e| crate::log_and_convert!(AppError::database, "auth_ctx_bootstrap.take", e))?;
 
     let Some(row) = raw else {
