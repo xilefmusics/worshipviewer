@@ -143,6 +143,7 @@ impl<R: SongRepository, L: LikedSongIds, C: CollectionRepository> SongService<R,
             song: self.repo.get_song(&read_teams, id).await?,
             nr: None,
             key: None,
+            tempo: None,
             liked: self
                 .repo
                 .get_song_like(&read_teams, &ctx.user.id, id)
@@ -181,6 +182,7 @@ impl<R: SongRepository, L: LikedSongIds, C: CollectionRepository> SongService<R,
                     id: created.id.clone(),
                     nr: None,
                     key: None,
+                    tempo: None,
                 },
             )
             .await

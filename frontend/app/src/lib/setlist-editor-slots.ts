@@ -18,6 +18,9 @@ export function makeSlotRow(link: EditorSongLink): SlotRow {
   if (link.nr !== undefined) {
     row.nr = normalizeSongLinkNr(link.nr)
   }
+  if (link.tempo !== undefined) {
+    row.tempo = link.tempo
+  }
   return {
     slotId: newSlotId(),
     link: row,

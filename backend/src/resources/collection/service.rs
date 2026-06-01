@@ -231,6 +231,7 @@ impl<R: CollectionRepository, L: LikedSongIds> CollectionService<R, L> {
             id: from_source.id.clone(),
             key: payload.key.or_else(|| from_source.key.clone()),
             nr: payload.nr.or_else(|| from_source.nr.clone()),
+            tempo: None,
         };
 
         let (source, target) = self
@@ -399,6 +400,7 @@ mod tests {
                         id: song.id.clone(),
                         nr: None,
                         key: None,
+                        tempo: None,
                     }],
                 },
             )
@@ -429,6 +431,7 @@ mod tests {
                         id: song.id.clone(),
                         nr: Some("1".into()),
                         key: None,
+                        tempo: None,
                     }],
                 },
                 None,
@@ -603,6 +606,7 @@ mod tests {
                         id: song.id.clone(),
                         nr: None,
                         key: None,
+                        tempo: None,
                     }],
                 },
             )
@@ -634,6 +638,7 @@ mod tests {
                         id: song.id.clone(),
                         nr: None,
                         key: None,
+                        tempo: None,
                     }],
                 },
             )
@@ -738,6 +743,7 @@ mod tests {
                         id: "song:doesnotexist".into(),
                         nr: None,
                         key: None,
+                        tempo: None,
                     }],
                 },
             )
@@ -852,6 +858,7 @@ mod tests {
                         id: song.id.clone(),
                         nr: None,
                         key: None,
+                        tempo: None,
                     }],
                 },
             )
@@ -1007,11 +1014,13 @@ mod tests {
                             id: s1.id.clone(),
                             nr: Some("1".into()),
                             key: None,
+                            tempo: None,
                         },
                         shared::song::Link {
                             id: s2.id.clone(),
                             nr: Some("2".into()),
                             key: None,
+                            tempo: None,
                         },
                     ],
                 },
@@ -1031,6 +1040,7 @@ mod tests {
                         id: s2.id.clone(),
                         nr: Some("2".into()),
                         key: None,
+                        tempo: None,
                     }],
                 },
                 None,
@@ -1066,6 +1076,7 @@ mod tests {
                         id: s1.id.clone(),
                         nr: Some("1".into()),
                         key: Some(SimpleChord::new(3)),
+                        tempo: None,
                     }],
                 },
             )
@@ -1141,6 +1152,7 @@ mod tests {
                         id: s1.id.clone(),
                         nr: Some("1".into()),
                         key: None,
+                        tempo: None,
                     }],
                 },
             )
@@ -1168,6 +1180,7 @@ mod tests {
                     id: s1.id.clone(),
                     nr: Some("9".into()),
                     key: None,
+                    tempo: None,
                 }]),
                 owner: None,
             },
@@ -1216,6 +1229,7 @@ mod tests {
                         id: s1.id.clone(),
                         nr: Some("1".into()),
                         key: None,
+                        tempo: None,
                     }],
                 },
             )
@@ -1260,6 +1274,7 @@ mod tests {
                         id: s1.id.clone(),
                         nr: Some("1".into()),
                         key: None,
+                        tempo: None,
                     }],
                 },
             )
@@ -1279,11 +1294,13 @@ mod tests {
                             id: s2.id.clone(),
                             nr: Some("2".into()),
                             key: None,
+                            tempo: None,
                         },
                         shared::song::Link {
                             id: s1.id.clone(),
                             nr: Some("1a".into()),
                             key: None,
+                            tempo: None,
                         },
                     ],
                 },
@@ -1344,6 +1361,7 @@ mod tests {
                             id: s1.id.clone(),
                             nr: Some("1".into()),
                             key: None,
+                            tempo: None,
                         }],
                     },
                 )
@@ -1361,6 +1379,7 @@ mod tests {
                     id: s2.id.clone(),
                     nr: Some("9".into()),
                     key: None,
+                    tempo: None,
                 }]),
                 owner: None,
             };

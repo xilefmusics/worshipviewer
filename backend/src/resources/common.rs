@@ -112,6 +112,7 @@ pub fn player_from_song_links(
                 song: link.song,
                 nr: Some(link.nr.unwrap_or_else(|| (idx + 1).to_string())),
                 key: link.key,
+                tempo: link.tempo,
             })
         })
         .try_fold(Player::default(), |acc, player| {
@@ -166,6 +167,7 @@ pub async fn song_links_to_owned(
             song: rec.into_song(),
             nr: link.nr,
             key: link.key.map(|k| k.0),
+            tempo: link.tempo,
             liked: false,
         });
     }
@@ -180,6 +182,8 @@ pub struct SongLinkRecord {
     nr: Option<String>,
     #[serde(default)]
     key: Option<SimpleChordField>,
+    #[serde(default)]
+    tempo: Option<u32>,
 }
 
 impl From<SongLinkRecord> for SongLink {
@@ -188,6 +192,7 @@ impl From<SongLinkRecord> for SongLink {
             id: record_id_string(&record.id),
             nr: record.nr,
             key: record.key.map(|k| k.0),
+            tempo: record.tempo,
         }
     }
 }
@@ -198,6 +203,7 @@ impl From<SongLink> for SongLinkRecord {
             id: song_thing(&link.id),
             nr: link.nr,
             key: link.key.map(SimpleChordField),
+            tempo: link.tempo,
         }
     }
 }
@@ -283,12 +289,14 @@ mod tests {
                 song: s1,
                 nr: None,
                 key: None,
+                tempo: None,
                 liked: false,
             },
             SongLinkOwned {
                 song: s2,
                 nr: Some("x".into()),
                 key: None,
+                tempo: None,
                 liked: false,
             },
         ];

@@ -4,6 +4,7 @@ import {
   coerceMusicalKeyString,
   normalizeSongLinkId,
   songLinkForSetlistMutation,
+  songLinkTempoEditorToWire,
   type EditorSongLink,
 } from '@/lib/setlist-song-links'
 
@@ -17,6 +18,9 @@ function songsEqual(a: EditorSongLink[], b: EditorSongLink[]): boolean {
     const ka = coerceMusicalKeyString(a[i].key)
     const kb = coerceMusicalKeyString(b[i].key)
     if (ka !== kb) return false
+    const ta = songLinkTempoEditorToWire(a[i].tempo)
+    const tb = songLinkTempoEditorToWire(b[i].tempo)
+    if (ta !== tb) return false
   }
   return true
 }
