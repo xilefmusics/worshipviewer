@@ -98,16 +98,10 @@ VITE_DEV_PROXY_TARGET=http://127.0.0.1:8080
 
 ### Start the frontend against the production backend
 
-Useful for UI work against live data. Create `frontend/app/.env.development.local`:
+Useful for UI work against live data:
 
 ```bash
-VITE_DEV_PROXY_TARGET=https://app.worshipviewer.com
-```
-
-Then:
-
-```bash
-pnpm -C frontend dev
+VITE_DEV_PROXY_TARGET=https://app.worshipviewer.com pnpm -C frontend dev
 ```
 
 **Caveats:**
