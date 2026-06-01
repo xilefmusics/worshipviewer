@@ -35,6 +35,16 @@ export function fontScaleForColumnWidth(columnWidthPx: number): number | undefin
   return columnWidthPx / A4_REFERENCE_COLUMN_WIDTH_PX
 }
 
+/** Player 2/3-column layouts render ~24% smaller than the raw A4 column scale. */
+export const MULTI_COLUMN_PLAYER_FONT_SCALE_FACTOR = 0.76
+
+/** Typography scale for player multi-column chord layouts. */
+export function fontScaleForMultiColumnPlayer(columnWidthPx: number): number | undefined {
+  const base = fontScaleForColumnWidth(columnWidthPx)
+  if (base == null) return undefined
+  return base * MULTI_COLUMN_PLAYER_FONT_SCALE_FACTOR
+}
+
 /** Column typography scale capped like A4 pages (min of width- and height-derived scale). */
 export function cappedColumnFontScale(
   columnWidthPx: number,

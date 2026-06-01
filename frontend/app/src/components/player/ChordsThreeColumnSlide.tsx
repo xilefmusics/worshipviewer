@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import {
   columnWidthInMultiColumnLayout,
-  fontScaleForColumnWidth,
+  fontScaleForMultiColumnPlayer,
   scaledColumnTypography,
 } from '@/lib/chord-a4-scale'
 import { getChordEngine } from '@/lib/chord-engine'
@@ -331,8 +331,7 @@ export function ChordsThreeColumnSlide({
         COLUMN_GAP_PX,
         0,
       )
-      const scale =
-        columnCount === 3 ? fontScaleForColumnWidth(columnWidth) : 1
+      const scale = fontScaleForMultiColumnPlayer(columnWidth)
       if (scale == null) return
 
       const typography = scaledColumnTypography(scale)
