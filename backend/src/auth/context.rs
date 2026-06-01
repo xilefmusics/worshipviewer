@@ -27,7 +27,6 @@ pub struct AuthorizedUser {
     pub id: String,
     pub email: String,
     pub role: UserRole,
-    pub default_collection: Option<String>,
     pub oauth_picture_url: Option<String>,
     pub oauth_avatar_blob_id: Option<String>,
     pub avatar_blob_id: Option<String>,
@@ -136,7 +135,6 @@ impl AuthorizationContext {
             id: self.user.id.clone(),
             email: self.user.email.clone(),
             role: self.user.role.clone(),
-            default_collection: self.user.default_collection.clone(),
             created_at: Utc::now(),
             oauth_picture_url: self.user.oauth_picture_url.clone(),
             oauth_avatar_blob_id: self.user.oauth_avatar_blob_id.clone(),
@@ -169,8 +167,6 @@ pub(crate) struct AuthCtxUser {
     pub(crate) id: RecordId,
     pub(crate) role: String,
     pub(crate) email: String,
-    #[serde(default)]
-    pub(crate) default_collection: Option<RecordId>,
     #[serde(default)]
     pub(crate) oauth_picture_url: Option<String>,
     #[serde(default)]
@@ -217,7 +213,6 @@ pub(crate) fn authorization_context_from_parts(
         id: record_id_string(&u.id),
         email: u.email,
         role: parse_user_role(&u.role)?,
-        default_collection: u.default_collection.map(|id| record_id_string(&id)),
         oauth_picture_url: u.oauth_picture_url,
         oauth_avatar_blob_id: u.oauth_avatar_blob_id.map(|id| record_id_string(&id)),
         avatar_blob_id: u.avatar_blob_id.map(|id| record_id_string(&id)),
@@ -297,7 +292,6 @@ mod tests {
                 id: user_id.into(),
                 email: "u@test.local".into(),
                 role: UserRole::Default,
-                default_collection: None,
                 oauth_picture_url: None,
                 oauth_avatar_blob_id: None,
                 avatar_blob_id: None,
@@ -445,7 +439,6 @@ mod tests {
                 id: rid_user("u1"),
                 role: "default".into(),
                 email: "e@test.local".into(),
-                default_collection: None,
                 oauth_picture_url: None,
                 oauth_avatar_blob_id: None,
                 avatar_blob_id: None,

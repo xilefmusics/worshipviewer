@@ -885,43 +885,6 @@ testcases:
           collectionid:
             from: result.bodyjson.id
 
-  # BLC: BLC-USER-004, BLC-USER-003, BLC-BLOB-009, BLC-COLL-009
-  - name: post-users-with-default-collection
-    steps:
-      - type: http
-        method: POST
-        url: "{{.base_url}}/api/v1/users"
-        headers:
-          Authorization: "Bearer {{.token_admin}}"
-          Content-Type: application/json
-        body: |
-          {
-            "email": "defaultcoluser@test.com",
-            "default_collection": "{{.zzz-gap-default-collection-create.collectionid}}"
-          }
-        assertions:
-          - result.statuscode ShouldEqual 201
-          - result.bodyjson.email ShouldEqual "defaultcoluser@test.com"
-          - result.bodyjson.default_collection ShouldContainSubstring "{{.zzz-gap-default-collection-create.collectionid}}"
-
-  # BLC: BLC-USER-004, BLC-USER-003, BLC-BLOB-009, BLC-COLL-009
-  - name: post-users-with-nonexistent-default-collection
-    steps:
-      - type: http
-        method: POST
-        url: "{{.base_url}}/api/v1/users"
-        headers:
-          Authorization: "Bearer {{.token_admin}}"
-          Content-Type: application/json
-        body: |
-          {
-            "email": "orphancoluser@test.com",
-            "default_collection": "nonexistent-collection-xyz"
-          }
-        assertions:
-          - result.statuscode ShouldEqual 201
-          - result.bodyjson.default_collection ShouldContainSubstring nonexistent-collection-xyz
-
   # BLC: BLC-DOCS-001
   - name: get-openapi-json-unauthenticated
     steps:

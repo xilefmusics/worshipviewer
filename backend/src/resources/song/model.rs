@@ -202,7 +202,7 @@ mod tests {
         )
         .expect("song data json");
         let create = CreateSong {
-            owner: None,
+            collection: "coll1".into(),
             not_a_song: false,
             blobs: vec![
                 BlobLink {

@@ -178,6 +178,26 @@ testcases:
 
   # Create songs for linking
   # BLC: BLC-SONG-009
+  - name: setup-setlist-owner-song-collection
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections"
+        headers:
+          Authorization: "Bearer {{.create-setlist-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "title": "Test Collection",
+            "cover": "mysongs",
+            "songs": []
+          }
+        assertions:
+          - result.statuscode ShouldEqual 201
+        vars:
+          setlist_owner_song_collection_id:
+            from: result.bodyjson.id
+
   - name: create-setlist-song-one
     steps:
       - type: http
@@ -188,6 +208,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-setlist-owner-song-collection.setlist_owner_song_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -214,6 +235,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-setlist-owner-song-collection.setlist_owner_song_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {

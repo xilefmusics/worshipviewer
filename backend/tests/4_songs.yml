@@ -208,6 +208,28 @@ testcases:
           - result.statuscode ShouldEqual 200
 
   # BLC: BLC-SONG-011, BLC-LP-003
+
+  # BLC: BLC-SONG-009
+  - name: setup-song-owner-test-collection
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections"
+        headers:
+          Authorization: "Bearer {{.create-song-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "title": "Test Collection",
+            "cover": "mysongs",
+            "songs": []
+          }
+        assertions:
+          - result.statuscode ShouldEqual 201
+        vars:
+          song_owner_collection_id:
+            from: result.bodyjson.id
+
   - name: post-search-fixture-by-title
     steps:
       - type: http
@@ -218,6 +240,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -254,6 +277,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -290,6 +314,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -326,6 +351,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -362,6 +388,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -398,6 +425,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -434,6 +462,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -470,6 +499,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -638,6 +668,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -665,6 +696,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -691,6 +723,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -717,6 +750,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": []
           }
@@ -734,6 +768,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {}
@@ -752,6 +787,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -774,6 +810,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -837,6 +874,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -1164,6 +1202,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -1447,6 +1486,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -1470,6 +1510,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -1840,6 +1881,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -1954,8 +1996,8 @@ testcases:
         assertions:
           - result.statuscode ShouldEqual 404
 
-  # Default collection auto add tests
-  # BLC: BLC-USER-003, BLC-SONG-010, BLC-COLL-016, BLC-COLL-010
+  # BLC-SONG-009/010: POST requires collection and appends to it
+  # BLC: BLC-USER-003, BLC-SONG-009, BLC-SONG-010, BLC-COLL-016
   - name: create-default-collection-user
     steps:
       - type: http
@@ -2004,7 +2046,28 @@ testcases:
           default_collection_personal_team_id:
             from: result.bodyjson.bodyjson0.id
 
-  # BLC: BLC-SONG-010, BLC-COLL-016, BLC-COLL-010
+  # BLC: BLC-SONG-009, BLC-COLL-009
+  - name: post-default-collection-target-collection
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections"
+        headers:
+          Authorization: "Bearer {{.create-default-collection-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "title": "My Songs",
+            "cover": "mysongs",
+            "songs": []
+          }
+        assertions:
+          - result.statuscode ShouldEqual 201
+        vars:
+          target_collection_id:
+            from: result.bodyjson.id
+
+  # BLC: BLC-SONG-009, BLC-SONG-010, BLC-COLL-016
   - name: post-default-collection-song-one
     steps:
       - type: http
@@ -2015,6 +2078,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.post-default-collection-target-collection.target_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -2029,7 +2093,7 @@ testcases:
           songid:
             from: result.bodyjson.id
 
-  # BLC: BLC-SONG-010, BLC-COLL-016, BLC-COLL-010
+  # BLC: BLC-SONG-009, BLC-SONG-010, BLC-COLL-016
   - name: post-default-collection-song-two
     steps:
       - type: http
@@ -2040,6 +2104,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.post-default-collection-target-collection.target_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -2054,27 +2119,12 @@ testcases:
           songid:
             from: result.bodyjson.id
 
-  # BLC: BLC-SONG-010, BLC-COLL-016, BLC-COLL-010
-  - name: get-default-collection-user
-    steps:
-      - type: http
-        method: GET
-        url: "{{.base_url}}/api/v1/users/{{.create-default-collection-user.userid}}"
-        headers:
-          Authorization: "Bearer {{.token_admin}}"
-        assertions:
-          - result.statuscode ShouldEqual 200
-          - result.bodyjson.id ShouldEqual "{{.create-default-collection-user.userid}}"
-        vars:
-          defaultcollectionid:
-            from: result.bodyjson.default_collection
-
-  # BLC: BLC-SONG-010, BLC-COLL-016, BLC-COLL-010
+  # BLC: BLC-SONG-010, BLC-COLL-016
   - name: get-default-collection-contains-both-songs
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.get-default-collection-user.defaultcollectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.post-default-collection-target-collection.target_collection_id}}"
         headers:
           Authorization: "Bearer {{.create-default-collection-session.sessionid}}"
         assertions:

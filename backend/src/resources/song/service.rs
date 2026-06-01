@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use async_trait::async_trait;
-
 use shared::MoveOwner;
 use shared::api::SongListQuery;
 use shared::like::LikeStatus;
@@ -18,66 +16,30 @@ use crate::resources::collection::CollectionRepository;
 use crate::resources::common::resolve_owner_team;
 
 use crate::resources::team::{parse_owner_record_id, thing_record_key};
-use crate::resources::user::SurrealUserRepo;
-use crate::resources::user::UserRepository;
-use shared::collection::CreateCollection;
 use tracing::instrument;
 
 use super::liked::LikedSongIds;
 use super::repository::{SongRepository, SongUpsertOutcome};
 use super::surreal_repo::SurrealSongRepo;
 
-/// Abstraction over updating a user's default collection reference.
-#[async_trait]
-pub trait UserCollectionUpdater: Send + Sync {
-    async fn set_default_collection(
-        &self,
-        user_id: &str,
-        collection_id: &str,
-    ) -> Result<(), AppError>;
-
-    async fn clear_default_collection(&self, user_id: &str) -> Result<(), AppError>;
-}
-
-#[async_trait]
-impl UserCollectionUpdater for Arc<SurrealUserRepo> {
-    async fn set_default_collection(
-        &self,
-        user_id: &str,
-        collection_id: &str,
-    ) -> Result<(), AppError> {
-        (**self)
-            .set_default_collection(user_id, collection_id)
-            .await
-    }
-
-    async fn clear_default_collection(&self, user_id: &str) -> Result<(), AppError> {
-        (**self).clear_default_collection(user_id).await
-    }
-}
-
 #[derive(Clone)]
-pub struct SongService<R, L, C, U> {
+pub struct SongService<R, L, C> {
     pub repo: R,
     pub likes: L,
     pub collections: C,
-    pub user_updater: U,
 }
 
-impl<R, L, C, U> SongService<R, L, C, U> {
-    pub fn new(repo: R, likes: L, collections: C, user_updater: U) -> Self {
+impl<R, L, C> SongService<R, L, C> {
+    pub fn new(repo: R, likes: L, collections: C) -> Self {
         Self {
             repo,
             likes,
             collections,
-            user_updater,
         }
     }
 }
 
-impl<R: SongRepository, L: LikedSongIds, C: CollectionRepository, U: UserCollectionUpdater>
-    SongService<R, L, C, U>
-{
+impl<R: SongRepository, L: LikedSongIds, C: CollectionRepository> SongService<R, L, C> {
     fn merge_song_data(
         mut current: chordlib::types::Song,
         patch: PatchSongData,
@@ -192,77 +154,43 @@ impl<R: SongRepository, L: LikedSongIds, C: CollectionRepository, U: UserCollect
     pub async fn create_song_for_user(
         &self,
         ctx: &AuthorizationContext,
-        mut song: CreateSong,
+        song: CreateSong,
     ) -> Result<Song, AppError> {
-        let personal = ctx.personal_team()?;
-        let (owner, use_default_collection_flow) = match song.owner.take() {
-            None => (personal.clone(), true),
-            Some(ref s) => {
-                let rid = parse_owner_record_id(s)?;
-                ctx.require_write_access_to_owner(&rid)?;
-                let same_as_personal = thing_record_key(&rid) == thing_record_key(&personal);
-                (rid, same_as_personal)
-            }
-        };
+        let collection_id = song.collection.trim().to_owned();
+        if collection_id.is_empty() {
+            return Err(AppError::invalid_request("collection is required"));
+        }
+
+        let read_teams = ctx.read_teams();
+        let write_teams = ctx.write_teams();
+        let collection = self
+            .collections
+            .get_collection(&read_teams, &collection_id)
+            .await?;
+        let owner = parse_owner_record_id(&collection.owner)?;
+        ctx.require_write_access_to_owner(&owner)?;
 
         let created = self.repo.create_song(owner, song).await?;
 
-        if !use_default_collection_flow {
-            return Ok(created);
-        }
-
-        let mut default_id = ctx.user.default_collection.clone();
-
-        loop {
-            let write_teams = ctx.write_teams();
-            if let Some(collection_id) = default_id.as_ref() {
-                match self
-                    .collections
-                    .add_song_to_collection(
-                        &write_teams,
-                        collection_id,
-                        SongLink {
-                            id: created.id.clone(),
-                            nr: None,
-                            key: None,
-                        },
-                    )
-                    .await
-                {
-                    Ok(()) => break,
-                    Err(e) if matches!(&e, AppError::NotFound(_) | AppError::Conflict(_)) => {
-                        self.user_updater
-                            .clear_default_collection(&ctx.user.id)
-                            .await?;
-                        default_id = None;
-                    }
-                    Err(e) => return Err(e),
-                }
-            } else {
-                let collection = self
-                    .collections
-                    .create_collection(
-                        personal.clone(),
-                        CreateCollection {
-                            owner: None,
-                            title: "Default".to_string(),
-                            cover: "mysongs".to_string(),
-                            songs: vec![SongLink {
-                                id: created.id.clone(),
-                                nr: None,
-                                key: None,
-                            }],
-                        },
-                    )
-                    .await?;
-                self.user_updater
-                    .set_default_collection(&ctx.user.id, &collection.id)
-                    .await?;
-                break;
+        match self
+            .collections
+            .add_song_to_collection(
+                &write_teams,
+                &collection_id,
+                SongLink {
+                    id: created.id.clone(),
+                    nr: None,
+                    key: None,
+                },
+            )
+            .await
+        {
+            Ok(()) => Ok(created),
+            Err(e) => {
+                let _ = self.repo.delete_song(&write_teams, &created.id).await;
+                Err(e)
             }
         }
-
-        Ok(created)
     }
 
     #[instrument(level = "debug", err, skip(self, ctx, song))]
@@ -290,7 +218,7 @@ impl<R: SongRepository, L: LikedSongIds, C: CollectionRepository, U: UserCollect
         let owner = patch.owner.clone();
         let current = self.get_song_for_user(ctx, id).await?;
         let merged = CreateSong {
-            owner: None,
+            collection: String::new(),
             not_a_song: patch.not_a_song.unwrap_or(current.not_a_song),
             blobs: patch.blobs.unwrap_or(current.blobs),
             data: patch
@@ -367,7 +295,6 @@ pub type SongServiceHandle = SongService<
     SurrealSongRepo,
     Arc<Database>,
     crate::resources::collection::SurrealCollectionRepo,
-    Arc<SurrealUserRepo>,
 >;
 
 impl SongServiceHandle {
@@ -376,7 +303,6 @@ impl SongServiceHandle {
             SurrealSongRepo::new(db.clone()),
             db.clone(),
             crate::resources::collection::SurrealCollectionRepo::new(db.clone()),
-            Arc::new(SurrealUserRepo::new(db.clone())),
         )
     }
 }
@@ -526,7 +452,7 @@ mod tests {
             .await
             .expect("song");
         let create = CreateSong {
-            owner: None,
+            collection: String::new(),
             not_a_song: false,
             blobs: vec![],
             data: crate::test_helpers::minimal_song_data(),
@@ -569,7 +495,7 @@ mod tests {
         let mut data = crate::test_helpers::minimal_song_data();
         data.titles = vec!["UpdatedTitle".into()];
         let create = CreateSong {
-            owner: None,
+            collection: String::new(),
             not_a_song: false,
             blobs: vec![],
             data,
@@ -593,7 +519,7 @@ mod tests {
         assert_eq!(song.owner, tid);
         let data = crate::test_helpers::minimal_song_data();
         let create = CreateSong {
-            owner: None,
+            collection: String::new(),
             not_a_song: false,
             blobs: vec![],
             data,
@@ -626,7 +552,7 @@ mod tests {
         assert_eq!(song.owner, personal);
         let data = crate::test_helpers::minimal_song_data();
         let create = CreateSong {
-            owner: None,
+            collection: String::new(),
             not_a_song: false,
             blobs: vec![],
             data,
@@ -651,7 +577,7 @@ mod tests {
             .await
             .expect("song");
         let create = CreateSong {
-            owner: None,
+            collection: String::new(),
             not_a_song: false,
             blobs: vec![],
             data: crate::test_helpers::minimal_song_data(),
@@ -670,11 +596,14 @@ mod tests {
         let svc = SongServiceHandle::build(db.clone());
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
 
+        let coll = crate::test_helpers::ensure_test_collection(&db, &owner)
+            .await
+            .expect("collection");
         let mut data_with_artist = crate::test_helpers::minimal_song_data();
         data_with_artist.titles = vec!["SongByArtist".into()];
         data_with_artist.artists = vec!["UniqueArtistZZZ".into()];
         let create = shared::song::CreateSong {
-            owner: None,
+            collection: coll.clone(),
             not_a_song: false,
             blobs: vec![],
             data: data_with_artist,
@@ -686,7 +615,7 @@ mod tests {
         let mut data_no_artist = crate::test_helpers::minimal_song_data();
         data_no_artist.titles = vec!["SongWithoutArtist".into()];
         let create2 = shared::song::CreateSong {
-            owner: None,
+            collection: coll,
             not_a_song: false,
             blobs: vec![],
             data: data_no_artist,
@@ -791,7 +720,7 @@ mod tests {
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
         let data = crate::test_helpers::minimal_song_data();
         let create = CreateSong {
-            owner: None,
+            collection: String::new(),
             not_a_song: false,
             blobs: vec![],
             data,
@@ -930,13 +859,16 @@ mod tests {
             titles: Some(vec!["PatchedTitle".into()]),
             ..PatchSongData::default()
         };
+        let coll = crate::test_helpers::ensure_test_collection(&db, &owner)
+            .await
+            .expect("collection");
 
         for mask in 0u8..8 {
             let created = svc
                 .create_song_for_user(
                     &owner_p,
                     CreateSong {
-                        owner: None,
+                        collection: coll.clone(),
                         not_a_song: false,
                         blobs: vec![BlobLink {
                             id: "base_blob".into(),
@@ -1200,7 +1132,7 @@ mod tests {
         let guest_p = auth_ctx_for_user(&db, &guest_u).await.expect("auth");
         let data = crate::test_helpers::minimal_song_data();
         let create = CreateSong {
-            owner: None,
+            collection: String::new(),
             not_a_song: false,
             blobs: vec![],
             data,
@@ -1218,136 +1150,132 @@ mod tests {
         );
     }
 
-    /// BLC-SONG-009/010: POST with `owner` targeting another team skips personal default-collection flow.
+    /// BLC-SONG-009: POST requires `collection`; missing collection is rejected.
     #[tokio::test]
-    async fn blc_song_post_optional_owner_skips_default_collection_side_effect() {
+    async fn blc_song_post_requires_collection() {
+        use shared::song::CreateSong;
+        let db = test_db().await.expect("db");
+        let u = create_user(&db, "s3i-req@test.local").await.expect("u");
+        let svc = SongServiceHandle::build(db.clone());
+        let perms = auth_ctx_for_user(&db, &u).await.expect("auth");
+        let r = svc
+            .create_song_for_user(
+                &perms,
+                CreateSong {
+                    collection: "   ".into(),
+                    not_a_song: false,
+                    blobs: vec![],
+                    data: crate::test_helpers::minimal_song_data(),
+                },
+            )
+            .await;
+        assert!(matches!(r, Err(crate::error::AppError::InvalidRequest(_))));
+    }
+
+    /// BLC-SONG-009: POST with unknown collection returns NotFound.
+    #[tokio::test]
+    async fn blc_song_post_unknown_collection_not_found() {
+        use shared::song::CreateSong;
+        let db = test_db().await.expect("db");
+        let u = create_user(&db, "s3i-unk@test.local").await.expect("u");
+        let svc = SongServiceHandle::build(db.clone());
+        let perms = auth_ctx_for_user(&db, &u).await.expect("auth");
+        let r = svc
+            .create_song_for_user(
+                &perms,
+                CreateSong {
+                    collection: "nonexistent-collection-id".into(),
+                    not_a_song: false,
+                    blobs: vec![],
+                    data: crate::test_helpers::minimal_song_data(),
+                },
+            )
+            .await;
+        assert!(matches!(r, Err(crate::error::AppError::NotFound(_))));
+    }
+
+    /// BLC-SONG-009/010: POST appends the song to the target collection on another team.
+    #[tokio::test]
+    async fn blc_song_post_appends_to_target_collection() {
+        use shared::api::ListQuery;
+        use shared::collection::CreateCollection;
         use shared::song::CreateSong;
         let (db, owner, cm, _guest, _nm, team_id) = four_user_song_fixture().await;
         let svc = SongServiceHandle::build(db.clone());
+        let coll_svc = crate::test_helpers::collection_service(&db);
         let cm_p = auth_ctx_for_user(&db, &cm).await.expect("auth");
-        let user_svc = crate::test_helpers::user_service(&db);
-        let cm_before = user_svc.get_user(&cm.id).await.expect("cm user");
-        assert!(
-            cm_before.default_collection.is_none(),
-            "fixture: cm has no default collection yet"
-        );
+        let target_coll = coll_svc
+            .create_collection_for_user(
+                &cm_p,
+                CreateCollection {
+                    owner: Some(team_id.clone()),
+                    title: "Shared Team Songs".into(),
+                    cover: "mysongs".into(),
+                    songs: vec![],
+                },
+            )
+            .await
+            .expect("collection on shared team");
 
         let song = svc
             .create_song_for_user(
                 &cm_p,
                 CreateSong {
-                    owner: Some(team_id.clone()),
+                    collection: target_coll.id.clone(),
                     not_a_song: false,
                     blobs: vec![],
                     data: crate::test_helpers::minimal_song_data(),
                 },
             )
             .await
-            .expect("create on another user's team as cm");
+            .expect("create on shared team collection");
 
         assert_eq!(song.owner, team_id);
-        let cm_after = user_svc.get_user(&cm.id).await.expect("cm user");
+        let (songs, _) = coll_svc
+            .collection_songs_for_user(&cm_p, &target_coll.id, ListQuery::default())
+            .await
+            .expect("collection songs");
         assert!(
-            cm_after.default_collection.is_none(),
-            "must not run BLC-SONG-010 default collection when POST owner is not caller personal team"
+            songs.iter().any(|s| s.id == song.id),
+            "song must appear in target collection"
         );
 
-        // Owner should still get default-collection behavior on their own POST (regression anchor).
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let owner_coll = crate::test_helpers::ensure_test_collection(&db, &owner)
+            .await
+            .expect("owner collection");
         let _ = svc
             .create_song_for_user(
                 &owner_p,
                 CreateSong {
-                    owner: None,
+                    collection: owner_coll,
                     not_a_song: false,
                     blobs: vec![],
                     data: crate::test_helpers::minimal_song_data(),
                 },
             )
             .await
-            .expect("owner personal song");
-        let owner_after = user_svc.get_user(&owner.id).await.expect("owner");
-        assert!(
-            owner_after.default_collection.is_some(),
-            "owner personal create still applies BLC-SONG-010"
-        );
+            .expect("owner personal song in collection");
     }
 
-    /// BLC-SONG-010, BLC-COLL-016: user without default_collection → "Default" collection created.
+    /// BLC-SONG-010: two POSTs to the same collection keep both songs in that collection.
     #[tokio::test]
-    async fn blc_song_010_no_default_collection_creates_default() {
+    async fn blc_song_post_appends_multiple_songs_to_same_collection() {
         use shared::api::ListQuery;
         let db = test_db().await.expect("db");
-        let u = create_user(&db, "s3i-new@test.local").await.expect("u");
-        assert!(
-            u.default_collection.is_none(),
-            "new user must have no default_collection"
-        );
-        let svc = SongServiceHandle::build(db.clone());
-        let perms = auth_ctx_for_user(&db, &u).await.expect("auth");
-        let song = svc
-            .create_song_for_user(
-                &perms,
-                shared::song::CreateSong {
-                    owner: None,
-                    not_a_song: false,
-                    blobs: vec![],
-                    data: crate::test_helpers::minimal_song_data(),
-                },
-            )
-            .await
-            .expect("create song");
-
-        // A "Default" collection must have been created.
-        let coll_svc = crate::test_helpers::collection_service(&db);
-        let fresh_perms = auth_ctx_for_user(&db, &u).await.expect("auth");
-        let collections = coll_svc
-            .list_collections_for_user(&fresh_perms, ListQuery::default())
-            .await
-            .expect("collections");
-        let default_coll = collections.iter().find(|c| c.title == "Default");
-        assert!(
-            default_coll.is_some(),
-            "a 'Default' collection must be created"
-        );
-
-        // The "Default" collection must contain the newly created song.
-        let coll = default_coll.unwrap();
-        let (songs, _) = coll_svc
-            .collection_songs_for_user(&fresh_perms, &coll.id, ListQuery::default())
-            .await
-            .expect("songs");
-        assert!(
-            songs.iter().any(|s| s.id == song.id),
-            "song must be in the Default collection"
-        );
-
-        // The user's default_collection field must be updated.
-        let user_svc = crate::test_helpers::user_service(&db);
-        let updated_user = user_svc.get_user(&u.id).await.expect("get user");
-        assert_eq!(
-            updated_user.default_collection.as_deref(),
-            Some(coll.id.as_str()),
-            "user.default_collection must point to the Default collection"
-        );
-    }
-
-    /// BLC-SONG-010: user with existing default_collection → song appended to it.
-    #[tokio::test]
-    async fn blc_song_010_with_default_collection_appends() {
-        use shared::api::ListQuery;
-        let db = test_db().await.expect("db");
-        // Create user and first song (auto-creates Default collection + sets default_collection).
         let u = create_user(&db, "s3i-existing@test.local")
             .await
             .expect("u");
         let svc = SongServiceHandle::build(db.clone());
         let perms = auth_ctx_for_user(&db, &u).await.expect("auth");
+        let coll_id = crate::test_helpers::ensure_test_collection(&db, &u)
+            .await
+            .expect("collection");
         let song1 = svc
             .create_song_for_user(
                 &perms,
                 shared::song::CreateSong {
-                    owner: None,
+                    collection: coll_id.clone(),
                     not_a_song: false,
                     blobs: vec![],
                     data: {
@@ -1360,22 +1288,12 @@ mod tests {
             .await
             .expect("song1");
 
-        // Fetch the updated user (who now has default_collection set).
-        let user_svc = crate::test_helpers::user_service(&db);
-        let updated_u = user_svc.get_user(&u.id).await.expect("user");
-        assert!(
-            updated_u.default_collection.is_some(),
-            "default_collection should be set"
-        );
-
-        // Create a second song using the updated user (whose default_collection is set).
-        let svc2 = SongServiceHandle::build(db.clone());
-        let perms2 = auth_ctx_for_user(&db, &updated_u).await.expect("auth");
-        let song2 = svc2
+        let perms2 = auth_ctx_for_user(&db, &u).await.expect("auth");
+        let song2 = svc
             .create_song_for_user(
                 &perms2,
                 shared::song::CreateSong {
-                    owner: None,
+                    collection: coll_id.clone(),
                     not_a_song: false,
                     blobs: vec![],
                     data: {
@@ -1389,29 +1307,13 @@ mod tests {
             .expect("song2");
 
         let coll_svc = crate::test_helpers::collection_service(&db);
-        let fresh_perms = auth_ctx_for_user(&db, &updated_u).await.expect("auth");
-        let collections = coll_svc
-            .list_collections_for_user(&fresh_perms, ListQuery::default())
-            .await
-            .expect("collections");
-        assert_eq!(
-            collections.len(),
-            1,
-            "must still have exactly one collection"
-        );
         let (songs, _) = coll_svc
-            .collection_songs_for_user(&fresh_perms, &collections[0].id, ListQuery::default())
+            .collection_songs_for_user(&perms2, &coll_id, ListQuery::default())
             .await
             .expect("songs");
         let song_ids: Vec<&str> = songs.iter().map(|s| s.id.as_str()).collect();
-        assert!(
-            song_ids.contains(&song1.id.as_str()),
-            "song1 must be in Default collection"
-        );
-        assert!(
-            song_ids.contains(&song2.id.as_str()),
-            "song2 must be in Default collection"
-        );
+        assert!(song_ids.contains(&song1.id.as_str()));
+        assert!(song_ids.contains(&song2.id.as_str()));
     }
 
     #[tokio::test]
@@ -1456,12 +1358,26 @@ mod tests {
 
         let svc = SongServiceHandle::build(db.clone());
         let p = auth_ctx_for_user(&db, &mover).await.expect("auth");
+        let coll_svc = crate::test_helpers::collection_service(&db);
+        use shared::collection::CreateCollection;
+        let coll = coll_svc
+            .create_collection_for_user(
+                &p,
+                CreateCollection {
+                    owner: Some(team_a.clone()),
+                    title: "Team A Songs".into(),
+                    cover: "mysongs".into(),
+                    songs: vec![],
+                },
+            )
+            .await
+            .expect("collection");
 
         let song = svc
             .create_song_for_user(
                 &p,
                 CreateSong {
-                    owner: Some(team_a.clone()),
+                    collection: coll.id,
                     not_a_song: false,
                     blobs: vec![],
                     data: crate::test_helpers::minimal_song_data(),

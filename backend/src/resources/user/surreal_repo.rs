@@ -181,25 +181,6 @@ impl UserRepository for SurrealUserRepo {
             .ok_or(AppError::NotFound("user not found".into()))
     }
 
-    async fn set_default_collection(
-        &self,
-        user_id: &str,
-        collection_id: &str,
-    ) -> Result<(), AppError> {
-        let mut response = self
-            .inner()
-            .db
-            .query("UPDATE $user SET default_collection = $collection")
-            .bind(("user", RecordId::new("user", user_id)))
-            .bind(("collection", RecordId::new("collection", collection_id)))
-            .await?;
-        surreal_take_errors("user.set_default_collection", &mut response)?;
-        let _ = response.check().map_err(|e| {
-            crate::log_and_convert!(AppError::database, "user.set_default_collection.check", e)
-        })?;
-        Ok(())
-    }
-
     async fn set_oauth_picture_and_oauth_avatar_blob(
         &self,
         user_id: &str,
@@ -250,22 +231,6 @@ impl UserRepository for SurrealUserRepo {
         surreal_take_errors("user.set_avatar_blob", &mut response)?;
         let _ = response.check().map_err(|e| {
             crate::log_and_convert!(AppError::database, "user.set_avatar_blob.check", e)
-        })?;
-        Ok(())
-    }
-}
-
-impl SurrealUserRepo {
-    pub async fn clear_default_collection(&self, user_id: &str) -> Result<(), AppError> {
-        let mut response = self
-            .inner()
-            .db
-            .query("UPDATE $user SET default_collection = NONE")
-            .bind(("user", RecordId::new("user", user_id)))
-            .await?;
-        surreal_take_errors("user.clear_default_collection", &mut response)?;
-        let _ = response.check().map_err(|e| {
-            crate::log_and_convert!(AppError::database, "user.clear_default_collection.check", e)
         })?;
         Ok(())
     }

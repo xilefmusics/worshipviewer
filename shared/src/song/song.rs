@@ -45,16 +45,15 @@ pub struct Song {
 #[cfg_attr(
     feature = "backend",
     schema(example = json!({
+        "collection": "collection_example_id",
         "not_a_song": false,
         "blobs": [],
-        "data": { "titles": ["Example Hymn"], "sections": [] },
-        "owner": "team_example_id"
+        "data": { "titles": ["Example Hymn"], "sections": [] }
     }))
 )]
 pub struct CreateSong {
-    /// Owning team id (same format as `Song.owner` in responses). Omit to create under the caller's personal team (and apply default-collection rules).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub owner: Option<String>,
+    /// Target collection id; the song is created under that collection's owning team and appended to its `songs` list.
+    pub collection: String,
     pub not_a_song: bool,
     pub blobs: Vec<BlobLink>,
     #[cfg_attr(feature = "backend", schema(value_type = SongDataSchema))]
@@ -86,7 +85,7 @@ pub struct UpdateSong {
 impl From<UpdateSong> for CreateSong {
     fn from(value: UpdateSong) -> Self {
         Self {
-            owner: None,
+            collection: String::new(),
             not_a_song: value.not_a_song,
             blobs: value.blobs,
             data: value.data,
@@ -107,7 +106,18 @@ impl From<CreateSong> for UpdateSong {
 
 impl UpdateSong {
     pub fn validate(&self) -> Result<(), String> {
-        CreateSong::from(self.clone()).validate()
+        if let Some(ref o) = self.owner {
+            if o.trim().is_empty() {
+                return Err("owner must not be empty or whitespace-only".to_owned());
+            }
+        }
+        use crate::validation_limits::MAX_BLOBS_PER_SONG;
+        if self.blobs.len() > MAX_BLOBS_PER_SONG {
+            return Err(format!(
+                "too many blob references (max {MAX_BLOBS_PER_SONG})"
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -170,7 +180,7 @@ impl TryFrom<&str> for CreateSong {
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         Ok(Self {
-            owner: None,
+            collection: String::new(),
             not_a_song: false,
             blobs: vec![],
             data: chord_pro::load_string(s)?,
@@ -210,10 +220,8 @@ impl CreateSong {
     /// Reject oversized blob reference lists before hitting the service layer.
     pub fn validate(&self) -> Result<(), String> {
         use crate::validation_limits::MAX_BLOBS_PER_SONG;
-        if let Some(ref o) = self.owner {
-            if o.trim().is_empty() {
-                return Err("owner must not be empty or whitespace-only".to_owned());
-            }
+        if self.collection.trim().is_empty() {
+            return Err("collection is required".to_owned());
         }
         if self.blobs.len() > MAX_BLOBS_PER_SONG {
             return Err(format!(
@@ -262,7 +270,7 @@ impl From<CreateSong> for Song {
 impl From<Song> for CreateSong {
     fn from(value: Song) -> Self {
         Self {
-            owner: None,
+            collection: String::new(),
             not_a_song: value.not_a_song,
             blobs: value.blobs,
             data: value.data,
@@ -276,7 +284,7 @@ mod tests {
 
     #[test]
     fn create_song_json_uses_metadata_vectors() {
-        let json = r#"{"not_a_song":false,"blobs":[],"data":{"titles":["Hello"],"artists":["A"],"languages":["en"],"sections":[]}}"#;
+        let json = r#"{"collection":"coll1","not_a_song":false,"blobs":[],"data":{"titles":["Hello"],"artists":["A"],"languages":["en"],"sections":[]}}"#;
         let s: CreateSong = serde_json::from_str(json).unwrap();
         assert_eq!(s.data.title(), "Hello");
         assert_eq!(s.data.artist(), "A");
@@ -287,7 +295,7 @@ mod tests {
     fn create_song_validate_rejects_too_many_blobs() {
         use crate::validation_limits::MAX_BLOBS_PER_SONG;
         let mut s = CreateSong {
-            owner: None,
+            collection: "coll1".into(),
             not_a_song: false,
             blobs: vec![],
             data: chordlib::types::Song::default(),

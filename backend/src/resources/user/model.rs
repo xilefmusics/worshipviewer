@@ -49,8 +49,6 @@ pub struct UserRecord {
     email: String,
     #[serde(default)]
     role: RoleField,
-    #[serde(default)]
-    default_collection: Option<RecordId>,
     created_at: Datetime,
     #[serde(default)]
     oauth_picture_url: Option<String>,
@@ -66,7 +64,6 @@ impl UserRecord {
             id: self.id.map(|id| record_id_string(&id)).unwrap_or_default(),
             email: self.email,
             role: self.role.0,
-            default_collection: self.default_collection.map(|id| record_id_string(&id)),
             created_at: self.created_at.into(),
             oauth_picture_url: self.oauth_picture_url,
             oauth_avatar_blob_id: self.oauth_avatar_blob.map(|id| record_id_string(&id)),
@@ -83,9 +80,6 @@ impl UserRecord {
             },
             email: user.email,
             role: RoleField(user.role),
-            default_collection: user
-                .default_collection
-                .map(|id| RecordId::new("collection", id)),
             created_at: user.created_at.into(),
             oauth_picture_url: user.oauth_picture_url,
             oauth_avatar_blob: user

@@ -5,8 +5,6 @@
 - **BLC-USER-001:** **`email`** IS ALWAYS unique after normalization (trim, lowercase). The database schema also enforces normalization and email shape as defense-in-depth; callers SHOULD send normalized email, and the API validates at the boundary (see implementation).
 - **BLC-USER-002:** **`role`** IS ALWAYS platform **`default`** or **`admin`** (separate from team **guest** / **content_maintainer** / **admin** on teams).
 - **BLC-USER-003:** Creating a user IS ALWAYS paired with creating that user’s **personal** team (**owner** 1:1).
-- **BLC-USER-004:** Optional **`default_collection`** on create IS stored as provided: the API does **not** require that the collection id exist at insert time (unknown ids MAY still yield **201**).
-
 ## List pagination
 
 - **`GET /users`** (platform admin only) supports **`page`**, **`page_size`**, and the shared rules in [list-pagination.md](./list-pagination.md).

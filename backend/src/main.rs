@@ -104,7 +104,6 @@ async fn main() -> AnyResult<()> {
                     id: String::new(),
                     email: email.to_owned(),
                     role: UserRole::Admin,
-                    default_collection: None,
                     created_at: Utc::now(),
                     oauth_picture_url: None,
                     oauth_avatar_blob_id: None,

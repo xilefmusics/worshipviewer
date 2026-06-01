@@ -270,7 +270,7 @@ impl CollectionRepository for SurrealCollectionRepo {
         let mut response = db
             .db
             .query(
-                r#"UPDATE type::record("collection", $id) SET songs = array::append(songs, $song) WHERE owner IN $teams;"#,
+                r#"UPDATE type::record("collection", $id) SET songs = array::append(songs, $song) WHERE owner IN $teams RETURN AFTER;"#,
             )
             .bind(("id", id.to_owned()))
             .bind(("teams", write_teams.to_vec()))
@@ -278,14 +278,10 @@ impl CollectionRepository for SurrealCollectionRepo {
             .await?;
 
         surreal_take_errors("collection.add_song_to_collection", &mut response)?;
-        let _ = response.check().map_err(|e| {
-            crate::log_and_convert!(
-                AppError::database,
-                "collection.add_song_to_collection.check",
-                e
-            )
-        })?;
-
+        let rows: Vec<CollectionRecord> = response.take(0)?;
+        if rows.is_empty() {
+            return Err(AppError::NotFound("collection not found".into()));
+        }
         Ok(())
     }
 

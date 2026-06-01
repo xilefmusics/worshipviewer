@@ -1,13 +1,12 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/api/client'
 import { parseProblemResponse } from '@/api/problem'
 import type { Song } from '@/api/songs-detail'
-import type { Team } from '@/api/teams-sessions-fetch'
 import { fetchTeamsPage } from '@/api/teams-sessions-fetch'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,32 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  useEnsureTargetCollection,
+  writeLastCollectionToLs,
+} from '@/hooks/useEnsureTargetCollection'
 import { useSession } from '@/hooks/useSession'
 import { hubListRootKey } from '@/lib/hub-list-keys'
-import { teamsListRootKey } from '@/lib/teams-sessions-keys'
 import { getNextPageIndex } from '@/lib/list-pagination'
-import { getTeamDisplayName, isPersonalTeamName } from '@/lib/team-display-name'
-import { canEditTeamLibrary } from '@/lib/team-permissions'
+import { teamsListRootKey } from '@/lib/teams-sessions-keys'
 import { cn } from '@/lib/utils'
-
-const LAST_OWNER_LS = 'wv.songCreate.lastOwnerTeamId'
-
-function readLastOwnerFromLs(): string | null {
-  try {
-    const raw = globalThis.localStorage?.getItem(LAST_OWNER_LS)
-    return raw && raw.trim() ? raw.trim() : null
-  } catch {
-    return null
-  }
-}
-
-function writeLastOwnerToLs(teamId: string) {
-  try {
-    globalThis.localStorage?.setItem(LAST_OWNER_LS, teamId)
-  } catch {
-    /* ignore */
-  }
-}
 
 type CreateSongDialogProps = {
   open: boolean
@@ -71,49 +53,39 @@ export function CreateSongDialog({ open, onOpenChange, onCreated }: CreateSongDi
     getNextPageParam: (_last, all) => getNextPageIndex(all),
   })
 
-  const allTeams = useMemo(() => {
-    const pages = teamsQ.data?.pages ?? []
-    return pages.flatMap((p) => p.items) as Team[]
-  }, [teamsQ.data?.pages])
+  const allTeams = teamsQ.data?.pages.flatMap((p) => p.items) ?? []
 
-  const writableTeams = useMemo(() => {
-    if (!user?.id) return []
-    return allTeams.filter((tm) => canEditTeamLibrary(tm, user.id))
-  }, [allTeams, user])
+  const {
+    editableCollections,
+    collectionId,
+    setCollectionPick,
+    showCollectionPicker,
+    hasEditableCollection,
+    noCollectionPromptOpen,
+    setNoCollectionPromptOpen,
+    createPersonalCollection,
+    createCollectionPending,
+    collectionsFetched,
+  } = useEnsureTargetCollection({
+    enabled: open,
+    userId: user?.id,
+    teams: allTeams,
+  })
 
-  const showOwnerPicker = writableTeams.length > 1
-
-  const [ownerPick, setOwnerPick] = useState<string | null>(null)
-
-  const defaultOwnerId = useMemo(() => {
-    if (!open || !user?.id) return ''
-    if (writableTeams.length === 0 && !teamsQ.isFetched) return ''
-    const last = readLastOwnerFromLs()
-    if (last && writableTeams.some((tm) => tm.id === last)) return last
-    const personal = writableTeams.find(
-      (tm) => isPersonalTeamName(tm.name) && canEditTeamLibrary(tm, user.id),
-    )
-    return personal?.id ?? writableTeams[0]?.id ?? ''
-  }, [open, teamsQ.isFetched, user, writableTeams])
-
-  const ownerId = ownerPick ?? defaultOwnerId
+  const showNoCollectionFlow =
+    collectionsFetched && !hasEditableCollection && noCollectionPromptOpen
 
   const mutation = useMutation({
-    mutationFn: async () => {
-      const body: {
-        data: { sections: []; titles: string[] }
-        blobs: []
-        not_a_song: false
-        owner?: string
-      } = {
+    mutationFn: async (targetCollectionId: string) => {
+      const body = {
+        collection: targetCollectionId,
         data: {
-          sections: [],
+          sections: [] as [],
           titles: [t('songs.create.defaultTitle')],
         },
-        blobs: [],
-        not_a_song: false,
+        blobs: [] as [],
+        not_a_song: false as const,
       }
-      if (showOwnerPicker && ownerId) body.owner = ownerId
       const { data, response } = await api.POST('/api/v1/songs', { body })
       if (!response.ok) {
         const problem = await parseProblemResponse(response.clone())
@@ -122,9 +94,12 @@ export function CreateSongDialog({ open, onOpenChange, onCreated }: CreateSongDi
       return data as Song
     },
     onSuccess: (song) => {
-      if (showOwnerPicker && ownerId) writeLastOwnerToLs(ownerId)
+      if (collectionId) writeLastCollectionToLs(collectionId)
       void queryClient.invalidateQueries({
         queryKey: [...hubListRootKey, 'songs'],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: [...hubListRootKey, 'collections'],
       })
       setLocalError(null)
       onCreated(song.id)
@@ -134,6 +109,29 @@ export function CreateSongDialog({ open, onOpenChange, onCreated }: CreateSongDi
     },
   })
 
+  async function submitCreate() {
+    setLocalError(null)
+    let targetId = collectionId
+    if (!targetId) {
+      if (!hasEditableCollection) {
+        setNoCollectionPromptOpen(true)
+        return
+      }
+      return
+    }
+    await mutation.mutateAsync(targetId)
+  }
+
+  async function submitCreateWithNewCollection() {
+    setLocalError(null)
+    try {
+      const newId = await createPersonalCollection(t('songs.create.defaultCollectionTitle'))
+      await mutation.mutateAsync(newId)
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : t('songs.create.failed'))
+    }
+  }
+
   return (
     <Dialog.Root
       open={open}
@@ -141,7 +139,8 @@ export function CreateSongDialog({ open, onOpenChange, onCreated }: CreateSongDi
         onOpenChange(next)
         if (!next) {
           setLocalError(null)
-          setOwnerPick(null)
+          setCollectionPick(null)
+          setNoCollectionPromptOpen(false)
         }
       }}
     >
@@ -205,24 +204,30 @@ export function CreateSongDialog({ open, onOpenChange, onCreated }: CreateSongDi
                   />
                   <div className="flex flex-col gap-2 text-center sm:text-left">
                     <Dialog.Title className="text-lg font-semibold leading-none">
-                      {t('songs.create.dialogTitle')}
+                      {showNoCollectionFlow
+                        ? t('songs.create.noCollectionPrompt')
+                        : t('songs.create.dialogTitle')}
                     </Dialog.Title>
                     <p className="text-sm text-[var(--color-muted-foreground)]">
-                      {t('songs.create.dialogDescription')}
+                      {showNoCollectionFlow
+                        ? t('songs.create.noCollectionDescription')
+                        : t('songs.create.dialogDescription')}
                     </p>
                   </div>
                   <div className="grid gap-2">
-                    {showOwnerPicker ? (
+                    {showCollectionPicker && !showNoCollectionFlow ? (
                       <div className="grid gap-1.5 text-sm font-medium">
-                        <label htmlFor="song-create-owner">{t('songs.create.teamLabel')}</label>
-                        <Select value={ownerId} onValueChange={(v) => setOwnerPick(v)}>
-                          <SelectTrigger id="song-create-owner" className="font-normal">
+                        <label htmlFor="song-create-collection">
+                          {t('songs.create.collectionLabel')}
+                        </label>
+                        <Select value={collectionId} onValueChange={(v) => setCollectionPick(v)}>
+                          <SelectTrigger id="song-create-collection" className="font-normal">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {writableTeams.map((tm) => (
-                              <SelectItem key={tm.id} value={tm.id}>
-                                {getTeamDisplayName(tm, user?.id, t)}
+                            {editableCollections.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.title}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -239,16 +244,25 @@ export function CreateSongDialog({ open, onOpenChange, onCreated }: CreateSongDi
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                       {t('teams.dialogCancel')}
                     </Button>
-                    <Button
-                      type="button"
-                      disabled={mutation.isPending}
-                      onClick={() => {
-                        setLocalError(null)
-                        void mutation.mutateAsync()
-                      }}
-                    >
-                      {mutation.isPending ? t('common.load') : t('songs.create.submit')}
-                    </Button>
+                    {showNoCollectionFlow ? (
+                      <Button
+                        type="button"
+                        disabled={mutation.isPending || createCollectionPending}
+                        onClick={() => void submitCreateWithNewCollection()}
+                      >
+                        {mutation.isPending || createCollectionPending
+                          ? t('common.load')
+                          : t('songs.create.createCollectionAndSong')}
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        disabled={mutation.isPending}
+                        onClick={() => void submitCreate()}
+                      >
+                        {mutation.isPending ? t('common.load') : t('songs.create.submit')}
+                      </Button>
+                    )}
                   </div>
                 </motion.div>
               </Dialog.Content>
