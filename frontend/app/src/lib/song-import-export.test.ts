@@ -24,13 +24,21 @@ function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
 }
 
 describe('buildPdfPrintCss', () => {
-  it('includes print pagination overrides for chordlib page layout', () => {
+  it('includes print pagination overrides scoped like chordlib CSS', () => {
     const css = buildPdfPrintCss()
     expect(css).toContain('@media print')
-    expect(css).toContain('.pdf-export-root .page')
+    expect(css).toContain('.pdf-export-root:nth-of-type(1) .page')
     expect(css).toContain('height: auto')
     expect(css).toContain('overflow: visible')
-    expect(css).toContain('.pdf-export-root .columns')
+    expect(css).toContain('.pdf-export-root:nth-of-type(1) .columns')
+  })
+
+  it('emits one override block per exported page', () => {
+    const css = buildPdfPrintCss(3)
+    expect(css).toContain('.pdf-export-root:nth-of-type(1) .page')
+    expect(css).toContain('.pdf-export-root:nth-of-type(2) .page')
+    expect(css).toContain('.pdf-export-root:nth-of-type(3) .page')
+    expect(css).not.toContain('.pdf-export-root:nth-of-type(4) .page')
   })
 })
 

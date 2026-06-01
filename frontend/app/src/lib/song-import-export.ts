@@ -185,7 +185,22 @@ const PDF_PAGE_BASE_CSS = `
 `
 
 /** Print overrides for chordlib fixed-height screen layout (exported for tests). */
-export function buildPdfPrintCss(): string {
+export function buildPdfPrintCss(pageCount = 1): string {
+  const pageRules = Array.from({ length: pageCount }, (_, index) => {
+    const host = `.pdf-export-root:nth-of-type(${index + 1})`
+    return `${host} .page {
+    width: 210mm;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    transform: none;
+  }
+  ${host} .columns {
+    height: auto;
+    overflow: visible;
+  }`
+  }).join('\n  ')
+
   return `
 @page {
   size: A4 portrait;
@@ -197,22 +212,10 @@ export function buildPdfPrintCss(): string {
     padding: 0;
     background: #fff;
   }
-  .pdf-export-root .page {
-    width: 210mm;
-    height: auto;
-    min-height: 0;
-    overflow: visible;
-    transform: none;
-  }
-  .pdf-export-root .columns {
-    height: auto;
-    overflow: visible;
-  }
+  ${pageRules}
 }
 `
 }
-
-const PDF_PRINT_CSS = buildPdfPrintCss()
 
 const PDF_SETLIST_PAGE_BREAK_CSS = `
 .pdf-export-root + .pdf-export-root {
@@ -262,7 +265,7 @@ function mountPdfExportDocument(pages: PdfExportPage[], title: string): {
   const pageBreakCss = pages.length > 1 ? PDF_SETLIST_PAGE_BREAK_CSS : ''
 
   const styleEl = doc.createElement('style')
-  styleEl.textContent = `${PDF_PAGE_BASE_CSS}\n${scopedCss}\n${PDF_PRINT_CSS}\n${pageBreakCss}\nhtml, body { margin: 0; padding: 0; background: #fff; color: #000; }`
+  styleEl.textContent = `${PDF_PAGE_BASE_CSS}\n${scopedCss}\n${buildPdfPrintCss(pages.length)}\n${pageBreakCss}\nhtml, body { margin: 0; padding: 0; background: #fff; color: #000; }`
   doc.head.appendChild(styleEl)
 
   const pageRoots: HTMLElement[] = []
