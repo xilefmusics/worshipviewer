@@ -99,7 +99,6 @@ impl<R: UserRepository, T: TeamRepository> UserService<R, T> {
     pub async fn delete_user(&self, id: &str) -> Result<User, AppError> {
         self.repo.delete_user(id).await
     }
-
 }
 
 /// Production type alias used in HTTP wiring.
