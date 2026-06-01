@@ -31,7 +31,7 @@
 
 ## Cascading deletes
 
-- **BLC-COLL-017:** WHEN the **cover** blob IS **DELETE**d THEN **GET /collections/{id}** for that collection MAY return **404** until the collection is fixed or removed.
+- **BLC-COLL-017:** WHEN the **cover** blob IS **DELETE**d THEN the collection is **not** removed; **`GET /collections/{id}`** still returns **200**, but **`cover`** MAY reference a deleted blob id until updated. Cover image bytes for that id are unavailable until **`cover`** is set to a valid blob.
 - **BLC-COLL-018:** WHEN a **user** account IS deleted THEN collections owned by their **personal** team are removed with that team ([user.md](./user.md)).
 - **BLC-COLL-019:** WHEN a referenced **song** IS deleted THEN collection endpoints MAY error or show stale slots until **PUT** updates **songs** ([song.md](./song.md)).
 

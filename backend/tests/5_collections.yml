@@ -1556,7 +1556,7 @@ testcases:
           - result.statuscode ShouldEqual 204
 
   # BLC: BLC-BLOB-014, BLC-COLL-017
-  - name: get-collection-after-cover-delete
+  - name: get-collection-after-cover-blob-delete
     steps:
       - type: http
         method: GET
@@ -1564,7 +1564,8 @@ testcases:
         headers:
           Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
         assertions:
-          - result.statuscode ShouldEqual 404
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.cover ShouldEqual "{{.post-collection-cover-blob.blobid}}"
 
   # Cleanup users
   # BLC: BLC-USER-011
