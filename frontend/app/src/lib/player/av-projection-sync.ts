@@ -2,6 +2,8 @@ import type { AvProjectionPayload } from '@/lib/player/av-preferences'
 
 export const AV_PROJECTION_STORAGE_PREFIX = 'wvAvProjection:'
 
+const STORAGE_DEBOUNCE_MS = 75
+
 function storageKey(sessionId: string): string {
   return `${AV_PROJECTION_STORAGE_PREFIX}${sessionId}`
 }
@@ -42,21 +44,36 @@ export function createAvProjectionSync(
   storage: Pick<Storage, 'getItem' | 'setItem'> = globalThis.localStorage,
 ): AvProjectionSync {
   let channel: BroadcastChannel | null = null
+  let storageTimer: ReturnType<typeof setTimeout> | null = null
+  let pendingPayload: AvProjectionPayload | null = null
   try {
     channel = new BroadcastChannel(channelName(sessionId))
   } catch {
     channel = null
   }
 
+  const flushStorage = () => {
+    storageTimer = null
+    if (!pendingPayload) return
+    writeAvProjectionSnapshot(sessionId, pendingPayload, storage)
+    pendingPayload = null
+  }
+
   return {
     broadcast(payload) {
-      writeAvProjectionSnapshot(sessionId, payload, storage)
+      pendingPayload = payload
       channel?.postMessage(payload)
+      if (storageTimer != null) clearTimeout(storageTimer)
+      storageTimer = setTimeout(flushStorage, STORAGE_DEBOUNCE_MS)
     },
     readLatest() {
       return readAvProjectionSnapshot(sessionId, storage)
     },
     close() {
+      if (storageTimer != null) {
+        clearTimeout(storageTimer)
+        flushStorage()
+      }
       channel?.close()
       channel = null
     },

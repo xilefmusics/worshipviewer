@@ -22,9 +22,9 @@ pub struct ErrorResponse {
     pub error: String,
 }
 
-/// [RFC 7807](https://www.rfc-editor.org/rfc/rfc7807) problem document (`application/problem+json`).
+/// [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem document (`application/problem+json`).
 ///
-/// Canonical error body for HTTP 4xx/5xx responses. Extension members include `code`.
+/// Canonical error body for HTTP 4xx/5xx responses (Problem Details; obsoletes RFC 7807). Extension members include `code`.
 #[cfg_attr(feature = "backend", derive(utoipa::ToSchema))]
 #[cfg_attr(feature = "backend", schema(title = "Problem"))]
 #[derive(Clone, Debug, Deserialize, Serialize)]

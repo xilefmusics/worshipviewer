@@ -42,11 +42,19 @@ export async function clickCreateFab(page: Page, ariaLabel: string | RegExp): Pr
   await page.getByRole('button', { name: ariaLabel }).click()
 }
 
-/** Search the hub list (300 ms debounce — wait after fill). */
+/** Search the hub list (300 ms debounce — wait for matching API response). */
 export async function searchHub(page: Page, query: string): Promise<void> {
   const box = page.getByRole('searchbox', { name: 'Search library' })
+  const responsePromise = page.waitForResponse(
+    (resp) =>
+      resp.request().method() === 'GET' &&
+      resp.url().includes('/api/v1/') &&
+      resp.url().includes(`q=${encodeURIComponent(query)}`) &&
+      resp.ok(),
+    { timeout: 10_000 },
+  )
   await box.fill(query)
-  await page.waitForTimeout(350)
+  await responsePromise
 }
 
 export async function waitForToast(page: Page, text: string | RegExp): Promise<void> {

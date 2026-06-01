@@ -55,8 +55,16 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: OpenAPI schema drift check
+        run: |
+          pnpm --filter app openapi:sync
+          git diff --exit-code app/src/api/schema.d.ts
+
       - name: Lint
         run: pnpm lint
 
       - name: Build
         run: pnpm build
+
+      - name: pnpm audit
+        run: pnpm audit --audit-level=high

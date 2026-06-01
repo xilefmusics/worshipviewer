@@ -21,7 +21,8 @@ test('L1: browse a list', async ({ page, seed }) => {
     route.fulfill({ status: 500, contentType: 'application/problem+json', body: JSON.stringify({ title: 'fail' }) }),
   )
   await page.reload()
-  await hub.retryButton().click().catch(() => {})
+  await expect(hub.retryButton()).toBeVisible({ timeout: 10_000 })
+  await hub.retryButton().click()
   await page.unroute('**/api/v1/collections**')
 })
 
@@ -35,10 +36,6 @@ test('L1: list rows remain visible when toggled offline', async ({ page, seed, c
   await setOffline(context, true)
   await expect(hub.row(`${token}-off`)).toBeVisible()
   await setOffline(context, false)
-})
-
-test.fixme('L1: pull-to-refresh touch gesture', async () => {
-  // Chromium desktop cannot reliably emulate pull-to-refresh; branch documented in frontend-user-flows.md
 })
 
 // Flow: L2
@@ -83,15 +80,15 @@ test('L3: duplicate a collection / setlist', async ({ page, seed, context }) => 
 // Flow: L4
 test('L4: export a song / collection / setlist', async ({ page, seed }) => {
   const token = uniqueToken('l4')
-  await seed.createCollection({ title: `${token}-exp` })
+  const coll = await seed.createCollection({ title: `${token}-exp` })
+  const song = await seed.createSong({ collection: coll.id, title: `${token}-song` })
+  await seed.patchCollection(coll.id, [song.id])
   const hub = new HubPage(page)
   await hub.goto('/collections')
   await hub.search(`${token}-exp`)
   await openContextMenu(page, `${token}-exp`)
-  await page.getByRole('menuitem', { name: 'Export' }).hover()
-  await expect(page.getByRole('menuitem', { name: /ChordPro/i })).toBeVisible()
-  await expect(page.getByRole('menuitem', { name: /Worship Pro/i })).toBeVisible()
-  await expect(page.getByRole('menuitem', { name: /PDF/i })).toBeVisible()
+  await page.getByRole('menuitem', { name: /export.*chordpro/i }).click()
+  await expect(page.getByText(/preparing export/i)).toBeVisible({ timeout: 15_000 })
 })
 
 // Flow: L5
@@ -114,5 +111,41 @@ test('L5: delete with not-empty guard', async ({ page, seed }) => {
   await openContextMenu(page, `${token}-empty`)
   await hub.menuItem('Delete').click()
   await page.getByRole('button', { name: 'Delete' }).last().click()
-  await waitForToast(page, /deleted|removed/i).catch(() => {})
+  await waitForToast(page, /deleted|removed/i)
+})
+
+test('L1: infinite scroll loads more hub rows', async ({ page, seed }) => {
+  const token = uniqueToken('l1-page')
+  await seed.createManyCollections(token, 55)
+  const hub = new HubPage(page)
+  await hub.goto('/collections')
+  await hub.search(token)
+  const firstRow = hub.row(`${token}-000`)
+  await expect(firstRow).toBeVisible()
+  await hub.loadMore().click()
+  await expect(hub.row(`${token}-050`)).toBeVisible({ timeout: 15_000 })
+})
+
+test('L5: delete API failure shows error and keeps row', async ({ page, seed }) => {
+  const token = uniqueToken('l5err')
+  await seed.createCollection({ title: `${token}-del-fail` })
+  const hub = new HubPage(page)
+  await hub.goto('/collections')
+  await hub.search(`${token}-del-fail`)
+  await page.route('**/api/v1/collections/*', (route) => {
+    if (route.request().method() === 'DELETE') {
+      return route.fulfill({
+        status: 500,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({ title: 'Delete failed' }),
+      })
+    }
+    return route.continue()
+  })
+  await openContextMenu(page, `${token}-del-fail`)
+  await hub.menuItem('Delete').click()
+  await page.getByRole('button', { name: 'Delete' }).last().click()
+  await expect(page.getByText(/delete failed|could not delete|failed/i)).toBeVisible({ timeout: 10_000 })
+  await expect(hub.row(`${token}-del-fail`)).toBeVisible()
+  await page.unroute('**/api/v1/collections/*')
 })

@@ -1,3 +1,6 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { expect, secondUserTest, test, uniqueToken } from './fixtures/auth'
 import { HubPage } from './pages/hub'
 import { openContextMenu, setOffline, waitForToast } from './helpers'
@@ -80,7 +83,13 @@ test('D5: import songs (files)', async ({ page, seed, context }) => {
   await page.getByRole('button', { name: /import/i }).click()
   const dialog = page.getByRole('dialog', { name: 'Import songs' })
   await expect(dialog).toBeVisible()
-  await page.getByRole('button', { name: 'Cancel' }).click()
+  const samplePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'sample.chordpro')
+  await dialog.locator('input[type="file"]').setInputFiles(samplePath)
+  await dialog.getByRole('button', { name: /import/i }).click()
+  await expect(page.getByText(/imported|created/i)).toBeVisible({ timeout: 20_000 })
+  await hub.goto('/songs')
+  await hub.search('E2E Import Song')
+  await expect(hub.row(/E2E Import Song/i)).toBeVisible({ timeout: 15_000 })
 })
 
 // Flow: D6

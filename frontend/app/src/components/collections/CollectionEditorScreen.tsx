@@ -65,10 +65,11 @@ import { cn } from '@/lib/utils'
 
 const BRIDGE_KEYS: Pick<
   Required<SetlistPaletteBridge>,
-  'cmdkInsertHeadingKey' | 'duplicateBadgeKey' | 'pickerExcludedKey'
+  'cmdkInsertHeadingKey' | 'duplicateBadgeKey' | 'duplicateContainerKey' | 'pickerExcludedKey'
 > = {
   cmdkInsertHeadingKey: 'collections.editor.cmdkInsertHeading',
-  duplicateBadgeKey: 'collections.editor.duplicateBadge',
+  duplicateBadgeKey: 'common.duplicateBadge',
+  duplicateContainerKey: 'common.containerCollection',
   pickerExcludedKey: 'collections.editor.pickerExcluded',
 }
 
@@ -631,7 +632,8 @@ export function CollectionEditorScreen({ collectionId }: { collectionId: string 
                     canEditUi={canEdit && !blockingAll && !offlineFrozen && !resumePrompt}
                     blockingAll={blockingAll || !canEdit}
                     patchInFlight={patchInFlight}
-                    duplicateBadgeKey="collections.editor.duplicateBadge"
+                    duplicateBadgeKey="common.duplicateBadge"
+                    duplicateContainerKey="common.containerCollection"
                     moveUiReady={moveUiReady}
                     onOpenMoveSheet={(songTitlePreview) =>
                       setMoveDialogSlot({ index: idx, titlePreview: songTitlePreview })
@@ -675,6 +677,7 @@ type CollectionSortProps = {
   blockingAll: boolean
   patchInFlight: boolean
   duplicateBadgeKey: string
+  duplicateContainerKey: string
   moveUiReady: boolean
   onOpenMoveSheet: (songTitlePreview: string) => void
 }
@@ -691,6 +694,7 @@ const CollectionSortableRow = memo(function CollectionSortableRow(props: Collect
     blockingAll,
     draftLinks,
     duplicateBadgeKey,
+    duplicateContainerKey,
     moveUiReady,
     onOpenMoveSheet,
   } = props
@@ -810,7 +814,7 @@ const CollectionSortableRow = memo(function CollectionSortableRow(props: Collect
           )}
           {dup > 1 ? (
             <p className="col-span-2 mt-0.5 text-[0.65rem] uppercase text-[var(--color-muted-foreground)]">
-              {t(duplicateBadgeKey, { count: dup })}
+              {t(duplicateBadgeKey, { container: t(duplicateContainerKey), count: dup })}
             </p>
           ) : null}
         </div>

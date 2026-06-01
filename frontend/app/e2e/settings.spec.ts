@@ -27,3 +27,16 @@ test('J3: Player AV tab', async ({ page }) => {
   await settings.goto('playerRoles')
   await expect(page.getByText(/font size|alignment|transition/i).first()).toBeVisible()
 })
+
+test('J2+J3: settings preferences round-trip after reload', async ({ page }) => {
+  const settings = new SettingsPage(page)
+  await settings.goto('player')
+  await page.getByRole('radio', { name: /nashville/i }).click()
+  await page.reload()
+  await expect(page.getByRole('radio', { name: /nashville/i })).toBeChecked()
+
+  await settings.goto('playerRoles')
+  await page.getByRole('radio', { name: /fade/i }).click()
+  await page.reload()
+  await expect(page.getByRole('radio', { name: /fade/i })).toBeChecked()
+})

@@ -245,7 +245,9 @@ export function CommandPalette({
                     {(songPick.data?.items ?? []).map((song) => {
                       const title = song.data.titles?.[0]?.trim() || '—'
                       const dup = duplicateCount(song.id)
-                      const dupKey = setlistBridge.duplicateBadgeKey ?? 'setlists.editor.duplicateBadge'
+                      const dupKey = setlistBridge.duplicateBadgeKey ?? 'common.duplicateBadge'
+                      const dupContainerKey =
+                        setlistBridge.duplicateContainerKey ?? 'common.containerSetlist'
                       return (
                         <Command.Item
                           key={song.id}
@@ -257,7 +259,7 @@ export function CommandPalette({
                           <span className="font-medium">{title}</span>
                           {dup ? (
                             <span className="ml-2 text-[0.65rem] uppercase text-[var(--color-muted-foreground)]">
-                              {t(dupKey, { count: dup })}
+                              {t(dupKey, { container: t(dupContainerKey), count: dup })}
                             </span>
                           ) : null}
                         </Command.Item>

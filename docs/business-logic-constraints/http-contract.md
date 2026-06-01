@@ -22,6 +22,10 @@ Rules that apply across several **`/api/v1`** resources (path validation, idempo
 
 - **BLC-HTTP-005:** Single-resource **GET**, **PATCH**, **PUT**, and **DELETE** on **songs**, **collections**, and **setlists** (JSON bodies) use a weak **`ETag`** over the canonical JSON representation. **`If-None-Match`** matching the current **`ETag`** on **GET** yields **304 Not Modified**. **`If-Match`** on mutating requests MUST match the current **`ETag`** or the API responds **412 Precondition Failed** (see **`http_cache`** in the backend). **Blob** byte responses follow **BLC-BLOB-016**.
 
+## Cookie sessions and CSRF
+
+- **BLC-HTTP-007:** The SPA sends same-origin API requests with **`credentials: 'include'`** so session cookies are attached (`frontend/app/src/api/client.ts`). Combined with **`SameSite=Lax`** cookies, cross-site simple requests must not mutate authenticated state via cookies under typical browser rules.
+
 ## Unknown routes under `/api` and `/auth`
 
 - **BLC-HTTP-006:** Requests to unrecognized paths under **`/api/**`** or **`/auth/**`** that are handled by the API return **`application/problem+json`** (not an HTML SPA fallback).

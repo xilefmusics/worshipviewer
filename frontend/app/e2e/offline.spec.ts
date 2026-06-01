@@ -61,6 +61,5 @@ test('offline: save for offline then play without prior open', async ({ page, se
 
   await setOffline(context, true)
   await page.goto(`/player?type=setlist&id=${setlist.id}&mode=normal`)
-  await expect(page.getByText(/loading/i)).not.toBeVisible({ timeout: 5000 }).catch(() => {})
   await expect(page.locator('[data-player-main], .player-book, main')).toBeVisible({ timeout: 20_000 })
 })

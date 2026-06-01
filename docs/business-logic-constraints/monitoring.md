@@ -12,3 +12,4 @@
 ## Notes
 
 - Additional monitoring endpoints (for example monthly active users) SHOULD live under the **`/api/v1/monitoring/`** prefix and follow the same admin-only pattern unless explicitly documented otherwise.
+- Public deployment metadata (version, git commit, production flag) is available unauthenticated at **`GET /api/v1/about`** — see [`backend-resource.md`](../architecture/backend-resource.md).

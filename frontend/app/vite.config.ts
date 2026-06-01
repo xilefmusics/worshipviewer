@@ -85,5 +85,28 @@ export default defineConfig(({ mode }) => {
         '/auth': { target: proxyTarget, changeOrigin: true },
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/')) {
+              return 'vendor'
+            }
+            if (
+              id.includes('node_modules/@tanstack/react-query') ||
+              id.includes('node_modules/@tanstack/react-router')
+            ) {
+              return 'query'
+            }
+            if (id.includes('node_modules/@codemirror/') || id.includes('node_modules/@uiw/react-codemirror')) {
+              return 'codemirror'
+            }
+            if (id.includes('node_modules/motion')) {
+              return 'motion'
+            }
+          },
+        },
+      },
+    },
   }
 })

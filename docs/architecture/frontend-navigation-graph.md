@@ -44,6 +44,7 @@ graph TD
     teamDetail["/teams/:id"]
     sessions["/sessions"]
     settings["/settings"]
+    about["/about"]
     playerNormal["/player (Normal)"]
     playerAv["/player (AV)"]
     playerOutput["/player/output"]
@@ -119,6 +120,10 @@ graph TD
     settings -->|"Sessions"| sessions
     settings -->|"Log out"| login
 
+    %% ---- About ----
+    about -->|"Back to library"| collections
+    about -->|"Back (player return)"| playerNormal
+
     %% ---- Player (Normal) ----
     playerNormal -->|"Back to list (collection) / Esc"| collections
     playerNormal -->|"Back to list (song) / Esc"| songs
@@ -140,6 +145,7 @@ graph TD
 
     %% ---- Global hub chrome (available on every /_hub/* screen) ----
     profileMenu -->|"Settings"| settings
+    profileMenu -->|"About"| about
     profileMenu -->|"Teams"| teams
     profileMenu -->|"Sessions"| sessions
     profileMenu -->|"Log out"| login
@@ -176,6 +182,7 @@ graph TD
 | `teamDetail` | `/teams/$teamId` | `routes/_hub/teams.$teamId.tsx` |
 | `sessions` | `/sessions` | `routes/_hub/sessions.tsx` |
 | `settings` | `/settings` | `routes/_hub/settings.tsx` |
+| `about` | `/about` | `routes/_hub/about.tsx` |
 | `playerNormal` | `/player?mode=normal` | `components/player/PlayerBook.tsx` |
 | `playerAv` | `/player?mode=av` | `components/player/av/PlayerAv.tsx` |
 | `playerOutput` | `/player/output` | `routes/player/output.tsx` |
