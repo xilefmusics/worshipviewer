@@ -1,6 +1,6 @@
 /**
  * Playwright webServer entry: boots the real backend with in-memory DB and admin test session.
- * Requires `pnpm build` (frontend/app/dist) and a release backend binary (or cargo run).
+ * Requires `pnpm build` (frontend/app/dist) and a backend binary (debug preferred, or cargo run).
  */
 import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync } from 'node:fs'
@@ -13,6 +13,7 @@ const appDir = path.resolve(__dirname, '..')
 const repoRoot = path.resolve(appDir, '../..')
 const distDir = path.join(appDir, 'dist')
 const backendDir = path.join(repoRoot, 'backend')
+const debugBin = path.join(backendDir, 'target/debug/backend')
 const releaseBin = path.join(backendDir, 'target/release/backend')
 
 const PORT = Number(process.env.E2E_PORT ?? 8788)
@@ -41,11 +42,17 @@ const env = {
   DB_ADDRESS: 'mem://',
 }
 
-const useRelease = existsSync(releaseBin)
-const cmd = useRelease ? releaseBin : 'cargo'
-const args = useRelease ? [] : ['run', '--release', '--bin', 'backend']
+const prebuiltBin = existsSync(debugBin)
+  ? debugBin
+  : existsSync(releaseBin)
+    ? releaseBin
+    : null
+const cmd = prebuiltBin ?? 'cargo'
+const args = prebuiltBin ? [] : ['run', '--bin', 'backend']
 
-console.log(`[e2e] starting backend (${useRelease ? 'release binary' : 'cargo run'}) on ${HOST}:${PORT}`)
+console.log(
+  `[e2e] starting backend (${prebuiltBin ? 'prebuilt binary' : 'cargo run'}) on ${HOST}:${PORT}`,
+)
 
 const child = spawn(cmd, args, {
   cwd: backendDir,
