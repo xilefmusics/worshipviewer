@@ -2515,7 +2515,7 @@ export interface operations {
                  * @example 50
                  */
                 page_size?: number | null;
-                /** @description Full-text search query (title); uses text_search analyzer (stemming) */
+                /** @description Search query (title): full-text via text_search analyzer (stemming) plus case-insensitive substring match */
                 q?: string;
             };
             header?: never;
@@ -3581,7 +3581,7 @@ export interface operations {
                  * @example 50
                  */
                 page_size?: number | null;
-                /** @description Full-text search query (title); uses text_search analyzer (stemming) */
+                /** @description Search query (title): full-text via text_search analyzer (stemming) plus case-insensitive substring match */
                 q?: string;
             };
             header?: never;
@@ -4253,7 +4253,7 @@ export interface operations {
                  * @example 50
                  */
                 page_size?: number | null;
-                /** @description Full-text search query (titles, artists, line lyrics); uses text_search analyzer (stemming) */
+                /** @description Search query: full-text on titles (plus case-insensitive title substring), artists, and line lyrics via text_search analyzer (stemming) */
                 q?: string;
                 /** @description Sort: JSON:API-style comma-separated keys (`-` = descending), e.g. `-id`, `title`, `relevance` (with `q`). Legacy `id_desc` / … still accepted. */
                 sort?: string;
