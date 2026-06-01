@@ -37,13 +37,8 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: |
-            backend
-            shared
-
-      - name: Build
-        working-directory: backend
-        run: cargo build
+          workspaces: backend
+          shared-key: wv-backend
 
       - name: Test
         working-directory: backend
