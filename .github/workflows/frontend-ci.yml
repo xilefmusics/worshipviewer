@@ -114,10 +114,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: backend-e2e-bin
-          path: backend/target/debug
+          path: backend-e2e-staging
 
-      - name: Make backend binary executable
-        run: chmod +x backend/target/debug/backend
+      - name: Install backend binary
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p backend/target/debug
+          install -m 755 backend-e2e-staging/backend backend/target/debug/backend
 
       - uses: pnpm/action-setup@v4
         with:
