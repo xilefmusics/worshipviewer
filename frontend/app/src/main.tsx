@@ -17,7 +17,7 @@ import {
   hubListsDehydrateOptions,
 } from '@/lib/query-persistence'
 import { PwaInstallProvider } from '@/pwa/PwaInstallProvider'
-import { PwaRegistration } from '@/pwa/PwaRegistration'
+import { PwaUpdateProvider } from '@/pwa/PwaUpdateProvider'
 
 initAppearance()
 initSheetBackground()
@@ -61,8 +61,9 @@ createRoot(document.getElementById('root')!).render(
       }}
     >
       <PwaInstallProvider>
-        <RouterProvider router={router} />
-        <PwaRegistration />
+        <PwaUpdateProvider>
+          <RouterProvider router={router} />
+        </PwaUpdateProvider>
       </PwaInstallProvider>
     </PersistQueryClientProvider>
   </StrictMode>,

@@ -1,6 +1,7 @@
 import type { HTMLAttributes } from 'react'
 
 import { DownloadIcon } from '@/components/icons/lucide-animated/download-icon'
+import { InfoIcon } from '@/components/icons/lucide-animated/info-icon'
 import { LogoutIcon } from '@/components/icons/lucide-animated/logout-icon'
 import { SessionsIcon } from '@/components/icons/lucide-animated/sessions-icon'
 import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
@@ -54,6 +55,17 @@ export function IconSessions({ className, isHovered, ...rest }: ProfileMenuIconP
 export function IconInstall({ className, isHovered, ...rest }: ProfileMenuIconProps) {
   return (
     <DownloadIcon
+      className={cn(iconClass, className)}
+      isHovered={isHovered}
+      size={PROFILE_MENU_ICON_PX}
+      {...rest}
+    />
+  )
+}
+
+export function IconAbout({ className, isHovered, ...rest }: ProfileMenuIconProps) {
+  return (
+    <InfoIcon
       className={cn(iconClass, className)}
       isHovered={isHovered}
       size={PROFILE_MENU_ICON_PX}

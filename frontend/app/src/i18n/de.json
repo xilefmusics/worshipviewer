@@ -84,6 +84,7 @@
       "settings": "Einstellungen",
       "teams": "Teams",
       "sessions": "Sitzungen",
+      "about": "Über",
       "install": "App installieren",
       "logout": "Abmelden"
     },
@@ -272,6 +273,20 @@
       "sectionShortcutsAria": "Zu Abschnitt springen",
       "sectionJump": "Zu {{section}} springen ({{key}})"
     }
+  },
+  "about": {
+    "title": "Über",
+    "back": "Zurück zur Bibliothek",
+    "appName": "Worship Viewer",
+    "tagline": "Worship-Bibliothek für dein Team",
+    "versionLabel": "Version",
+    "buildDateLabel": "Erstellt",
+    "checkForUpdate": "Nach Updates suchen",
+    "checking": "Suche nach Updates…",
+    "upToDate": "Du verwendest die neueste Version.",
+    "updateAvailable": "Eine neue Version ist verfügbar.",
+    "unsupported": "Update-Prüfungen sind nur in der installierten App verfügbar.",
+    "reloadToUpdate": "Neu laden zum Aktualisieren"
   },
   "settings": {
     "title": "Einstellungen",
