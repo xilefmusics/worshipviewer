@@ -57,3 +57,64 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  frontend-e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build WASM
+        run: pnpm build:wasm
+
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "version=$(pnpm --filter app exec playwright --version | sed 's/Version //')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright browsers
+        run: pnpm --filter app exec playwright install --with-deps chromium
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run e2e tests
+        run: pnpm --filter app test:e2e
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: |
+            frontend/app/playwright-report/
+            frontend/app/test-results/
+          retention-days: 7

@@ -15,6 +15,12 @@ coverage
 .vite
 *.local
 
+# Playwright e2e artifacts
+playwright-report/
+test-results/
+/blob-report/
+.playwright/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
