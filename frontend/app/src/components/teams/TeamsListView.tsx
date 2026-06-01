@@ -10,6 +10,7 @@ import { useHubScrollContainerRef } from '@/context/HubScrollContainerContext'
 import { useHubSearch } from '@/hooks/useHubSearch'
 import { useSession } from '@/hooks/useSession'
 import { useTeamsList } from '@/hooks/useTeamsList'
+import { useOnline } from '@/hooks/use-online'
 import { getTeamDisplayName } from '@/lib/team-display-name'
 import { cn } from '@/lib/utils'
 
@@ -21,6 +22,7 @@ type TeamsListViewProps = {
 export function TeamsListView({ createIntent, onConsumeCreateIntent }: TeamsListViewProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const online = useOnline()
   const { debouncedQ, setQInput } = useHubSearch()
   const { data: me } = useSession()
   const reduceMotion = useReducedMotion()
@@ -126,6 +128,8 @@ export function TeamsListView({ createIntent, onConsumeCreateIntent }: TeamsList
                   {t('hub.empty.clearSearch')}
                 </Button>
               </>
+            ) : !online ? (
+              <p className="text-sm text-[var(--color-muted-foreground)]">{t('hub.empty.offlineNone')}</p>
             ) : (
               <p className="text-sm text-[var(--color-muted-foreground)]">{t('teams.empty')}</p>
             )}

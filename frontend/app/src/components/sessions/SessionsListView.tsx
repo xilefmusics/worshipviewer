@@ -154,6 +154,8 @@ export function SessionsListView() {
                   {t('hub.empty.clearSearch')}
                 </Button>
               </>
+            ) : !online ? (
+              <p className="text-sm text-[var(--color-muted-foreground)]">{t('hub.empty.offlineNone')}</p>
             ) : (
               <p className="text-sm text-[var(--color-muted-foreground)]">{t('sessions.empty')}</p>
             )}

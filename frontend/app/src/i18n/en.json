@@ -100,7 +100,13 @@
     "refresh": {
       "pull": "Pull to refresh",
       "release": "Release to refresh",
-      "refreshing": "Refreshing…"
+      "refreshing": "Refreshing…",
+      "offlineBlocked": "You’re offline — saved data is unchanged."
+    },
+    "offline": {
+      "staleDataBanner": "Offline · showing saved data",
+      "backOnline": "Back online",
+      "lastUpdated": "Last updated {{when}}"
     },
     "error": {
       "body": "Something went wrong while loading this list.",
@@ -109,6 +115,7 @@
     "empty": {
       "noResults": "No results match your search.",
       "clearSearch": "Clear search",
+      "offlineNone": "No saved data for this tab. Connect to load.",
       "none": {
         "collections": "No collections yet.",
         "songs": "No songs yet.",
@@ -139,7 +146,13 @@
       "exportPreparing": "Preparing export…",
       "exportFailed": "Could not export this song.",
       "exportSetlistFailed": "Could not export this setlist.",
-      "exportCollectionFailed": "Could not export this collection."
+      "exportCollectionFailed": "Could not export this collection.",
+      "saveOffline": "Save for offline",
+      "saveOfflineSuccess": "Saved for offline playback.",
+      "saveOfflineFailed": "Could not save for offline.",
+      "removeOffline": "Remove offline copy",
+      "removeOfflineSuccess": "Removed offline copy.",
+      "offlineSaved": "Saved offline"
     },
     "createChooser": {
       "title": "Add to library",
@@ -173,9 +186,18 @@
     },
     "createOfflineHint": "Connect to the internet to add items."
   },
+  "offline": {
+    "bootstrapFailed": "Could not reach the server. Open the app once while online, or check your connection.",
+    "sessionUnavailable": {
+      "body": "Sign in is required, or your saved session is unavailable.",
+      "signIn": "Sign in"
+    }
+  },
   "offlinePlayer": {
-    "onlineOnlyType": "This player is available only when you’re online.",
-    "setlistNotCached": "This setlist isn’t available offline. Open it in the player once while online, then try again."
+    "setlistNotCached": "This setlist isn’t available offline. Open it in the player once while online, or use Save for offline, then try again.",
+    "collectionNotCached": "This collection isn’t available offline. Open it in the player once while online, or use Save for offline, then try again.",
+    "songNotCached": "This song isn’t available offline. Open it in the player once while online, or use Save for offline, then try again.",
+    "storageEvicted": "Storage was full — the oldest offline copy was removed to make room."
   },
   "player": {
     "close": "Close",
@@ -476,6 +498,13 @@
       "title": "Cache",
       "description": "Clear local app data and reload your session. Language and appearance choices stay in place.",
       "approxSize": "Approximate stored data: {{size}} (offline player cache + list cache).",
+      "breakdown": "Player cache: {{player}} · List & session cache: {{lists}}",
+      "removeMirror": "Remove",
+      "mirrorType": {
+        "setlist": "Setlist",
+        "collection": "Collection",
+        "song": "Song"
+      },
       "clear": "Clear local cache",
       "cleared": "Local cache cleared.",
       "failed": "Could not clear local cache."

@@ -46,6 +46,7 @@ import { useCoverImageSrc } from '@/hooks/useCoverImageSrc'
 import { useDeleteHubEntity, HubDeleteConflictError } from '@/hooks/useDeleteHubEntity'
 import { useInfiniteHubList } from '@/hooks/useInfiniteHubList'
 import { useLongPress } from '@/hooks/useLongPress'
+import { downloadPlayerForOffline, removeOfflinePlayerCopy } from '@/lib/offline/download-player-offline'
 import { useOnline } from '@/hooks/use-online'
 import { useSession } from '@/hooks/useSession'
 import { useTeamDetail } from '@/hooks/useTeamDetail'
@@ -56,6 +57,7 @@ import { duplicateCollection, duplicateSetlist } from '@/lib/duplicate-hub-entit
 import type { HubEntity } from '@/lib/hub-entity'
 import { hubEntityEditSplat } from '@/lib/hub-entity-edit'
 import { hubListKey, hubListRootKey } from '@/lib/hub-list-keys'
+import { useHubListsUpdatedAt } from '@/hooks/useHubListsUpdatedAt'
 import { hubEntityToPlayerType, buildPlayerSearch } from '@/lib/player-route'
 import { readPlayerDefaultMode } from '@/lib/player/player-mode-preference'
 import { emptyEditorReturnSearch } from '@/lib/player/player-editor-return'
@@ -130,6 +132,7 @@ export function EntityListView({ entity }: EntityListViewProps) {
     label: string
     songCount?: number
   } | null>(null)
+  const listsUpdatedAt = useHubListsUpdatedAt(!networkOnline, entity, Boolean(data))
 
   const deleteBlocked =
     entity === 'collections' && deleteTarget != null && (deleteTarget.songCount ?? 0) > 0
@@ -147,10 +150,14 @@ export function EntityListView({ entity }: EntityListViewProps) {
   }, [data?.pages, entity])
 
   const runPullRefresh = useCallback(async () => {
+    if (!networkOnline) {
+      toast.info(t('hub.refresh.offlineBlocked'))
+      return
+    }
     await queryClient.resetQueries({ queryKey: hubListKey(entity, debouncedQ) })
     await refetch()
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [queryClient, entity, debouncedQ, refetch, scrollRef])
+  }, [queryClient, entity, debouncedQ, refetch, scrollRef, networkOnline, t])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -231,6 +238,13 @@ export function EntityListView({ entity }: EntityListViewProps) {
   return (
     <>
       <div className="relative flex w-full min-w-0 flex-col">
+        {!networkOnline && listsUpdatedAt ? (
+          <p className="mb-2 text-center text-xs text-[var(--color-muted-foreground)]">
+            {t('hub.offline.lastUpdated', {
+              when: new Date(listsUpdatedAt).toLocaleString(),
+            })}
+          </p>
+        ) : null}
         {(ptrRefreshing || pullVisual > 0) && (
           <motion.div
             className="pointer-events-none absolute left-0 right-0 top-0 z-10 flex justify-center text-xs text-[var(--color-muted-foreground)]"
@@ -298,6 +312,8 @@ export function EntityListView({ entity }: EntityListViewProps) {
                   {t('hub.empty.clearSearch')}
                 </Button>
               </>
+            ) : !networkOnline ? (
+              <p className="text-sm text-[var(--color-muted-foreground)]">{t('hub.empty.offlineNone')}</p>
             ) : (
               <p className="text-sm text-[var(--color-muted-foreground)]">{t(`hub.empty.none.${entity}`)}</p>
             )}
@@ -514,6 +530,18 @@ function HubItemContextMenu({
   const [addToSetlistOpen, setAddToSetlistOpen] = useState(false)
 
   const playType = hubEntityToPlayerType(entity)
+  const [playerCached, setPlayerCached] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    void import('@/lib/offline/player-mirror-cache').then(({ isPlayerMirrored }) =>
+      isPlayerMirrored(playType, itemId).then((v) => {
+        if (!cancelled) setPlayerCached(v)
+      }),
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [playType, itemId])
   const showAddToSetlist = Boolean(
     entity === 'songs' && hubSong && !hubSong.not_a_song,
   )
@@ -598,6 +626,35 @@ function HubItemContextMenu({
     [chordFormat, hubSong, t],
   )
 
+  const onSaveOffline = useCallback(async () => {
+    if (!networkOnline) return
+    const toastId = toast.loading(t('hub.actions.saveOffline'))
+    const result = await downloadPlayerForOffline(playType, itemId, { title: itemLabel })
+    toast.dismiss(toastId)
+    if ('ok' in result && result.ok) {
+      setPlayerCached(true)
+      if (result.evicted) {
+        toast.success(t('hub.actions.saveOfflineSuccess'), {
+          description: t('offlinePlayer.storageEvicted'),
+        })
+      } else {
+        toast.success(t('hub.actions.saveOfflineSuccess'))
+      }
+    } else if ('error' in result && result.error === 'offline') {
+      toast.info(t('hub.refresh.offlineBlocked'))
+    } else {
+      toast.error(t('hub.actions.saveOfflineFailed'), {
+        description: 'message' in result ? result.message : undefined,
+      })
+    }
+  }, [itemId, itemLabel, networkOnline, playType, t])
+
+  const onRemoveOffline = useCallback(async () => {
+    await removeOfflinePlayerCopy(playType, itemId)
+    setPlayerCached(false)
+    toast.success(t('hub.actions.removeOfflineSuccess'))
+  }, [itemId, playType, t])
+
   return (
     <>
       <ContextMenu>
@@ -667,6 +724,27 @@ function HubItemContextMenu({
             <PlayIcon size={16} className="shrink-0 text-[var(--color-foreground)]" />
             {t('hub.actions.playAv')}
           </ContextMenuItem>
+          {playerCached ? (
+            <ContextMenuItem
+              className="gap-2"
+              onSelect={() => {
+                void onRemoveOffline()
+              }}
+            >
+              {t('hub.actions.removeOffline')}
+            </ContextMenuItem>
+          ) : (
+            <ContextMenuItem
+              className="gap-2"
+              disabled={!networkOnline}
+              title={!networkOnline ? t('hub.createOfflineHint') : undefined}
+              onSelect={() => {
+                void onSaveOffline()
+              }}
+            >
+              {t('hub.actions.saveOffline')}
+            </ContextMenuItem>
+          )}
           {showDuplicate ? (
             <ContextMenuItem
               className="gap-2"

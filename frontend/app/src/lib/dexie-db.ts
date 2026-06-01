@@ -2,22 +2,32 @@ import Dexie, { type Table } from 'dexie'
 
 /** Versioned DB — placeholder stores until offline/E4; same wipe path from day one. */
 export const DB_NAME = 'worshipviewer'
-export const DB_VERSION = 4
+export const DB_VERSION = 5
 
 type PlaceholderRow = { id: string }
 
 /** String key/value rows for app-level persistence (e.g. React Query cache blobs). */
 export type KvRow = { key: string; value: string }
 
-/** Mirrored setlist `GET .../player` JSON for offline emergency playback. */
-export type SetlistPlayerMirrorRow = {
-  setlistId: string
+export type PlayerMirrorEntityType = 'setlist' | 'collection' | 'song'
+
+/** Mirrored `GET .../player` JSON for offline playback. */
+export type PlayerMirrorRow = {
+  /** `${entityType}:${entityId}` */
+  id: string
+  entityType: PlayerMirrorEntityType
+  entityId: string
   playerJson: string
   blobIds: string[]
   lastOpenedAt: number
+  /** Optional label for settings / management UI */
+  title?: string
 }
 
-/** Cached blob bytes for offline player items (shared across setlists). */
+/** @deprecated Use PlayerMirrorRow */
+export type SetlistPlayerMirrorRow = PlayerMirrorRow & { setlistId: string }
+
+/** Cached blob bytes for offline player items (shared across mirrors). */
 export type OfflineBlobRow = {
   blobId: string
   bytes: ArrayBuffer
@@ -26,10 +36,19 @@ export type OfflineBlobRow = {
   lastTouchedAt: number
 }
 
+export function playerMirrorId(
+  entityType: PlayerMirrorEntityType,
+  entityId: string,
+): string {
+  return `${entityType}:${entityId}`
+}
+
 export class WorshipViewerDexie extends Dexie {
   placeholder!: Table<PlaceholderRow, string>
   kv!: Table<KvRow, string>
+  /** Legacy table — migrated to playerMirror in v5 */
   setlistPlayerMirror!: Table<SetlistPlayerMirrorRow, string>
+  playerMirror!: Table<PlayerMirrorRow, string>
   offlineBlobs!: Table<OfflineBlobRow, string>
 
   constructor() {
@@ -53,6 +72,29 @@ export class WorshipViewerDexie extends Dexie {
       setlistPlayerMirror: 'setlistId, lastOpenedAt',
       offlineBlobs: 'blobId',
     })
+    this.version(5)
+      .stores({
+        placeholder: 'id',
+        kv: 'key',
+        setlistPlayerMirror: 'setlistId, lastOpenedAt',
+        playerMirror: 'id, entityType, entityId, lastOpenedAt',
+        offlineBlobs: 'blobId',
+      })
+      .upgrade(async (tx) => {
+        const legacy = await tx.table('setlistPlayerMirror').toArray()
+        const target = tx.table('playerMirror')
+        for (const row of legacy) {
+          const entityId = row.setlistId as string
+          await target.put({
+            id: playerMirrorId('setlist', entityId),
+            entityType: 'setlist',
+            entityId,
+            playerJson: row.playerJson,
+            blobIds: row.blobIds,
+            lastOpenedAt: row.lastOpenedAt,
+          })
+        }
+      })
   }
 }
 

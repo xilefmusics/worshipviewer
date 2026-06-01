@@ -25,6 +25,18 @@ test('L1: browse a list', async ({ page, seed }) => {
   await page.unroute('**/api/v1/collections**')
 })
 
+test('L1: list rows remain visible when toggled offline', async ({ page, seed, context }) => {
+  const token = uniqueToken('l1-off')
+  await seed.createCollection({ title: `${token}-off` })
+  const hub = new HubPage(page)
+  await hub.goto('/collections')
+  await hub.search(`${token}-off`)
+  await expect(hub.row(`${token}-off`)).toBeVisible()
+  await setOffline(context, true)
+  await expect(hub.row(`${token}-off`)).toBeVisible()
+  await setOffline(context, false)
+})
+
 test.fixme('L1: pull-to-refresh touch gesture', async () => {
   // Chromium desktop cannot reliably emulate pull-to-refresh; branch documented in frontend-user-flows.md
 })

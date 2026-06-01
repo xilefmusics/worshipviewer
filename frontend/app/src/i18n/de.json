@@ -100,7 +100,13 @@
     "refresh": {
       "pull": "Zum Aktualisieren ziehen",
       "release": "Loslassen zum Aktualisieren",
-      "refreshing": "Wird aktualisiert…"
+      "refreshing": "Wird aktualisiert…",
+      "offlineBlocked": "Du bist offline — gespeicherte Daten bleiben unverändert."
+    },
+    "offline": {
+      "staleDataBanner": "Offline · gespeicherte Daten",
+      "backOnline": "Wieder online",
+      "lastUpdated": "Zuletzt aktualisiert {{when}}"
     },
     "error": {
       "body": "Beim Laden dieser Liste ist ein Fehler aufgetreten.",
@@ -109,6 +115,7 @@
     "empty": {
       "noResults": "Keine Treffer für deine Suche.",
       "clearSearch": "Suche löschen",
+      "offlineNone": "Keine gespeicherten Daten für diesen Tab. Verbinde dich, um zu laden.",
       "none": {
         "collections": "Noch keine Sammlungen.",
         "songs": "Noch keine Lieder.",
@@ -139,7 +146,13 @@
       "exportPreparing": "Export wird vorbereitet…",
       "exportFailed": "Song konnte nicht exportiert werden.",
       "exportSetlistFailed": "Setliste konnte nicht exportiert werden.",
-      "exportCollectionFailed": "Sammlung konnte nicht exportiert werden."
+      "exportCollectionFailed": "Sammlung konnte nicht exportiert werden.",
+      "saveOffline": "Für offline speichern",
+      "saveOfflineSuccess": "Für Offline-Wiedergabe gespeichert.",
+      "saveOfflineFailed": "Offline-Speicherung fehlgeschlagen.",
+      "removeOffline": "Offline-Kopie entfernen",
+      "removeOfflineSuccess": "Offline-Kopie entfernt.",
+      "offlineSaved": "Offline gespeichert"
     },
     "createChooser": {
       "title": "Zur Bibliothek hinzufügen",
@@ -173,9 +186,18 @@
     },
     "createOfflineHint": "Verbinde dich mit dem Internet, um Einträge hinzuzufügen."
   },
+  "offline": {
+    "bootstrapFailed": "Server nicht erreichbar. Öffne die App einmal online oder prüfe deine Verbindung.",
+    "sessionUnavailable": {
+      "body": "Anmeldung erforderlich, oder deine gespeicherte Sitzung ist nicht verfügbar.",
+      "signIn": "Anmelden"
+    }
+  },
   "offlinePlayer": {
-    "onlineOnlyType": "Dieser Player ist nur online verfügbar.",
-    "setlistNotCached": "Diese Setliste ist offline nicht verfügbar. Öffne sie im Player einmal online und versuche es erneut."
+    "setlistNotCached": "Diese Setliste ist offline nicht verfügbar. Öffne sie einmal online im Player oder nutze „Für offline speichern“.",
+    "collectionNotCached": "Diese Sammlung ist offline nicht verfügbar. Öffne sie einmal online im Player oder nutze „Für offline speichern“.",
+    "songNotCached": "Dieses Lied ist offline nicht verfügbar. Öffne es einmal online im Player oder nutze „Für offline speichern“.",
+    "storageEvicted": "Speicher voll — die älteste Offline-Kopie wurde entfernt."
   },
   "player": {
     "close": "Schließen",
@@ -476,6 +498,13 @@
       "title": "Cache",
       "description": "Löscht lokale App-Daten und lädt deine Sitzung neu. Sprache und Darstellung bleiben erhalten.",
       "approxSize": "Ungefähre gespeicherte Daten: {{size}} (Offline-Player-Cache + Listen-Cache).",
+      "breakdown": "Player-Cache: {{player}} · Listen- & Sitzungs-Cache: {{lists}}",
+      "removeMirror": "Entfernen",
+      "mirrorType": {
+        "setlist": "Setliste",
+        "collection": "Sammlung",
+        "song": "Lied"
+      },
       "clear": "Lokalen Cache löschen",
       "cleared": "Lokaler Cache gelöscht.",
       "failed": "Lokaler Cache konnte nicht gelöscht werden."
