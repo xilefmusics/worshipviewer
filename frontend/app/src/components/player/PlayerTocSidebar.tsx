@@ -7,6 +7,7 @@ import {
   TocSortLikedIcon,
   TocSortOrderIcon,
 } from '@/components/icons/toc-sort-icons'
+import { usePlayerTocSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { displayTocEntries, tocDisplayNr, type TocDisplayMode } from '@/lib/player/toc-display'
 import {
   buildTocMetadataBySongId,
@@ -35,19 +36,17 @@ const MODE_ICONS = {
   liked: TocSortLikedIcon,
 } as const
 
-function toggleSetValue<T>(set: Set<T>, value: T): Set<T> {
-  const next = new Set(set)
-  if (next.has(value)) next.delete(value)
-  else next.add(value)
-  return next
-}
-
 export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerTocSidebarProps) {
   const { t } = useTranslation()
-  const [mode, setMode] = useState<TocDisplayMode>('order')
+  const {
+    mode,
+    setMode,
+    activeLanguageIds,
+    toggleLanguageId,
+    activeTagIds,
+    toggleTagId,
+  } = usePlayerTocSearchSync()
   const [hoveredMode, setHoveredMode] = useState<TocDisplayMode | null>(null)
-  const [activeLanguageIds, setActiveLanguageIds] = useState<Set<string>>(() => new Set())
-  const [activeTagIds, setActiveTagIds] = useState<Set<string>>(() => new Set())
 
   const metadataBySongId = useMemo(() => buildTocMetadataBySongId(items), [items])
   const languageFilters = useMemo(
@@ -155,7 +154,7 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
                           ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
                           : 'bg-[var(--color-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/80',
                       )}
-                      onClick={() => setActiveLanguageIds((current) => toggleSetValue(current, filter.id))}
+                      onClick={() => toggleLanguageId(filter.id)}
                     >
                       {filter.label}
                     </button>
@@ -184,7 +183,7 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
                           ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
                           : 'bg-[var(--color-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/80',
                       )}
-                      onClick={() => setActiveTagIds((current) => toggleSetValue(current, filter.id))}
+                      onClick={() => toggleTagId(filter.id)}
                     >
                       {filter.label}
                     </button>

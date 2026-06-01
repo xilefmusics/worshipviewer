@@ -155,5 +155,5 @@ export function PlayerRouteInner({ type, id, initialIndex, mode }: PlayerRouteIn
     return <PlayerAv key={`${type}-${id}-av`} {...sharedProps} />
   }
 
-  return <PlayerBook key={`${type}-${id}`} {...sharedProps} />
+  return <PlayerBook key={`${type}-${id}`} {...sharedProps} mode={mode} />
 }
