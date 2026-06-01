@@ -46,11 +46,13 @@ function transposeAction(key: string): PlayerKeyboardAction {
 export function playerKeyboardAction(
   key: string,
   target: EventTarget | null,
-  options?: { popoverOpen?: boolean },
+  options?: { popoverOpen?: boolean; chromeVisible?: boolean },
 ): PlayerKeyboardAction {
   if (isEditableTarget(target)) return null
 
   const popoverOpen = options?.popoverOpen ?? false
+  const chromeVisible = options?.chromeVisible ?? false
+  const blockNavigation = popoverOpen || chromeVisible
 
   if (key === 'Escape') return 'escape'
 
@@ -65,6 +67,7 @@ export function playerKeyboardAction(
     case 'ArrowLeft':
     case 'Backspace':
     case 'k':
+      if (blockNavigation) return null
       return 'prev'
     case 'ArrowDown':
     case 'PageDown':
@@ -72,10 +75,13 @@ export function playerKeyboardAction(
     case ' ':
     case 'Enter':
     case 'j':
+      if (blockNavigation) return null
       return 'next'
     case 'Home':
+      if (blockNavigation) return null
       return 'home'
     case 'End':
+      if (blockNavigation) return null
       return 'end'
     case 'm':
       return 'toggleChrome'

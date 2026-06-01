@@ -70,6 +70,12 @@ describe('playerKeyboardAction', () => {
     expect(playerKeyboardAction('m', body, { popoverOpen: true })).toBeNull()
   })
 
+  it('blocks navigation when chrome overlay is open but keeps chrome toggle', () => {
+    expect(playerKeyboardAction('ArrowRight', body, { chromeVisible: true })).toBeNull()
+    expect(playerKeyboardAction('Home', body, { chromeVisible: true })).toBeNull()
+    expect(playerKeyboardAction('m', body, { chromeVisible: true })).toBe('toggleChrome')
+  })
+
   it('returns null for unmapped keys', () => {
     expect(playerKeyboardAction('t', body)).toBeNull()
     expect(playerKeyboardAction('q', body)).toBeNull()
