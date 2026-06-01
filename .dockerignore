@@ -13,9 +13,6 @@ target
 **/node_modules
 frontend/app/dist
 
-# Ignore Cargo.lock if it's not needed for the build
-Cargo.lock
-
 # Ignore documentation files
 docs
 **/docs
