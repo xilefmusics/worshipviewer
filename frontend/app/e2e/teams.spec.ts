@@ -1,6 +1,14 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { expect, test, uniqueToken } from './fixtures/auth'
 import { HubPage } from './pages/hub'
 import { gotoEn, grantClipboard, setOffline, waitForToast } from './helpers'
+
+const coverFixturePath = path.join(
+  fileURLToPath(new URL('.', import.meta.url)),
+  '../../resources/appicon.png',
+)
 
 // Flow: B1
 test('B1: create a team', async ({ page }) => {
@@ -147,4 +155,26 @@ test('B5: delete a team', async ({ page, seed }) => {
   await page.getByRole('button', { name: 'Delete team' }).click()
   await page.getByRole('button', { name: 'Delete team' }).last().click()
   await expect(page).toHaveURL(new RegExp(`/teams/${team.id}`))
+})
+
+test('B6: upload and remove team cover', async ({ page, seed }) => {
+  const token = uniqueToken('b6')
+  const team = await seed.createTeam(`${token}-cover`)
+  await gotoEn(page, `/teams/${team.id}`)
+
+  const preview = page.getByTestId('team-detail-cover-preview')
+  await expect(preview.locator('img')).toHaveCount(0)
+
+  await page.locator(`#team-detail-cover-file-${team.id}`).setInputFiles(coverFixturePath)
+  await expect(preview.locator('img')).toHaveCount(1, { timeout: 15_000 })
+
+  await gotoEn(page, '/teams')
+  const row = page.getByRole('button').filter({ hasText: `${token}-cover` })
+  await expect(row.getByTestId('team-list-avatar').locator('img')).toHaveCount(1, {
+    timeout: 15_000,
+  })
+
+  await gotoEn(page, `/teams/${team.id}`)
+  await page.getByRole('button', { name: 'Remove' }).click()
+  await expect(preview.locator('img')).toHaveCount(0, { timeout: 15_000 })
 })

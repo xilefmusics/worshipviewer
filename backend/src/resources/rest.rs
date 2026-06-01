@@ -30,7 +30,7 @@ pub fn scope(
                 .service(collection::rest::scope(blob_upload_max_bytes))
                 .service(setlist::rest::scope())
                 .service(song::rest::scope())
-                .service(team::rest::scope())
+                .service(team::rest::scope(blob_upload_max_bytes))
                 .service(team::invitations_accept_scope())
                 .service(monitoring::rest::scope())
                 .service(user::rest::scope(avatar_upload_max_bytes)),

@@ -22,6 +22,7 @@
 - **BLC-TEAM-015:** WHEN removing the last admin on a shared team THEN the API responds **409** until fixed or the team IS deleted.
 - **BLC-TEAM-016:** WHEN **DELETE** runs on a **shared** team THEN the actor MUST be **admin** (or equivalent); blobs, songs, collections, and setlists that belonged to that team become owned by the deleting **admin**’s **personal** team (they are not deleted).
 - **BLC-TEAM-019:** WHEN **PATCH /teams/{id}** runs THEN only fields present in the body are updated; omitted fields are unchanged; unknown fields are rejected, matching **BLC-SONG-019**. Optimistic concurrency uses **`If-Match`** with the resource **ETag** where applicable.
+- **BLC-TEAM-020:** **`PUT /teams/{id}/cover`** uploads a cover image: **`Content-Type`** MUST be **`image/jpeg`** or **`image/png`**; body size is capped per server configuration (same limit as collection cover uploads); the server creates a **blob** owned by the **team**, stores the bytes, sets **`cover`** to the new blob id, and deletes the previous cover blob when present and deletable. Requires team **admin** (or personal-team **owner**). Does not require **`If-Match`**. Clearing **`cover`** via **PATCH** with **`"cover": ""`** deletes the previous cover blob when present.
 
 Platform **admin** read vs write for team-scoped library content: [platform-admin-content.md](./platform-admin-content.md).
 

@@ -250,6 +250,25 @@ impl TeamRepository for SurrealTeamRepo {
         Ok(())
     }
 
+    async fn update_team_cover(
+        &self,
+        resource: (String, String),
+        cover: &str,
+    ) -> Result<(), AppError> {
+        let mut response = self
+            .inner()
+            .db
+            .query("UPDATE $tid SET cover = $cover")
+            .bind(("tid", RecordId::new(resource.0, resource.1)))
+            .bind(("cover", cover.to_owned()))
+            .await?;
+        crate::database::surreal_take_errors("team.update_team_cover", &mut response)?;
+        let _ = response.check().map_err(|e| {
+            crate::log_and_convert!(AppError::database, "team.update_team_cover.check", e)
+        })?;
+        Ok(())
+    }
+
     async fn delete_team_record(&self, resource: (String, String)) -> Result<(), AppError> {
         let tid = RecordId::new(resource.0, resource.1);
         let mut response = self

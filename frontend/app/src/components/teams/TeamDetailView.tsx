@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, useReducedMotion } from 'motion/react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -8,6 +8,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 
 import { api } from '@/api/client'
 import { parseProblemResponse } from '@/api/problem'
+import { putTeamCover } from '@/api/team-cover-upload'
 import type { TeamMember, TeamRole } from '@/api/teams-sessions-fetch'
 import {
   AlertDialog,
@@ -28,7 +29,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useTeamDetail, useTeamInvitationsList } from '@/hooks/useTeamDetail'
-import { isPersonalTeamName } from '@/lib/team-display-name'
+import { useCoverImageSrc } from '@/hooks/useCoverImageSrc'
+import { getTeamDisplayName, isPersonalTeamName } from '@/lib/team-display-name'
 import { buildTeamInviteLink, resolveTeamInviteLink } from '@/lib/team-invite-link'
 import { isUserTeamAdmin } from '@/lib/team-permissions'
 import { teamDetailKey, teamInvitationsKey, teamsListRootKey } from '@/lib/teams-sessions-keys'
@@ -73,8 +75,10 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
   const reduceMotion = useReducedMotion()
   const scrollRef = useHubScrollContainerRef()
   const invSentinelRef = useRef<HTMLDivElement>(null)
+  const coverFileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: team, error, isPending, refetch, isError } = useTeamDetail(teamId)
+  const [coverUploading, setCoverUploading] = useState(false)
   const [memberDraft, setMemberDraft] = useState<TeamMember[] | null>(null)
   const [membersError, setMembersError] = useState<string | null>(null)
   const [deleteTeamOpen, setDeleteTeamOpen] = useState(false)
@@ -95,6 +99,58 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
   }, [me, team])
 
   const isPersonalTeam = useMemo(() => (team ? isPersonalTeamName(team.name) : false), [team])
+
+  const coverDraft = team?.cover ?? ''
+  const { src: coverPreviewSrc, onImageError: onCoverPreviewError } = useCoverImageSrc(coverDraft)
+
+  const invalidateTeamCaches = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: teamDetailKey(teamId) })
+    void queryClient.invalidateQueries({ queryKey: teamsListRootKey })
+  }, [queryClient, teamId])
+
+  async function onCoverFilePicked(ev: ChangeEvent<HTMLInputElement>) {
+    const file = ev.target.files?.[0]
+    ev.target.value = ''
+    if (!file || !team || !isAdmin) return
+    setCoverUploading(true)
+    try {
+      const updated = await putTeamCover(teamId, file)
+      queryClient.setQueryData(teamDetailKey(teamId), updated)
+      void queryClient.invalidateQueries({ queryKey: teamsListRootKey, refetchType: 'none' })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : ''
+      if (msg === 'unsupported_type') toast.error(t('teams.coverUnsupportedType'))
+      else if (msg === 'payload_too_large') toast.error(t('teams.coverTooLarge'))
+      else toast.error(t('teams.coverUploadFailed'))
+    } finally {
+      setCoverUploading(false)
+    }
+  }
+
+  const clearCover = useMutation({
+    mutationFn: async () => {
+      const { data, response } = await api.PATCH('/api/v1/teams/{id}', {
+        params: { path: { id: teamId } },
+        body: { cover: '' },
+      })
+      if (!response.ok) {
+        const problem = await parseProblemResponse(response.clone())
+        throw new Error(problem?.title ?? t('teams.coverRemoveFailed'))
+      }
+      return data
+    },
+    onSuccess: (updated) => {
+      if (updated) {
+        queryClient.setQueryData(teamDetailKey(teamId), updated)
+      }
+      invalidateTeamCaches()
+    },
+    onError: (e: Error) => {
+      toast.error(e.message)
+    },
+  })
+
+  const coverBusy = coverUploading || clearCover.isPending
 
   const {
     data: invPages,
@@ -272,6 +328,71 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
 
   return (
     <div className="flex w-full min-w-0 flex-col">
+      <section className="mb-6">
+        <label
+          className="text-sm font-medium"
+          htmlFor={isAdmin ? `team-detail-cover-file-${teamId}` : undefined}
+        >
+          {t('teams.coverLabel')}
+        </label>
+        <div className="mt-2 flex gap-3">
+          <div
+            className="relative size-20 shrink-0 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]"
+            data-testid="team-detail-cover-preview"
+            aria-hidden={!coverPreviewSrc}
+          >
+            {coverPreviewSrc ? (
+              <img
+                src={coverPreviewSrc}
+                alt=""
+                draggable={false}
+                className="pointer-events-none size-full object-cover"
+                onError={onCoverPreviewError}
+              />
+            ) : (
+              <div className="flex size-full items-center justify-center text-lg font-medium text-[var(--color-foreground)]">
+                {getTeamDisplayName(team, me?.id, t).slice(0, 1).toUpperCase()}
+              </div>
+            )}
+          </div>
+          {isAdmin ? (
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <input
+                ref={coverFileInputRef}
+                id={`team-detail-cover-file-${teamId}`}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,.png,.jpg,.jpeg"
+                className="sr-only"
+                onChange={(ev) => void onCoverFilePicked(ev)}
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={coverBusy || !online}
+                  onClick={() => coverFileInputRef.current?.click()}
+                >
+                  {coverUploading ? t('teams.coverUploading') : t('teams.coverChange')}
+                </Button>
+                {coverDraft.trim() ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-[var(--color-muted-foreground)]"
+                    disabled={coverBusy || !online}
+                    onClick={() => void clearCover.mutateAsync()}
+                  >
+                    {t('teams.coverRemove')}
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
       <section className="mb-6">
         <div className="mb-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--color-muted-foreground)]">

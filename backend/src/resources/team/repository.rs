@@ -59,6 +59,13 @@ pub trait TeamRepository: Send + Sync {
         members: Vec<DbTeamMember>,
     ) -> Result<(), AppError>;
 
+    /// Update the cover field of a team (blob id or empty string).
+    async fn update_team_cover(
+        &self,
+        resource: (String, String),
+        cover: &str,
+    ) -> Result<(), AppError>;
+
     /// Delete a team record. Does NOT reassign content.
     async fn delete_team_record(&self, resource: (String, String)) -> Result<(), AppError>;
 

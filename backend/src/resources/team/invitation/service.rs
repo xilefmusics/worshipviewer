@@ -316,6 +316,7 @@ mod tests {
         TeamFetched {
             id: team_thing(team_id),
             name: "Shared Team".to_owned(),
+            cover: None,
             owner: None,
             members,
         }
@@ -325,6 +326,7 @@ mod tests {
         TeamFetched {
             id: team_thing(team_id),
             name: "Personal".to_owned(),
+            cover: None,
             owner: Some(UserRecord::from_user(make_user(owner_id))),
             members: vec![],
         }
@@ -334,6 +336,7 @@ mod tests {
         TeamFetched {
             id: RecordId::new("team", "public"),
             name: "Public".to_owned(),
+            cover: None,
             owner: None,
             members: vec![],
         }
@@ -344,6 +347,7 @@ mod tests {
             id: "t1".to_owned(),
             owner: None,
             name: "Shared Team".to_owned(),
+            cover: String::new(),
             members: vec![],
         }
     }
@@ -445,6 +449,14 @@ mod tests {
             &self,
             _resource: (String, String),
             _name: &str,
+        ) -> Result<(), AppError> {
+            unreachable!("not used in invitation tests")
+        }
+
+        async fn update_team_cover(
+            &self,
+            _resource: (String, String),
+            _cover: &str,
         ) -> Result<(), AppError> {
             unreachable!("not used in invitation tests")
         }

@@ -166,6 +166,8 @@ pub struct TeamFetched {
     pub id: RecordId,
     pub name: String,
     #[serde(default)]
+    pub cover: Option<String>,
+    #[serde(default)]
     pub owner: Option<UserRecord>,
     #[serde(default)]
     pub members: Vec<TeamMemberFetched>,
@@ -192,6 +194,7 @@ impl TeamFetched {
             id,
             owner,
             name: self.name,
+            cover: self.cover.unwrap_or_default(),
             members,
         })
     }

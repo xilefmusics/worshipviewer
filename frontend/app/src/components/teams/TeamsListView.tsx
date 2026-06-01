@@ -8,10 +8,35 @@ import { Button } from '@/components/ui/button'
 import { CreateTeamDialog } from '@/components/teams/CreateTeamDialog'
 import { useHubScrollContainerRef } from '@/context/HubScrollContainerContext'
 import { useHubSearch } from '@/hooks/useHubSearch'
+import { useCoverImageSrc } from '@/hooks/useCoverImageSrc'
 import { useSession } from '@/hooks/useSession'
 import { useTeamsList } from '@/hooks/useTeamsList'
 import { getTeamDisplayName } from '@/lib/team-display-name'
 import { cn } from '@/lib/utils'
+
+function TeamListAvatar({ cover, label }: { cover: string; label: string }) {
+  const { src, onImageError } = useCoverImageSrc(cover)
+  const initial = label.slice(0, 1).toUpperCase()
+
+  return (
+    <div
+      className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--color-muted)] text-sm font-medium text-[var(--color-foreground)]"
+      data-testid="team-list-avatar"
+    >
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          draggable={false}
+          className="pointer-events-none size-full object-cover"
+          onError={onImageError}
+        />
+      ) : (
+        initial
+      )}
+    </div>
+  )
+}
 
 type TeamsListViewProps = {
   createIntent: boolean
@@ -146,9 +171,7 @@ export function TeamsListView({ createIntent, onConsumeCreateIntent }: TeamsList
                       'active:scale-[0.985] motion-reduce:transform-none',
                     )}
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--color-muted)] text-sm font-medium text-[var(--color-foreground)]">
-                      {label.slice(0, 1).toUpperCase()}
-                    </div>
+                    <TeamListAvatar cover={team.cover ?? ''} label={label} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-[var(--color-foreground)]">{label}</p>
                       <p className="text-xs text-[var(--color-muted-foreground)]">
