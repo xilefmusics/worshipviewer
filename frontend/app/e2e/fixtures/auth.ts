@@ -85,7 +85,7 @@ export const test = base.extend<AdminFixtures>({
 
 /** Logged-out browser (no session cookie). */
 export const loggedOutTest = base.extend<LoggedOutFixtures>({
-  context: async ({ browser, baseURL }, use) => {
+  context: async ({ browser }, use) => {
     const context = await browser.newContext({ locale: 'en-US' })
     await use(context)
     await context.close()

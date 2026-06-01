@@ -23,7 +23,7 @@ secondUserTest('C1: create collection (personal team, no picker)', async ({ seco
 // Flow: C2
 test('C2: create collection (another team, picker)', async ({ page, seed }) => {
   const token = uniqueToken('c2')
-  const teamA = await seed.createTeam(`${token}-a`)
+  await seed.createTeam(`${token}-a`)
   const teamB = await seed.createTeam(`${token}-b`)
   const hub = new HubPage(page)
   await hub.goto('/collections')
@@ -44,7 +44,7 @@ test('C2: create collection (another team, picker)', async ({ page, seed }) => {
 })
 
 // Flow: C3
-test('C3: edit collection (rename, cover, songs)', async ({ page, seed, context, request, baseURL }) => {
+test('C3: edit collection (rename, cover, songs)', async ({ page, seed, context }) => {
   const token = uniqueToken('c3')
   const coll = await seed.createCollection({ title: `${token}-edit` })
   const song = await seed.createSong({ collection: coll.id, title: `${token}-song` })

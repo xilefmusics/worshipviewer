@@ -1,9 +1,9 @@
-import { expect, secondUserTest, test, uniqueToken } from './fixtures/auth'
+import { expect, test, uniqueToken } from './fixtures/auth'
 import { HubPage } from './pages/hub'
-import { gotoEn, grantClipboard, readClipboard, setOffline, waitForToast } from './helpers'
+import { gotoEn, grantClipboard, setOffline, waitForToast } from './helpers'
 
 // Flow: B1
-test('B1: create a team', async ({ page, seed }) => {
+test('B1: create a team', async ({ page }) => {
   const token = uniqueToken('b1')
   const hub = new HubPage(page)
   await hub.goto('/teams')
@@ -73,7 +73,7 @@ test('B2: open and rename a team', async ({ page, seed }) => {
 })
 
 // Flow: B3
-test('B3: change member roles', async ({ page, seed, request, baseURL }) => {
+test('B3: change member roles', async ({ page, seed, baseURL }) => {
   const token = uniqueToken('b3')
   const team = await seed.createTeam(`${token}-roles`)
   const guest = await seed.mintUser(`${token}-member@wv.test`)
@@ -104,7 +104,7 @@ test('B3: change member roles', async ({ page, seed, request, baseURL }) => {
 })
 
 // Flow: B4
-test('B4: invite someone to a team', async ({ page, seed, context, request, baseURL }) => {
+test('B4: invite someone to a team', async ({ page, seed, context, baseURL }) => {
   const token = uniqueToken('b4')
   const team = await seed.createTeam(`${token}-invite`)
   await grantClipboard(context)

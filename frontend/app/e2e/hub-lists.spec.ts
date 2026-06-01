@@ -1,6 +1,6 @@
 import { expect, test, uniqueToken } from './fixtures/auth'
 import { HubPage } from './pages/hub'
-import { gotoEn, openContextMenu, setOffline, waitForToast } from './helpers'
+import { openContextMenu, setOffline, waitForToast } from './helpers'
 
 // Flow: L1
 test('L1: browse a list', async ({ page, seed }) => {
@@ -32,7 +32,7 @@ test.fixme('L1: pull-to-refresh touch gesture', async () => {
 // Flow: L2
 test('L2: open row / open context menu', async ({ page, seed }) => {
   const token = uniqueToken('l2')
-  const coll = await seed.createCollection({ title: `${token}-row` })
+  await seed.createCollection({ title: `${token}-row` })
   const hub = new HubPage(page)
   await hub.goto('/collections')
   await hub.search(`${token}-row`)
@@ -52,7 +52,7 @@ test('L2: open row / open context menu', async ({ page, seed }) => {
 // Flow: L3
 test('L3: duplicate a collection / setlist', async ({ page, seed, context }) => {
   const token = uniqueToken('l3')
-  const coll = await seed.createCollection({ title: `${token}-dup` })
+  await seed.createCollection({ title: `${token}-dup` })
   const hub = new HubPage(page)
   await hub.goto('/collections')
   await hub.search(`${token}-dup`)
@@ -71,7 +71,7 @@ test('L3: duplicate a collection / setlist', async ({ page, seed, context }) => 
 // Flow: L4
 test('L4: export a song / collection / setlist', async ({ page, seed }) => {
   const token = uniqueToken('l4')
-  const coll = await seed.createCollection({ title: `${token}-exp` })
+  await seed.createCollection({ title: `${token}-exp` })
   const hub = new HubPage(page)
   await hub.goto('/collections')
   await hub.search(`${token}-exp`)
@@ -96,7 +96,7 @@ test('L5: delete with not-empty guard', async ({ page, seed }) => {
   await expect(page.getByText(/still contains songs|delete every song/i)).toBeVisible()
   await page.getByRole('button', { name: 'Cancel' }).click()
 
-  const empty = await seed.createCollection({ title: `${token}-empty` })
+  await seed.createCollection({ title: `${token}-empty` })
   await hub.goto('/collections')
   await hub.search(`${token}-empty`)
   await openContextMenu(page, `${token}-empty`)

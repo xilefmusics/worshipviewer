@@ -1,7 +1,5 @@
 import { expect, test } from './fixtures/auth'
 import { SettingsPage } from './pages/settings'
-import { gotoEn } from './helpers'
-
 // Flow: J1
 test('J1: General tab', async ({ page }) => {
   const settings = new SettingsPage(page)

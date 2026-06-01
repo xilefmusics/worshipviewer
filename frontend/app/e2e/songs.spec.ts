@@ -1,13 +1,12 @@
 import { expect, secondUserTest, test, uniqueToken } from './fixtures/auth'
 import { HubPage } from './pages/hub'
-import { gotoEn, openContextMenu, setOffline, waitForToast } from './helpers'
+import { openContextMenu, setOffline, waitForToast } from './helpers'
 
 // Flow: D1
-test('D1: open the song create chooser', async ({ page, seed, context }) => {
+test('D1: open the song create chooser', async ({ page, context }) => {
   const hub = new HubPage(page)
   await hub.goto('/songs')
   await hub.createFab('Create song').click()
-  const sheet = page.getByRole('dialog').or(page.locator('[role="dialog"]'))
   await expect(page.getByRole('button', { name: 'New song' })).toBeEnabled()
 
   // Import enabled when online + writable team
@@ -24,7 +23,7 @@ test('D1: open the song create chooser', async ({ page, seed, context }) => {
 secondUserTest('D2: create song with one editable collection', async ({ secondUser }) => {
   const token = uniqueToken('d2')
   const { page, seed } = secondUser
-  const coll = await seed.createCollection({ title: `${token}-only` })
+  await seed.createCollection({ title: `${token}-only` })
   const hub = new HubPage(page)
   await hub.goto('/songs')
   await hub.createFab('Create song').click()
@@ -39,7 +38,7 @@ secondUserTest('D2: create song with one editable collection', async ({ secondUs
 test('D3: create song with multiple collections', async ({ page, seed }) => {
   const token = uniqueToken('d3')
   const personalId = await seed.getPersonalTeamId()
-  const collA = await seed.createCollection({ title: `${token}-a`, owner: personalId })
+  await seed.createCollection({ title: `${token}-a`, owner: personalId })
   const collB = await seed.createCollection({ title: `${token}-b`, owner: personalId })
   const hub = new HubPage(page)
   await hub.goto('/songs')
@@ -69,7 +68,7 @@ secondUserTest('D4: create song with no collection yet', async ({ secondUser }) 
 // Flow: D5
 test('D5: import songs (files)', async ({ page, seed, context }) => {
   const token = uniqueToken('d5')
-  const coll = await seed.createCollection({ title: `${token}-import` })
+  await seed.createCollection({ title: `${token}-import` })
   const hub = new HubPage(page)
   await hub.goto('/songs')
   await hub.createFab('Create song').click()
@@ -88,7 +87,7 @@ test('D5: import songs (files)', async ({ page, seed, context }) => {
 test('D6: add a song to a setlist (context menu)', async ({ page, seed, context }) => {
   const token = uniqueToken('d6')
   const coll = await seed.createCollection({ title: `${token}-c` })
-  const song = await seed.createSong({ collection: coll.id, title: `${token}-song` })
+  await seed.createSong({ collection: coll.id, title: `${token}-song` })
   const setlist = await seed.createSetlist({ title: `${token}-sl` })
   const hub = new HubPage(page)
   await hub.goto('/songs')
@@ -112,7 +111,7 @@ test('D6: add a song to a setlist (context menu)', async ({ page, seed, context 
   await setOffline(context, false)
 
   // not_a_song hides item
-  const nas = await seed.createSong({ collection: coll.id, title: `${token}-nas`, not_a_song: true })
+  await seed.createSong({ collection: coll.id, title: `${token}-nas`, not_a_song: true })
   await hub.goto('/songs')
   await hub.search(`${token}-nas`)
   await openContextMenu(page, `${token}-nas`)

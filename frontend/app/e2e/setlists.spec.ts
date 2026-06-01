@@ -37,7 +37,7 @@ test('E2: create setlist (another team)', async ({ page, seed }) => {
 test('E3: add songs via picker sheet', async ({ page, seed }) => {
   const token = uniqueToken('e3')
   const coll = await seed.createCollection({ title: `${token}-c` })
-  const song = await seed.createSong({ collection: coll.id, title: `${token}-pick` })
+  await seed.createSong({ collection: coll.id, title: `${token}-pick` })
   const sl = await seed.createSetlist({ title: `${token}-sl` })
   await gotoEn(page, `/setlists/${sl.id}`)
   await page.getByRole('button', { name: /add songs/i }).click()

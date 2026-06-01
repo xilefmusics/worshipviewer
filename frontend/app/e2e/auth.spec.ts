@@ -150,7 +150,7 @@ loggedOutTest('A5: accept a team invitation (/join)', async ({ page }) => {
   await expect(page).toHaveURL(/\/login.*return_to=/)
 })
 
-test('A5: accept a team invitation — authed branches', async ({ page, seed, request, baseURL }) => {
+test('A5: accept a team invitation — authed branches', async ({ page, seed, baseURL }) => {
   const token = uniqueToken('join')
   const team = await seed.createTeam(`${token}-team`)
   const invite = await seed.createInvitation(team.id)
