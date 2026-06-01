@@ -1,7 +1,6 @@
 .DS_Store
 target
 dist
-Cargo.lock
 backend/blobs
 backend/static/*
 !backend/static/.gitkeep
@@ -13,3 +12,4 @@ venom*.log
 node_modules/
 .env*.local
 coverage/
+/.issues
