@@ -12,7 +12,13 @@
     "openapi:sync": "node scripts/openapi-sync.mjs",
     "icons:generate": "node scripts/generate-brand-icons.mjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:unit": "vitest run --project unit",
+    "test:components": "vitest run --project components",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "e2e:install": "playwright install --with-deps chromium",
+    "lint:flows": "node scripts/lint-flow-coverage.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.2",
@@ -59,7 +65,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.60.0",
     "@tanstack/router-plugin": "^1.168.13",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
@@ -70,6 +80,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "jsdom": "^29.1.1",
     "openapi-typescript": "^7.13.0",
     "sharp": "^0.34.5",
     "typescript": "~6.0.3",

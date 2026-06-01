@@ -131,6 +131,55 @@ The in-app song editor expects **ChordPro** text (via **chordlib**). To import f
 
 **Logs:** The backend uses [`tracing`](https://docs.rs/tracing). Set [`RUST_LOG`](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) for verbosity (for example `RUST_LOG=backend=debug,surrealdb=info`). Use `LOG_FORMAT=json` for newline-delimited JSON on stdout (also the default when `WORSHIP_PRODUCTION=true` or `RUST_ENV=production`). Incoming `traceparent` may supply the span id used as `X-Request-Id` and the `request_id` field on the per-request span. See [`docs/architecture/backend-request-flow.md`](docs/architecture/backend-request-flow.md) for full logging and audit-event notes.
 
+### Frontend tests
+
+The SPA in `frontend/app/` has two automated UI layers:
+
+- **Vitest** — fast unit tests (`environment: node`) and component tests (`jsdom` + Testing Library).
+- **Playwright** — browser end-to-end tests against a locally started **`vite preview`** server (production build).
+
+Both run from the frontend workspace. Install prerequisites above (Node 20, pnpm, wasm-pack) and dependencies once:
+
+```bash
+pnpm -C frontend install
+pnpm -C frontend build:wasm
+```
+
+#### Unit and component tests (Vitest)
+
+```bash
+pnpm -C frontend test                              # unit + component projects
+pnpm -C frontend --filter app test:unit            # logic-only unit tests only
+pnpm -C frontend --filter app test:components      # jsdom component tests only
+pnpm -C frontend --filter app test:watch           # watch mode
+```
+
+Some unit tests import **chordlib WASM**; run `pnpm -C frontend build:wasm` if you see missing-module errors.
+
+#### End-to-end tests (Playwright)
+
+E2E serves the **built** app (`frontend/app/dist/`), not the Vite dev server. Build first, then run Playwright (it auto-starts `vite preview` on `http://127.0.0.1:4173`):
+
+```bash
+pnpm -C frontend build
+pnpm -C frontend test:e2e
+```
+
+First time on a machine, install the Chromium browser Playwright uses:
+
+```bash
+pnpm -C frontend --filter app e2e:install
+```
+
+Other useful commands:
+
+```bash
+pnpm -C frontend --filter app test:e2e:ui           # interactive Playwright UI
+pnpm -C frontend --filter app exec playwright show-report   # open last HTML report
+```
+
+The hello-world e2e specs **stub `GET /api/v1/users/me` in the browser** (401 = logged out), so no backend is required for those tests. If you already have a preview server on port 4173, Playwright reuses it locally (not in CI).
+
 ### Persist data across backend restarts
 
 ```bash

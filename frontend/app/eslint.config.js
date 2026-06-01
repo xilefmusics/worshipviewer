@@ -27,5 +27,12 @@ export default defineConfig([
       'react-refresh/only-export-components': 'off',
     },
   },
+  {
+    // Playwright e2e specs/fixtures: `use` is the fixture callback, not React's `use` hook.
+    files: ['e2e/**/*.ts', 'playwright.config.ts'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+    },
+  },
   eslintConfigPrettier,
 ])

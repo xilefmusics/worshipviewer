@@ -54,6 +54,51 @@ export function shiftOverflowSection(columns: number[][], columnIndex: number): 
   return nextColumns
 }
 
+/** Whether two packed column layouts reference the same section indices. */
+export function arePackedColumnsEqual(left: number[][], right: number[][]): boolean {
+  if (left.length !== right.length) return false
+  for (let columnIndex = 0; columnIndex < left.length; columnIndex++) {
+    const leftColumn = left[columnIndex]
+    const rightColumn = right[columnIndex]
+    if (leftColumn.length !== rightColumn.length) return false
+    for (let sectionIndex = 0; sectionIndex < leftColumn.length; sectionIndex++) {
+      if (leftColumn[sectionIndex] !== rightColumn[sectionIndex]) return false
+    }
+  }
+  return true
+}
+
+/** Pack sections, then shift overflow using measured section heights in one pass. */
+export function packSectionsIntoColumnsWithOverflow(
+  sectionHeights: number[],
+  maxColumnHeight: number,
+): number[][] {
+  let columns = packSectionsIntoColumns(sectionHeights, maxColumnHeight)
+  if (columns.length === 0) return columns
+
+  const maxIterations = sectionHeights.length * Math.max(columns.length, 1)
+  for (let iteration = 0; iteration < maxIterations; iteration++) {
+    let shifted = false
+    for (let columnIndex = 0; columnIndex < columns.length; columnIndex++) {
+      const columnHeight = columns[columnIndex].reduce(
+        (sum, sectionIndex) => sum + sectionHeights[sectionIndex],
+        0,
+      )
+      if (columnHeight <= maxColumnHeight) continue
+      if (columns[columnIndex].length <= 1) continue
+
+      const nextColumns = shiftOverflowSection(columns, columnIndex)
+      if (!nextColumns) continue
+      columns = nextColumns
+      shifted = true
+      break
+    }
+    if (!shifted) break
+  }
+
+  return columns
+}
+
 /** Whether packed column indices still match the current section list. */
 export function isPackedColumnsValid(
   packedColumns: number[][],

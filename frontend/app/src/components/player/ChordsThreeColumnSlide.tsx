@@ -18,9 +18,10 @@ import { cn } from '@/lib/utils'
 import './player-chords.css'
 import './player-chords-three-column.css'
 import {
+  arePackedColumnsEqual,
   isPackedColumnsValid,
   measureStackedSectionHeights,
-  packSectionsIntoColumns,
+  packSectionsIntoColumnsWithOverflow,
   shiftOverflowSection,
 } from './chords-three-column-pack'
 
@@ -309,7 +310,9 @@ export function ChordsThreeColumnSlide({
   const columnLayout =
     layoutKey && columnLayoutCache?.key === layoutKey ? columnLayoutCache.layout : null
   const packingContextKey =
-    layoutKey && columnLayout && columnSections ? `${layoutKey}:${columnSections.length}` : null
+    layoutKey && columnLayout && columnSections
+      ? `${layoutKey}:${columnSections.length}:${columnLayout.columnWidthPx}:${columnLayout.columnHeightPx}:${columnLayout.fontSizePx}`
+      : null
   const packedColumns =
     packingContextKey && packedColumnsCache?.key === packingContextKey
       ? packedColumnsCache.columns
@@ -376,9 +379,12 @@ export function ChordsThreeColumnSlide({
       const heights = measureStackedSectionHeights(measureEl)
       if (heights.length !== columnSections.length || heights.some((height) => height <= 0)) return
 
-      setPackedColumnsCache({
-        key: packingContextKey,
-        columns: packSectionsIntoColumns(heights, columnLayout.columnHeightPx),
+      const columns = packSectionsIntoColumnsWithOverflow(heights, columnLayout.columnHeightPx)
+      setPackedColumnsCache((prev) => {
+        if (prev?.key === packingContextKey && arePackedColumnsEqual(prev.columns, columns)) {
+          return prev
+        }
+        return { key: packingContextKey, columns }
       })
     }
 
@@ -394,20 +400,43 @@ export function ChordsThreeColumnSlide({
     if (!columnLayout || !packedColumns || !columnSections || !packingContextKey) return
     if (!isPackedColumnsValid(packedColumns, columnSections.length)) return
 
+    const measureEl = measureRef.current
     const rowEl = rowRef.current
-    if (!rowEl) return
+    if (!measureEl || !rowEl) return
 
     const columnEls = rowEl.querySelectorAll('.player-chords-three-column__column')
     if (columnEls.length === 0) return
 
-    for (let columnIndex = 0; columnIndex < columnEls.length; columnIndex++) {
-      const columnEl = columnEls[columnIndex] as HTMLElement
-      if (columnEl.scrollHeight <= columnLayout.columnHeightPx + 1) continue
-      if (packedColumns[columnIndex]?.length <= 1) continue
+    const heights = measureStackedSectionHeights(measureEl)
+    if (heights.length !== columnSections.length || heights.some((height) => height <= 0)) return
 
-      const nextColumns = shiftOverflowSection(packedColumns, columnIndex)
-      if (nextColumns) setPackedColumnsCache({ key: packingContextKey, columns: nextColumns })
-      return
+    let columns = packedColumns.map((column) => [...column])
+    let changed = false
+
+    for (let pass = 0; pass < columnSections.length; pass++) {
+      let shifted = false
+      for (let columnIndex = 0; columnIndex < columnEls.length; columnIndex++) {
+        const columnEl = columnEls[columnIndex] as HTMLElement
+        const domOverflow = columnEl.scrollHeight > columnLayout.columnHeightPx + 1
+        const measuredHeight =
+          columns[columnIndex]?.reduce((sum, sectionIndex) => sum + heights[sectionIndex], 0) ?? 0
+        const heightOverflow = measuredHeight > columnLayout.columnHeightPx
+
+        if (!domOverflow && !heightOverflow) continue
+        if (columns[columnIndex]?.length <= 1) continue
+
+        const nextColumns = shiftOverflowSection(columns, columnIndex)
+        if (!nextColumns) continue
+        columns = nextColumns
+        changed = true
+        shifted = true
+        break
+      }
+      if (!shifted) break
+    }
+
+    if (changed && !arePackedColumnsEqual(columns, packedColumns)) {
+      setPackedColumnsCache({ key: packingContextKey, columns })
     }
   }, [columnLayout, packedColumns, combinedColumnCss, columnSections, packingContextKey])
 

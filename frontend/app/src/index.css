@@ -6,6 +6,8 @@
 @layer base {
   html {
     color-scheme: light dark;
+    /* Suppress double-tap zoom; pinch zoom is blocked via viewport user-scalable=no. */
+    touch-action: manipulation;
   }
 
   body {
