@@ -71,6 +71,9 @@ const FULLTEXT_FRAGMENTS: &[&str] = &[
 
 const FULLTEXT_WEIGHTS: &[f64] = &[100.0, 10.0, 1.0];
 
+/// Case-insensitive title substring (no `search::score` — not a full-text predicate).
+const TITLE_SUBSTRING_PREDICATE: &str = "array::len(data.titles[WHERE string::contains(string::lowercase($this), string::lowercase($q))]) > 0";
+
 async fn song_fulltext_combined_scores(
     db: &Database,
     read_teams: &[RecordId],
@@ -104,6 +107,31 @@ async fn song_fulltext_combined_scores(
             *scores.entry(id).or_insert(0.0) += row.rel_score * weight;
         }
     }
+
+    let sql = format!(
+        "SELECT id, 0.0 AS rel_score FROM song WHERE owner IN $teams{extra_where} AND {TITLE_SUBSTRING_PREDICATE}",
+    );
+    let mut request = db
+        .db
+        .query(sql)
+        .bind(("teams", read_teams.to_vec()))
+        .bind(("q", q_trimmed.to_string()));
+    for &(k, ref v) in extra_binds {
+        request = request.bind((k, v.clone()));
+    }
+    let mut response = request.await?;
+    let rows: Vec<SongIdScoreRow> = response.take(0)?;
+    for row in rows {
+        let Some(ref rid) = row.id else {
+            continue;
+        };
+        let id = record_id_string(rid);
+        if id.is_empty() {
+            continue;
+        }
+        scores.entry(id).or_insert(0.0);
+    }
+
     Ok(scores)
 }
 

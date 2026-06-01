@@ -3602,7 +3602,7 @@
             }
           },
           {
-            "description": "Full-text search query (title); uses text_search analyzer (stemming)",
+            "description": "Search query (title): full-text via text_search analyzer (stemming) plus case-insensitive substring match",
             "in": "query",
             "name": "q",
             "required": false,
@@ -5071,7 +5071,7 @@
             }
           },
           {
-            "description": "Full-text search query (title); uses text_search analyzer (stemming)",
+            "description": "Search query (title): full-text via text_search analyzer (stemming) plus case-insensitive substring match",
             "in": "query",
             "name": "q",
             "required": false,
@@ -5985,7 +5985,7 @@
             }
           },
           {
-            "description": "Full-text search query (titles, artists, line lyrics); uses text_search analyzer (stemming)",
+            "description": "Search query: full-text on titles (plus case-insensitive title substring), artists, and line lyrics via text_search analyzer (stemming)",
             "in": "query",
             "name": "q",
             "required": false,

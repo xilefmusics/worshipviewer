@@ -52,7 +52,9 @@ impl CollectionRepository for SurrealCollectionRepo {
             String::from("SELECT * FROM collection WHERE owner IN $teams")
         };
         if q_nonempty {
-            query.push_str(" AND title @0@ $q ORDER BY score DESC");
+            query.push_str(
+                " AND (title @0@ $q OR string::contains(string::lowercase(title), string::lowercase($q))) ORDER BY score DESC",
+            );
         }
         let (offset, limit) = pagination.effective_offset_limit();
         query.push_str(" LIMIT $limit START $start");
@@ -86,7 +88,9 @@ impl CollectionRepository for SurrealCollectionRepo {
         let q_nonempty = q.is_some_and(|s| !s.trim().is_empty());
         let mut query = String::from("SELECT count() FROM collection WHERE owner IN $teams");
         if q_nonempty {
-            query.push_str(" AND title @0@ $q");
+            query.push_str(
+                " AND (title @0@ $q OR string::contains(string::lowercase(title), string::lowercase($q)))",
+            );
         }
         query.push_str(" GROUP ALL");
 

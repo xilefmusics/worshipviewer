@@ -18,7 +18,7 @@
 - **BLC-COLL-007:** WHEN the caller is **guest** on the owning team and attempts **POST**/**PUT**/**DELETE** THEN the API responds **404**.
 - **BLC-COLL-008:** WHEN the caller is the personal-team **owner**, or **admin** / **content_maintainer** on the owning team, THEN mutations are allowed (subject to validation).
 - **BLC-COLL-009:** WHEN **POST** omits **`owner`** THEN the new collection’s **`owner`** IS the caller’s **personal** team. WHEN **POST** includes **`owner`** THEN it MUST name a team id the caller may **edit** (library content); **guest** on that team THEN **404**; unknown team or no edit access THEN **404** (malformed id THEN **400**).
-- **BLC-COLL-010:** WHEN **GET /collections** runs THEN only collections whose **`owner`** team the caller may read are returned; optional **`q`** filters by **title**.
+- **BLC-COLL-010:** WHEN **GET /collections** runs THEN only collections whose **`owner`** team the caller may read are returned; optional **`q`** filters by **title** (full-text plus case-insensitive substring).
 - **BLC-COLL-011:** WHEN **GET /collections/{id}**, **…/songs**, or **…/player** runs THEN visibility matches **GET /collections/{id}**.
 - **BLC-COLL-012:** WHEN **GET …/songs** runs AND a stored song id does not resolve THEN behavior is defined by the implementation (partial list, omission, or error); **500** is reserved for genuine server/infrastructure failures, not as an optional substitute for **200**.
 - **BLC-COLL-013:** WHEN **PUT** includes a **song** id that does not exist THEN the API MAY still return **200** and persist the slot; clients SHOULD validate ids.

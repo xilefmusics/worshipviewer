@@ -6,7 +6,7 @@ Applies to **GET** list routes that support paging, including **`/users`** (admi
 
 - **BLC-LP-001:** **`page`** — 0-based index of the page.
 - **BLC-LP-002:** **`page_size`** — maximum number of items per page.
-- **BLC-LP-003:** **`q`** — optional search filter: **`/songs`** (full-text: titles, artists, lyrics per analyzer rules), **`/collections`** and **`/setlists`** (**title**), **`/users`** (admin list: **email** or **user id** substring, case-insensitive), **`/teams`** (full-text **name**; case-insensitive substring on **team id**, personal **owner** email, and **member** emails), **`/users/me/sessions`** and **`/users/{id}/sessions`** (substring on **session id**, **user id**, or **user email**), **`/blobs`** (**OCR** substring, case-insensitive). Whitespace-only **`q`** is treated as absent everywhere.
+- **BLC-LP-003:** **`q`** — optional search filter: **`/songs`** (full-text on titles, artists, and line lyrics per analyzer rules; titles also match case-insensitive substring), **`/collections`** and **`/setlists`** (full-text on **title** plus case-insensitive title substring), **`/users`** (admin list: **email** or **user id** substring, case-insensitive), **`/teams`** (full-text **name**; case-insensitive substring on **team id**, personal **owner** email, and **member** emails), **`/users/me/sessions`** and **`/users/{id}/sessions`** (substring on **session id**, **user id**, or **user email**), **`/blobs`** (**OCR** substring, case-insensitive). Whitespace-only **`q`** is treated as absent everywhere.
 
 ## Validation
 

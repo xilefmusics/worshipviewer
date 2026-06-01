@@ -617,6 +617,19 @@ testcases:
           - result.bodyjson ShouldHaveLength 1
           - result.bodyjson.bodyjson0.id ShouldEqual "{{.post-collection-success.collectionid}}"
 
+  # BLC: BLC-LP-003 — title substring (mid-word; full-text alone would not match)
+  - name: get-collections-q-title-substring
+    steps:
+      - type: http
+        method: GET
+        url: "{{.base_url}}/api/v1/collections?q=vorite"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+        assertions:
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson ShouldHaveLength 1
+          - result.bodyjson.bodyjson0.id ShouldEqual "{{.post-collection-success.collectionid}}"
+
   # BLC: BLC-LP-009, BLC-LP-003
   - name: get-collections-q-with-pagination
     steps:

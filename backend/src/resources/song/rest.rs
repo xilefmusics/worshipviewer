@@ -43,7 +43,7 @@ pub fn scope() -> Scope {
     params(
         ("page" = Option<u32>, Query, description = "Zero-based page index (default 0). `X-Total-Count` is the total before pagination; the last page is when `items.len() < page_size` or the list is empty (see `docs/business-logic-constraints/list-pagination.md`).", minimum = 0, nullable = true),
         ("page_size" = Option<u32>, Query, description = "Items per page. Must be 1–500. Defaults to 50.", minimum = 1, maximum = 500, example = 50, nullable = true),
-        ("q" = Option<String>, Query, description = "Full-text search query (titles, artists, line lyrics); uses text_search analyzer (stemming)"),
+        ("q" = Option<String>, Query, description = "Search query: full-text on titles (plus case-insensitive title substring), artists, and line lyrics via text_search analyzer (stemming)"),
         ("sort" = Option<String>, Query, description = "Sort: JSON:API-style comma-separated keys (`-` = descending), e.g. `-id`, `title`, `relevance` (with `q`). Legacy `id_desc` / … still accepted."),
         ("lang" = Option<String>, Query, description = "Filter: song must list this language in `data.languages`."),
         ("tag" = Option<String>, Query, description = "Filter: case-insensitive substring match on stringified `data.tags`.")
