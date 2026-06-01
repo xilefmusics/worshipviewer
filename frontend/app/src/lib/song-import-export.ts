@@ -184,7 +184,9 @@ const PDF_PAGE_BASE_CSS = `
 }
 `
 
-const PDF_PRINT_CSS = `
+/** Print overrides for chordlib fixed-height screen layout (exported for tests). */
+export function buildPdfPrintCss(): string {
+  return `
 @page {
   size: A4 portrait;
   margin: 0;
@@ -195,8 +197,22 @@ const PDF_PRINT_CSS = `
     padding: 0;
     background: #fff;
   }
+  .pdf-export-root .page {
+    width: 210mm;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    transform: none;
+  }
+  .pdf-export-root .columns {
+    height: auto;
+    overflow: visible;
+  }
 }
 `
+}
+
+const PDF_PRINT_CSS = buildPdfPrintCss()
 
 const PDF_SETLIST_PAGE_BREAK_CSS = `
 .pdf-export-root + .pdf-export-root {
@@ -219,7 +235,7 @@ function mountPdfExportDocument(pages: PdfExportPage[], title: string): {
 
   const frame = document.createElement('iframe')
   frame.setAttribute('aria-hidden', 'true')
-  frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${A4_WIDTH_PX}px;height:${A4_HEIGHT_PX}px;border:0;visibility:hidden;`
+  frame.style.cssText = `position:fixed;left:0;top:0;width:${A4_WIDTH_PX}px;height:${A4_HEIGHT_PX}px;border:0;opacity:0;pointer-events:none;z-index:-1;`
   document.body.appendChild(frame)
 
   const doc = frame.contentDocument
@@ -261,8 +277,10 @@ function mountPdfExportDocument(pages: PdfExportPage[], title: string): {
   return { frame, pageRoots, contentWindow }
 }
 
-async function waitForPdfLayout(pageRoots: HTMLElement[]): Promise<void> {
-  await document.fonts.ready
+async function waitForPdfLayout(doc: Document, pageRoots: HTMLElement[]): Promise<void> {
+  if (doc.fonts?.ready) {
+    await doc.fonts.ready
+  }
   await new Promise<void>((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
   })
@@ -295,7 +313,7 @@ async function printPdfDocument(pages: PdfExportPage[], title: string): Promise<
   window.setTimeout(restoreAppTitle, 300_000)
 
   try {
-    await waitForPdfLayout(pageRoots)
+    await waitForPdfLayout(contentWindow.document, pageRoots)
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
