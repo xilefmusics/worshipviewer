@@ -1202,7 +1202,6 @@ testcases:
           Content-Type: application/json
         body: |
           {
-            "collection": "{{.setup-song-owner-test-collection.song_owner_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {

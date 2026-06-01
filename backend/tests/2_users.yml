@@ -547,6 +547,28 @@ testcases:
           blobid:
             from: result.bodyjson.id
 
+  # BLC: BLC-USER-003, BLC-SONG-009
+  - name: create-default-user-song-collection-setup
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections"
+        headers:
+          Authorization: "Bearer {{.create-session-for-default-user.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "title": "Cascade Song Collection",
+            "cover": "{{.create-default-user-blob.blobid}}",
+            "songs": []
+          }
+        assertions:
+          - result.statuscode ShouldEqual 201
+          - result.bodyjson.owner ShouldEqual "{{.get-default-user-personal-team.default_user_personal_team_id}}"
+        vars:
+          collectionid:
+            from: result.bodyjson.id
+
   # BLC: BLC-USER-003
   - name: create-default-user-song
     steps:
@@ -558,6 +580,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.create-default-user-song-collection-setup.collectionid}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
