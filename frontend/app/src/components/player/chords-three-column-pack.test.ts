@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  arePackedColumnsEqual,
   isPackedColumnsValid,
   packSectionsIntoColumns,
+  packSectionsIntoColumnsWithOverflow,
   shiftOverflowSection,
 } from './chords-three-column-pack'
 
@@ -20,6 +22,45 @@ describe('packSectionsIntoColumns', () => {
 
   it('returns an empty array for no sections', () => {
     expect(packSectionsIntoColumns([], 300)).toEqual([])
+  })
+})
+
+describe('packSectionsIntoColumnsWithOverflow', () => {
+  it('shifts overflow sections in one pass instead of one shift at a time', () => {
+    expect(packSectionsIntoColumnsWithOverflow([120, 120, 120, 120, 120], 250)).toEqual([
+      [0, 1],
+      [2, 3],
+      [4],
+    ])
+  })
+})
+
+describe('arePackedColumnsEqual', () => {
+  it('compares packed columns by section indices', () => {
+    expect(
+      arePackedColumnsEqual(
+        [
+          [0, 1],
+          [2],
+        ],
+        [
+          [0, 1],
+          [2],
+        ],
+      ),
+    ).toBe(true)
+    expect(
+      arePackedColumnsEqual(
+        [
+          [0, 1],
+          [2],
+        ],
+        [
+          [0],
+          [1, 2],
+        ],
+      ),
+    ).toBe(false)
   })
 })
 

@@ -17,7 +17,8 @@
     "test:components": "vitest run --project components",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "e2e:install": "playwright install --with-deps chromium"
+    "e2e:install": "playwright install --with-deps chromium",
+    "lint:flows": "node scripts/lint-flow-coverage.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.2",

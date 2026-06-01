@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { CommandPalette } from '@/components/hub/CommandPalette'
 import { SetlistPaletteRegistrarProvider } from '@/context/SetlistPaletteBridgeContext'
 import type { SetlistPaletteBridge } from '@/lib/setlist-palette-bridge'
-import { HUB_SEARCH_INPUT_CLASS } from '@/components/hub/hub-search-styles'
+import { HUB_SEARCH_INPUT_CLASS, HUB_SEARCH_PILL_TEXT_CLASS } from '@/components/hub/hub-search-styles'
 import { HubTabBar } from '@/components/hub/HubTabBar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
 import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
@@ -294,7 +294,12 @@ function HubChrome({
                       aria-label={t('teams.nameLabel')}
                       disabled={!canEditTeamTitle}
                     >
-                      <p className="w-full truncate px-5 text-center text-[0.7875rem] font-medium text-[var(--color-foreground)]">
+                      <p
+                        className={cn(
+                          'w-full truncate px-5 text-center font-medium text-[var(--color-foreground)]',
+                          HUB_SEARCH_PILL_TEXT_CLASS,
+                        )}
+                      >
                         {detailTitle}
                       </p>
                     </button>
@@ -333,7 +338,12 @@ function HubChrome({
               </Button>
               <div ref={searchAnchorRef} className="group relative my-[0.36rem] min-w-0 flex-1">
                 <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
-                  <p className="w-full truncate px-5 text-center text-[0.7875rem] font-medium text-[var(--color-foreground)]">
+                  <p
+                    className={cn(
+                      'w-full truncate px-5 text-center font-medium text-[var(--color-foreground)]',
+                      HUB_SEARCH_PILL_TEXT_CLASS,
+                    )}
+                  >
                     {headerSetlist?.title ?? t('common.load')}
                   </p>
                 </div>
@@ -359,7 +369,12 @@ function HubChrome({
               </Button>
               <div ref={searchAnchorRef} className="group relative my-[0.36rem] min-w-0 flex-1">
                 <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
-                  <p className="w-full truncate px-5 text-center text-[0.7875rem] font-medium text-[var(--color-foreground)]">
+                  <p
+                    className={cn(
+                      'w-full truncate px-5 text-center font-medium text-[var(--color-foreground)]',
+                      HUB_SEARCH_PILL_TEXT_CLASS,
+                    )}
+                  >
                     {headerCollection?.title ?? t('common.load')}
                   </p>
                 </div>
@@ -385,7 +400,12 @@ function HubChrome({
               </Button>
               <div ref={searchAnchorRef} className="group relative my-[0.36rem] min-w-0 flex-1">
                 <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
-                  <p className="w-full truncate px-5 text-center text-[0.7875rem] font-medium text-[var(--color-foreground)]">
+                  <p
+                    className={cn(
+                      'w-full truncate px-5 text-center font-medium text-[var(--color-foreground)]',
+                      HUB_SEARCH_PILL_TEXT_CLASS,
+                    )}
+                  >
                     {headerSong?.data.titles?.[0]?.trim() || '—'}
                   </p>
                 </div>
@@ -413,7 +433,12 @@ function HubChrome({
               </Button>
               <div ref={searchAnchorRef} className="group relative my-[0.36rem] min-w-0 flex-1">
                 <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
-                  <p className="w-full truncate px-5 text-center text-[0.7875rem] font-medium text-[var(--color-foreground)]">
+                  <p
+                    className={cn(
+                      'w-full truncate px-5 text-center font-medium text-[var(--color-foreground)]',
+                      HUB_SEARCH_PILL_TEXT_CLASS,
+                    )}
+                  >
                     {t('settings.title')}
                   </p>
                 </div>
@@ -435,7 +460,12 @@ function HubChrome({
               </Button>
               <div ref={searchAnchorRef} className="group relative my-[0.36rem] min-w-0 flex-1">
                 <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
-                  <p className="w-full truncate px-5 text-center text-[0.7875rem] font-medium text-[var(--color-foreground)]">
+                  <p
+                    className={cn(
+                      'w-full truncate px-5 text-center font-medium text-[var(--color-foreground)]',
+                      HUB_SEARCH_PILL_TEXT_CLASS,
+                    )}
+                  >
                     {t('about.title')}
                   </p>
                 </div>

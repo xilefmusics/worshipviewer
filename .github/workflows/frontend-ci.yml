@@ -49,6 +49,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Flow coverage lint
+        run: pnpm --filter app lint:flows
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -88,6 +91,18 @@ jobs:
 
       - name: Build WASM
         run: pnpm build:wasm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.96.0
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      - name: Build backend (e2e server)
+        working-directory: backend
+        run: cargo build --release -p backend
 
       - name: Get Playwright version
         id: playwright-version

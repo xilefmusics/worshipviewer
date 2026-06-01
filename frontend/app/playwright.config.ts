@@ -1,27 +1,37 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = 4173 // vite preview default
-const HOST = '127.0.0.1'
+const PORT = Number(process.env.E2E_PORT ?? 8788)
+const HOST = process.env.E2E_HOST ?? '127.0.0.1'
+const baseURL = `http://${HOST}:${PORT}`
 
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
-  fullyParallel: true,
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  timeout: 60_000,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'html',
   use: {
-    baseURL: `http://${HOST}:${PORT}`,
+    baseURL,
     trace: 'on-first-retry',
+    locale: 'en-US',
+    serviceWorkers: 'block',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        hasTouch: false,
+      },
+    },
+  ],
   webServer: {
-    // serve the production build; assumes `pnpm build` already ran (build:wasm + vite build).
-    // Bind explicitly to HOST so the probe URL matches the listening interface
-    // (vite preview defaults to `localhost`, which can resolve to IPv6 ::1 only).
-    command: `pnpm preview --port ${PORT} --strictPort --host ${HOST}`,
-    url: `http://${HOST}:${PORT}`,
+    command: 'node e2e/serve-backend.mjs',
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 180_000,
   },
 })
