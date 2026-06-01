@@ -30,6 +30,7 @@ type SetlistSongPickerSheetProps = {
   searchPlaceholderKey?: string
   searchAriaKey?: string
   duplicateBadgeKey?: string
+  duplicateContainerKey?: string
   pickerExcludedKey?: string
   waitForSaveKey?: string
 }
@@ -43,7 +44,8 @@ export function SetlistSongPickerSheet({
   sheetTitleKey = 'setlists.editor.addSongTitle',
   searchPlaceholderKey = 'setlists.editor.pickerSearchPlaceholder',
   searchAriaKey = 'setlists.editor.pickerSearchAria',
-  duplicateBadgeKey = 'setlists.editor.duplicateBadge',
+  duplicateBadgeKey = 'common.duplicateBadge',
+  duplicateContainerKey = 'common.containerSetlist',
   pickerExcludedKey = 'setlists.editor.pickerExcluded',
   waitForSaveKey = 'setlists.editor.waitForSave',
 }: SetlistSongPickerSheetProps) {
@@ -235,7 +237,10 @@ export function SetlistSongPickerSheet({
                                 ) : null}
                                 {dup > 1 ? (
                                   <span className="mt-0.5 text-[0.65rem] uppercase text-[var(--color-muted-foreground)]">
-                                    {t(duplicateBadgeKey, { count: dup })}
+                                    {t(duplicateBadgeKey, {
+                                      container: t(duplicateContainerKey),
+                                      count: dup,
+                                    })}
                                   </span>
                                 ) : null}
                               </span>

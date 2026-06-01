@@ -22,9 +22,24 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: [/mobile-viewport\.spec\.ts/, /pull-refresh\.spec\.ts/],
       use: {
         ...devices['Desktop Chrome'],
         hasTouch: false,
+      },
+    },
+    {
+      name: 'iphone',
+      testMatch: [/mobile-viewport\.spec\.ts/, /pull-refresh\.spec\.ts/],
+      use: {
+        ...devices['iPhone 14'],
+      },
+    },
+    {
+      name: 'ipad',
+      testMatch: /mobile-viewport\.spec\.ts/,
+      use: {
+        ...devices['iPad Pro 11'],
       },
     },
   ],

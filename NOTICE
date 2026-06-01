@@ -1,0 +1,47 @@
+Worship Viewer
+Copyright (C) 2024–2026 Worship Viewer contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+See LICENSE for the full AGPL-3.0 text.
+
+================================================================================
+Third-party components
+================================================================================
+
+Fonts
+-----
+Rubik — Copyright The Rubik Project Authors
+Licensed under the SIL Open Font License, Version 1.1.
+See docs/branding.md and frontend/app/public/fonts/.
+
+Rust dependencies
+-----------------
+See backend/Cargo.lock, cli/Cargo.lock, and shared/Cargo.lock.
+Notable licenses:
+  • ring — see docs/licensing/non-standard-crates.md
+  • surrealdb — Business Source License 1.1; see docs/licensing/surrealdb-bsl.md
+  • chordlib — https://crates.io/crates/chordlib (external crate)
+
+JavaScript / npm dependencies
+-----------------------------
+See frontend/pnpm-lock.yaml. Run `pnpm licenses` in frontend/ for a full report.
+
+Container runtime libraries
+---------------------------
+glibc, OpenSSL, libstdc++, and related .so files copied into scratch images.
+See docs/licensing/docker-scratch-libs.md.
+
+SurrealDB server
+----------------
+When deployed separately from the app, SurrealDB is licensed under BSL 1.1
+(https://surrealdb.com/BSL), not AGPL. Operators must comply with SurrealDB
+license terms independently of Worship Viewer.
+
+================================================================================
+This NOTICE file is aggregated for convenience. It does not replace per-package
+LICENSE files or the AGPL corresponding-source offer in the application About
+screen for deployed images.

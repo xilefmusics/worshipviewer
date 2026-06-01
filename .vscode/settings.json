@@ -1,0 +1,8 @@
+{
+  "rust-analyzer.linkedProjects": [
+    "backend/Cargo.toml",
+    "cli/Cargo.toml",
+    "shared/Cargo.toml",
+    "frontend/crates/chordlib-wasm/Cargo.toml"
+  ]
+}

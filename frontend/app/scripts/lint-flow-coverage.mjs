@@ -59,9 +59,27 @@ for (const root of scanRoots) {
 const missing = [...expected].filter((id) => !covered.has(id)).sort()
 const extra = [...covered].filter((id) => !expected.has(id)).sort()
 
-if (missing.length || extra.length) {
+/** Flows that must have a Playwright/Vitest title prefix, not only a comment reference. */
+const E2E_TITLE_REQUIRED = ['E4', 'E5', 'L1']
+/** @type {Set<string>} */
+const titled = new Set()
+for (const root of scanRoots) {
+  for (const file of readAllFiles(root)) {
+    const text = readFileSync(file, 'utf8')
+    FLOW_TITLE.lastIndex = 0
+    while ((m = FLOW_TITLE.exec(text)) !== null) {
+      titled.add(m[1])
+    }
+  }
+}
+const missingE2eTitles = E2E_TITLE_REQUIRED.filter((id) => !titled.has(id)).sort()
+
+if (missing.length || extra.length || missingE2eTitles.length) {
   if (missing.length) console.error('Missing flow coverage:', missing.join(', '))
   if (extra.length) console.error('Unknown flow ids referenced:', extra.join(', '))
+  if (missingE2eTitles.length) {
+    console.error('Missing e2e test title for flows:', missingE2eTitles.join(', '))
+  }
   process.exit(1)
 }
 

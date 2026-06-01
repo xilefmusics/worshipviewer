@@ -45,7 +45,13 @@
     "signOut": "Abmelden"
   },
   "common": {
-    "load": "Laden…"
+    "load": "Laden…",
+    "containerSetlist": "Setliste",
+    "containerCollection": "Sammlung",
+    "entitySetlist": "Setliste",
+    "entityCollection": "Sammlung",
+    "duplicateFailed": "{{entity}} konnte nicht dupliziert werden.",
+    "duplicateBadge": "Schon in {{container}} ×{{count}}"
   },
   "pwa": {
     "updateMessage": "Neue Version verfügbar — neu laden",
@@ -135,7 +141,6 @@
       "addToSetlist": "Zur Setliste hinzufügen",
       "duplicate": "Duplizieren",
       "duplicateSuccess": "„{{title}}“ erstellt.",
-      "duplicateFailed": "Element konnte nicht dupliziert werden.",
       "delete": "Löschen",
       "deleteOfflineHint": "Offline nicht verfügbar — für Löschen verbinden.",
       "export": "Exportieren",
@@ -519,9 +524,6 @@
     }
   },
   "setlists": {
-    "hub": {
-      "duplicateFailed": "Setliste konnte nicht dupliziert werden."
-    },
     "create": {
       "dialogTitle": "Neue Setliste",
       "dialogDescription": "Gib der Setliste einen Titel. Songs fügst du im Editor hinzu.",
@@ -555,7 +557,6 @@
       "addSongTitle": "Song hinzufügen",
       "pickerSearchPlaceholder": "Songs suchen…",
       "pickerSearchAria": "Songs zum Hinzufügen suchen",
-      "duplicateBadge": "Schon in Setliste ×{{count}}",
       "waitForSave": "Bitte bis zum Speichern warten",
       "pickerExcluded": "Dieser Eintrag kann nicht zu Setlisten hinzugefügt werden.",
       "removedSlot": "Zeile entfernt.",
@@ -592,8 +593,7 @@
       "failed": "Sammlung konnte nicht erstellt werden."
     },
     "hub": {
-      "duplicateTitleSuffix": "(Kopie)",
-      "duplicateFailed": "Sammlung konnte nicht dupliziert werden."
+      "duplicateTitleSuffix": "(Kopie)"
     },
     "editor": {
       "backToList": "Zurück zu Sammlungen",
@@ -618,7 +618,6 @@
       "addSongTitle": "Lied hinzufügen",
       "pickerSearchPlaceholder": "Lieder suchen…",
       "pickerSearchAria": "Lieder zum Hinzufügen suchen",
-      "duplicateBadge": "Schon in Sammlung ×{{count}}",
       "pickerExcluded": "Dieser Eintrag kann nicht zu Sammlungen hinzugefügt werden.",
       "dragHandleAria": "Zum Sortieren ziehen",
       "moveAria": "In eine andere Sammlung verschieben",

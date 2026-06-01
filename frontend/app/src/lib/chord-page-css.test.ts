@@ -26,4 +26,12 @@ describe('scopeChordlibPageCss', () => {
     expect(scoped).toContain('.player-chords-page .chord')
     expect(scoped).toContain('font-weight: bold')
   })
+
+  it('passes at-rules through without host scoping', () => {
+    const css = '@media print { .page { height: auto; } }'
+    const scoped = scopeChordlibPageCss(css, '.pdf-export-root:nth-of-type(1)')
+    expect(scoped).toContain('@media print')
+    expect(scoped).toContain('height: auto')
+    expect(scoped).not.toContain('.pdf-export-root:nth-of-type(1) .page')
+  })
 })

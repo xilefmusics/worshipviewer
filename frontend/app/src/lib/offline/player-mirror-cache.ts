@@ -62,11 +62,6 @@ export async function evictOnePlayerMirror(mirrorId: string): Promise<void> {
   }
 }
 
-/** @deprecated Use evictOnePlayerMirror */
-export async function evictOneSetlistMirror(setlistId: string): Promise<void> {
-  await evictOnePlayerMirror(playerMirrorId('setlist', setlistId))
-}
-
 /** Evict least-recently opened players until count and byte limits hold. */
 export async function enforceOfflineRetention(exemptMirrorId?: string): Promise<void> {
   let mirrors = await appDb.playerMirror.orderBy('lastOpenedAt').toArray()
@@ -188,15 +183,6 @@ export async function persistPlayerMirror(
   }
 }
 
-/** @deprecated Use persistPlayerMirror */
-export async function persistSetlistPlayerMirror(
-  setlistId: string,
-  player: Player,
-  signal?: AbortSignal,
-): Promise<void> {
-  await persistPlayerMirror('setlist', setlistId, player, { signal })
-}
-
 export async function touchPlayerOpened(
   entityType: PlayerEntityType,
   entityId: string,
@@ -206,11 +192,6 @@ export async function touchPlayerOpened(
   if (!row) return
   row.lastOpenedAt = Date.now()
   await appDb.playerMirror.put(row)
-}
-
-/** @deprecated Use touchPlayerOpened */
-export async function touchSetlistPlayerOpened(setlistId: string): Promise<void> {
-  await touchPlayerOpened('setlist', setlistId)
 }
 
 export async function loadOfflinePlayer(
@@ -237,11 +218,6 @@ export async function loadOfflinePlayer(
   await touchPlayerOpened(entityType, entityId)
   await enforceOfflineRetention(id)
   return parsed
-}
-
-/** @deprecated Use loadOfflinePlayer */
-export async function loadOfflineSetlistPlayer(setlistId: string): Promise<Player | null> {
-  return loadOfflinePlayer('setlist', setlistId)
 }
 
 export async function isPlayerMirrored(

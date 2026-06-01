@@ -49,9 +49,25 @@ export type MintedUser = {
   sessionId: string
 }
 
-const MINIMAL_SONG_DATA = {
+export const MINIMAL_SONG_DATA = {
   titles: ['Untitled'],
-  sections: [{ type: 'verse', lines: [{ lyrics: 'Hello world', chords: '' }] }],
+  sections: [
+    {
+      title: 'Verse',
+      repeat_count: 1,
+      lines: [
+        {
+          parts: [
+            {
+              chord: null,
+              comment: false,
+              languages: ['Hello world'],
+            },
+          ],
+        },
+      ],
+    },
+  ],
 }
 
 let tokenCounter = 0
@@ -288,5 +304,20 @@ export class SeedClient {
       { user: { id: userId }, role },
     ]
     return this.patchTeam(teamId, { members })
+  }
+
+  /** Create additional sessions for the current user (for sessions list e2e). */
+  async createExtraSessionsForCurrentUser(count: number): Promise<void> {
+    const me = await this.getMe()
+    for (let i = 0; i < count; i++) {
+      await this.createSessionForUser(me.id, me.email)
+    }
+  }
+
+  /** Seed many collections for hub pagination e2e. */
+  async createManyCollections(prefix: string, count: number): Promise<void> {
+    for (let i = 0; i < count; i++) {
+      await this.createCollection({ title: `${prefix}-${String(i).padStart(3, '0')}` })
+    }
   }
 }

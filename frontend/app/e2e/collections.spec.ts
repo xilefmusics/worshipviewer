@@ -55,8 +55,11 @@ test('C3: edit collection (rename, cover, songs)', async ({ page, seed, context 
   // Rename autosave on blur
   const titleInput = page.getByLabel(/title/i).first()
   await titleInput.fill(`${token}-renamed`)
+  const patchPromise = page.waitForResponse(
+    (r) => r.request().method() === 'PATCH' && r.url().includes(`/collections/${coll.id}`) && r.ok(),
+  )
   await titleInput.blur()
-  await page.waitForTimeout(1000)
+  await patchPromise
 
   // Offline paused
   await setOffline(context, true)

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { DEFAULT_AV_PREFERENCES, type AvProjectionPayload } from '@/lib/player/av-preferences'
 import {
@@ -49,7 +49,33 @@ describe('av-projection-sync', () => {
       nextPreview: null,
     }
     sync.broadcast(payload)
-    expect(sync.readLatest()).toEqual(payload)
     sync.close()
+    expect(readAvProjectionSnapshot('session-2', storage)).toEqual(payload)
+  })
+
+  it('debounces rapid localStorage writes', () => {
+    vi.useFakeTimers()
+    const setItem = vi.fn()
+    const storage = {
+      getItem: () => null,
+      setItem,
+    }
+    const sync = createAvProjectionSync('session-3', storage)
+    const payload: AvProjectionPayload = {
+      contentText: 'A',
+      contentLayer: DEFAULT_AV_PREFERENCES.contentLayer,
+      backgroundLayer: DEFAULT_AV_PREFERENCES.backgroundLayer,
+      transition: DEFAULT_AV_PREFERENCES.transition,
+      screenState: 'live',
+      itemTitle: 'T',
+      nextPreview: null,
+    }
+    sync.broadcast(payload)
+    sync.broadcast({ ...payload, contentText: 'B' })
+    expect(setItem).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(75)
+    expect(setItem).toHaveBeenCalledOnce()
+    sync.close()
+    vi.useRealTimers()
   })
 })

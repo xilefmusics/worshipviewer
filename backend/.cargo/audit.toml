@@ -1,0 +1,8 @@
+# cargo-audit config for backend (see CONTRIBUTING.md).
+# Transitive advisories with no upstream fix are ignored here; re-check on dependency upgrades.
+
+[advisories]
+ignore = [
+    # rsa via openidconnect + surrealdb/jsonwebtoken — no patched release (RUSTSEC-2023-0071)
+    "RUSTSEC-2023-0071",
+]

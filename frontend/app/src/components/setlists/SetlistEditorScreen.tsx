@@ -812,7 +812,7 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
           )}
           {dup > 1 ? (
             <p className="col-span-2 mt-0.5 text-[0.65rem] uppercase text-[var(--color-muted-foreground)]">
-              {t('setlists.editor.duplicateBadge', { count: dup })}
+              {t('common.duplicateBadge', { container: t('common.containerSetlist'), count: dup })}
             </p>
           ) : null}
         </div>

@@ -45,7 +45,13 @@
     "signOut": "Sign out"
   },
   "common": {
-    "load": "Loading…"
+    "load": "Loading…",
+    "containerSetlist": "setlist",
+    "containerCollection": "collection",
+    "entitySetlist": "setlist",
+    "entityCollection": "collection",
+    "duplicateFailed": "Could not duplicate this {{entity}}.",
+    "duplicateBadge": "Already in {{container}} ×{{count}}"
   },
   "pwa": {
     "updateMessage": "New version available — Reload",
@@ -135,7 +141,6 @@
       "addToSetlist": "Add to setlist",
       "duplicate": "Duplicate",
       "duplicateSuccess": "Created “{{title}}”.",
-      "duplicateFailed": "Could not duplicate this item.",
       "delete": "Delete",
       "deleteOfflineHint": "Unavailable offline — connect to delete items.",
       "export": "Export",
@@ -519,9 +524,6 @@
     }
   },
   "setlists": {
-    "hub": {
-      "duplicateFailed": "Could not duplicate this setlist."
-    },
     "create": {
       "dialogTitle": "New setlist",
       "dialogDescription": "Give your setlist a title. You’ll add songs in the editor.",
@@ -555,7 +557,6 @@
       "addSongTitle": "Add a song",
       "pickerSearchPlaceholder": "Search songs…",
       "pickerSearchAria": "Search songs to add",
-      "duplicateBadge": "Already in setlist ×{{count}}",
       "waitForSave": "Wait for save to finish",
       "pickerExcluded": "This item can’t be added to setlists.",
       "removedSlot": "Slot removed.",
@@ -592,8 +593,7 @@
       "failed": "Could not create collection."
     },
     "hub": {
-      "duplicateTitleSuffix": "(copy)",
-      "duplicateFailed": "Could not duplicate this collection."
+      "duplicateTitleSuffix": "(copy)"
     },
     "editor": {
       "backToList": "Back to collections",
@@ -618,7 +618,6 @@
       "addSongTitle": "Add a song",
       "pickerSearchPlaceholder": "Search songs…",
       "pickerSearchAria": "Search songs to add",
-      "duplicateBadge": "Already in collection ×{{count}}",
       "pickerExcluded": "This item can’t be added to collections.",
       "dragHandleAria": "Drag to reorder",
       "moveAria": "Move to another collection",

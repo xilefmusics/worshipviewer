@@ -13,6 +13,20 @@ Its main job is to manage and display digital sheet music; planned work and idea
 - [Contribute](#contribute)
 - [License](#license)
 
+## Repository layout
+
+Rust crates are **standalone** (there is no root `Cargo.toml`):
+
+| Crate | Path | Role |
+|-------|------|------|
+| Backend API | [`backend/`](backend/) | Actix HTTP server, SurrealDB, static SPA |
+| CLI | [`cli/`](cli/) | `worshipviewer` terminal client |
+| Shared DTOs | [`shared/`](shared/) | Types used by backend, CLI, and WASM |
+| Frontend | [`frontend/`](frontend/) | pnpm monorepo; Vite SPA in `frontend/app/` |
+| Chordlib WASM | [`frontend/crates/chordlib-wasm/`](frontend/crates/chordlib-wasm/) | WASM wrapper around the external **chordlib** crate |
+
+Toolchain: **Rust 1.96.0** ([`rust-toolchain.toml`](rust-toolchain.toml)), **Node 20**, **pnpm 10.33.0**.
+
 ## Main Principles
 
 1. **Single source of truth**: You have one source (your song definition) to render sheets, display slides, sample click and cue tracks, and more. Each member of your worship team sees the same song entities; once the song exists, everyone gets the same material in the format they need.
@@ -67,7 +81,7 @@ rustup update stable
 # Linux / Windows: https://rustup.rs/
 ```
 
-The Docker image is built with **Rust 1.94.1**, **Node.js 20**, **pnpm 10.33.0**, and **wasm-pack** (see the root [`Dockerfile`](Dockerfile)).
+The Docker image is built with **Rust 1.96.0**, **Node.js 20**, **pnpm 10.33.0**, and **wasm-pack** (see the root [`Dockerfile`](Dockerfile)).
 
 ### Start the frontend against the local dev backend (recommended)
 
@@ -158,7 +172,9 @@ Some unit tests import **chordlib WASM**; run `pnpm -C frontend build:wasm` if y
 
 #### End-to-end tests (Playwright)
 
-E2E serves the **built** app (`frontend/app/dist/`), not the Vite dev server. Build first, then run Playwright (it auto-starts `vite preview` on `http://127.0.0.1:4173`):
+E2E serves the **built** app (`frontend/app/dist/`). By default Playwright starts **`vite preview`** on port **4173** for specs that stub the API in-browser. Specs that need a real backend use port **8788** via [`frontend/app/e2e/serve-backend.mjs`](frontend/app/e2e/serve-backend.mjs) (see individual test files).
+
+Build first, then run Playwright:
 
 ```bash
 pnpm -C frontend build
@@ -178,7 +194,7 @@ pnpm -C frontend --filter app test:e2e:ui           # interactive Playwright UI
 pnpm -C frontend --filter app exec playwright show-report   # open last HTML report
 ```
 
-The hello-world e2e specs **stub `GET /api/v1/users/me` in the browser** (401 = logged out), so no backend is required for those tests. If you already have a preview server on port 4173, Playwright reuses it locally (not in CI).
+The hello-world e2e specs **stub `GET /api/v1/users/me` in the browser** (401 = logged out), so no backend is required for those tests. Backend-backed specs expect a server on **`http://127.0.0.1:8788`** unless configured otherwise. If you already have a preview server on port 4173, Playwright reuses it locally (not in CI).
 
 ### Persist data across backend restarts
 
@@ -318,7 +334,7 @@ worshipviewer songs list --output json
 
 This app is from worshippers for worshippers. Contributions are welcome — coding can be worship too.
 
-Use `cargo fmt` and `cargo clippy` on the crates you touch; open issues and pull requests on [GitHub](https://github.com/xilefmusics/worshipviewer).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for PR checklists, OpenAPI regeneration, migration rules, and CI overview. Use `cargo fmt` and `cargo clippy` on the crates you touch; open issues and pull requests on [GitHub](https://github.com/xilefmusics/worshipviewer).
 
 ## License
 

@@ -166,35 +166,43 @@ export function EntityListView({ entity }: EntityListViewProps) {
     // Non-passive touchmove on the scrollport breaks wheel / trackpad scrolling in desktop Chromium.
     if (typeof navigator !== 'undefined' && navigator.maxTouchPoints === 0) return
 
+    let touchMoveListener: ((e: TouchEvent) => void) | null = null
+
     const onTouchStart = (e: TouchEvent) => {
       if (el.scrollTop > 0) return
       if (el.scrollHeight <= el.clientHeight) return
       pullStartRef.current = e.touches[0].clientY
-    }
 
-    const onTouchMove = (e: TouchEvent) => {
-      if (pullStartRef.current == null) return
-      if (el.scrollHeight <= el.clientHeight) {
-        pullStartRef.current = null
-        pullDyRef.current = 0
-        setPullVisual(0)
-        return
+      if (touchMoveListener) return
+      touchMoveListener = (moveEvent: TouchEvent) => {
+        if (pullStartRef.current == null) return
+        if (el.scrollHeight <= el.clientHeight) {
+          pullStartRef.current = null
+          pullDyRef.current = 0
+          setPullVisual(0)
+          return
+        }
+        if (el.scrollTop > 0) {
+          pullStartRef.current = null
+          pullDyRef.current = 0
+          setPullVisual(0)
+          return
+        }
+        const dy = moveEvent.touches[0].clientY - pullStartRef.current
+        if (dy > 0) {
+          moveEvent.preventDefault()
+          pullDyRef.current = Math.min(dy, 72)
+          setPullVisual(pullDyRef.current)
+        }
       }
-      if (el.scrollTop > 0) {
-        pullStartRef.current = null
-        pullDyRef.current = 0
-        setPullVisual(0)
-        return
-      }
-      const dy = e.touches[0].clientY - pullStartRef.current
-      if (dy > 0) {
-        e.preventDefault()
-        pullDyRef.current = Math.min(dy, 72)
-        setPullVisual(pullDyRef.current)
-      }
+      el.addEventListener('touchmove', touchMoveListener, { passive: false })
     }
 
     const onTouchEnd = () => {
+      if (touchMoveListener) {
+        el.removeEventListener('touchmove', touchMoveListener)
+        touchMoveListener = null
+      }
       if (pullStartRef.current == null) return
       pullStartRef.current = null
       const d = pullDyRef.current
@@ -206,13 +214,16 @@ export function EntityListView({ entity }: EntityListViewProps) {
     }
 
     el.addEventListener('touchstart', onTouchStart, { passive: true })
-    el.addEventListener('touchmove', onTouchMove, { passive: false })
     el.addEventListener('touchend', onTouchEnd)
+    el.addEventListener('touchcancel', onTouchEnd)
 
     return () => {
+      if (touchMoveListener) {
+        el.removeEventListener('touchmove', touchMoveListener)
+      }
       el.removeEventListener('touchstart', onTouchStart)
-      el.removeEventListener('touchmove', onTouchMove)
       el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('touchcancel', onTouchEnd)
     }
   }, [runPullRefresh, scrollRef])
 
@@ -585,11 +596,10 @@ function HubItemContextMenu({
     } catch (e) {
       toast.dismiss(toastId)
       const detail = e instanceof Error ? e.message : String(e)
-      const failedKey =
-        entity === 'collections'
-          ? 'collections.hub.duplicateFailed'
-          : 'setlists.hub.duplicateFailed'
-      toast.error(t(failedKey), { description: detail })
+      const failedKey = 'common.duplicateFailed'
+      toast.error(t(failedKey, {
+        entity: t(entity === 'collections' ? 'common.entityCollection' : 'common.entitySetlist'),
+      }), { description: detail })
       console.error(`${entity} duplicate failed`, e)
     }
   }, [entity, itemId, navigate, queryClient, t, titleSuffix])

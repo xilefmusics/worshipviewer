@@ -7,6 +7,7 @@ export type SetlistPaletteBridge = {
   flushBeforeInsert: () => Promise<boolean>
   insertSongLink: (link: EditorSongLink) => void
   duplicateBadgeKey?: string
+  duplicateContainerKey?: string
   cmdkInsertHeadingKey?: string
   pickerExcludedKey?: string
 }

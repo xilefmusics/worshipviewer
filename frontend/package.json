@@ -1,6 +1,10 @@
 {
   "name": "worshipviewer-frontend",
   "private": true,
+  "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "dev": "pnpm --filter app dev",
     "build:wasm": "wasm-pack build crates/chordlib-wasm --target web --out-dir ../../packages/chordlib-wasm/pkg --release",
@@ -14,5 +18,10 @@
   "devDependencies": {
     "prettier": "^3.8.3"
   },
-  "packageManager": "pnpm@10.33.0"
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "overrides": {
+      "serialize-javascript": ">=7.0.5"
+    }
+  }
 }

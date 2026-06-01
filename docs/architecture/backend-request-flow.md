@@ -81,7 +81,7 @@ Use these names on new spans and structured log lines so aggregators and grep st
 │     │  │          │  │               │  │           │  │  │ │               │
 └─────┼──┼──────────┼──┼───────────────┼──┼───────────┼──┼──┼─┼───────────────┘
       │  │          │  │               │  │           │  │  │ │
-      │  │          │  │               │  │           │  │  │ └─► UserRepository / UserCollectionUpdater
+      │  │          │  │               │  │           │  │  │ └─► UserRepository (user admin paths)
       │  │          │  │               │  │           │  │  └──► CollectionRepository
       │  │          │  │               │  │           │  └──────► LikedSongIds
       │  │          │  │               │  └───────────┼────────► SetlistRepository / …
@@ -294,8 +294,7 @@ rather than JSON.
 | `service.rs` | `SongService<R, L, C, U>` |
 | `rest.rs` | `/songs` scope |
 
-Most interconnected service: creating a song auto-adds it to the user's
-default collection via `CollectionRepository` and `UserCollectionUpdater`.
+Most interconnected service: **`POST /songs` requires `collection`** in the body; the service creates the song on the collection's owner team and appends it to that collection's `songs` list. There is **no** server-side default collection — clients must choose a collection explicitly (BLC-SONG-009/010).
 
 ### `collection/` — Groupings of songs
 
@@ -307,8 +306,7 @@ default collection via `CollectionRepository` and `UserCollectionUpdater`.
 | `service.rs` | `CollectionService<R, L>` |
 | `rest.rs` | `/collections` scope |
 
-`CollectionRepository` is also a dependency of `SongService` for the
-default-collection auto-add. Uses `LikedSongIds`.
+`CollectionRepository` is a dependency of `SongService` for placement after create. Uses `LikedSongIds`.
 
 ### `setlist/` — Ordered song lists for worship sessions
 
@@ -381,7 +379,7 @@ RequireUser / `load_authorization_context`
    │ BlobStorage │        │        │CollectionRepo│  │SetlistRepo│
    └─────────────┘        │        └──────────────┘  └───────────┘
                           │               ▲
-                          │               │ (auto-add song to default collection)
+                          │               │ (append song to requested collection)
                           ├───────────────┘
                           │
                           ▼
@@ -416,7 +414,7 @@ RequireUser / `load_authorization_context`
 | **Service** | `BlobService<R,S>` | `SongService<R,L,C,U>` | `CollectionService<R,L>` | `SetlistService<R,L>` | `TeamService<R>` | `UserService<R,T>` | `SessionService<S,U>` |
 | **Team-scoped** | yes | yes | yes | yes | own ACL | no | no |
 | **Extra files** | `storage.rs` | `liked.rs` | — | — | `invitation_model.rs`, `invitation_repository.rs`, `invitation_surreal_repo.rs` | — | — |
-| **Extra dependencies** | `BlobStorage` | `LikedSongIds`, `CollectionRepo`, `UserCollectionUpdater` | `LikedSongIds` | `LikedSongIds` | — | `TeamRepository` | `UserRepository` |
+| **Extra dependencies** | `BlobStorage` | `LikedSongIds`, `CollectionRepo` | `LikedSongIds` | `LikedSongIds` | — | `TeamRepository` | `UserRepository` |
 
 ---
 

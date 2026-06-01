@@ -1327,9 +1327,9 @@ export interface components {
         });
         /**
          * Problem
-         * @description [RFC 7807](https://www.rfc-editor.org/rfc/rfc7807) problem document (`application/problem+json`).
+         * @description [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem document (`application/problem+json`).
          *
-         *     Canonical error body for HTTP 4xx/5xx responses. Extension members include `code`.
+         *     Canonical error body for HTTP 4xx/5xx responses (Problem Details; obsoletes RFC 7807). Extension members include `code`.
          */
         Problem: {
             /** @description Stable machine-readable code (extension member). */

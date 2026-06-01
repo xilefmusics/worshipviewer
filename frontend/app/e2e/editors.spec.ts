@@ -59,12 +59,12 @@ test('G2: editor offline / save-failure recovery', async ({ page, seed, context 
   await page.getByRole('tab', { name: 'Meta' }).click()
   await page.getByLabel(/title/i).first().fill(`${token}-fail`)
   await page.getByLabel(/title/i).first().blur()
-  await page.waitForTimeout(4000)
-  await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible({ timeout: 10_000 })
   await page.getByRole('button', { name: 'Discard' }).click()
 
   // Offline then online resume banner
   await setOffline(context, true)
+  await expect(page.getByText(/offline.*paused|editing is paused/i)).toBeVisible()
   await setOffline(context, false)
-  await expect(page.getByText(/resume syncing|back online/i)).toBeVisible({ timeout: 15_000 }).catch(() => {})
+  await expect(page.getByText(/resume syncing|back online/i)).toBeVisible({ timeout: 15_000 })
 })

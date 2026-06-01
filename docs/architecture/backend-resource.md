@@ -284,3 +284,16 @@ Helper functions and DB record types reused across multiple resources.
 9. **`backend/src/resources/rest.rs`** — Mount `.service(<name>::rest::scope())`.
 10. **`backend/src/main.rs`** — Build service handle, register as `app_data`.
 11. **Database migration** — Add SurrealQL `DEFINE TABLE` / `DEFINE FIELD` statements.
+
+---
+
+## Non-resource HTTP surfaces
+
+| Surface | Module | Auth | Purpose |
+|---------|--------|------|---------|
+| `GET /api/v1/about` | [`about.rs`](../../backend/src/about.rs) | Public | Build version, optional `git_commit`, production flag |
+| `GET /api/v1/monitoring/*` | [`monitoring/`](../../backend/src/resources/monitoring/) | Platform admin | HTTP audit log export and aggregated metrics |
+| `GET /api/docs/*` | [`docs.rs`](../../backend/src/docs.rs) | Public | Swagger UI + OpenAPI JSON |
+| `/auth/*` | [`auth/`](../../backend/src/auth/) | Mixed | OTP, OIDC, logout |
+
+See [monitoring.md](../business-logic-constraints/monitoring.md) for BLC-MON-* rules and [logging-review.md](../logging-review.md) for log field conventions.

@@ -5,7 +5,7 @@ import { execSync } from 'child_process'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const appRoot = join(__dirname, '..')
-const repoRoot = join(__dirname, '../..')
+const repoRoot = join(__dirname, '../../..')
 const canonical = join(repoRoot, 'docs/openapi.json')
 const apiDir = join(appRoot, 'src/api')
 const snapshot = join(apiDir, 'openapi.json')
