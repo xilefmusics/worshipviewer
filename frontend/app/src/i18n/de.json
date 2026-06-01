@@ -136,6 +136,7 @@
       "exportWorshipPro": "Worship Pro",
       "exportPdf": "PDF (Drucken)",
       "exportPdfHint": "Öffnet den Druckdialog — „Als PDF sichern“ wählen.",
+      "exportPdfHintSafariHeaders": "In Safari: Kopf- und Fußzeilen im Druckdialog deaktivieren für beste Ergebnisse.",
       "exportPreparing": "Export wird vorbereitet…",
       "exportFailed": "Song konnte nicht exportiert werden.",
       "exportSetlistFailed": "Setliste konnte nicht exportiert werden.",
@@ -700,6 +701,7 @@
       "exportWorshipPro": "Als Worship Pro exportieren",
       "exportPdf": "Drucken / Als PDF",
       "exportPdfHint": "Öffnet den Druckdialog — „Als PDF sichern“ wählen.",
+      "exportPdfHintSafariHeaders": "In Safari: Kopf- und Fußzeilen im Druckdialog deaktivieren für beste Ergebnisse.",
       "exportFailed": "Song konnte nicht exportiert werden."
     },
     "import": {

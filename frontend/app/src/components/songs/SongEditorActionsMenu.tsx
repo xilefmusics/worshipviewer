@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { ChordFormatPreference } from '@/lib/chord-format'
+import { exportPdfHintTitle } from '@/lib/export-pdf-hint'
 import { runSongExport, type SongExportKind } from '@/lib/run-song-export'
 import {
   formatImportedSource,
@@ -106,13 +107,13 @@ export function SongEditorActionsMenu({
       if (!exportData) return
       onExportError?.(null)
       try {
-        await runSongExport(exportData, kind, chordFormat)
+        await runSongExport(exportData, kind, chordFormat, engine ?? undefined)
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e)
         onExportError?.(message || t('songs.editor.exportFailed'))
       }
     },
-    [chordFormat, exportData, onExportError, t],
+    [chordFormat, engine, exportData, onExportError, t],
   )
 
   return (
@@ -166,7 +167,10 @@ export function SongEditorActionsMenu({
             {t('songs.editor.exportWorshipPro')}
           </DropdownMenuItem>
           <DropdownMenuItem
-            title={t('songs.editor.exportPdfHint')}
+            title={exportPdfHintTitle(
+              t('songs.editor.exportPdfHint'),
+              t('songs.editor.exportPdfHintSafariHeaders'),
+            )}
             onSelect={() => void onExport('pdf')}
           >
             {t('songs.editor.exportPdf')}

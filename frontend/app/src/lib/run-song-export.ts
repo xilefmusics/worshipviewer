@@ -5,7 +5,7 @@ import {
   exportSongText,
   type TextExportFormat,
 } from '@/lib/song-import-export'
-import type { ChordSongData } from '@/ports/chord-engine'
+import type { ChordEngine, ChordSongData } from '@/ports/chord-engine'
 
 export type SongExportKind = TextExportFormat | 'pdf'
 
@@ -13,11 +13,12 @@ export async function runSongExport(
   data: ChordSongData,
   kind: SongExportKind,
   chordFormat: ChordFormatPreference,
+  engine?: ChordEngine,
 ): Promise<void> {
-  const engine = await getChordEngine()
+  const resolved = engine ?? (await getChordEngine())
   if (kind === 'pdf') {
-    await exportSongPdf(engine, data, chordFormat)
+    await exportSongPdf(resolved, data, chordFormat)
     return
   }
-  exportSongText(engine, data, kind, chordFormat)
+  exportSongText(resolved, data, kind, chordFormat)
 }

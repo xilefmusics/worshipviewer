@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  buildPdfPrintCss,
   createSongBodyFromParsed,
   importSongsBatch,
   orderedSongZipEntryNames,
@@ -21,6 +22,17 @@ function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
     ...overrides,
   }
 }
+
+describe('buildPdfPrintCss', () => {
+  it('includes print pagination overrides for chordlib page layout', () => {
+    const css = buildPdfPrintCss()
+    expect(css).toContain('@media print')
+    expect(css).toContain('.pdf-export-root .page')
+    expect(css).toContain('height: auto')
+    expect(css).toContain('overflow: visible')
+    expect(css).toContain('.pdf-export-root .columns')
+  })
+})
 
 describe('sanitizeDownloadBasename', () => {
   it('strips unsafe characters', () => {

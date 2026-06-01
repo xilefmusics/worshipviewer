@@ -136,6 +136,7 @@
       "exportWorshipPro": "Worship Pro",
       "exportPdf": "PDF (print)",
       "exportPdfHint": "Opens the print dialog — choose Save as PDF.",
+      "exportPdfHintSafariHeaders": "On Safari, turn off Headers and Footers in print options for best results.",
       "exportPreparing": "Preparing export…",
       "exportFailed": "Could not export this song.",
       "exportSetlistFailed": "Could not export this setlist.",
@@ -700,6 +701,7 @@
       "exportWorshipPro": "Export as Worship Pro",
       "exportPdf": "Print / Save as PDF",
       "exportPdfHint": "Opens the print dialog — choose Save as PDF.",
+      "exportPdfHintSafariHeaders": "On Safari, turn off Headers and Footers in print options for best results.",
       "exportFailed": "Could not export this song."
     },
     "import": {

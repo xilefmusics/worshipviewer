@@ -49,6 +49,7 @@ import { useLongPress } from '@/hooks/useLongPress'
 import { useOnline } from '@/hooks/use-online'
 import { useSession } from '@/hooks/useSession'
 import { useTeamDetail } from '@/hooks/useTeamDetail'
+import { exportPdfHintTitle } from '@/lib/export-pdf-hint'
 import { runCollectionExport } from '@/lib/run-collection-export'
 import { runSetlistExport } from '@/lib/run-setlist-export'
 import { runSongExport, type SongExportKind } from '@/lib/run-song-export'
@@ -521,6 +522,14 @@ function HubItemContextMenu({
   const showOrderedExport = entity === 'setlists' || entity === 'collections'
   const showDuplicate = showOrderedExport
   const titleSuffix = t('collections.hub.duplicateTitleSuffix')
+  const hubExportPdfHint = useMemo(
+    () =>
+      exportPdfHintTitle(
+        t('hub.actions.exportPdfHint'),
+        t('hub.actions.exportPdfHintSafariHeaders'),
+      ),
+    [t],
+  )
 
   const onDuplicate = useCallback(async () => {
     const toastId = toast.loading(t('hub.actions.duplicate'))
@@ -723,7 +732,7 @@ function HubItemContextMenu({
               </ContextMenuItem>
               <ContextMenuItem
                 className="gap-2"
-                title={t('hub.actions.exportPdfHint')}
+                title={hubExportPdfHint}
                 onSelect={() => void onSongExport('pdf')}
               >
                 {t('hub.actions.export')} — {t('hub.actions.exportPdf')}
@@ -747,7 +756,7 @@ function HubItemContextMenu({
               </ContextMenuItem>
               <ContextMenuItem
                 className="gap-2"
-                title={t('hub.actions.exportPdfHint')}
+                title={hubExportPdfHint}
                 onSelect={() => void onOrderedExport('pdf')}
               >
                 {t('hub.actions.export')} — {t('hub.actions.exportPdf')}
