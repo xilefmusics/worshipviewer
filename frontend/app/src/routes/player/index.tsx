@@ -2,23 +2,26 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { PlayerRouteInner } from '@/components/player/PlayerRoute'
-import { parsePlayerMode, resolvePlayerMode } from '@/lib/player/player-mode'
+import { resolvePlayerMode } from '@/lib/player/player-mode'
 import { readPlayerDefaultMode } from '@/lib/player/player-mode-preference'
-import { parseOptionalPlayerIndex } from '@/lib/player/player-editor-return'
-import type { PlayerEntityType } from '@/lib/player-route'
-
-function parsePlayerType(raw: unknown): PlayerEntityType | undefined {
-  if (raw === 'song' || raw === 'setlist' || raw === 'collection') return raw
-  return undefined
-}
+import { parsePlayerRouteSearch } from '@/lib/player-route'
+import {
+  serializeTocLangSearch,
+  serializeTocTagsSearch,
+} from '@/lib/player/player-toc-search'
 
 export const Route = createFileRoute('/player/')({
   validateSearch: (search: Record<string, unknown>) => {
-    const id = typeof search.id === 'string' ? search.id : ''
-    const type = parsePlayerType(search.type)
-    const index = parseOptionalPlayerIndex(search.index)
-    const mode = parsePlayerMode(search.mode)
-    return { type, id, index, mode }
+    const parsed = parsePlayerRouteSearch(search)
+    return {
+      type: parsed.type,
+      id: parsed.id,
+      index: parsed.index,
+      mode: parsed.mode,
+      toc: parsed.toc,
+      tocLang: serializeTocLangSearch(parsed.tocLang),
+      tocTags: serializeTocTagsSearch(parsed.tocTags),
+    }
   },
   component: PlayerPageComponent,
 })

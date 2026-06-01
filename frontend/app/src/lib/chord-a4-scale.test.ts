@@ -12,6 +12,8 @@ import {
   cssScaleToViewportWidth,
   cappedColumnFontScale,
   fontScaleForColumnWidth,
+  fontScaleForMultiColumnPlayer,
+  MULTI_COLUMN_PLAYER_FONT_SCALE_FACTOR,
   scaledColumnTypography,
   viewportScaleForA4,
 } from '@/lib/chord-a4-scale'
@@ -109,5 +111,15 @@ describe('column typography scaling', () => {
         A4_REFERENCE_WIDTH_PX,
       ),
     ).toBe(a4Cap)
+  })
+
+  it('applies player multi-column font reduction', () => {
+    expect(fontScaleForMultiColumnPlayer(A4_REFERENCE_COLUMN_WIDTH_PX)).toBe(
+      MULTI_COLUMN_PLAYER_FONT_SCALE_FACTOR,
+    )
+    expect(scaledColumnTypography(MULTI_COLUMN_PLAYER_FONT_SCALE_FACTOR)).toEqual({
+      fontSizePx: A4_COLUMN_FONT_SIZE_PX * MULTI_COLUMN_PLAYER_FONT_SCALE_FACTOR,
+      lineHeightPx: A4_COLUMN_LINE_HEIGHT_PX * MULTI_COLUMN_PLAYER_FONT_SCALE_FACTOR,
+    })
   })
 })

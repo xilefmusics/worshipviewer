@@ -24,6 +24,7 @@ import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerScrollPreference } from '@/hooks/usePlayerScrollPreference'
 import { useOnline } from '@/hooks/use-online'
+import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
 import { getChordEngine } from '@/lib/chord-engine'
 import { chordFormatToRepresentation, writeChordFormatPreference } from '@/lib/chord-format'
@@ -62,11 +63,18 @@ import {
   writePlayerViewState,
   type PlayerViewState,
 } from '@/lib/player/player-view-state'
+import {
+  PLAYER_HEADER_ICON_SIZE,
+  playerHeaderIconButtonClass,
+  playerHeaderIconClass,
+} from '@/lib/player/player-chrome'
+import type { PlayerMode } from '@/lib/player/player-mode'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { buildSettingsSearch } from '@/lib/settings-route'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
 import { resolveSongDataKey } from '@/lib/setlist-song-links'
+import { cn } from '@/lib/utils'
 
 type Player = components['schemas']['Player']
 type PlayerItem = Player['items'][number]
@@ -141,6 +149,7 @@ type PlayerBookProps = {
   id: string
   player: Player
   initialIndex?: number
+  mode?: PlayerMode
   allowNetworkFetch: boolean
   resourceTitle?: string
   deletedReconciled?: boolean
@@ -151,6 +160,7 @@ export function PlayerBook({
   id,
   player,
   initialIndex,
+  mode = 'normal',
   allowNetworkFetch,
   resourceTitle,
   deletedReconciled,
@@ -252,6 +262,8 @@ export function PlayerBook({
   )
 
   const navBlocked = evicted
+
+  usePlayerIndexSearchSync(type, id, nav.index, mode)
 
   const triggerLikeBurst = useCallback(() => {
     setLikeBurstKey((key) => key + 1)
@@ -380,7 +392,7 @@ export function PlayerBook({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      const action = playerKeyboardAction(e.key, e.target, { popoverOpen })
+      const action = playerKeyboardAction(e.key, e.target, { popoverOpen, chromeVisible })
       if (!action) return
 
       if (action === 'prev') {
@@ -487,6 +499,7 @@ export function PlayerBook({
     navBlocked,
     navigate,
     popoverOpen,
+    chromeVisible,
     scrollPreferences,
     sheetOrientation,
     toggleCurrentSongLike,
@@ -563,6 +576,18 @@ export function PlayerBook({
       lastViewportTapTimeRef.current = now
 
       const zone = viewportPointerZone(clientX, rect)
+
+      if (chromeVisible) {
+        setPopoverOpen(false)
+        if (zone !== 'middle') {
+          setChromeVisible(false)
+          return true
+        }
+        setChromeVisible(false)
+        if (doubleTap) toggleCurrentSongLike()
+        return true
+      }
+
       if (zone === 'left') {
         if (!navBlocked) dispatch({ type: 'prev' })
         return true
@@ -572,11 +597,11 @@ export function PlayerBook({
         return true
       }
       setPopoverOpen(false)
-      setChromeVisible((visible) => !visible)
+      setChromeVisible(true)
       if (doubleTap) toggleCurrentSongLike()
       return true
     },
-    [dispatch, navBlocked, toggleCurrentSongLike],
+    [chromeVisible, dispatch, navBlocked, toggleCurrentSongLike],
   )
 
   function onTouchEnd(e: React.TouchEvent) {
@@ -590,7 +615,7 @@ export function PlayerBook({
     const isSwipe = Math.abs(dx) >= 48 && Math.abs(dx) >= Math.abs(dy) * 1.2
 
     if (isSwipe) {
-      if (navBlocked) return
+      if (navBlocked || chromeVisible) return
       if (dx > 0) dispatch({ type: 'prev' })
       else dispatch({ type: 'next' })
       return
@@ -647,9 +672,15 @@ export function PlayerBook({
               exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
               transition={chromeTransition}
             >
-              <Button type="button" variant="outline" size="icon" asChild className="shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                asChild
+                className={playerHeaderIconButtonClass}
+              >
                 <Link to={backTo} aria-label={t(backAriaKeyForPlayerType(type))}>
-                  <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
+                  <ChevronLeftIcon className={playerHeaderIconClass} size={PLAYER_HEADER_ICON_SIZE} />
                 </Link>
               </Button>
 
@@ -661,55 +692,21 @@ export function PlayerBook({
               </div>
 
               <div className="flex shrink-0 items-center gap-1">
-                {type === 'setlist' ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0"
-                    aria-label={t('player.editSetlist')}
-                    onClick={navigateToResourceEditor}
-                  >
-                    <ListMusicIcon size={18} className="text-[var(--color-foreground)]" />
-                  </Button>
-                ) : null}
-                {type === 'collection' ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0"
-                    aria-label={t('player.editCollection')}
-                    onClick={navigateToResourceEditor}
-                  >
-                    <LayersIcon size={18} className="text-[var(--color-foreground)]" />
-                  </Button>
-                ) : null}
-                {currentItem.type === 'chords' ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0"
-                    aria-label={t('player.editSong')}
-                    onClick={navigateToSongEditor}
-                  >
-                    <PencilIcon size={18} className="text-[var(--color-foreground)]" />
-                  </Button>
-                ) : null}
                 {showChordsControls && currentItem.type === 'chords' ? (
                   <PopoverRoot open={popoverOpen} onOpenChange={setPopoverOpen}>
                     <PopoverTrigger asChild>
                       <Button
                         type="button"
                         variant="outline"
-                        size="sm"
-                        className="h-8 px-2 text-xs"
+                        size="icon"
+                        className={playerHeaderIconButtonClass}
                         aria-label={t('player.transpose.current', {
                           key: displayKey ?? t('player.transpose.default'),
                         })}
                       >
-                        {displayKey ?? t('player.transpose.default')}
+                        <span className={cn(playerHeaderIconClass, 'text-sm font-semibold leading-none')}>
+                          {displayKey ?? '♮'}
+                        </span>
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent align="end" className="w-56 p-2">
@@ -744,7 +741,49 @@ export function PlayerBook({
                     </PopoverContent>
                   </PopoverRoot>
                 ) : null}
-                <Button type="button" variant="outline" size="icon" asChild className="shrink-0">
+                {currentItem.type === 'chords' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className={playerHeaderIconButtonClass}
+                    aria-label={t('player.editSong')}
+                    onClick={navigateToSongEditor}
+                  >
+                    <PencilIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
+                  </Button>
+                ) : null}
+                {type === 'setlist' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className={playerHeaderIconButtonClass}
+                    aria-label={t('player.editSetlist')}
+                    onClick={navigateToResourceEditor}
+                  >
+                    <ListMusicIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
+                  </Button>
+                ) : null}
+                {type === 'collection' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className={playerHeaderIconButtonClass}
+                    aria-label={t('player.editCollection')}
+                    onClick={navigateToResourceEditor}
+                  >
+                    <LayersIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  asChild
+                  className={playerHeaderIconButtonClass}
+                >
                   <Link
                     to="/settings"
                     search={buildSettingsSearch('player', {
@@ -754,7 +793,7 @@ export function PlayerBook({
                     })}
                     aria-label={t('player.openSettings')}
                   >
-                    <SettingsIcon size={18} className="text-[var(--color-foreground)]" />
+                    <SettingsIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
                   </Link>
                 </Button>
               </div>

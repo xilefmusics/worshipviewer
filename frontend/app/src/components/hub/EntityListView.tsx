@@ -440,7 +440,11 @@ function useHubListItemPlayerTap(entity: HubEntity, itemId: string) {
     (mode?: 'normal' | 'av') => {
       void navigate({
         to: '/player',
-        search: buildPlayerSearch(playType, itemId, undefined, mode ?? readPlayerDefaultMode()),
+        search: buildPlayerSearch({
+          type: playType,
+          id: itemId,
+          mode: mode ?? readPlayerDefaultMode(),
+        }),
       })
     },
     [navigate, playType, itemId],
@@ -640,7 +644,7 @@ function HubItemContextMenu({
             onSelect={() => {
               void navigate({
                 to: '/player',
-                search: buildPlayerSearch(playType, itemId, undefined, 'normal'),
+                search: buildPlayerSearch({ type: playType, id: itemId, mode: 'normal' }),
               })
             }}
             onMouseEnter={() => setPlayHot(true)}
@@ -656,7 +660,7 @@ function HubItemContextMenu({
             onSelect={() => {
               void navigate({
                 to: '/player',
-                search: buildPlayerSearch(playType, itemId, undefined, 'av'),
+                search: buildPlayerSearch({ type: playType, id: itemId, mode: 'av' }),
               })
             }}
           >

@@ -1,4 +1,5 @@
 import type { PlayerEntityType } from '@/lib/player-route'
+import { buildPlayerSearch } from '@/lib/player-route'
 import type { PlayerMode } from '@/lib/player/player-mode'
 import { parsePlayerMode } from '@/lib/player/player-mode'
 
@@ -70,18 +71,11 @@ export function emptyEditorReturnSearch(): {
   }
 }
 
-export function buildPlayerReturnSearch(
-  context: PlayerEditorReturnContext,
-): {
-  type: PlayerEntityType
-  id: string
-  index: number
-  mode: PlayerMode | undefined
-} {
-  return {
+export function buildPlayerReturnSearch(context: PlayerEditorReturnContext) {
+  return buildPlayerSearch({
     type: context.playerType,
     id: context.playerId,
     index: context.playerIndex,
     mode: context.playerMode,
-  }
+  })
 }

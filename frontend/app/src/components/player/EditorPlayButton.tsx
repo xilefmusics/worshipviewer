@@ -47,12 +47,11 @@ export function EditorPlayButton({
           navigate: () => {
             void navigate({
               to: '/player',
-              search: buildPlayerSearch(
-                entityType,
-                entityId,
-                undefined,
-                readPlayerDefaultMode(),
-              ),
+              search: buildPlayerSearch({
+                type: entityType,
+                id: entityId,
+                mode: readPlayerDefaultMode(),
+              }),
             })
           },
         })

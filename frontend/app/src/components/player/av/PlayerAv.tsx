@@ -13,6 +13,7 @@ import { OutputIcon } from '@/components/icons/lucide-animated/output-icon'
 import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
 import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
 import {
   avItemTitle,
@@ -52,6 +53,11 @@ import {
   writeAvSessionState,
   type AvSessionState,
 } from '@/lib/player/av-session-state'
+import {
+  PLAYER_HEADER_ICON_SIZE,
+  playerHeaderIconButtonClass,
+  playerHeaderIconClass,
+} from '@/lib/player/player-chrome'
 import { tocEntryForIndex } from '@/lib/player/player-helpers'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { buildSettingsSearch } from '@/lib/settings-route'
@@ -119,6 +125,13 @@ export function PlayerAv({
     const startSlide = initialIndex != null ? 0 : saved.slideIndex
     return { ...saved, itemIndex: startItem, slideIndex: startSlide }
   })
+  /** What the output window shows — lags behind `session` until the user navigates slides. */
+  const [projected, setProjected] = useState<AvSessionState>(() => {
+    const saved = readAvSessionState(type, id)
+    const startItem = initialIndex ?? saved.itemIndex ?? player.index
+    const startSlide = initialIndex != null ? 0 : saved.slideIndex
+    return { ...saved, itemIndex: startItem, slideIndex: startSlide }
+  })
   const [tocVisible] = useState(true)
 
   const sessionIdRef = useRef(createAvProjectionSessionId())
@@ -132,6 +145,8 @@ export function PlayerAv({
   const evicted = useSetlistEvictionWatch(type === 'setlist' ? id : undefined, type === 'setlist')
   const navBlocked = evicted
   const backTo = hubPathForPlayerType(type)
+
+  usePlayerIndexSearchSync(type, id, session.itemIndex, 'av')
 
   const collapseLyricWhitespace = readLyricCollapseWhitespacePreference()
 
@@ -150,6 +165,28 @@ export function PlayerAv({
       session.itemIndex,
     ],
   )
+
+  const projectedItem = useMemo(
+    () =>
+      avSlidesForPlayerItem(player.items, projected.itemIndex, {
+        maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
+        balanceSlideLines: prefs.contentLayer.balanceSlideLines,
+        collapseLyricWhitespace,
+      }),
+    [
+      player.items,
+      prefs.contentLayer.maxLinesPerSlide,
+      prefs.contentLayer.balanceSlideLines,
+      collapseLyricWhitespace,
+      projected.itemIndex,
+    ],
+  )
+
+  const projectedTocRow = tocEntryForIndex(player.toc, projected.itemIndex)
+  const projectedTitle =
+    resourceTitle ||
+    projectedTocRow?.title ||
+    avItemTitle(player.items, projected.itemIndex, projectedTocRow?.title)
 
   const slideCount = currentItem.slides.length
   const announcement = useMemo(() => {
@@ -179,11 +216,19 @@ export function PlayerAv({
     return currentItem.slides[session.slideIndex] ?? currentItem.slides[0] ?? ''
   }, [currentItem.slides, session.screenState, session.slideIndex])
 
-  const nextText = useMemo(() => {
-    const nextIndex = avNextSlideInItem(slideCount, session.slideIndex)
+  const projectedSlideCount = projectedItem.slides.length
+  const projectedText = useMemo(() => {
+    if (projected.screenState !== 'live') return ''
+    return (
+      projectedItem.slides[projected.slideIndex] ?? projectedItem.slides[0] ?? ''
+    )
+  }, [projected.screenState, projected.slideIndex, projectedItem.slides])
+
+  const projectedNextText = useMemo(() => {
+    const nextIndex = avNextSlideInItem(projectedSlideCount, projected.slideIndex)
     if (nextIndex == null) return null
-    return currentItem.slides[nextIndex] ?? null
-  }, [currentItem.slides, session.slideIndex, slideCount])
+    return projectedItem.slides[nextIndex] ?? null
+  }, [projected.slideIndex, projectedItem.slides, projectedSlideCount])
 
   const playerReturnContext = useMemo(
     () => ({
@@ -224,17 +269,25 @@ export function PlayerAv({
 
   useEffect(() => {
     const payload = buildAvProjectionPayload({
-      contentText: currentText,
+      contentText: projectedText,
       contentLayer: prefs.contentLayer,
       backgroundLayer: prefs.backgroundLayer,
       transition: prefs.transition,
-      screenState: session.screenState,
-      itemTitle: title || t('player.untitled'),
-      nextPreview: nextText,
+      screenState: projected.screenState,
+      itemTitle: projectedTitle || t('player.untitled'),
+      nextPreview: projectedNextText,
       prefersReducedMotion: reduceMotion ?? false,
     })
     syncRef.current?.broadcast(payload)
-  }, [currentText, nextText, prefs, reduceMotion, session.screenState, t, title])
+  }, [
+    projectedText,
+    projectedNextText,
+    projected.screenState,
+    projectedTitle,
+    prefs,
+    reduceMotion,
+    t,
+  ])
 
   const setBackgroundPreset = useCallback((preset: AvBackgroundPreset) => {
     setPrefs((prev) => {
@@ -246,36 +299,42 @@ export function PlayerAv({
 
   const goToSlide = useCallback(
     (slideIndex: number, clearScreenState = true) => {
-      const clamped = Math.max(0, Math.min(slideIndex, Math.max(slideCount - 1, 0)))
-      setSession((state) => ({
-        ...state,
-        slideIndex: clamped,
-        screenState: clearScreenState ? 'live' : state.screenState,
-      }))
+      setSession((state) => {
+        const clamped = Math.max(0, Math.min(slideIndex, Math.max(slideCount - 1, 0)))
+        const next: AvSessionState = {
+          ...state,
+          slideIndex: clamped,
+          screenState: clearScreenState ? 'live' : state.screenState,
+        }
+        setProjected(next)
+        return next
+      })
     },
     [slideCount],
   )
 
   const goToItem = useCallback((itemIndex: number) => {
-    setSession(() => ({
+    setSession((state) => ({
+      ...state,
       itemIndex,
       slideIndex: 0,
-      screenState: 'live',
     }))
   }, [])
 
   const toggleBlank = useCallback(() => {
-    setSession((state) => ({
-      ...state,
-      screenState: toggleBlankScreenState(state.screenState),
-    }))
+    setSession((state) => {
+      const screenState = toggleBlankScreenState(state.screenState)
+      setProjected((projectedState) => ({ ...projectedState, screenState }))
+      return { ...state, screenState }
+    })
   }, [])
 
   const toggleBlackout = useCallback(() => {
-    setSession((state) => ({
-      ...state,
-      screenState: toggleBlackoutScreenState(state.screenState),
-    }))
+    setSession((state) => {
+      const screenState = toggleBlackoutScreenState(state.screenState)
+      setProjected((projectedState) => ({ ...projectedState, screenState }))
+      return { ...state, screenState }
+    })
   }, [])
 
   const goPrev = useCallback(() => {
@@ -421,9 +480,15 @@ export function PlayerAv({
       </p>
 
       <header className="player-av__header flex shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-2 sm:px-3">
-        <Button type="button" variant="outline" size="icon" asChild className="shrink-0">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          asChild
+          className={playerHeaderIconButtonClass}
+        >
           <Link to={backTo} aria-label={t(backAriaKeyForPlayerType(type))}>
-            <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
+            <ChevronLeftIcon className={playerHeaderIconClass} size={PLAYER_HEADER_ICON_SIZE} />
           </Link>
         </Button>
         <div className="min-w-0 flex-1 text-center">
@@ -442,20 +507,26 @@ export function PlayerAv({
             type="button"
             variant="outline"
             size="icon"
-            className="min-h-11 min-w-11 shrink-0"
+            className={playerHeaderIconButtonClass}
             aria-label={t('player.av.openOutput')}
             aria-keyshortcuts={AV_OPEN_OUTPUT_SHORTCUT_KEY}
             onClick={() => openOutputWindow()}
           >
-            <OutputIcon size={18} className="text-[var(--color-foreground)]" />
+            <OutputIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
           </Button>
-          <Button type="button" variant="outline" size="icon" asChild className="min-h-11 min-w-11">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            asChild
+            className={playerHeaderIconButtonClass}
+          >
             <Link
               to="/settings"
               search={buildSettingsSearch('playerRoles', playerReturnContext)}
               aria-label={t('player.av.openSettings')}
             >
-              <SettingsIcon size={18} className="text-[var(--color-foreground)]" />
+              <SettingsIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
             </Link>
           </Button>
         </div>
@@ -499,11 +570,11 @@ export function PlayerAv({
         <aside className="player-av__right w-44 shrink-0 sm:w-56">
           <div className="player-av__preview">
             <AvSlideView
-              contentText={currentText}
+              contentText={projectedText}
               contentLayer={prefs.contentLayer}
               backgroundLayer={prefs.backgroundLayer}
               transition={prefs.transition}
-              screenState={session.screenState}
+              screenState={projected.screenState}
             />
           </div>
 
