@@ -360,8 +360,8 @@ impl From<SongLinkOwned> for Player {
 mod tests {
     use super::*;
     use crate::player::PlayerItem;
-    use chordlib::types::Song as ChordSong;
     use crate::song::{LinkOwned as SongLinkOwned, Song};
+    use chordlib::types::Song as ChordSong;
 
     fn song_with_tempo(tempo: Option<u32>) -> Song {
         let mut data = ChordSong::default();
