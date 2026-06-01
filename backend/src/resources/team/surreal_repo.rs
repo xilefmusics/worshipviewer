@@ -20,8 +20,8 @@ use super::repository::TeamRepository;
 const TEAM_SEARCH_PREDICATE: &str = "(
     name @0@ $q
     OR string::contains(string::lowercase(type::string(id)), $needle)
-    OR (owner != NONE AND string::contains(string::lowercase((SELECT VALUE email FROM ONLY $this.owner)), $needle))
-    OR array::len(members[WHERE string::contains(string::lowercase((SELECT VALUE email FROM ONLY $this.user)), $needle)]) > 0
+    OR (owner != NONE AND string::contains(string::lowercase((SELECT VALUE email FROM ONLY $this.owner) ?? ''), $needle))
+    OR array::len(members[WHERE string::contains(string::lowercase($this.user.email ?? ''), $needle)]) > 0
 )";
 
 #[derive(Clone)]
