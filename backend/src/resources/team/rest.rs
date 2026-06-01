@@ -2,10 +2,12 @@ use crate::auth::AuthorizationContext;
 #[allow(unused_imports)]
 use crate::docs::Problem;
 use crate::error::AppError;
+use crate::resources::blob::service::BlobServiceHandle;
+use crate::settings::CoverUploadLimits;
 use actix_web::http::header;
 use actix_web::{
     HttpRequest, HttpResponse, Scope, delete, get, patch, post, put,
-    web::{self, Data, Json, Path, Query, ReqData},
+    web::{self, Bytes, Data, Json, Path, Query, ReqData},
 };
 use shared::api::{ListQuery, PAGE_SIZE_DEFAULT};
 #[allow(unused_imports)]
@@ -15,14 +17,16 @@ use shared::team::{CreateTeam, PatchTeam, UpdateTeam};
 use super::invitation;
 use super::service::TeamServiceHandle;
 
-pub fn scope() -> Scope {
+pub fn scope(cover_upload_max_bytes: usize) -> Scope {
     web::scope("/teams")
+        .app_data(web::PayloadConfig::new(cover_upload_max_bytes))
         .service(invitation::rest::team_invitations_scope())
         .service(get_teams)
         .service(get_team)
         .service(create_team)
         .service(update_team)
         .service(patch_team)
+        .service(put_team_cover)
         .service(delete_team)
 }
 
@@ -209,15 +213,76 @@ async fn update_team(
 #[patch("/{id}")]
 async fn patch_team(
     svc: Data<TeamServiceHandle>,
+    blob_svc: Data<BlobServiceHandle>,
     ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
     payload: Json<PatchTeam>,
 ) -> Result<HttpResponse, AppError> {
-    let acting = ctx.acting_user();
     Ok(HttpResponse::Ok().json(
-        svc.patch_team_for_user(&acting, &id, payload.into_inner())
-            .await?,
+        svc.patch_team_for_user(
+            blob_svc.get_ref(),
+            &ctx,
+            &id.into_inner(),
+            payload.into_inner(),
+        )
+        .await?,
     ))
+}
+
+#[utoipa::path(
+    put,
+    path = "/api/v1/teams/{id}/cover",
+    params(
+        ("id" = String, Path, description = "Team identifier")
+    ),
+    request_body(
+        content = [u8],
+        description = "Raw JPEG or PNG cover image",
+        content_type = "image/jpeg, image/png"
+    ),
+    responses(
+        (status = 200, description = "Cover uploaded; creates a blob and sets `cover` to its id. Returns updated `Team`.", body = Team),
+        (status = 400, description = "Invalid image or request", body = Problem, content_type = "application/problem+json"),
+        (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
+        (status = 403, description = "Insufficient team role", body = Problem, content_type = "application/problem+json"),
+        (status = 404, description = "Team not found", body = Problem, content_type = "application/problem+json"),
+        (status = 413, description = "Image too large", body = Problem, content_type = "application/problem+json"),
+        (status = 429, description = "API rate limit exceeded", body = Problem, content_type = "application/problem+json"),
+        (status = 500, description = "Failed to upload team cover", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Teams",
+    security(
+        ("SessionCookie" = []),
+        ("SessionToken" = [])
+    )
+)]
+#[put("/{id}/cover")]
+async fn put_team_cover(
+    ctx: ReqData<AuthorizationContext>,
+    svc: Data<TeamServiceHandle>,
+    blob_svc: Data<BlobServiceHandle>,
+    limits: Data<CoverUploadLimits>,
+    id: Path<String>,
+    body: Bytes,
+    req: HttpRequest,
+) -> Result<HttpResponse, AppError> {
+    let id = id.into_inner();
+    let ct = req
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|h| h.to_str().ok())
+        .ok_or_else(|| AppError::invalid_request("missing Content-Type"))?;
+    let updated = svc
+        .upload_team_cover_for_user(
+            blob_svc.get_ref(),
+            &ctx,
+            &id,
+            ct,
+            body.as_ref(),
+            limits.max_bytes,
+        )
+        .await?;
+    Ok(HttpResponse::Ok().json(updated))
 }
 
 #[utoipa::path(
@@ -243,9 +308,11 @@ async fn patch_team(
 #[delete("/{id}")]
 async fn delete_team(
     svc: Data<TeamServiceHandle>,
+    blob_svc: Data<BlobServiceHandle>,
     ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    svc.delete_team_for_user(&ctx, &id).await?;
+    svc.delete_team_for_user(blob_svc.get_ref(), &ctx, &id.into_inner())
+        .await?;
     Ok(HttpResponse::NoContent().finish())
 }

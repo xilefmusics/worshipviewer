@@ -47,6 +47,7 @@ pub struct TeamMember {
         "id": "team_example",
         "owner": { "id": "usr_example", "email": "owner@example.com" },
         "name": "Worship team",
+        "cover": "",
         "members": [
             { "user": { "id": "usr_example", "email": "owner@example.com" }, "role": "admin" }
         ]
@@ -57,6 +58,9 @@ pub struct Team {
     /// When set, this team is that user's personal team (1:1, not deletable). Not listed in `members`.
     pub owner: Option<TeamUser>,
     pub name: String,
+    /// Cover art reference (client-resolved blob id or URL).
+    #[serde(default)]
+    pub cover: String,
     /// Everyone except the personal-team owner (if any).
     pub members: Vec<TeamMember>,
 }
@@ -104,6 +108,7 @@ pub struct TeamMemberInput {
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct PatchTeam {
     pub name: Option<String>,
+    pub cover: Option<String>,
     #[serde(default)]
     #[cfg_attr(feature = "backend", schema(value_type = Option<Vec<TeamMemberInput>>))]
     pub members: Patch<Vec<TeamMemberInput>>,

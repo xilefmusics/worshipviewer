@@ -437,6 +437,22 @@ export interface paths {
         patch: operations["patch_team"];
         trace?: never;
     };
+    "/api/v1/teams/{id}/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["put_team_cover"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/teams/{team_id}/invitations": {
         parameters: {
             query?: never;
@@ -1279,6 +1295,7 @@ export interface components {
          *     - `[…]` → replaces the entire members list
          */
         PatchTeam: {
+            cover?: string | null;
             members?: components["schemas"]["TeamMemberInput"][] | null;
             name?: string | null;
         };
@@ -1603,6 +1620,7 @@ export interface components {
         };
         /**
          * @example {
+         *       "cover": "",
          *       "id": "team_example",
          *       "members": [
          *         {
@@ -1621,6 +1639,8 @@ export interface components {
          *     }
          */
         Team: {
+            /** @description Cover art reference (client-resolved blob id or URL). */
+            cover?: string;
             id: string;
             /** @description Everyone except the personal-team owner (if any). */
             members: components["schemas"]["TeamMember"][];
@@ -5455,6 +5475,97 @@ export interface operations {
                 };
             };
             /** @description Failed to update team */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    put_team_cover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description Raw JPEG or PNG cover image */
+        requestBody: {
+            content: {
+                "image/jpeg, image/png": number[];
+            };
+        };
+        responses: {
+            /** @description Cover uploaded; creates a blob and sets `cover` to its id. Returns updated `Team`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Team"];
+                };
+            };
+            /** @description Invalid image or request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Insufficient team role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Team not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Image too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description API rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Failed to upload team cover */
             500: {
                 headers: {
                     [name: string]: unknown;

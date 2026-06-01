@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use std::sync::Arc;
 
+use shared::blob::CreateBlob;
 use surrealdb::types::RecordId;
 
 use shared::api::ListQuery;
@@ -13,6 +14,8 @@ use tracing::instrument;
 use crate::auth::AuthorizationContext;
 use crate::database::Database;
 use crate::error::AppError;
+use crate::resources::blob::service::BlobServiceHandle;
+use crate::resources::user::profile_picture;
 
 use super::model::{
     DbTeamMember, TeamCreatePayload, build_create_shared_members, can_read_team, effective_admin,
@@ -236,15 +239,18 @@ impl<R: TeamRepository> TeamService<R> {
         self.repo.load_team_display(id).await
     }
 
-    #[instrument(level = "debug", err, skip(self, user, patch))]
+    #[instrument(level = "debug", err, skip(self, blob_svc, ctx, patch))]
     pub async fn patch_team_for_user(
         &self,
-        user: &User,
+        blob_svc: &BlobServiceHandle,
+        ctx: &AuthorizationContext,
         id: &str,
         patch: PatchTeam,
     ) -> Result<Team, AppError> {
-        let current = self.get_team_for_user(user, id).await?;
-        let name = patch.name.unwrap_or(current.name);
+        let user = ctx.acting_user();
+        let current = self.get_team_for_user(&user, id).await?;
+        let patch_name = patch.name;
+        let name = patch_name.clone().unwrap_or(current.name.clone());
         let members = match patch.members {
             Patch::Missing => None,
             Patch::Null => {
@@ -254,13 +260,107 @@ impl<R: TeamRepository> TeamService<R> {
             }
             Patch::Value(v) => Some(v),
         };
-        self.update_team_for_user(user, id, UpdateTeam { name, members })
-            .await
+
+        let mut team = if patch_name.is_some() || members.is_some() {
+            self.update_team_for_user(
+                &user,
+                id,
+                UpdateTeam {
+                    name: name.clone(),
+                    members,
+                },
+            )
+            .await?
+        } else {
+            current
+        };
+
+        if let Some(new_cover) = patch.cover
+            && new_cover != team.cover
+        {
+            let resource = team_resource_or_reject_public(id)?;
+            let row = self
+                .repo
+                .fetch_team(id)
+                .await?
+                .ok_or_else(|| AppError::NotFound("team not found".into()))?;
+            let stored = team_fetched_to_stored(&row)?;
+            if !effective_admin(&user.id, &stored) {
+                return Err(AppError::forbidden());
+            }
+            if !team.cover.is_empty() {
+                let _ = blob_svc.delete_blob_for_user(ctx, &team.cover).await;
+            }
+            self.repo.update_team_cover(resource, &new_cover).await?;
+            team = self.repo.load_team_display(id).await?;
+        }
+
+        Ok(team)
     }
 
-    #[instrument(level = "debug", err, skip(self, ctx))]
+    #[instrument(level = "debug", err, skip(self, blob_svc, ctx, body))]
+    pub async fn upload_team_cover_for_user(
+        &self,
+        blob_svc: &BlobServiceHandle,
+        ctx: &AuthorizationContext,
+        id: &str,
+        content_type: &str,
+        body: &[u8],
+        max_bytes: usize,
+    ) -> Result<Team, AppError> {
+        if body.is_empty() {
+            return Err(AppError::invalid_request("cover image body is empty"));
+        }
+        if body.len() > max_bytes {
+            return Err(AppError::invalid_request("cover image exceeds size limit"));
+        }
+        let file_type = profile_picture::file_type_from_content_type(content_type)?;
+        profile_picture::assert_magic_matches_content_type(body, &file_type)?;
+        let (width, height) = profile_picture::avatar_dimensions(body)?;
+
+        let resource = team_resource_or_reject_public(id)?;
+        let row = self
+            .repo
+            .fetch_team(id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("team not found".into()))?;
+        let stored = team_fetched_to_stored(&row)?;
+        if !member_or_owner_readable(&ctx.user.id, &stored) {
+            return Err(AppError::NotFound("team not found".into()));
+        }
+        if !effective_admin(&ctx.user.id, &stored) {
+            return Err(AppError::forbidden());
+        }
+        let team_rid = RecordId::new(resource.0.clone(), resource.1.clone());
+        ctx.require_write_access_to_owner(&team_rid)?;
+
+        let current = row.into_team()?;
+        if !current.cover.is_empty() {
+            let _ = blob_svc.delete_blob_for_user(ctx, &current.cover).await;
+        }
+
+        let created = blob_svc
+            .create_blob_with_data_for_user(
+                ctx,
+                CreateBlob {
+                    owner: Some(current.id.clone()),
+                    file_type,
+                    width,
+                    height,
+                    ocr: String::new(),
+                },
+                body,
+            )
+            .await?;
+
+        self.repo.update_team_cover(resource, &created.id).await?;
+        self.repo.load_team_display(id).await
+    }
+
+    #[instrument(level = "debug", err, skip(self, blob_svc, ctx))]
     pub async fn delete_team_for_user(
         &self,
+        blob_svc: &BlobServiceHandle,
         ctx: &AuthorizationContext,
         id: &str,
     ) -> Result<Team, AppError> {
@@ -281,6 +381,9 @@ impl<R: TeamRepository> TeamService<R> {
         }
 
         let team = row.into_team()?;
+        if !team.cover.is_empty() {
+            let _ = blob_svc.delete_blob_for_user(ctx, &team.cover).await;
+        }
         let personal = ctx.personal_team()?;
         let from = RecordId::new(resource.0.clone(), resource.1.clone());
         self.repo.reassign_content(from, personal).await?;
@@ -314,6 +417,17 @@ mod tests {
 
     fn team_service(db: &std::sync::Arc<crate::database::Database>) -> TeamServiceHandle {
         crate::test_helpers::team_service(db)
+    }
+
+    fn team_blob_service(db: &std::sync::Arc<crate::database::Database>) -> BlobServiceHandle {
+        let blob_dir = std::env::temp_dir()
+            .join(format!(
+                "worshipviewer_team_blob_test_{}",
+                uuid::Uuid::new_v4()
+            ))
+            .to_string_lossy()
+            .into_owned();
+        crate::test_helpers::blob_service(db, blob_dir)
     }
 
     #[tokio::test]
@@ -354,7 +468,9 @@ mod tests {
             .find(|t| t.owner.as_ref().map(|o| o.id == u.id).unwrap_or(false))
             .expect("personal");
         let ctx = auth_ctx_for_user(&db, &u).await.expect("auth");
-        let err = svc.delete_team_for_user(&ctx, &personal.id).await;
+        let err = svc
+            .delete_team_for_user(&team_blob_service(&db), &ctx, &personal.id)
+            .await;
         assert!(matches!(err, Err(AppError::Forbidden)));
     }
 
@@ -374,7 +490,7 @@ mod tests {
             .await
             .expect("shared");
         let ctx = auth_ctx_for_user(&db, &u).await.expect("auth");
-        svc.delete_team_for_user(&ctx, &shared.id)
+        svc.delete_team_for_user(&team_blob_service(&db), &ctx, &shared.id)
             .await
             .expect("delete");
     }
@@ -791,7 +907,7 @@ mod tests {
             .expect("song");
 
         let admin_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
-        svc.delete_team_for_user(&admin_ctx, &fx.shared_team_id)
+        svc.delete_team_for_user(&team_blob_service(&db), &admin_ctx, &fx.shared_team_id)
             .await
             .expect("delete shared team");
 
@@ -832,7 +948,7 @@ mod tests {
             .expect("coll");
 
         let admin_ctx_del = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
-        svc.delete_team_for_user(&admin_ctx_del, &fx.shared_team_id)
+        svc.delete_team_for_user(&team_blob_service(&db), &admin_ctx_del, &fx.shared_team_id)
             .await
             .expect("delete");
 
@@ -852,6 +968,7 @@ mod tests {
         let svc = mk_team_svc(&db);
         let r = svc
             .delete_team_for_user(
+                &team_blob_service(&db),
                 &auth_ctx_for_user(&db, &fx.guest).await.expect("auth"),
                 &fx.shared_team_id,
             )
@@ -867,7 +984,7 @@ mod tests {
         let svc = mk_team_svc(&db);
 
         let admin_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
-        svc.delete_team_for_user(&admin_ctx, &fx.shared_team_id)
+        svc.delete_team_for_user(&team_blob_service(&db), &admin_ctx, &fx.shared_team_id)
             .await
             .expect("delete");
 
@@ -895,12 +1012,16 @@ mod tests {
             .expect("before");
         let member_count = before.members.len();
 
+        let blob_svc = team_blob_service(&db);
+        let admin_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
         let updated = svc
             .patch_team_for_user(
-                &fx.admin_user,
+                &blob_svc,
+                &admin_ctx,
                 &fx.shared_team_id,
                 PatchTeam {
                     name: Some("Renamed via PATCH".into()),
+                    cover: None,
                     members: shared::patch::Patch::Missing,
                 },
             )
@@ -922,12 +1043,16 @@ mod tests {
         let db = test_db().await.expect("db");
         let fx = TeamFixture::build(&db).await.expect("fixture");
         let svc = team_service(&db);
+        let blob_svc = team_blob_service(&db);
+        let admin_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
         let r = svc
             .patch_team_for_user(
-                &fx.admin_user,
+                &blob_svc,
+                &admin_ctx,
                 &fx.shared_team_id,
                 PatchTeam {
                     name: None,
+                    cover: None,
                     members: shared::patch::Patch::Null,
                 },
             )
@@ -951,12 +1076,16 @@ mod tests {
             .await
             .expect("before");
 
+        let blob_svc = team_blob_service(&db);
+        let admin_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
         let after = svc
             .patch_team_for_user(
-                &fx.admin_user,
+                &blob_svc,
+                &admin_ctx,
                 &fx.shared_team_id,
                 PatchTeam {
                     name: None,
+                    cover: None,
                     members: shared::patch::Patch::Missing,
                 },
             )
@@ -975,12 +1104,16 @@ mod tests {
             .await
             .expect("u");
         let svc = team_service(&db);
+        let blob_svc = team_blob_service(&db);
+        let ctx = auth_ctx_for_user(&db, &u).await.expect("auth");
         let r = svc
             .patch_team_for_user(
-                &u,
+                &blob_svc,
+                &ctx,
                 "never-existed-team",
                 PatchTeam {
                     name: Some("x".into()),
+                    cover: None,
                     members: shared::patch::Patch::Missing,
                 },
             )
@@ -1020,12 +1153,16 @@ mod tests {
                 },
             ];
 
+            let blob_svc = team_blob_service(&db);
+            let admin_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
             let patched = svc
                 .patch_team_for_user(
-                    &fx.admin_user,
+                    &blob_svc,
+                    &admin_ctx,
                     &fx.shared_team_id,
                     PatchTeam {
                         name: include_name.then_some("PatchedName".into()),
+                        cover: None,
                         members: if include_members {
                             Patch::Value(replacement_members.clone())
                         } else {
@@ -1161,5 +1298,115 @@ mod tests {
             .expect("search");
         assert_eq!(page.len() as u64, total);
         assert_eq!(total, 2, "personal (owner email) + shared (member email)");
+    }
+
+    /// BLC-TEAM-020: PUT cover uploads bytes, creates a blob, and updates `cover`.
+    #[tokio::test]
+    async fn upload_team_cover_creates_blob_and_updates_cover() {
+        let db = test_db().await.expect("db");
+        let fx = TeamFixture::build(&db).await.expect("fixture");
+        let blob_svc = team_blob_service(&db);
+        let svc = team_service(&db);
+        let admin_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
+        let bytes = crate::test_helpers::sample_cover_jpeg_bytes();
+
+        let updated = svc
+            .upload_team_cover_for_user(
+                &blob_svc,
+                &admin_ctx,
+                &fx.shared_team_id,
+                "image/jpeg",
+                &bytes,
+                20 * 1024 * 1024,
+            )
+            .await
+            .expect("upload");
+
+        assert!(!updated.cover.is_empty());
+        blob_svc
+            .get_blob_for_user(&admin_ctx, &updated.cover)
+            .await
+            .expect("cover blob exists");
+    }
+
+    /// BLC-TEAM-020: PATCH cover with empty string clears cover and deletes blob.
+    #[tokio::test]
+    async fn patch_team_cover_clear_deletes_blob() {
+        use shared::team::PatchTeam;
+
+        let db = test_db().await.expect("db");
+        let fx = TeamFixture::build(&db).await.expect("fixture");
+        let blob_svc = team_blob_service(&db);
+        let svc = team_service(&db);
+        let admin_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
+        let bytes = crate::test_helpers::sample_cover_jpeg_bytes();
+
+        let with_cover = svc
+            .upload_team_cover_for_user(
+                &blob_svc,
+                &admin_ctx,
+                &fx.shared_team_id,
+                "image/jpeg",
+                &bytes,
+                20 * 1024 * 1024,
+            )
+            .await
+            .expect("upload");
+        let cover_id = with_cover.cover.clone();
+
+        let cleared = svc
+            .patch_team_for_user(
+                &blob_svc,
+                &admin_ctx,
+                &fx.shared_team_id,
+                PatchTeam {
+                    name: None,
+                    cover: Some(String::new()),
+                    members: shared::patch::Patch::Missing,
+                },
+            )
+            .await
+            .expect("patch clear");
+
+        assert!(cleared.cover.is_empty());
+        let err = blob_svc
+            .get_blob_for_user(&admin_ctx, &cover_id)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    /// BLC-TEAM-020: shared team delete removes cover blob before content reassignment.
+    #[tokio::test]
+    async fn delete_team_removes_cover_blob() {
+        let db = test_db().await.expect("db");
+        let fx = TeamFixture::build(&db).await.expect("fixture");
+        let blob_svc = team_blob_service(&db);
+        let svc = team_service(&db);
+        let admin_ctx = auth_ctx_for_user(&db, &fx.admin_user).await.expect("auth");
+        let bytes = crate::test_helpers::sample_cover_jpeg_bytes();
+
+        let with_cover = svc
+            .upload_team_cover_for_user(
+                &blob_svc,
+                &admin_ctx,
+                &fx.shared_team_id,
+                "image/jpeg",
+                &bytes,
+                20 * 1024 * 1024,
+            )
+            .await
+            .expect("upload");
+        let cover_id = with_cover.cover.clone();
+
+        svc.delete_team_for_user(&blob_svc, &admin_ctx, &fx.shared_team_id)
+            .await
+            .expect("delete");
+
+        let err = blob_svc
+            .get_blob_for_user(&admin_ctx, &cover_id)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
     }
 }

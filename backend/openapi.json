@@ -1337,6 +1337,12 @@
         "additionalProperties": false,
         "description": "Partial update for a team. Absent fields are left unchanged.\n\n`members` uses three-state semantics:\n- absent → members list is not modified\n- `null` → rejected (a team must always have members)\n- `[…]` → replaces the entire members list",
         "properties": {
+          "cover": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "members": {
             "items": {
               "$ref": "#/components/schemas/TeamMemberInput"
@@ -2116,6 +2122,7 @@
       },
       "Team": {
         "example": {
+          "cover": "",
           "id": "team_example",
           "members": [
             {
@@ -2133,6 +2140,10 @@
           }
         },
         "properties": {
+          "cover": {
+            "description": "Cover art reference (client-resolved blob id or URL).",
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
@@ -7583,6 +7594,131 @@
               }
             },
             "description": "Failed to update team"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Teams"
+        ]
+      }
+    },
+    "/api/v1/teams/{id}/cover": {
+      "put": {
+        "operationId": "put_team_cover",
+        "parameters": [
+          {
+            "description": "Team identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "image/jpeg, image/png": {
+              "schema": {
+                "items": {
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            }
+          },
+          "description": "Raw JPEG or PNG cover image",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Team"
+                }
+              }
+            },
+            "description": "Cover uploaded; creates a blob and sets `cover` to its id. Returns updated `Team`."
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid image or request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Insufficient team role"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Team not found"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Image too large"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "API rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Failed to upload team cover"
           }
         },
         "security": [

@@ -1945,6 +1945,66 @@ mod collection_cover_http {
     }
 }
 
+#[cfg(test)]
+mod team_cover_http {
+    use super::*;
+    use actix_web::http::StatusCode;
+
+    #[actix_web::test]
+    async fn put_team_cover_route_returns_200() {
+        let db = test_db().await.unwrap();
+        let user = create_user(&db, "team-cover-route@test.local")
+            .await
+            .unwrap();
+        let token = create_session_token(&db, user).await.unwrap();
+        let app = test::init_service(build_app(db.clone())).await;
+
+        let req = test::TestRequest::post()
+            .uri("/api/v1/teams")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .set_json(&serde_json::json!({
+                "name": "Cover test team",
+                "members": []
+            }))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::CREATED);
+        let body: serde_json::Value = serde_json::from_slice(&test::read_body(resp).await).unwrap();
+        let team_id = body["id"].as_str().expect("team id");
+
+        let jpeg = crate::test_helpers::sample_cover_jpeg_bytes();
+
+        let req = test::TestRequest::put()
+            .uri(&format!("/api/v1/teams/{team_id}/cover"))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .insert_header(("Content-Type", "image/jpeg"))
+            .set_payload(jpeg)
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(
+            resp.status(),
+            StatusCode::OK,
+            "PUT /teams/{{id}}/cover should be registered"
+        );
+        let body: serde_json::Value = serde_json::from_slice(&test::read_body(resp).await).unwrap();
+        let cover_id = body["cover"].as_str().expect("cover id");
+        assert!(!cover_id.is_empty());
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/blobs/{cover_id}/data"))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = test::read_body(resp).await;
+        assert!(
+            bytes.len() > 100,
+            "blob data should contain image bytes, got {}",
+            bytes.len()
+        );
+    }
+}
+
 mod spa_fallback_guard {
     use actix_web::http::StatusCode;
     use actix_web::{App, ResponseError, test};

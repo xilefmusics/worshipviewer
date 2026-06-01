@@ -458,6 +458,14 @@ mod tests {
             unreachable!("not used in user tests")
         }
 
+        async fn update_team_cover(
+            &self,
+            _resource: (String, String),
+            _cover: &str,
+        ) -> Result<(), AppError> {
+            unreachable!("not used in user tests")
+        }
+
         async fn delete_team_record(&self, _resource: (String, String)) -> Result<(), AppError> {
             unreachable!("not used in user tests")
         }

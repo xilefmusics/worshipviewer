@@ -11,6 +11,7 @@ export type User = {
 export type Team = {
   id: string
   name: string
+  cover?: string
   owner?: { id: string; email: string } | null
   members: Array<{ role: TeamRole; user: { id: string; email: string } }>
 }

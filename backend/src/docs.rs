@@ -188,6 +188,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
         crate::resources::team::rest::create_team,
         crate::resources::team::rest::update_team,
         crate::resources::team::rest::patch_team,
+        crate::resources::team::rest::put_team_cover,
         crate::resources::team::rest::delete_team,
         crate::resources::team::invitation::rest::create_team_invitation,
         crate::resources::team::invitation::rest::list_team_invitations,

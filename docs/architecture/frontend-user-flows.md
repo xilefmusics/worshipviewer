@@ -186,6 +186,18 @@ flowchart TD
     del --> note["Success: stays on screen (no auto-navigate wired)"]
 ```
 
+### B6. Upload and remove team cover
+
+```mermaid
+flowchart TD
+    detail(["/teams/:teamId"]) --> gate{Admin or personal owner?}
+    gate -->|No| view["Cover preview only (no upload/remove)"]
+    gate -->|Yes| upload["Upload image → PUT /api/v1/teams/{id}/cover"]
+    upload --> list(["/teams list shows cover thumbnail"])
+    list --> detail
+    detail --> remove["Remove → PATCH {cover: ''} → initials fallback"]
+```
+
 ---
 
 ## C. Collections — create & manage
