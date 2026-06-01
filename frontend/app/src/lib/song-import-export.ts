@@ -226,8 +226,11 @@ const PDF_SETLIST_PAGE_BREAK_CSS = `
 
 export type PdfExportPage = { html: string; css: string }
 
-/** Isolated hidden iframe (no app oklch theme) for print/PDF. */
-function mountPdfExportDocument(pages: PdfExportPage[], title: string): {
+/** @internal Vitest only — mounts the PDF iframe document without calling print(). */
+export function mountPdfExportDocumentForTest(
+  pages: PdfExportPage[],
+  title: string,
+): {
   frame: HTMLIFrameElement
   pageRoots: HTMLElement[]
   contentWindow: Window
@@ -278,6 +281,15 @@ function mountPdfExportDocument(pages: PdfExportPage[], title: string): {
   }
 
   return { frame, pageRoots, contentWindow }
+}
+
+/** Isolated hidden iframe (no app oklch theme) for print/PDF. */
+function mountPdfExportDocument(pages: PdfExportPage[], title: string): {
+  frame: HTMLIFrameElement
+  pageRoots: HTMLElement[]
+  contentWindow: Window
+} {
+  return mountPdfExportDocumentForTest(pages, title)
 }
 
 async function waitForPdfLayout(doc: Document, pageRoots: HTMLElement[]): Promise<void> {

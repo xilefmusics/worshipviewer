@@ -66,4 +66,6 @@ For Cloud Logging / similar, filter on:
 - `jsonPayload.event = "audit.api.rate_limit"` — abuse signals
 - `jsonPayload.event = "audit.auth.login.failure"` — credential stuffing
 
+Full operator guide (severity, migration failures, triage): [`docs/ops/alerting.md`](ops/alerting.md).
+
 See [`docs/ops/README.md`](ops/README.md) for deploy verification and incident triage using `request_id`.

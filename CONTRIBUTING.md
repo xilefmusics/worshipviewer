@@ -36,17 +36,28 @@ pnpm -C frontend dev
 
 See [README.md](README.md) for production-like single-process runs, Playwright e2e (port **8788** for bundled backend), and Docker.
 
+### One-shot CI parity (recommended before PR)
+
+```bash
+./scripts/verify-ci.sh
+```
+
+Runs fmt, audit, backend tests/clippy, OpenAPI tri-copy + Spectral, and the full frontend gate. Does **not** run Playwright e2e or Docker/Venom.
+
 ## Before opening a PR
 
 ### Backend / shared / CLI
 
 ```bash
-cargo fmt --manifest-path backend/Cargo.toml
-cargo fmt --manifest-path shared/Cargo.toml
-cargo fmt --manifest-path cli/Cargo.toml
+(cd backend && cargo fmt --check)
+(cd shared && cargo fmt --check)
+(cd cli && cargo fmt --check)
 cd backend && cargo clippy -- -D warnings
 cd backend && cargo test -- --test-threads=4
-cargo audit --manifest-path backend/Cargo.toml
+(cd backend && cargo audit)
+(cd cli && cargo audit)
+(cd shared && cargo audit)
+(cd frontend/crates/chordlib-wasm && cargo audit)
 ```
 
 ### Frontend
@@ -89,9 +100,13 @@ CI fails if the three copies diverge or if `openapi_snapshot_matches_committed_f
 
 | Workflow | When | What |
 |----------|------|------|
-| [Backend CI](.github/workflows/backend-ci.yml) | PRs to `main`; pushes to non-`main` branches | `cargo test`, clippy, fmt, Spectral, OpenAPI tri-copy, `cargo audit` |
-| [Frontend CI](.github/workflows/frontend-ci.yml) | PRs / pushes touching `frontend/` | Vitest, lint, typecheck, build, `pnpm audit` |
+| [Backend CI](.github/workflows/backend-ci.yml) | PRs to `main`; pushes to non-`main` branches | `cargo test`, clippy, fmt, Spectral, OpenAPI tri-copy, `cargo audit` (backend, cli, shared, `chordlib-wasm`) |
+| [Frontend CI](.github/workflows/frontend-ci.yml) | PRs / pushes touching `frontend/` | Vitest, lint, typecheck, OpenAPI `schema.d.ts` drift, build, `pnpm audit` |
 | Docker publish | Push to `main` or tags | Build image; **Venom** integration tests run in the `tester` stage |
+
+**Playwright e2e** (`pnpm test:e2e` in `frontend/`) is **local-only** — intentionally not in CI (see action plan §2.1 deferral). Run against real backend on port 8788 before release.
+
+**Supply chain:** `pnpm audit --audit-level=high` and `cargo audit` on all Rust manifests including `frontend/crates/chordlib-wasm`. The frontend pins `serialize-javascript` ≥7.0.5 via pnpm overrides (build-time transitive from `vite-plugin-pwa`).
 
 Venom HTTP tests are **not** re-run on every PR (they require the full Docker build). Treat a green Docker `main` build as the post-merge integration gate, or run locally:
 

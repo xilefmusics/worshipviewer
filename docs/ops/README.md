@@ -50,6 +50,8 @@ Production images run Venom tests during `docker build --target tester`. For pre
 
 ## Log alerting pointers
 
+See **[alerting.md](alerting.md)** for severity, example Cloud Logging filters, and triage workflow. Quick filters:
+
 - 5xx: `jsonPayload.status >= 500`
 - Rate limits: `jsonPayload.event = "audit.api.rate_limit"`
 - Login failures: `jsonPayload.event = "audit.auth.login.failure"`

@@ -10,6 +10,10 @@ Central map of Worship Viewer engineering docs. User-facing product copy lives i
 | [backend-resource.md](architecture/backend-resource.md) | Per-resource layered pattern (DTO → repo → service → REST) |
 | [frontend-navigation-graph.md](architecture/frontend-navigation-graph.md) | SPA routes, overlays, and transitions |
 | [frontend-user-flows.md](architecture/frontend-user-flows.md) | Product flow catalog |
+| [search-contract.md](architecture/search-contract.md) | List `q` search — API vs client surfaces |
+| [frontend-error-ux.md](architecture/frontend-error-ux.md) | Problem → toast/banner/inline taxonomy |
+| [offline-export-import-security.md](architecture/offline-export-import-security.md) | Chord HTML trust boundary, offline cache, export policy |
+| [i18n-locale-policy.md](architecture/i18n-locale-policy.md) | Locale persistence, browser mode, RTL deferral |
 
 ## API & constraints
 
@@ -28,6 +32,7 @@ Central map of Worship Viewer engineering docs. User-facing product copy lives i
 | [data-integrity/forward-only-migrations.md](data-integrity/forward-only-migrations.md) | Migration residue cleanup |
 | [data-integrity/regression-tests.md](data-integrity/regression-tests.md) | Planned data-integrity test suite |
 | [ops/README.md](ops/README.md) | Deploy verify, triage, incident response (ops runbooks) |
+| [ops/alerting.md](ops/alerting.md) | Cloud Logging filters and alert signals |
 
 ## Observability & logging
 
@@ -55,6 +60,8 @@ Central map of Worship Viewer engineering docs. User-facing product copy lives i
 ## Repository entry points
 
 - [README.md](../README.md) — local dev, Docker, CLI
-- [CONTRIBUTING.md](../CONTRIBUTING.md) — PR checklist, OpenAPI regen, migrations
+- [CONTRIBUTING.md](../CONTRIBUTING.md) — PR checklist, OpenAPI regen, migrations, e2e (local)
+- [../scripts/verify-ci.sh](../scripts/verify-ci.sh) — local CI parity script
 - [CHANGELOG.md](../CHANGELOG.md) — release notes process
+- [testing/e2e-coverage.md](testing/e2e-coverage.md) — Playwright flow matrix and gaps
 - [backend/db-migrations/README.md](../backend/db-migrations/README.md) — SurrealQL migrations

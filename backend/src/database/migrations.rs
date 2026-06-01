@@ -277,9 +277,9 @@ async fn try_claim_migration_lock(db: &Surreal<Any>, holder: &str) -> AnyResult<
         MIGRATION_LOCK_STALE_SECS
     );
     db.query(stale_reap)
-    .await
-    .map_err(|err| anyhow!(err))
-    .context("failed to reap stale migration runner lock")?;
+        .await
+        .map_err(|err| anyhow!(err))
+        .context("failed to reap stale migration runner lock")?;
 
     if let Some(existing) = read_migration_lock(db).await? {
         if existing.holder == holder {
@@ -393,9 +393,6 @@ mod tests {
 
         let err = run(&db.db, path).await.expect_err("checksum mismatch");
         let msg = err.to_string();
-        assert!(
-            msg.contains("checksum mismatch"),
-            "unexpected error: {msg}"
-        );
+        assert!(msg.contains("checksum mismatch"), "unexpected error: {msg}");
     }
 }

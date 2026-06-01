@@ -10,6 +10,7 @@ on:
       - "backend/**"
       - "cli/**"
       - "shared/**"
+      - "frontend/crates/chordlib-wasm/**"
       - "docs/openapi.json"
       - "rust-toolchain.toml"
       - "Dockerfile"
@@ -23,6 +24,7 @@ on:
       - "backend/**"
       - "cli/**"
       - "shared/**"
+      - "frontend/crates/chordlib-wasm/**"
       - "docs/openapi.json"
       - "rust-toolchain.toml"
       - "Dockerfile"
@@ -53,11 +55,12 @@ jobs:
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
 
-      - name: cargo audit (backend, cli, shared)
+      - name: cargo audit (backend, cli, shared, chordlib-wasm)
         run: |
-          cargo audit --manifest-path backend/Cargo.toml
-          cargo audit --manifest-path cli/Cargo.toml
-          cargo audit --manifest-path shared/Cargo.toml
+          (cd backend && cargo audit)
+          (cd cli && cargo audit)
+          (cd shared && cargo audit)
+          (cd frontend/crates/chordlib-wasm && cargo audit)
 
       - name: Test
         working-directory: backend

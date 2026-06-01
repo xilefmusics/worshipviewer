@@ -25,3 +25,7 @@ SongBeamer / ProPresenter import-export requires new parsers and hub entry point
 ## Admin panel (future epic M-3)
 
 Platform admin today: CLI + monitoring HTTP routes. In-app admin UI is future work.
+
+## RTL / logical layout (i18n)
+
+Right-to-left locales are **not supported**. Layout uses physical CSS and LTR-only Tailwind. See [`../architecture/i18n-locale-policy.md`](../architecture/i18n-locale-policy.md).
