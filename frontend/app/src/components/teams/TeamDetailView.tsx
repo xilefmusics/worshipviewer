@@ -212,7 +212,7 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
       const { response } = await api.DELETE('/api/v1/teams/{id}', {
         params: { path: { id: teamId } },
       })
-      if (!response.ok) {
+      if (!response.ok && response.status !== 204) {
         const problem = await parseProblemResponse(response.clone())
         throw new Error(problem?.title ?? t('teams.deleteFailed'))
       }
