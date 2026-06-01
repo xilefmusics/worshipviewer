@@ -24,6 +24,7 @@ import { Route as HubSettingsRouteImport } from './routes/_hub/settings'
 import { Route as HubSetlistsRouteImport } from './routes/_hub/setlists'
 import { Route as HubSessionsRouteImport } from './routes/_hub/sessions'
 import { Route as HubCollectionsRouteImport } from './routes/_hub/collections'
+import { Route as HubAboutRouteImport } from './routes/_hub/about'
 import { Route as HubTeamsTeamIdRouteImport } from './routes/_hub/teams.$teamId'
 import { Route as HubSongsSongIdRouteImport } from './routes/_hub/songs.$songId'
 import { Route as HubSetlistsSetlistIdRouteImport } from './routes/_hub/setlists.$setlistId'
@@ -103,6 +104,11 @@ const HubCollectionsRoute = HubCollectionsRouteImport.update({
   path: '/collections',
   getParentRoute: () => HubRoute,
 } as any)
+const HubAboutRoute = HubAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => HubRoute,
+} as any)
 const HubTeamsTeamIdRoute = HubTeamsTeamIdRouteImport.update({
   id: '/$teamId',
   path: '/$teamId',
@@ -132,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
+  '/about': typeof HubAboutRoute
   '/collections': typeof HubCollectionsRouteWithChildren
   '/sessions': typeof HubSessionsRoute
   '/setlists': typeof HubSetlistsRouteWithChildren
@@ -151,6 +158,7 @@ export interface FileRoutesByTo {
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
+  '/about': typeof HubAboutRoute
   '/collections': typeof HubCollectionsRouteWithChildren
   '/sessions': typeof HubSessionsRoute
   '/setlists': typeof HubSetlistsRouteWithChildren
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/logout': typeof LogoutRoute
+  '/_hub/about': typeof HubAboutRoute
   '/_hub/collections': typeof HubCollectionsRouteWithChildren
   '/_hub/sessions': typeof HubSessionsRoute
   '/_hub/setlists': typeof HubSetlistsRouteWithChildren
@@ -195,6 +204,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/login'
     | '/logout'
+    | '/about'
     | '/collections'
     | '/sessions'
     | '/setlists'
@@ -214,6 +224,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/login'
     | '/logout'
+    | '/about'
     | '/collections'
     | '/sessions'
     | '/setlists'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/login'
     | '/logout'
+    | '/_hub/about'
     | '/_hub/collections'
     | '/_hub/sessions'
     | '/_hub/setlists'
@@ -366,6 +378,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HubCollectionsRouteImport
       parentRoute: typeof HubRoute
     }
+    '/_hub/about': {
+      id: '/_hub/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof HubAboutRouteImport
+      parentRoute: typeof HubRoute
+    }
     '/_hub/teams/$teamId': {
       id: '/_hub/teams/$teamId'
       path: '/$teamId'
@@ -460,6 +479,7 @@ const HubTeamsRouteWithChildren = HubTeamsRoute._addFileChildren(
 )
 
 interface HubRouteChildren {
+  HubAboutRoute: typeof HubAboutRoute
   HubCollectionsRoute: typeof HubCollectionsRouteWithChildren
   HubSessionsRoute: typeof HubSessionsRoute
   HubSetlistsRoute: typeof HubSetlistsRouteWithChildren
@@ -469,6 +489,7 @@ interface HubRouteChildren {
 }
 
 const HubRouteChildren: HubRouteChildren = {
+  HubAboutRoute: HubAboutRoute,
   HubCollectionsRoute: HubCollectionsRouteWithChildren,
   HubSessionsRoute: HubSessionsRoute,
   HubSetlistsRoute: HubSetlistsRouteWithChildren,

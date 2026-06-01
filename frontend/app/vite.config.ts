@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import path from 'node:path'
 
 import tailwindcss from '@tailwindcss/vite'
@@ -5,6 +6,18 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+
+function gitVersion(): string {
+  try {
+    return execSync('git describe --tags --always --dirty', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim()
+  } catch {
+    return '0.0.0-dev'
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -61,6 +74,10 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       exclude: ['@worshipviewer/chordlib-wasm'],
+    },
+    define: {
+      __APP_VERSION__: JSON.stringify(gitVersion()),
+      __APP_BUILD_DATE__: JSON.stringify(new Date().toISOString()),
     },
     server: {
       proxy: {

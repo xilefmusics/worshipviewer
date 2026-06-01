@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import type { User } from '@/api/session'
 import {
+  IconAbout,
   IconInstall,
   IconLogout,
   IconSessions,
@@ -38,7 +39,7 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
   const { canShowInstall, openInstall } = usePwaInstall()
   const { imageSrc, onImageError, initials } = useUserAvatarDisplay(user)
   const [hoveredRow, setHoveredRow] = useState<
-    'settings' | 'teams' | 'sessions' | 'install' | 'logout' | null
+    'settings' | 'teams' | 'sessions' | 'about' | 'install' | 'logout' | null
   >(null)
 
   async function onLogout() {
@@ -117,6 +118,16 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
         >
           <IconSessions isHovered={hoveredRow === 'sessions'} />
           {t('hub.profile.sessions')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => {
+            void navigate({ to: '/about' })
+          }}
+          onMouseEnter={() => setHoveredRow('about')}
+          onMouseLeave={() => setHoveredRow(null)}
+        >
+          <IconAbout isHovered={hoveredRow === 'about'} />
+          {t('hub.profile.about')}
         </DropdownMenuItem>
         {canShowInstall ? (
           <DropdownMenuItem
