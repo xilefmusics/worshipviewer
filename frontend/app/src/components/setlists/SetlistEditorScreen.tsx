@@ -863,10 +863,14 @@ function TempoOverrideChip({
   const [draft, setDraft] = useState('')
   const [open, setOpen] = useState(false)
 
-  useEffect(() => {
-    if (!open) return
-    setDraft(pinnedBpm != null ? String(pinnedBpm) : displayBpm != null ? String(displayBpm) : '')
-  }, [open, pinnedBpm, displayBpm])
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) {
+      setDraft(
+        pinnedBpm != null ? String(pinnedBpm) : displayBpm != null ? String(displayBpm) : '',
+      )
+    }
+    setOpen(nextOpen)
+  }
 
   function applyDraft() {
     const parsed = parseTempoDraft(draft)
@@ -880,7 +884,7 @@ function TempoOverrideChip({
   }
 
   return (
-    <PopoverRoot open={open} onOpenChange={setOpen}>
+    <PopoverRoot open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           type="button"
