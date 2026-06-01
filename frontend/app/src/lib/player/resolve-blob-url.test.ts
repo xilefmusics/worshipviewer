@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
 import { resolveBlobObjectUrl } from '@/lib/player/resolve-blob-url'
 
-vi.mock('@/lib/offline/setlist-player-cache', () => ({
+vi.mock('@/lib/offline/player-mirror-cache', () => ({
   getCachedBlob: vi.fn(),
 }))
 
@@ -11,7 +11,7 @@ vi.mock('@/api/blob-data', () => ({
 }))
 
 import { fetchBlobBinaryWithMime } from '@/api/blob-data'
-import { getCachedBlob } from '@/lib/offline/setlist-player-cache'
+import { getCachedBlob } from '@/lib/offline/player-mirror-cache'
 
 describe('resolveBlobObjectUrl', () => {
   beforeEach(() => {

@@ -9,6 +9,7 @@ import {
 import { useHubSearch } from '@/hooks/useHubSearch'
 import type { HubEntity } from '@/lib/hub-entity'
 import { hubListKey } from '@/lib/hub-list-keys'
+import { useOnline } from '@/hooks/use-online'
 import { getNextPageIndex } from '@/lib/list-pagination'
 
 /** Only subscribe to result fields the hub list needs — avoids re-renders on background refetch / fetchStatus churn. */
@@ -32,14 +33,17 @@ export function useInfiniteHubList(entity: HubEntity) {
   const { debouncedQ } = useHubSearch()
   const queryClient = useQueryClient()
   const q = debouncedQ
+  const online = useOnline()
 
   return useInfiniteQuery({
     queryKey: hubListKey(entity, q),
     initialPageParam: 0,
     notifyOnChangeProps: hubListNotify,
-    /** Fresh after restore: refetch; snapshots never expire on disk. */
-    staleTime: 0,
+    /** Fresh after restore: refetch when online; snapshots never expire on disk. */
+    staleTime: online ? 0 : Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
+    networkMode: 'always',
+    refetchOnReconnect: online,
     queryFn: async ({ pageParam, signal }) => {
       const page = pageParam as number
       switch (entity) {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { appDb } from '@/lib/dexie-db'
+import { appDb, playerMirrorId } from '@/lib/dexie-db'
 
 /** Detect when the active setlist mirror was evicted while the player is open. */
 export function useSetlistEvictionWatch(setlistId: string | undefined, enabled: boolean): boolean {
@@ -12,7 +12,7 @@ export function useSetlistEvictionWatch(setlistId: string | undefined, enabled: 
     let alive = true
 
     const check = async () => {
-      const row = await appDb.setlistPlayerMirror.get(setlistId)
+      const row = await appDb.playerMirror.get(playerMirrorId('setlist', setlistId))
       if (!alive) return
       if (!row) setEvicted(true)
     }

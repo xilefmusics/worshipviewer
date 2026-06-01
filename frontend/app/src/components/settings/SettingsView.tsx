@@ -70,7 +70,10 @@ import { performLogout } from '@/lib/logout-queue'
 import {
   estimateKvTableBytes,
   estimateOfflinePlayerCacheBytes,
-} from '@/lib/offline/setlist-player-cache'
+  listPlayerMirrors,
+  removePlayerMirror,
+} from '@/lib/offline/player-mirror-cache'
+import type { PlayerMirrorRow } from '@/lib/dexie-db'
 import type { PlayerEditorReturnContext } from '@/lib/player/player-editor-return'
 import { buildSettingsSearch, type SettingsTab } from '@/lib/settings-route'
 import { cn } from '@/lib/utils'
@@ -317,6 +320,9 @@ export function SettingsView({
     useHubViewMode('collections')
   const [cacheState, setCacheState] = useState<'idle' | 'clearing' | 'cleared' | 'failed'>('idle')
   const [approxBytes, setApproxBytes] = useState<number | null>(null)
+  const [playerCacheBytes, setPlayerCacheBytes] = useState<number | null>(null)
+  const [kvCacheBytes, setKvCacheBytes] = useState<number | null>(null)
+  const [playerMirrors, setPlayerMirrors] = useState<PlayerMirrorRow[]>([])
   const [logoutPending, setLogoutPending] = useState(false)
 
   const languageOptions = useMemo<SettingsOption<LocalePreference>[]>(
@@ -638,9 +644,25 @@ export function SettingsView({
     void (async () => {
       const playerB = await estimateOfflinePlayerCacheBytes()
       const kvB = await estimateKvTableBytes()
+      const mirrors = await listPlayerMirrors()
+      setPlayerCacheBytes(playerB)
+      setKvCacheBytes(kvB)
       setApproxBytes(playerB + kvB)
+      setPlayerMirrors(mirrors)
     })()
   }, [cacheState])
+
+  async function removeMirror(row: PlayerMirrorRow) {
+    await removePlayerMirror(row.entityType, row.entityId)
+    setCacheState('idle')
+    const mirrors = await listPlayerMirrors()
+    setPlayerMirrors(mirrors)
+    const playerB = await estimateOfflinePlayerCacheBytes()
+    const kvB = await estimateKvTableBytes()
+    setPlayerCacheBytes(playerB)
+    setKvCacheBytes(kvB)
+    setApproxBytes(playerB + kvB)
+  }
 
   async function logout() {
     setLogoutPending(true)
@@ -736,12 +758,46 @@ export function SettingsView({
             </CardHeader>
             <CardContent className="flex flex-col items-start gap-2 p-4 pt-0">
               {approxBytes !== null ? (
-                <p className="text-xs text-[var(--color-muted-foreground)]">
-                  {t('settings.cache.approxSize', { size: formatApproxBytes(approxBytes) })}
-                </p>
+                <>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">
+                    {t('settings.cache.approxSize', { size: formatApproxBytes(approxBytes) })}
+                  </p>
+                  {playerCacheBytes !== null && kvCacheBytes !== null ? (
+                    <p className="text-xs text-[var(--color-muted-foreground)]">
+                      {t('settings.cache.breakdown', {
+                        player: formatApproxBytes(playerCacheBytes),
+                        lists: formatApproxBytes(kvCacheBytes),
+                      })}
+                    </p>
+                  ) : null}
+                </>
               ) : (
                 <p className="text-xs text-[var(--color-muted-foreground)]">{t('common.load')}</p>
               )}
+              {playerMirrors.length > 0 ? (
+                <ul className="mt-1 w-full space-y-1 border-t border-[var(--color-border)] pt-2">
+                  {playerMirrors.map((row) => (
+                    <li
+                      key={row.id}
+                      className="flex items-center justify-between gap-2 text-xs text-[var(--color-muted-foreground)]"
+                    >
+                      <span className="min-w-0 truncate">
+                        {t(`settings.cache.mirrorType.${row.entityType}`)}
+                        {row.title ? `: ${row.title}` : ''}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 shrink-0 px-2 text-xs"
+                        onClick={() => void removeMirror(row)}
+                      >
+                        {t('settings.cache.removeMirror')}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               <Button
                 type="button"
                 variant="outline"

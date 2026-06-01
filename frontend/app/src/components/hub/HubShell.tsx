@@ -3,12 +3,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { api } from '@/api/client'
 import { parseProblemResponse } from '@/api/problem'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CommandPalette } from '@/components/hub/CommandPalette'
+import { SessionLoadingFallback } from '@/components/SessionLoadingFallback'
+import { SessionUnavailableScreen } from '@/components/SessionUnavailableScreen'
 import { SetlistPaletteRegistrarProvider } from '@/context/SetlistPaletteBridgeContext'
 import type { SetlistPaletteBridge } from '@/lib/setlist-palette-bridge'
 import { HUB_SEARCH_INPUT_CLASS, HUB_SEARCH_PILL_TEXT_CLASS } from '@/components/hub/hub-search-styles'
@@ -59,27 +62,15 @@ function hubSearchSectionKey(pathname: string): string | null {
   return null
 }
 
-function SessionLoadingFallback({ label }: { label: string }) {
-  const reduceMotion = useReducedMotion()
+function OfflineBanner() {
+  const { t } = useTranslation()
   return (
-    <motion.div
-      className="flex min-h-dvh flex-col items-center justify-center gap-3 p-6 text-[var(--color-muted-foreground)]"
-      initial={reduceMotion ? false : { opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={reduceMotion ? { duration: 0 } : { duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
+    <div
+      className="mb-3 rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-3 py-2 text-center text-xs text-[var(--color-muted-foreground)]"
+      role="status"
     >
-      <motion.span
-        className="h-1.5 w-1.5 rounded-full bg-[var(--color-muted-foreground)]/55"
-        aria-hidden
-        animate={
-          reduceMotion ? undefined : { opacity: [0.35, 1, 0.35], scale: [0.9, 1, 0.9] }
-        }
-        transition={
-          reduceMotion ? undefined : { duration: 1.05, repeat: Infinity, ease: 'easeInOut' }
-        }
-      />
-      <span>{label}</span>
-    </motion.div>
+      {t('hub.offline.staleDataBanner')}
+    </div>
   )
 }
 
@@ -148,6 +139,7 @@ function HubChrome({
   const detailTitleInputRef = useRef<HTMLInputElement>(null)
   const prevHubSectionRef = useRef<string | null>(null)
   const online = useOnline()
+  const prevOnlineRef = useRef(online)
   const { data: detailTeam } = useTeamDetail(teamDetailId, { enabled: isTeamDetail })
   const canEditTeamTitle = Boolean(
     isTeamDetail &&
@@ -182,6 +174,14 @@ function HubChrome({
     }
     prevHubSectionRef.current = hubSectionKey
   }, [hubSectionKey, setQInput])
+
+  useEffect(() => {
+    const prev = prevOnlineRef.current
+    if (!prev && online) {
+      toast.success(t('hub.offline.backOnline'))
+    }
+    prevOnlineRef.current = online
+  }, [online, t])
 
   useEffect(() => {
     if (!isEditingDetailTitle) return
@@ -530,6 +530,7 @@ function HubChrome({
                 reduceMotion ? { duration: 0 } : { duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }
               }
             >
+              {!online ? <OfflineBanner /> : null}
               {children}
             </motion.div>
           </AnimatePresence>
@@ -599,7 +600,7 @@ function HubChrome({
 
 export function HubShell() {
   const { t } = useTranslation()
-  const { isPending, data: user } = useSession()
+  const { isPending, data: user, isError, refetch } = useSession()
   const [paletteOk, setPaletteOk] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [setlistPaletteBridge, setSetlistPaletteBridge] = useState<SetlistPaletteBridge | null>(null)
@@ -622,7 +623,9 @@ export function HubShell() {
   }
 
   if (!user) {
-    return null
+    return (
+      <SessionUnavailableScreen onRetry={isError ? () => void refetch() : undefined} />
+    )
   }
 
   return (

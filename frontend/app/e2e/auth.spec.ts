@@ -137,7 +137,7 @@ test('A4: log out clears local data', async ({ seed, browser, baseURL }) => {
     const { context, page } = await authedPage()
     await goto(page, '/collections')
     await context.setOffline(true)
-    await page.getByRole('button', { name: 'Open profile menu' }).click()
+    await page.getByRole('button', { name: /Open profile menu/ }).click()
     await page.getByRole('menuitem', { name: 'Log out' }).click()
     await expect(page).toHaveURL(/\/login/)
     await context.close()

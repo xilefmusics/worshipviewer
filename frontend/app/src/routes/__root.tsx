@@ -4,6 +4,8 @@ import { createRootRouteWithContext, Outlet, type ErrorComponentProps } from '@t
 import { useTranslation } from 'react-i18next'
 import { Toaster } from 'sonner'
 
+import { isNetworkError } from '@/lib/session-cache'
+
 export interface RouterAppContext {
   queryClient: QueryClient
 }
@@ -38,11 +40,24 @@ function RootLayout() {
   )
 }
 
+function bootstrapErrorMessage(error: Error, t: (key: string) => string): string {
+  if (isNetworkError(error)) {
+    return t('offline.bootstrapFailed')
+  }
+  const msg = error.message.toLowerCase()
+  if (msg.includes('failed to fetch') || msg.includes('network')) {
+    return t('offline.bootstrapFailed')
+  }
+  return error.message
+}
+
 function RootError({ error }: ErrorComponentProps) {
   const { t } = useTranslation()
+  const message =
+    error instanceof Error ? bootstrapErrorMessage(error, t) : t('offline.bootstrapFailed')
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-[var(--color-bg)] p-6 text-center">
-      <p className="text-lg font-medium text-[var(--color-foreground)]">{error.message}</p>
+      <p className="text-lg font-medium text-[var(--color-foreground)]">{message}</p>
       <a className="text-[var(--color-primary)] underline" href="/">
         {t('notFound.home')}
       </a>

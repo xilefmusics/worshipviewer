@@ -8,6 +8,7 @@ import { fetchSetlistDetail, fetchSongForHubSlot } from '@/api/setlists-detail'
 import { PlayerAv } from '@/components/player/av/PlayerAv'
 import { PlayerBook } from '@/components/player/PlayerBook'
 import { Button } from '@/components/ui/button'
+import { useOnline } from '@/hooks/use-online'
 import type { PlayerMode } from '@/lib/player/player-mode'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { resolvePlayerForRoute } from '@/lib/offline/resolve-player'
@@ -65,10 +66,12 @@ function usePlayerResourceTitle(type: PlayerEntityType, id: string, enabled: boo
 
 export function PlayerRouteInner({ type, id, initialIndex, mode }: PlayerRouteInnerProps) {
   const { t } = useTranslation()
+  const online = useOnline()
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: playerQueryKey(type, id),
     queryFn: ({ signal }) => resolvePlayerForRoute(type, id, signal),
     refetchOnMount: 'always',
+    networkMode: 'always',
   })
 
   const player =
@@ -82,7 +85,28 @@ export function PlayerRouteInner({ type, id, initialIndex, mode }: PlayerRouteIn
   const resourceTitle = usePlayerResourceTitle(type, id, Boolean(player))
   const backTo = useMemo(() => hubPathForPlayerType(type), [type])
 
-  if (isPending || !data) {
+  if (isPending && !data) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-[var(--color-bg)] p-6 text-[var(--color-muted-foreground)]">
+        {t('common.load')}
+      </div>
+    )
+  }
+
+  if (!data && !online) {
+    return (
+      <div className="mx-auto flex min-h-dvh max-w-lg flex-col gap-4 bg-[var(--color-bg)] p-6">
+        <p className="text-sm text-[var(--color-muted-foreground)]">
+          {t(`offlinePlayer.${type}NotCached`)}
+        </p>
+        <Button type="button" variant="outline" asChild>
+          <Link to={backTo}>{t('player.backToList')}</Link>
+        </Button>
+      </div>
+    )
+  }
+
+  if (!data) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-[var(--color-bg)] p-6 text-[var(--color-muted-foreground)]">
         {t('common.load')}

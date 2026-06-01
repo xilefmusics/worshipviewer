@@ -1,5 +1,5 @@
 import { fetchBlobBinaryWithMime } from '@/api/blob-data'
-import { getCachedBlob } from '@/lib/offline/setlist-player-cache'
+import { getCachedBlob } from '@/lib/offline/player-mirror-cache'
 
 export type BlobUrlStatus = 'loading' | 'ready' | 'error' | 'offline-unavailable'
 

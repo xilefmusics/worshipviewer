@@ -8,5 +8,6 @@ export function useSession() {
     queryFn: fetchSessionUser,
     staleTime: SESSION_STALE_TIME_MS,
     refetchOnWindowFocus: true,
+    networkMode: 'always',
   })
 }

@@ -1,14 +1,11 @@
 import type { components } from '@/api/schema'
 
-import { api } from '@/api/client'
-import { parseProblemResponse } from '@/api/problem'
 import {
-  fetchSetlistPlayerFromNetwork,
-  loadOfflineSetlistPlayer,
-  persistSetlistPlayerMirror,
-} from '@/lib/offline/setlist-player-cache'
-import { reconcileSetlistPlayer404 } from '@/lib/player/server-deleted-reconciliation'
-
+  fetchPlayerFromNetwork,
+  loadOfflinePlayer,
+  persistPlayerMirror,
+} from '@/lib/offline/player-mirror-cache'
+import { reconcilePlayer404 } from '@/lib/player/server-deleted-reconciliation'
 import type { PlayerEntityType } from '@/lib/player-route'
 
 type Player = components['schemas']['Player']
@@ -17,6 +14,12 @@ export type ResolvedPlayerState =
   | { status: 'ready'; player: Player; source: 'network' | 'offline'; deletedReconciled?: boolean }
   | { status: 'error'; message: string }
   | { status: 'offline_unavailable'; message: string }
+
+const NOT_CACHED_MESSAGE: Record<PlayerEntityType, string> = {
+  setlist: 'offlinePlayer.setlistNotCached',
+  collection: 'offlinePlayer.collectionNotCached',
+  song: 'offlinePlayer.songNotCached',
+}
 
 function isOnline(): boolean {
   return typeof navigator !== 'undefined' && navigator.onLine
@@ -27,63 +30,25 @@ export async function fetchNonSetlistPlayer(
   id: string,
   signal?: AbortSignal,
 ): Promise<{ player: Player } | { error: string }> {
-  if (type === 'song') {
-    const { data, error, response } = await api.GET('/api/v1/songs/{id}/player', {
-      params: { path: { id } },
-      parseAs: 'json',
-      signal,
-    })
-    if (!response.ok || error) {
-      const problem = await parseProblemResponse(response.clone())
-      return { error: problem?.title ?? 'Request failed' }
-    }
-    if (!data) {
-      return { error: 'Empty response' }
-    }
-    return { player: data }
+  const res = await fetchPlayerFromNetwork(type, id, signal)
+  if ('error' in res) {
+    return { error: res.error }
   }
-
-  const { data, error, response } = await api.GET('/api/v1/collections/{id}/player', {
-    params: { path: { id } },
-    parseAs: 'json',
-    signal,
-  })
-  if (!response.ok || error) {
-    const problem = await parseProblemResponse(response.clone())
-    return { error: problem?.title ?? 'Request failed' }
-  }
-  if (!data) {
-    return { error: 'Empty response' }
-  }
-  return { player: data }
+  return { player: res.player }
 }
 
 /**
- * Resolve `Player` for the emergency / full player route (E4 mirror rules for setlists only).
+ * Resolve `Player` for the emergency / full player route with offline mirror support.
  */
 export async function resolvePlayerForRoute(
   type: PlayerEntityType,
   id: string,
   signal?: AbortSignal,
 ): Promise<ResolvedPlayerState> {
-  if (type !== 'setlist') {
-    if (!isOnline()) {
-      return {
-        status: 'offline_unavailable',
-        message: 'offlinePlayer.onlineOnlyType',
-      }
-    }
-    const res = await fetchNonSetlistPlayer(type, id, signal)
-    if ('error' in res) {
-      return { status: 'error', message: res.error }
-    }
-    return { status: 'ready', player: res.player, source: 'network' }
-  }
-
   if (isOnline()) {
-    const res = await fetchSetlistPlayerFromNetwork(id, signal)
+    const res = await fetchPlayerFromNetwork(type, id, signal)
     if ('error' in res) {
-      const reconciled = await reconcileSetlistPlayer404(id, res.status)
+      const reconciled = await reconcilePlayer404(type, id, res.status)
       if (reconciled.kind === 'reconciled') {
         return {
           status: 'ready',
@@ -95,7 +60,7 @@ export async function resolvePlayerForRoute(
       return { status: 'error', message: res.error }
     }
     try {
-      await persistSetlistPlayerMirror(id, res.player, signal)
+      await persistPlayerMirror(type, id, res.player, { signal })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       return { status: 'error', message: msg }
@@ -103,11 +68,11 @@ export async function resolvePlayerForRoute(
     return { status: 'ready', player: res.player, source: 'network' }
   }
 
-  const offline = await loadOfflineSetlistPlayer(id)
+  const offline = await loadOfflinePlayer(type, id)
   if (!offline) {
     return {
       status: 'offline_unavailable',
-      message: 'offlinePlayer.setlistNotCached',
+      message: NOT_CACHED_MESSAGE[type],
     }
   }
   return { status: 'ready', player: offline, source: 'offline' }
