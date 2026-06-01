@@ -47,8 +47,6 @@ pub struct CreateUser {
     pub email: String,
     #[serde(default)]
     pub role: Role,
-    #[serde(default)]
-    pub default_collection: Option<String>,
 }
 
 impl CreateUser {
@@ -66,7 +64,6 @@ impl CreateUser {
             id: String::new(),
             email,
             role: self.role,
-            default_collection: self.default_collection,
             created_at: Utc::now(),
             oauth_picture_url: None,
             oauth_avatar_blob_id: None,

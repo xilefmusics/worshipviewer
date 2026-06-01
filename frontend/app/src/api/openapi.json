@@ -368,14 +368,14 @@
         "additionalProperties": false,
         "example": {
           "blobs": [],
+          "collection": "collection_example_id",
           "data": {
             "sections": [],
             "titles": [
               "Example Hymn"
             ]
           },
-          "not_a_song": false,
-          "owner": "team_example_id"
+          "not_a_song": false
         },
         "properties": {
           "blobs": {
@@ -384,21 +384,19 @@
             },
             "type": "array"
           },
+          "collection": {
+            "description": "Target collection id; the song is created under that collection's owning team and appended to its `songs` list.",
+            "type": "string"
+          },
           "data": {
             "$ref": "#/components/schemas/SongDataSchema"
           },
           "not_a_song": {
             "type": "boolean"
-          },
-          "owner": {
-            "description": "Owning team id (same format as `Song.owner` in responses). Omit to create under the caller's personal team (and apply default-collection rules).",
-            "type": [
-              "string",
-              "null"
-            ]
           }
         },
         "required": [
+          "collection",
           "not_a_song",
           "blobs",
           "data"
@@ -435,12 +433,6 @@
           "role": "default"
         },
         "properties": {
-          "default_collection": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "email": {
             "type": "string"
           },
@@ -2551,7 +2543,6 @@
         "example": {
           "avatar_blob_id": null,
           "created_at": "2026-01-01T12:00:00Z",
-          "default_collection": null,
           "email": "singer@example.com",
           "id": "usr_example",
           "oauth_avatar_blob_id": null,
@@ -2569,12 +2560,6 @@
           "created_at": {
             "format": "date-time",
             "type": "string"
-          },
-          "default_collection": {
-            "type": [
-              "string",
-              "null"
-            ]
           },
           "email": {
             "type": "string"

@@ -18,13 +18,16 @@ use crate::resources::team::TeamServiceHandle;
 use crate::resources::team::invitation::InvitationServiceHandle;
 use crate::resources::user::service::UserServiceHandle;
 use crate::resources::user::session::service::SessionServiceHandle;
+use shared::collection::CreateCollection;
 use shared::setlist::CreateSetlist;
 use shared::song::CreateSong;
 use shared::team::{CreateTeam, TeamMemberInput, TeamRole, TeamUserRef, UpdateTeam};
 use shared::user::Role as UserRole;
 
 pub async fn test_db() -> AnyResult<Arc<Database>> {
-    let db = Database::connect("mem://", "test", "test", None, None).await?;
+    // Bare `mem://` is process-global in SurrealDB; parallel tests need distinct paths.
+    let address = format!("mem://{}", uuid::Uuid::new_v4());
+    let db = Database::connect(&address, "test", "test", None, None).await?;
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/db-migrations");
     db.migrate(path).await?;
     Ok(Arc::new(db))
@@ -54,15 +57,40 @@ pub fn minimal_song_data() -> SongData {
     serde_json::from_str(r#"{"titles":["T"],"sections":[]}"#).expect("song data")
 }
 
+pub async fn ensure_test_collection(db: &Arc<Database>, user: &User) -> AnyResult<String> {
+    let ctx = auth_ctx_for_user(db, user).await?;
+    let coll_svc = collection_service(db);
+    use shared::api::ListQuery;
+    let existing = coll_svc
+        .list_collections_for_user(&ctx, ListQuery::default())
+        .await?;
+    if let Some(c) = existing.first() {
+        return Ok(c.id.clone());
+    }
+    let created = coll_svc
+        .create_collection_for_user(
+            &ctx,
+            CreateCollection {
+                owner: None,
+                title: "Test".into(),
+                cover: "mysongs".into(),
+                songs: vec![],
+            },
+        )
+        .await?;
+    Ok(created.id)
+}
+
 pub async fn create_song_with_title(
     db: &Arc<Database>,
     user: &User,
     title: &str,
 ) -> AnyResult<shared::song::Song> {
+    let collection = ensure_test_collection(db, user).await?;
     let mut data = minimal_song_data();
     data.titles = vec![title.to_string()];
     let create = CreateSong {
-        owner: None,
+        collection,
         not_a_song: false,
         blobs: vec![],
         data,
@@ -94,7 +122,6 @@ pub fn auth_ctx_with_teams(user: &User, teams: Vec<AuthorizedTeam>) -> Authoriza
             id: user.id.clone(),
             email: user.email.clone(),
             role: user.role.clone(),
-            default_collection: user.default_collection.clone(),
             oauth_picture_url: user.oauth_picture_url.clone(),
             oauth_avatar_blob_id: user.oauth_avatar_blob_id.clone(),
             avatar_blob_id: user.avatar_blob_id.clone(),

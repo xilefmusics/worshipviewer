@@ -26,7 +26,7 @@ LET $s = SELECT id, user, expires_at FROM ONLY $sid;
 LET $u = IF $s == NONE {
     NONE
 } ELSE {
-    SELECT id, role, email, default_collection, oauth_picture_url,
+    SELECT id, role, email, oauth_picture_url,
            oauth_avatar_blob AS oauth_avatar_blob_id, avatar_blob AS avatar_blob_id
     FROM ONLY $s.user
 };
@@ -97,7 +97,7 @@ pub async fn load_authorization_context_for_user(
             r"
 LET $user_rec = type::record('user', $uid);
 
-LET $u = SELECT id, role, email, default_collection, oauth_picture_url,
+LET $u = SELECT id, role, email, oauth_picture_url,
            oauth_avatar_blob AS oauth_avatar_blob_id, avatar_blob AS avatar_blob_id
     FROM ONLY $user_rec;
 

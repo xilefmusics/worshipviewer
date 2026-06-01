@@ -282,14 +282,6 @@ mod tests {
             unreachable!("not used in session tests")
         }
 
-        async fn set_default_collection(
-            &self,
-            _user_id: &str,
-            _collection_id: &str,
-        ) -> Result<(), AppError> {
-            unreachable!("not used in session tests")
-        }
-
         async fn set_oauth_picture_and_oauth_avatar_blob(
             &self,
             _user_id: &str,

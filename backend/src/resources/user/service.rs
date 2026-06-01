@@ -99,17 +99,6 @@ impl<R: UserRepository, T: TeamRepository> UserService<R, T> {
     pub async fn delete_user(&self, id: &str) -> Result<User, AppError> {
         self.repo.delete_user(id).await
     }
-
-    #[instrument(level = "debug", err, skip(self))]
-    pub async fn set_default_collection(
-        &self,
-        user_id: &str,
-        collection_id: &str,
-    ) -> Result<(), AppError> {
-        self.repo
-            .set_default_collection(user_id, collection_id)
-            .await
-    }
 }
 
 /// Production type alias used in HTTP wiring.
@@ -379,14 +368,6 @@ mod tests {
             unreachable!("not used in these tests")
         }
 
-        async fn set_default_collection(
-            &self,
-            _user_id: &str,
-            _collection_id: &str,
-        ) -> Result<(), AppError> {
-            unreachable!("not used in these tests")
-        }
-
         async fn set_oauth_picture_and_oauth_avatar_blob(
             &self,
             _user_id: &str,
@@ -629,7 +610,6 @@ mod tests {
             svc.create_user_from_request(CreateUser {
                 email: "MixEd@Case.Test.Local".into(),
                 role: Role::Default,
-                default_collection: None,
             })
             .await
             .expect("first");
@@ -637,7 +617,6 @@ mod tests {
                 .create_user_from_request(CreateUser {
                     email: "  mixed@case.test.local  ".into(),
                     role: Role::Default,
-                    default_collection: None,
                 })
                 .await;
             assert!(
@@ -655,7 +634,6 @@ mod tests {
                 .create_user_from_request(CreateUser {
                     email: "not-an-email".into(),
                     role: Role::Default,
-                    default_collection: None,
                 })
                 .await;
             assert!(matches!(r, Err(AppError::InvalidRequest(_))));

@@ -1,14 +1,13 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/api/client'
 import { parseProblemResponse } from '@/api/problem'
 import type { components } from '@/api/schema'
 import type { Song } from '@/api/songs-detail'
-import type { Team } from '@/api/teams-sessions-fetch'
 import { fetchTeamsPage } from '@/api/teams-sessions-fetch'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,34 +17,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  useEnsureTargetCollection,
+  writeLastCollectionToLs,
+} from '@/hooks/useEnsureTargetCollection'
 import { useSession } from '@/hooks/useSession'
 import { getChordEngine } from '@/lib/chord-engine'
 import { hubListRootKey } from '@/lib/hub-list-keys'
 import { getNextPageIndex } from '@/lib/list-pagination'
 import { importSongsBatch, SONG_IMPORT_FILE_ACCEPT } from '@/lib/song-import-export'
-import { getTeamDisplayName, isPersonalTeamName } from '@/lib/team-display-name'
-import { canEditTeamLibrary } from '@/lib/team-permissions'
 import { teamsListRootKey } from '@/lib/teams-sessions-keys'
 import { cn } from '@/lib/utils'
-
-const LAST_OWNER_LS = 'wv.songCreate.lastOwnerTeamId'
-
-function readLastOwnerFromLs(): string | null {
-  try {
-    const raw = globalThis.localStorage?.getItem(LAST_OWNER_LS)
-    return raw && raw.trim() ? raw.trim() : null
-  } catch {
-    return null
-  }
-}
-
-function writeLastOwnerToLs(teamId: string) {
-  try {
-    globalThis.localStorage?.setItem(LAST_OWNER_LS, teamId)
-  } catch {
-    /* ignore */
-  }
-}
 
 type ImportSongsDialogProps = {
   open: boolean
@@ -79,42 +61,36 @@ export function ImportSongsDialog({ open, onOpenChange, online }: ImportSongsDia
     getNextPageParam: (_last, all) => getNextPageIndex(all),
   })
 
-  const allTeams = useMemo(() => {
-    const pages = teamsQ.data?.pages ?? []
-    return pages.flatMap((p) => p.items) as Team[]
-  }, [teamsQ.data?.pages])
+  const allTeams = teamsQ.data?.pages.flatMap((p) => p.items) ?? []
 
-  const writableTeams = useMemo(() => {
-    if (!user?.id) return []
-    return allTeams.filter((tm) => canEditTeamLibrary(tm, user.id))
-  }, [allTeams, user])
+  const {
+    editableCollections,
+    collectionId,
+    setCollectionPick,
+    showCollectionPicker,
+    hasEditableCollection,
+    noCollectionPromptOpen,
+    setNoCollectionPromptOpen,
+    createPersonalCollection,
+    createCollectionPending,
+    collectionsFetched,
+  } = useEnsureTargetCollection({
+    enabled: open,
+    userId: user?.id,
+    teams: allTeams,
+  })
 
-  const showOwnerPicker = writableTeams.length > 1
-  const [ownerPick, setOwnerPick] = useState<string | null>(null)
+  const showNoCollectionFlow =
+    collectionsFetched && !hasEditableCollection && noCollectionPromptOpen
 
-  const defaultOwnerId = useMemo(() => {
-    if (!open || !user?.id) return ''
-    if (writableTeams.length === 0 && !teamsQ.isFetched) return ''
-    const last = readLastOwnerFromLs()
-    if (last && writableTeams.some((tm) => tm.id === last)) return last
-    const personal = writableTeams.find(
-      (tm) => isPersonalTeamName(tm.name) && canEditTeamLibrary(tm, user.id),
-    )
-    return personal?.id ?? writableTeams[0]?.id ?? ''
-  }, [open, teamsQ.isFetched, user, writableTeams])
-
-  const ownerId = ownerPick ?? defaultOwnerId
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedFiles.length) throw new Error(t('songs.import.noFiles'))
-      const engine = await getChordEngine()
-      const owner = showOwnerPicker && ownerId ? ownerId : undefined
-      return importSongsBatch({
-        files: selectedFiles,
-        engine,
-        owner,
-        postSong: async (body) => {
+  const runImport = async (targetCollectionId: string) => {
+    if (!selectedFiles.length) throw new Error(t('songs.import.noFiles'))
+    const engine = await getChordEngine()
+    return importSongsBatch({
+      files: selectedFiles,
+      engine,
+      collection: targetCollectionId,
+      postSong: async (body) => {
           const { data, response } = await api.POST('/api/v1/songs', {
             body: body as unknown as components['schemas']['CreateSong'],
           })
@@ -124,11 +100,25 @@ export function ImportSongsDialog({ open, onOpenChange, online }: ImportSongsDia
           }
           return { id: (data as Song).id }
         },
-      })
+    })
+  }
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const targetId = collectionId
+      if (!targetId) {
+        if (!hasEditableCollection) {
+          setNoCollectionPromptOpen(true)
+          throw new Error(t('songs.import.noFiles'))
+        }
+        throw new Error(t('songs.import.failed'))
+      }
+      return runImport(targetId)
     },
     onSuccess: (result) => {
-      if (showOwnerPicker && ownerId) writeLastOwnerToLs(ownerId)
+      if (collectionId) writeLastCollectionToLs(collectionId)
       void queryClient.invalidateQueries({ queryKey: [...hubListRootKey, 'songs'] })
+      void queryClient.invalidateQueries({ queryKey: [...hubListRootKey, 'collections'] })
       setSummary({ created: result.created.length, failed: result.failed })
       setSelectedFiles([])
       setLocalError(null)
@@ -149,7 +139,8 @@ export function ImportSongsDialog({ open, onOpenChange, online }: ImportSongsDia
           setSelectedFiles([])
           setSummary(null)
           setLocalError(null)
-          setOwnerPick(null)
+          setCollectionPick(null)
+          setNoCollectionPromptOpen(false)
           if (fileInputRef.current) fileInputRef.current.value = ''
         }
       }}
@@ -236,17 +227,24 @@ export function ImportSongsDialog({ open, onOpenChange, online }: ImportSongsDia
                   />
 
                   <div className="grid gap-2">
-                    {showOwnerPicker ? (
+                    {showNoCollectionFlow ? (
+                      <p className="text-sm text-[var(--color-muted-foreground)]">
+                        {t('songs.import.noCollectionDescription')}
+                      </p>
+                    ) : null}
+                    {showCollectionPicker && !showNoCollectionFlow ? (
                       <div className="grid gap-1.5 text-sm font-medium">
-                        <label htmlFor="song-import-owner">{t('songs.import.teamLabel')}</label>
-                        <Select value={ownerId} onValueChange={(v) => setOwnerPick(v)}>
-                          <SelectTrigger id="song-import-owner" className="font-normal">
+                        <label htmlFor="song-import-collection">
+                          {t('songs.import.collectionLabel')}
+                        </label>
+                        <Select value={collectionId} onValueChange={(v) => setCollectionPick(v)}>
+                          <SelectTrigger id="song-import-collection" className="font-normal">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {writableTeams.map((tm) => (
-                              <SelectItem key={tm.id} value={tm.id}>
-                                {getTeamDisplayName(tm, user?.id, t)}
+                            {editableCollections.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.title}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -308,17 +306,68 @@ export function ImportSongsDialog({ open, onOpenChange, online }: ImportSongsDia
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                       {t('teams.dialogCancel')}
                     </Button>
-                    <Button
-                      type="button"
-                      disabled={!online || mutation.isPending || selectedFiles.length === 0}
-                      onClick={() => {
-                        setLocalError(null)
-                        setSummary(null)
-                        void mutation.mutateAsync()
-                      }}
-                    >
-                      {mutation.isPending ? t('songs.import.importing') : t('songs.import.submit')}
-                    </Button>
+                    {showNoCollectionFlow ? (
+                      <Button
+                        type="button"
+                        disabled={
+                          !online ||
+                          mutation.isPending ||
+                          createCollectionPending ||
+                          selectedFiles.length === 0
+                        }
+                        onClick={() => {
+                          setLocalError(null)
+                          setSummary(null)
+                          void (async () => {
+                            try {
+                              const newId = await createPersonalCollection(
+                                t('songs.import.defaultCollectionTitle'),
+                              )
+                              const result = await runImport(newId)
+                              if (newId) writeLastCollectionToLs(newId)
+                              void queryClient.invalidateQueries({
+                                queryKey: [...hubListRootKey, 'songs'],
+                              })
+                              void queryClient.invalidateQueries({
+                                queryKey: [...hubListRootKey, 'collections'],
+                              })
+                              setSummary({
+                                created: result.created.length,
+                                failed: result.failed,
+                              })
+                              setSelectedFiles([])
+                              if (fileInputRef.current) fileInputRef.current.value = ''
+                            } catch (e) {
+                              setLocalError(
+                                e instanceof Error ? e.message : t('songs.import.failed'),
+                              )
+                            }
+                          })()
+                        }}
+                      >
+                        {mutation.isPending || createCollectionPending
+                          ? t('songs.import.importing')
+                          : t('songs.import.createCollectionAndImport')}
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        disabled={!online || mutation.isPending || selectedFiles.length === 0}
+                        onClick={() => {
+                          setLocalError(null)
+                          setSummary(null)
+                          if (!collectionId && !hasEditableCollection) {
+                            setNoCollectionPromptOpen(true)
+                            return
+                          }
+                          void mutation.mutateAsync()
+                        }}
+                      >
+                        {mutation.isPending
+                          ? t('songs.import.importing')
+                          : t('songs.import.submit')}
+                      </Button>
+                    )}
                   </div>
                 </motion.div>
               </Dialog.Content>

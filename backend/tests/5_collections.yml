@@ -199,6 +199,26 @@ testcases:
           - result.statuscode ShouldEqual 200
 
   # BLC: BLC-SONG-009
+  - name: setup-noperm-user-song-collection
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections"
+        headers:
+          Authorization: "Bearer {{.create-collection-noperm-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "title": "No Perm Collection",
+            "cover": "mysongs",
+            "songs": []
+          }
+        assertions:
+          - result.statuscode ShouldEqual 201
+        vars:
+          noperm_song_collection_id:
+            from: result.bodyjson.id
+
   - name: create-noperm-user-song
     steps:
       - type: http
@@ -209,6 +229,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-noperm-user-song-collection.noperm_song_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -224,6 +245,28 @@ testcases:
 
   # Setup: Songs to link in collections
   # BLC: BLC-SONG-009
+
+  # BLC: BLC-SONG-009
+  - name: setup-collection-owner-song-collection
+    steps:
+      - type: http
+        method: POST
+        url: "{{.base_url}}/api/v1/collections"
+        headers:
+          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
+          Content-Type: application/json
+        body: |
+          {
+            "title": "Test Collection",
+            "cover": "mysongs",
+            "songs": []
+          }
+        assertions:
+          - result.statuscode ShouldEqual 201
+        vars:
+          collection_owner_song_collection_id:
+            from: result.bodyjson.id
+
   - name: create-collection-song-one
     steps:
       - type: http
@@ -234,6 +277,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-collection-owner-song-collection.collection_owner_song_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {
@@ -260,6 +304,7 @@ testcases:
           Content-Type: application/json
         body: |
           {
+            "collection": "{{.setup-collection-owner-song-collection.collection_owner_song_collection_id}}",
             "not_a_song": false,
             "blobs": [],
             "data": {

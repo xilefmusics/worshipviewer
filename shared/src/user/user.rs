@@ -15,7 +15,6 @@ use super::Role;
         "id": "usr_example",
         "email": "singer@example.com",
         "role": "default",
-        "default_collection": null,
         "created_at": "2026-01-01T12:00:00Z",
         "oauth_picture_url": null,
         "oauth_avatar_blob_id": null,
@@ -26,8 +25,6 @@ pub struct User {
     pub id: String,
     pub email: String,
     pub role: Role,
-    #[serde(default)]
-    pub default_collection: Option<String>,
     pub created_at: DateTime<Utc>,
     /// Last `picture` claim URL seen from OIDC (used to detect when to re-fetch the cached avatar).
     #[serde(default)]
@@ -47,7 +44,6 @@ impl User {
             id: String::new(),
             email: email.into().to_lowercase(),
             role: Role::default(),
-            default_collection: None,
             created_at: Utc::now(),
             oauth_picture_url: None,
             oauth_avatar_blob_id: None,

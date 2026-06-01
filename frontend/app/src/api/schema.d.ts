@@ -948,22 +948,22 @@ export interface components {
         /**
          * @example {
          *       "blobs": [],
+         *       "collection": "collection_example_id",
          *       "data": {
          *         "sections": [],
          *         "titles": [
          *           "Example Hymn"
          *         ]
          *       },
-         *       "not_a_song": false,
-         *       "owner": "team_example_id"
+         *       "not_a_song": false
          *     }
          */
         CreateSong: {
             blobs: components["schemas"]["BlobLink"][];
+            /** @description Target collection id; the song is created under that collection's owning team and appended to its `songs` list. */
+            collection: string;
             data: components["schemas"]["SongDataSchema"];
             not_a_song: boolean;
-            /** @description Owning team id (same format as `Song.owner` in responses). Omit to create under the caller's personal team (and apply default-collection rules). */
-            owner?: string | null;
         };
         /**
          * @example {
@@ -983,7 +983,6 @@ export interface components {
          *     }
          */
         CreateUser: {
-            default_collection?: string | null;
             email: string;
             role?: components["schemas"]["Role"];
         };
@@ -1749,7 +1748,6 @@ export interface components {
          * @example {
          *       "avatar_blob_id": null,
          *       "created_at": "2026-01-01T12:00:00Z",
-         *       "default_collection": null,
          *       "email": "singer@example.com",
          *       "id": "usr_example",
          *       "oauth_avatar_blob_id": null,
@@ -1762,7 +1760,6 @@ export interface components {
             avatar_blob_id?: string | null;
             /** Format: date-time */
             created_at: string;
-            default_collection?: string | null;
             email: string;
             id: string;
             /** @description Backend-cached OAuth profile image (`GET /api/v1/blobs/{id}/data`). */

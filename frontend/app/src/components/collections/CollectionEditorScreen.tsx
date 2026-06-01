@@ -235,10 +235,7 @@ export function CollectionEditorScreen({ collectionId }: { collectionId: string 
 
   const blockingAll = patchInFlight || !!saveFailure || offlineFrozen || !canEdit || resumePrompt
   const dndBlocked = blockingAll || !canEdit
-  const isUsersDefaultCollection = Boolean(
-    user?.default_collection != null && user.default_collection !== '' && user.default_collection === collectionId,
-  )
-  const titleAndTeamDisabled = blockingAll || isUsersDefaultCollection
+  const titleAndTeamDisabled = blockingAll
   const announcingRef = useRef<HTMLParagraphElement>(null)
   type MoveDialogSlot = { index: number; titlePreview: string }
   const [moveDialogSlot, setMoveDialogSlot] = useState<MoveDialogSlot | null>(null)

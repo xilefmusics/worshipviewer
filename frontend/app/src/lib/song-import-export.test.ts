@@ -81,9 +81,9 @@ describe('parseImportSource', () => {
 })
 
 describe('createSongBodyFromParsed', () => {
-  it('includes owner when provided', () => {
-    const body = createSongBodyFromParsed({ titles: ['A'], sections: [] }, 'team_1')
-    expect(body.owner).toBe('team_1')
+  it('includes collection id', () => {
+    const body = createSongBodyFromParsed({ titles: ['A'], sections: [] }, 'coll_1')
+    expect(body.collection).toBe('coll_1')
     expect(body.not_a_song).toBe(false)
     expect(body.blobs).toEqual([])
   })
@@ -106,6 +106,7 @@ describe('importSongsBatch', () => {
     const result = await importSongsBatch({
       files: [good, bad],
       engine,
+      collection: 'coll_test',
       postSong,
     })
 

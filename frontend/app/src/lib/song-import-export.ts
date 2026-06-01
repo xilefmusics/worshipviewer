@@ -35,10 +35,10 @@ export type BatchImportResult = {
 }
 
 export type CreateSongPostBody = {
+  collection: string
   data: ChordSongData
   blobs: []
   not_a_song: false
-  owner?: string
 }
 
 /** Safe download basename from song title (no extension). */
@@ -92,15 +92,14 @@ export function parseImportSource(engine: ChordEngine, text: string): ParseImpor
 
 export function createSongBodyFromParsed(
   data: ChordSongData,
-  owner?: string,
+  collection: string,
 ): CreateSongPostBody {
-  const body: CreateSongPostBody = {
+  return {
+    collection,
     data,
     blobs: [],
     not_a_song: false,
   }
-  if (owner) body.owner = owner
-  return body
 }
 
 export function formatSongForExport(
@@ -409,7 +408,7 @@ export function formatImportedSource(
 export async function importSongsBatch(args: {
   files: FileList | File[]
   engine: ChordEngine
-  owner?: string
+  collection: string
   postSong: (body: CreateSongPostBody) => Promise<{ id: string }>
 }): Promise<BatchImportResult> {
   const created: BatchImportCreated[] = []
@@ -428,7 +427,7 @@ export async function importSongsBatch(args: {
     }
     const title = songTitleFromData(parsed.data)
     try {
-      const body = createSongBodyFromParsed(parsed.data, args.owner)
+      const body = createSongBodyFromParsed(parsed.data, args.collection)
       const song = await args.postSong(body)
       created.push({ id: song.id, title })
     } catch (e) {

@@ -1,0 +1,1 @@
+REMOVE EVENT collection_default_collection_unset ON collection;

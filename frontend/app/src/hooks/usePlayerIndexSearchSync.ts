@@ -53,18 +53,7 @@ export function usePlayerIndexSearchSync(
       search: buildPlayerSearch({ ...playerSearchSnapshot(search, type, id, mode), index }),
       replace: true,
     })
-  }, [
-    id,
-    index,
-    mode,
-    navigate,
-    search.index,
-    search.mode,
-    search.toc,
-    search.tocLang,
-    search.tocTags,
-    type,
-  ])
+  }, [id, index, mode, navigate, search, type])
 }
 
 export function usePlayerTocSearchSync() {

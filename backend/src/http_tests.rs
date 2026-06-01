@@ -76,9 +76,12 @@ fn build_app_with_api_limits(
         song_service, team_service, user_service,
     };
 
-    // Use a throwaway temp path for blob storage; blobs are not written in these tests.
+    // Unique path so parallel HTTP tests do not share blob files on disk.
     let blob_dir = std::env::temp_dir()
-        .join("worshipviewer_http_tests_blobs")
+        .join(format!(
+            "worshipviewer_http_tests_blobs_{}",
+            uuid::Uuid::new_v4()
+        ))
         .to_string_lossy()
         .into_owned();
 
@@ -1728,20 +1731,26 @@ mod song_patch_http {
     async fn song_data_round_trips_through_post_get_patch_get() {
         let db = test_db().await.unwrap();
         let user = create_user(&db, "song-rt-phase2@test.local").await.unwrap();
+        let collection_id = crate::test_helpers::ensure_test_collection(&db, &user)
+            .await
+            .unwrap();
         let token = create_session_token(&db, user.clone()).await.unwrap();
 
         let app = test::init_service(build_app(db.clone())).await;
 
-        let create_json = r#"{
+        let create_json = format!(
+            r#"{{
+            "collection": "{collection_id}",
             "not_a_song": false,
             "blobs": [],
-            "data": {
+            "data": {{
                 "titles": ["RoundTrip"],
                 "subtitle": "sub",
                 "sections": [],
-                "tags": {"hymn_type": "common"}
-            }
-        }"#;
+                "tags": {{"hymn_type": "common"}}
+            }}
+        }}"#
+        );
 
         let post = test::TestRequest::post()
             .uri("/api/v1/songs")

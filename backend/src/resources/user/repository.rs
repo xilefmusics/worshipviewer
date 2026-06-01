@@ -20,11 +20,6 @@ pub trait UserRepository: Send + Sync {
     /// Insert a user record. Does NOT create a personal team — service layer handles that.
     async fn create_user_record(&self, user: User) -> Result<User, AppError>;
     async fn delete_user(&self, id: &str) -> Result<User, AppError>;
-    async fn set_default_collection(
-        &self,
-        user_id: &str,
-        collection_id: &str,
-    ) -> Result<(), AppError>;
 
     async fn set_oauth_picture_and_oauth_avatar_blob(
         &self,
