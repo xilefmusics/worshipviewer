@@ -111,7 +111,7 @@ export function CreateSongDialog({ open, onOpenChange, onCreated }: CreateSongDi
 
   async function submitCreate() {
     setLocalError(null)
-    let targetId = collectionId
+    const targetId = collectionId
     if (!targetId) {
       if (!hasEditableCollection) {
         setNoCollectionPromptOpen(true)

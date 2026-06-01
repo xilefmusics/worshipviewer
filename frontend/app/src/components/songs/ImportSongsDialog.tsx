@@ -105,7 +105,7 @@ export function ImportSongsDialog({ open, onOpenChange, online }: ImportSongsDia
 
   const mutation = useMutation({
     mutationFn: async () => {
-      let targetId = collectionId
+      const targetId = collectionId
       if (!targetId) {
         if (!hasEditableCollection) {
           setNoCollectionPromptOpen(true)
