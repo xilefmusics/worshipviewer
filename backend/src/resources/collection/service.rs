@@ -990,6 +990,107 @@ mod tests {
         assert!(len > 0, "cover blob file must not be empty");
     }
 
+    /// Replacing an existing real cover blob must not delete the collection (regression for
+    /// collection_cover_blob_cascade).
+    #[tokio::test]
+    async fn upload_collection_cover_replaces_existing_real_cover_blob() {
+        use shared::blob::{CreateBlob, FileType};
+
+        let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
+        let blob_dir = std::env::temp_dir()
+            .join(format!(
+                "worshipviewer_coll_cover_replace_test_{}",
+                uuid::Uuid::new_v4()
+            ))
+            .to_string_lossy()
+            .into_owned();
+        let blob_svc = crate::test_helpers::blob_service(&db, blob_dir);
+        let svc = CollectionServiceHandle::build(db.clone());
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let song = create_song_with_title(&db, &owner, "Cover Keep")
+            .await
+            .expect("song");
+
+        let col = svc
+            .create_collection_for_user(
+                &owner_p,
+                CreateCollection {
+                    owner: None,
+                    title: "With Real Cover".into(),
+                    cover: String::new(),
+                    songs: vec![SongLink {
+                        id: song.id.clone(),
+                        nr: Some("1".into()),
+                        key: None,
+                        tempo: None,
+                    }],
+                },
+            )
+            .await
+            .expect("create");
+
+        let first_bytes = crate::test_helpers::sample_cover_jpeg_bytes();
+        let first_blob = blob_svc
+            .create_blob_with_data_for_user(
+                &owner_p,
+                CreateBlob {
+                    owner: None,
+                    file_type: FileType::JPEG,
+                    width: 64,
+                    height: 64,
+                    ocr: String::new(),
+                },
+                &first_bytes,
+            )
+            .await
+            .expect("first blob");
+
+        let with_cover = svc
+            .update_collection_for_user(
+                &owner_p,
+                &col.id,
+                CreateCollection {
+                    owner: None,
+                    title: col.title.clone(),
+                    cover: first_blob.id.clone(),
+                    songs: col.songs.clone(),
+                },
+                None,
+            )
+            .await
+            .expect("set cover");
+
+        assert_eq!(with_cover.cover, first_blob.id);
+
+        let second_bytes = crate::test_helpers::sample_cover_jpeg_bytes();
+        let updated = svc
+            .upload_collection_cover_for_user(
+                &blob_svc,
+                &owner_p,
+                &col.id,
+                "image/jpeg",
+                &second_bytes,
+                20 * 1024 * 1024,
+            )
+            .await
+            .expect("replace cover");
+
+        assert_ne!(updated.cover, first_blob.id);
+        assert_eq!(updated.title, col.title);
+        assert_eq!(updated.songs, col.songs);
+
+        let fetched = svc
+            .get_collection_for_user(&owner_p, &col.id)
+            .await
+            .expect("collection still exists");
+        assert_eq!(fetched.id, col.id);
+        assert_eq!(fetched.cover, updated.cover);
+        blob_svc
+            .get_blob_for_user(&owner_p, &updated.cover)
+            .await
+            .expect("new cover blob exists");
+    }
+
     /// BLC-COLL-024: PUT cannot drop an existing song id from `songs`.
     #[tokio::test]
     async fn blc_coll_024_put_cannot_remove_song() {

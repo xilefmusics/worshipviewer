@@ -27,7 +27,7 @@
 
 ## Cascading deletes and dependents
 
-- **BLC-BLOB-014:** WHEN a blob used as a collection **`cover`** IS **DELETE**d THEN **GET** that collection MAY return **404** for the collection or expose inconsistent metadata until the collection is updated or removed; clients SHOULD refresh references after deletes.
+- **BLC-BLOB-014:** WHEN a blob used as a collection **`cover`** IS **DELETE**d THEN the collection is **not** removed; **`GET /collections/{id}`** still returns the collection, but **`cover`** MAY reference a deleted blob id until the collection is updated (e.g. **`PUT /collections/{id}/cover`** or **`PATCH`** with a new **`cover`**). **`GET /blobs/{id}/data`** for the deleted blob id responds **404**; clients SHOULD refresh cover references after blob deletes.
 - **BLC-BLOB-015:** WHEN a **user** account IS deleted THEN blobs owned by their **personal** team disappear with that team (see [user.md](./user.md)).
 
 ## Move (`POST /blobs/{id}/move`)
