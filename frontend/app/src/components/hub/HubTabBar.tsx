@@ -5,55 +5,34 @@ import { useTranslation } from 'react-i18next'
 
 import {
   IconHubCollections,
-  IconHubSessions,
   IconHubSetlists,
-  IconHubSettings,
   IconHubSongs,
   IconHubTeams,
 } from '@/components/icons/hub-tab-icons'
+import { HUB_FOOTER_CHROME_MB_CLASS } from '@/components/hub/hub-chrome-styles'
+import { HUB_TAB_LABEL_CLASS } from '@/components/hub/hub-list-styles'
 import { cn } from '@/lib/utils'
 
-type HubMainTabTo = '/collections' | '/songs' | '/setlists'
-type HubSecondaryTabTo = '/settings' | '/teams' | '/sessions'
-type HubTabTo = HubMainTabTo | HubSecondaryTabTo
+type HubTabTo = '/collections' | '/songs' | '/setlists' | '/teams'
 
-const mainTabs = [
+const tabs = [
   { to: '/collections' as const, labelKey: 'hub.tabs.collections' as const, Icon: IconHubCollections },
   { to: '/songs' as const, labelKey: 'hub.tabs.songs' as const, Icon: IconHubSongs },
   { to: '/setlists' as const, labelKey: 'hub.tabs.setlists' as const, Icon: IconHubSetlists },
+  { to: '/teams' as const, labelKey: 'hub.tabs.teams' as const, Icon: IconHubTeams },
 ] satisfies ReadonlyArray<{
-  to: HubMainTabTo
-  labelKey: 'hub.tabs.collections' | 'hub.tabs.songs' | 'hub.tabs.setlists'
+  to: HubTabTo
+  labelKey: 'hub.tabs.collections' | 'hub.tabs.songs' | 'hub.tabs.setlists' | 'hub.tabs.teams'
   Icon: typeof IconHubCollections
 }>
 
-const secondaryTabs: Record<
-  HubSecondaryTabTo,
-  {
-    to: HubSecondaryTabTo
-    labelKey: 'hub.profile.settings' | 'hub.profile.teams' | 'hub.profile.sessions'
-    Icon: typeof IconHubSettings
-  }
-> = {
-  '/settings': { to: '/settings', labelKey: 'hub.profile.settings', Icon: IconHubSettings },
-  '/teams': { to: '/teams', labelKey: 'hub.profile.teams', Icon: IconHubTeams },
-  '/sessions': { to: '/sessions', labelKey: 'hub.profile.sessions', Icon: IconHubSessions },
-}
-
-/** When set, bottom nav adds this destination as a fourth tab (library + current screen). */
-function hubSecondaryTabPath(pathname: string): HubSecondaryTabTo | null {
-  if (pathname === '/settings' || pathname.startsWith('/settings/')) return '/settings'
-  if (pathname === '/teams' || pathname.startsWith('/teams/')) return '/teams'
-  if (pathname === '/sessions' || pathname.startsWith('/sessions/')) return '/sessions'
-  return null
+function isTeamsTabActive(pathname: string): boolean {
+  return pathname === '/teams' || pathname.startsWith('/teams/')
 }
 
 export function HubTabBar() {
   const { t } = useTranslation()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const secondary = hubSecondaryTabPath(pathname)
-  const tabs = secondary ? [...mainTabs, secondaryTabs[secondary]] : mainTabs
-
   const [hoveredTab, setHoveredTab] = useState<HubTabTo | null>(null)
   const reduceMotion = useReducedMotion()
 
@@ -68,16 +47,15 @@ export function HubTabBar() {
       initial={false}
       transition={barSpring}
       className={cn(
-        'my-[0.36rem] flex h-[3.6rem] w-fit max-w-full shrink-0 items-stretch gap-[0.9rem] rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem]',
+        'mt-[0.36rem] flex h-[3.6rem] w-fit max-w-full shrink-0 items-stretch gap-[0.9rem] rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem]',
+        HUB_FOOTER_CHROME_MB_CLASS,
         'shadow-[var(--shadow-elevated)]',
       )}
       aria-label={t('hub.tabs.aria')}
     >
       {tabs.map(({ to, labelKey, Icon }) => {
         const active =
-          to === '/settings' || to === '/teams' || to === '/sessions'
-            ? hubSecondaryTabPath(pathname) === to
-            : pathname === to
+          to === '/teams' ? isTeamsTabActive(pathname) : pathname === to || pathname.startsWith(`${to}/`)
         return (
           <Link
             key={to}
@@ -87,7 +65,7 @@ export function HubTabBar() {
             aria-current={active ? 'page' : undefined}
             className={cn(
               'relative flex aspect-[3/2] h-full w-auto flex-none flex-col items-center justify-center gap-0.5 rounded-full px-1 text-center',
-              'text-[6.48px] font-medium leading-none tracking-tight sm:text-[7.2px]',
+              HUB_TAB_LABEL_CLASS,
               active
                 ? 'text-[var(--color-primary-foreground)]'
                 : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',

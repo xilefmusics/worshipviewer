@@ -55,7 +55,7 @@ export const hubNavigateCommands: HubNavigateCommand[] = [
   {
     id: 'teams',
     value: 'nav-teams',
-    labelKey: 'hub.profile.teams',
+    labelKey: 'hub.tabs.teams',
     keywords: ['teams'],
     to: '/teams',
   },

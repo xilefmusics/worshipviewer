@@ -14,9 +14,7 @@ import { PlayerBookSpread } from '@/components/player/PlayerBookSpread'
 import { PlayerLikeHeartBurst } from '@/components/player/PlayerLikeHeartBurst'
 import { PlayerTocSidebar } from '@/components/player/PlayerTocSidebar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
-import { LayersIcon } from '@/components/icons/lucide-animated/layers-icon'
-import { ListMusicIcon } from '@/components/icons/lucide-animated/list-music-icon'
-import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
+import { PlayerEditMenu } from '@/components/player/PlayerEditMenu'
 import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
 import { Button } from '@/components/ui/button'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
@@ -65,6 +63,7 @@ import {
 } from '@/lib/player/player-view-state'
 import {
   PLAYER_HEADER_ICON_SIZE,
+  PLAYER_TOC_WIDTH_PX,
   playerHeaderIconButtonClass,
   playerHeaderIconClass,
 } from '@/lib/player/player-chrome'
@@ -173,7 +172,7 @@ export function PlayerBook({
   const scrollPreferences = usePlayerScrollPreference()
   const isLandscapeViewport = useMediaQuery('(orientation: landscape)')
   const isSmViewport = useMediaQuery('(min-width: 640px)')
-  const tocInsetPx = isSmViewport ? 224 : 176
+  const tocInsetPx = isSmViewport ? PLAYER_TOC_WIDTH_PX.sm : PLAYER_TOC_WIDTH_PX.base
   const sheetOrientation = isLandscapeViewport ? 'landscape' : 'portrait'
   const reduceMotion = useReducedMotion()
   const chromeTransition = reduceMotion ? { duration: 0 } : { duration: 0.22, ease: PLAYER_CHROME_EASE }
@@ -741,42 +740,12 @@ export function PlayerBook({
                     </PopoverContent>
                   </PopoverRoot>
                 ) : null}
-                {currentItem.type === 'chords' ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className={playerHeaderIconButtonClass}
-                    aria-label={t('player.editSong')}
-                    onClick={navigateToSongEditor}
-                  >
-                    <PencilIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
-                  </Button>
-                ) : null}
-                {type === 'setlist' ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className={playerHeaderIconButtonClass}
-                    aria-label={t('player.editSetlist')}
-                    onClick={navigateToResourceEditor}
-                  >
-                    <ListMusicIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
-                  </Button>
-                ) : null}
-                {type === 'collection' ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className={playerHeaderIconButtonClass}
-                    aria-label={t('player.editCollection')}
-                    onClick={navigateToResourceEditor}
-                  >
-                    <LayersIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
-                  </Button>
-                ) : null}
+                <PlayerEditMenu
+                  playerType={type}
+                  canEditSong={currentItem.type === 'chords'}
+                  onEditSong={navigateToSongEditor}
+                  onEditResource={navigateToResourceEditor}
+                />
                 <Button
                   type="button"
                   variant="outline"

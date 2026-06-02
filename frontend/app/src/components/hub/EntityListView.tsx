@@ -20,6 +20,16 @@ import { ListMusicIcon } from '@/components/icons/lucide-animated/list-music-ico
 import { PlayIcon } from '@/components/icons/play-icon'
 import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
 import { AddSongToSetlistDialog } from '@/components/hub/AddSongToSetlistDialog'
+import {
+  HUB_LIST_AVATAR_CLASS,
+  HUB_LIST_META_CLASS,
+  HUB_LIST_ROW_BORDER_CLASS,
+  HUB_LIST_ROW_INSET_LAST_CLASS,
+  HUB_LIST_ROW_SHELL_CLASS,
+  HUB_LIST_ROW_TEXT_COLUMN_CLASS,
+  HUB_LIST_SUBTITLE_CLASS,
+  HUB_LIST_TITLE_CLASS,
+} from '@/components/hub/hub-list-styles'
 
 import type { Collection, Setlist, Song } from '@/api/list-fetch'
 import { useHubScrollContainerRef } from '@/context/HubScrollContainerContext'
@@ -288,7 +298,7 @@ export function EntityListView({ entity }: EntityListViewProps) {
         {!error && showSkeleton ? (
           <div
             className={cn(
-              entity === 'collections' && viewMode === 'card' ? hubCardGridClass : 'flex flex-col gap-2',
+              entity === 'collections' && viewMode === 'card' ? hubCardGridClass : 'flex flex-col gap-0',
             )}
           >
             {Array.from({ length: entity === 'collections' && viewMode === 'card' ? 6 : 8 }).map((_, i) =>
@@ -298,11 +308,27 @@ export function EntityListView({ entity }: EntityListViewProps) {
                   <div className="h-4 w-[75%] animate-pulse rounded bg-[var(--color-muted)]" />
                 </div>
               ) : (
-                <div key={i} className="flex gap-3 border-b border-[var(--color-border)] py-3">
-                  <div className="h-14 w-14 shrink-0 animate-pulse rounded-lg bg-[var(--color-muted)]" />
-                  <div className="flex flex-1 flex-col gap-2 py-1">
-                    <div className="h-4 w-2/3 animate-pulse rounded bg-[var(--color-muted)]" />
-                    <div className="h-3 w-1/2 animate-pulse rounded bg-[var(--color-muted)]" />
+                <div
+                  key={i}
+                  className={cn(
+                    HUB_LIST_ROW_SHELL_CLASS,
+                    HUB_LIST_ROW_INSET_LAST_CLASS,
+                    entity === 'collections' && viewMode !== 'card' ? undefined : HUB_LIST_ROW_BORDER_CLASS,
+                  )}
+                >
+                  {entity === 'collections' && viewMode !== 'card' ? (
+                    <div className={cn(HUB_LIST_AVATAR_CLASS, 'animate-pulse border-0')} />
+                  ) : null}
+                  <div
+                    className={cn(
+                      entity === 'collections' && viewMode !== 'card'
+                        ? HUB_LIST_ROW_TEXT_COLUMN_CLASS
+                        : 'flex flex-1 flex-col gap-1.5 py-0.5',
+                      entity === 'collections' && viewMode !== 'card' ? undefined : HUB_LIST_ROW_BORDER_CLASS,
+                    )}
+                  >
+                    <div className="h-[1.0625rem] w-2/3 animate-pulse rounded bg-[var(--color-muted)]" />
+                    <div className="h-[0.9375rem] w-1/2 animate-pulse rounded bg-[var(--color-muted)]" />
                   </div>
                 </div>
               ),
@@ -964,7 +990,7 @@ const CollectionRow = memo(function CollectionRow({
       networkOnline={networkOnline}
     >
       <motion.div
-        className="flex cursor-pointer gap-3 border-b border-[var(--color-border)] py-3 outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+        className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_INSET_LAST_CLASS)}
         {...listPointerProps}
         onClick={onClick}
         onContextMenu={onContextMenu}
@@ -974,7 +1000,7 @@ const CollectionRow = memo(function CollectionRow({
         transition={tapTransition}
         onKeyDown={onKeyDown}
       >
-        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]">
+        <div className={HUB_LIST_AVATAR_CLASS}>
           {coverSrc ? (
             <img
               src={coverSrc}
@@ -986,9 +1012,9 @@ const CollectionRow = memo(function CollectionRow({
             />
           ) : null}
         </div>
-        <div className="min-w-0 flex-1 py-1">
-          <p className="truncate font-medium text-[var(--color-foreground)]">{collection.title}</p>
-          <p className="text-xs text-[var(--color-muted-foreground)]">
+        <div className={HUB_LIST_ROW_TEXT_COLUMN_CLASS}>
+          <p className={HUB_LIST_TITLE_CLASS}>{collection.title}</p>
+          <p className={cn(HUB_LIST_SUBTITLE_CLASS, 'truncate')}>
             {t('hub.meta.songsCount', { count: collection.songs.length })}
           </p>
         </div>
@@ -1031,7 +1057,7 @@ const SongRow = memo(function SongRow({
       hubSong={song}
     >
       <motion.div
-        className="flex cursor-pointer gap-3 border-b border-[var(--color-border)] py-3 outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+        className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_BORDER_CLASS)}
         {...listPointerProps}
         onClick={onClick}
         onContextMenu={onContextMenu}
@@ -1041,13 +1067,16 @@ const SongRow = memo(function SongRow({
         transition={tapTransition}
         onKeyDown={onKeyDown}
       >
-        <div className="flex min-w-0 flex-1 flex-col py-1">
-          <p className="truncate font-medium text-[var(--color-foreground)]">{title}</p>
+        <div className="flex min-w-0 flex-1 flex-col justify-center py-0.5">
+          <p className={HUB_LIST_TITLE_CLASS}>{title}</p>
           <div className="flex min-w-0 items-baseline gap-2">
-            <p className="min-w-0 flex-1 truncate text-xs text-[var(--color-muted-foreground)]">{sub}</p>
+            <p className={cn(HUB_LIST_SUBTITLE_CLASS, 'min-w-0 flex-1 truncate')}>{sub}</p>
             {ownerLabel ? (
               <p
-                className="max-w-[min(12rem,45%)] shrink-0 truncate text-right text-xs text-[var(--color-muted-foreground)]"
+                className={cn(
+                  HUB_LIST_META_CLASS,
+                  'max-w-[min(12rem,45%)] shrink-0 truncate text-right',
+                )}
                 title={ownerLabel}
               >
                 {ownerLabel}
@@ -1091,7 +1120,7 @@ const SetlistRow = memo(function SetlistRow({
       networkOnline={networkOnline}
     >
       <motion.div
-        className="flex cursor-pointer gap-3 border-b border-[var(--color-border)] py-3 outline-none last:border-b-0 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+        className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_BORDER_CLASS)}
         {...listPointerProps}
         onClick={onClick}
         onContextMenu={onContextMenu}
@@ -1101,15 +1130,18 @@ const SetlistRow = memo(function SetlistRow({
         transition={tapTransition}
         onKeyDown={onKeyDown}
       >
-        <div className="min-w-0 flex-1 py-1">
-          <p className="truncate font-medium text-[var(--color-foreground)]">{setlist.title}</p>
+        <div className="min-w-0 flex-1 flex flex-col justify-center py-0.5">
+          <p className={HUB_LIST_TITLE_CLASS}>{setlist.title}</p>
           <div className="flex min-w-0 items-baseline gap-2">
-            <p className="min-w-0 flex-1 truncate text-xs text-[var(--color-muted-foreground)]">
+            <p className={cn(HUB_LIST_SUBTITLE_CLASS, 'min-w-0 flex-1 truncate')}>
               {t('hub.meta.songsCount', { count: setlist.songs.length })}
             </p>
             {ownerLabel ? (
               <p
-                className="max-w-[min(12rem,45%)] shrink-0 truncate text-right text-xs text-[var(--color-muted-foreground)]"
+                className={cn(
+                  HUB_LIST_META_CLASS,
+                  'max-w-[min(12rem,45%)] shrink-0 truncate text-right',
+                )}
                 title={ownerLabel}
               >
                 {ownerLabel}

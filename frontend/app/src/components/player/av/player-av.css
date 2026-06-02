@@ -274,6 +274,14 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+.player-av__preview .av-slide-view {
+  height: 100%;
+}
+
+.av-slide-content--preview {
+  padding: 0.35rem 0.5rem;
+}
+
 .av-slides-panel-shell {
   display: flex;
   flex-direction: column;

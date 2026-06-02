@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './styles/tokens.css';
+@import './styles/hub-density.css';
 @import './styles/fonts.css';
 @import 'sonner/dist/styles.css';
 

@@ -14,6 +14,7 @@ import {
   collectTocLanguageFilterOptions,
   collectTocTagFilterOptions,
 } from '@/lib/player/toc-filters'
+import { PLAYER_TOC_WIDTH_CLASS } from '@/lib/player/player-chrome'
 import { cn } from '@/lib/utils'
 
 import './player-outline-list.css'
@@ -35,6 +36,10 @@ const MODE_ICONS = {
   alphabetical: TocSortAlphabeticalIcon,
   liked: TocSortLikedIcon,
 } as const
+
+/** Language/tag chips — 20% above default px-2 py-1 text-xs. */
+const TOC_FILTER_CHIP_CLASS =
+  'rounded-md px-[0.6rem] py-[0.3rem] text-[0.9rem] leading-none font-medium transition-colors'
 
 export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerTocSidebarProps) {
   const { t } = useTranslation()
@@ -94,7 +99,10 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
 
   return (
     <nav
-      className="flex h-full min-h-0 w-44 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] sm:w-56"
+      className={cn(
+        'flex h-full min-h-0 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)]',
+        PLAYER_TOC_WIDTH_CLASS,
+      )}
       aria-label={t('player.toc.title')}
     >
       <div className="shrink-0 border-b border-[var(--color-border)] p-2">
@@ -149,7 +157,7 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
                       aria-pressed={selected}
                       title={t('player.toc.languageFilterAria', { language: filter.label })}
                       className={cn(
-                        'rounded-md px-2 py-1 text-xs font-medium transition-colors',
+                        TOC_FILTER_CHIP_CLASS,
                         selected
                           ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
                           : 'bg-[var(--color-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/80',
@@ -178,7 +186,8 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
                       aria-pressed={selected}
                       title={t('player.toc.tagFilterAria', { tag: filter.label })}
                       className={cn(
-                        'max-w-full truncate rounded-md px-2 py-1 text-xs font-medium transition-colors',
+                        TOC_FILTER_CHIP_CLASS,
+                        'max-w-full truncate',
                         selected
                           ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
                           : 'bg-[var(--color-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/80',

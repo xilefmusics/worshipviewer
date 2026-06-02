@@ -73,7 +73,8 @@
       "collections": "Sammlungen",
       "songs": "Lieder",
       "setlists": "Setlisten",
-      "aria": "Bibliotheksbereiche"
+      "teams": "Teams",
+      "aria": "Bibliothek und Teams"
     },
     "searchPlaceholder": "Suchen…",
     "searchAria": "Bibliothek durchsuchen",
@@ -266,6 +267,7 @@
       "emptySetlist": "Füge Lieder hinzu, bevor du abspielst",
       "emptyCollection": "Füge Lieder hinzu, bevor du abspielst"
     },
+    "editMenuAria": "Auswählen, was bearbeitet werden soll",
     "editSong": "Song bearbeiten",
     "editSetlist": "Setliste bearbeiten",
     "editCollection": "Sammlung bearbeiten",
