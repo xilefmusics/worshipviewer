@@ -33,7 +33,6 @@ describe('reconcilePlayer404', () => {
       entityType: 'setlist',
       entityId: 's1',
       playerJson: JSON.stringify({ items: [] }),
-      blobIds: [],
       lastOpenedAt: 1,
     })
     const res = await reconcilePlayer404('setlist', 's1', 404)

@@ -60,7 +60,7 @@ export async function resolvePlayerForRoute(
       return { status: 'error', message: res.error }
     }
     try {
-      await persistPlayerMirror(type, id, res.player, { signal })
+      await persistPlayerMirror(type, id, res.player)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       return { status: 'error', message: msg }

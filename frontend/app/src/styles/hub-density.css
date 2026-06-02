@@ -10,6 +10,8 @@
   --hub-list-subtitle-size: 0.9375rem;
   --hub-list-meta-size: 0.8125rem;
   --hub-tab-label: 0.625rem;
+  /** Tab hit target width/height (was 3/2); slightly narrower for phone footers. */
+  --hub-tab-aspect: 7 / 5;
 
   /* Footer: on iPhone use ~⅔ of home-indicator inset; keep ~0.54rem pad on desktop. */
   --hub-footer-pad-base: 0.54rem;

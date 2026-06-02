@@ -36,7 +36,6 @@ describe('downloadPlayerForOffline', () => {
     const res = await downloadPlayerForOffline('setlist', 'sl-1', { title: 'My setlist' })
     expect(res).toEqual({ ok: true, evicted: false })
     expect(persistPlayerMirror).toHaveBeenCalledWith('setlist', 'sl-1', { items: [] }, {
-      signal: undefined,
       title: 'My setlist',
     })
   })

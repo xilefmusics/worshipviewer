@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie'
 
 /** Versioned DB — placeholder stores until offline/E4; same wipe path from day one. */
 export const DB_NAME = 'worshipviewer'
-export const DB_VERSION = 5
+export const DB_VERSION = 6
 
 type PlaceholderRow = { id: string }
 
@@ -18,7 +18,6 @@ export type PlayerMirrorRow = {
   entityType: PlayerMirrorEntityType
   entityId: string
   playerJson: string
-  blobIds: string[]
   lastOpenedAt: number
   /** Optional label for settings / management UI */
   title?: string
@@ -26,15 +25,6 @@ export type PlayerMirrorRow = {
 
 /** @deprecated Use PlayerMirrorRow */
 export type SetlistPlayerMirrorRow = PlayerMirrorRow & { setlistId: string }
-
-/** Cached blob bytes for offline player items (shared across mirrors). */
-export type OfflineBlobRow = {
-  blobId: string
-  bytes: ArrayBuffer
-  /** From `Content-Type` when mirroring; used for `Blob` / object URLs. */
-  mime: string | null
-  lastTouchedAt: number
-}
 
 export function playerMirrorId(
   entityType: PlayerMirrorEntityType,
@@ -49,7 +39,6 @@ export class WorshipViewerDexie extends Dexie {
   /** Legacy table — migrated to playerMirror in v5 */
   setlistPlayerMirror!: Table<SetlistPlayerMirrorRow, string>
   playerMirror!: Table<PlayerMirrorRow, string>
-  offlineBlobs!: Table<OfflineBlobRow, string>
 
   constructor() {
     super(DB_NAME)
@@ -90,10 +79,19 @@ export class WorshipViewerDexie extends Dexie {
             entityType: 'setlist',
             entityId,
             playerJson: row.playerJson,
-            blobIds: row.blobIds,
             lastOpenedAt: row.lastOpenedAt,
           })
         }
+      })
+    this.version(6)
+      .stores({
+        placeholder: 'id',
+        kv: 'key',
+        setlistPlayerMirror: 'setlistId, lastOpenedAt',
+        playerMirror: 'id, entityType, entityId, lastOpenedAt',
+      })
+      .upgrade(async (tx) => {
+        await tx.table('offlineBlobs').clear()
       })
   }
 }
