@@ -37,7 +37,6 @@ export async function downloadPlayerForOffline(
     let evicted = false
     try {
       await persistPlayerMirror(entityType, entityId, res.player, {
-        signal: options?.signal,
         title: options?.title,
       })
     } catch (e) {
@@ -47,7 +46,6 @@ export async function downloadPlayerForOffline(
       if (isQuota) {
         evicted = true
         await persistPlayerMirror(entityType, entityId, res.player, {
-          signal: options?.signal,
           title: options?.title,
         })
       } else {

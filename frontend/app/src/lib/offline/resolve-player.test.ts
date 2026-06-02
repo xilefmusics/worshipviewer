@@ -49,7 +49,7 @@ describe('resolvePlayerForRoute', () => {
     persistPlayerMirror.mockResolvedValue(undefined)
 
     const res = await resolvePlayerForRoute('song', 'song1')
-    expect(persistPlayerMirror).toHaveBeenCalledWith('song', 'song1', { items: [] }, { signal: undefined })
+    expect(persistPlayerMirror).toHaveBeenCalledWith('song', 'song1', { items: [] })
     expect(res.status).toBe('ready')
   })
 })

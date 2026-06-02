@@ -1,5 +1,4 @@
 import { fetchBlobBinaryWithMime } from '@/api/blob-data'
-import { getCachedBlob } from '@/lib/offline/player-mirror-cache'
 
 export type BlobUrlStatus = 'loading' | 'ready' | 'error' | 'offline-unavailable'
 
@@ -13,12 +12,6 @@ export async function resolveBlobObjectUrl(
   allowNetworkFetch: boolean,
   signal?: AbortSignal,
 ): Promise<ResolvedBlobUrl> {
-  const cached = await getCachedBlob(blobId)
-  if (cached) {
-    const blob = new Blob([cached.bytes], { type: cached.mime ?? 'application/octet-stream' })
-    return { status: 'ready', objectUrl: URL.createObjectURL(blob), mime: cached.mime }
-  }
-
   if (!allowNetworkFetch) {
     return { status: 'offline-unavailable' }
   }

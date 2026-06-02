@@ -4,7 +4,6 @@ import type { PlayerMirrorRow } from '@/lib/dexie-db'
 import { MAX_CACHED_PLAYERS } from '@/lib/offline/player-mirror-constants'
 
 const mirrorStore = new Map<string, PlayerMirrorRow>()
-const blobStore = new Map<string, { blobId: string; bytes: ArrayBuffer; mime: string | null; lastTouchedAt: number }>()
 
 function makeMirror(id: string, openedAt: number): PlayerMirrorRow {
   return {
@@ -12,7 +11,6 @@ function makeMirror(id: string, openedAt: number): PlayerMirrorRow {
     entityType: 'setlist',
     entityId: id.replace('setlist:', ''),
     playerJson: '{"items":[]}',
-    blobIds: [],
     lastOpenedAt: openedAt,
   }
 }
@@ -39,16 +37,6 @@ vi.mock('@/lib/dexie-db', () => ({
         for (const row of mirrorStore.values()) fn(row)
       },
     },
-    offlineBlobs: {
-      get: async (id: string) => blobStore.get(id),
-      delete: async (id: string) => {
-        blobStore.delete(id)
-      },
-      put: async (row: { blobId: string; bytes: ArrayBuffer; mime: string | null; lastTouchedAt: number }) => {
-        blobStore.set(row.blobId, row)
-      },
-      toArray: async () => [...blobStore.values()],
-    },
     kv: {
       each: async () => {},
     },
@@ -58,16 +46,11 @@ vi.mock('@/lib/dexie-db', () => ({
   },
 }))
 
-vi.mock('@/api/blob-data', () => ({
-  fetchBlobBinaryWithMime: vi.fn(),
-}))
-
 import { enforceOfflineRetention, evictOnePlayerMirror } from '@/lib/offline/player-mirror-cache'
 
 describe('player-mirror-cache retention', () => {
   beforeEach(() => {
     mirrorStore.clear()
-    blobStore.clear()
   })
 
   it('evictOnePlayerMirror removes mirror row', async () => {

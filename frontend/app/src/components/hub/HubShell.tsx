@@ -601,10 +601,16 @@ function HubChrome({
             HUB_FOOTER_CLASS,
           )}
         >
-          <div className={cn(hubChromeRowClass, 'items-center gap-[0.36rem] justify-center')}>
-            <HubTabBar />
-            {!hideHubPlus ? (
-              <div className={cn('mt-[0.36rem] shrink-0', HUB_FOOTER_CHROME_MB_CLASS)}>
+          <div className={cn(hubChromeRowClass, 'items-center')}>
+            <div
+              className={cn(
+                'my-[0.36rem] flex w-full min-w-0 max-w-full justify-start',
+                hubChromeRowLayoutClass,
+                HUB_FOOTER_CHROME_MB_CLASS,
+              )}
+            >
+              <HubTabBar />
+              {!hideHubPlus ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -625,7 +631,7 @@ function HubChrome({
                     }
                   }}
                   className={cn(
-                    'flex size-[3.6rem] flex-col items-center justify-center gap-0.5 rounded-full px-1 py-0 font-medium',
+                    'flex size-[3.6rem] shrink-0 flex-col items-center justify-center gap-0.5 rounded-full px-1 py-0 font-medium',
                     '[&_svg]:!size-[1.44rem] [&_svg]:shrink-0',
                     HUB_TAB_LABEL_CLASS,
                     'text-[var(--color-muted-foreground)]',
@@ -648,8 +654,8 @@ function HubChrome({
                     {t('hub.createLabel')}
                   </span>
                 </Button>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         </footer>
       ) : null}

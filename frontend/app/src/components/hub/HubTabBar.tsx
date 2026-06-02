@@ -9,7 +9,6 @@ import {
   IconHubSongs,
   IconHubTeams,
 } from '@/components/icons/hub-tab-icons'
-import { HUB_FOOTER_CHROME_MB_CLASS } from '@/components/hub/hub-chrome-styles'
 import { HUB_TAB_LABEL_CLASS } from '@/components/hub/hub-list-styles'
 import { cn } from '@/lib/utils'
 
@@ -47,8 +46,7 @@ export function HubTabBar() {
       initial={false}
       transition={barSpring}
       className={cn(
-        'mt-[0.36rem] flex h-[3.6rem] w-fit max-w-full shrink-0 items-stretch gap-[0.27rem] rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem]',
-        HUB_FOOTER_CHROME_MB_CLASS,
+        'flex h-[3.6rem] w-full min-w-0 flex-1 items-stretch justify-between rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem]',
         'shadow-[var(--shadow-elevated)]',
       )}
       aria-label={t('hub.tabs.aria')}
@@ -64,7 +62,7 @@ export function HubTabBar() {
             onMouseLeave={() => setHoveredTab(null)}
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'relative flex aspect-[3/2] h-full w-auto flex-none flex-col items-center justify-center gap-0.5 rounded-full px-1 text-center',
+              'relative flex h-full shrink-0 flex-none flex-col items-center justify-center gap-0.5 rounded-full px-1 text-center [aspect-ratio:var(--hub-tab-aspect)]',
               HUB_TAB_LABEL_CLASS,
               active
                 ? 'text-[var(--color-primary-foreground)]'
