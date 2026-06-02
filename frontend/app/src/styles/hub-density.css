@@ -11,9 +11,12 @@
   --hub-list-meta-size: 0.8125rem;
   --hub-tab-label: 0.625rem;
 
-  /* Footer: sit flush above iPhone home indicator; keep ~0.54rem pad on desktop. */
+  /* Footer: on iPhone use ~⅔ of home-indicator inset; keep ~0.54rem pad on desktop. */
   --hub-footer-pad-base: 0.54rem;
-  --hub-footer-pad-bottom: max(var(--hub-footer-pad-base), env(safe-area-inset-bottom, 0px));
+  --hub-footer-pad-bottom: max(
+    var(--hub-footer-pad-base),
+    calc(env(safe-area-inset-bottom, 0px) * 2 / 3)
+  );
   --hub-footer-chrome-mb: max(0px, calc(0.36rem - env(safe-area-inset-bottom, 0px)));
   --hub-footer-scroll-clearance: calc(
     6.12rem - var(--hub-footer-pad-base) + var(--hub-footer-pad-bottom) - 0.36rem +

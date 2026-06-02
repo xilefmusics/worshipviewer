@@ -47,7 +47,7 @@ export function HubTabBar() {
       initial={false}
       transition={barSpring}
       className={cn(
-        'mt-[0.36rem] flex h-[3.6rem] w-fit max-w-full shrink-0 items-stretch gap-[0.9rem] rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem]',
+        'mt-[0.36rem] flex h-[3.6rem] w-fit max-w-full shrink-0 items-stretch gap-[0.27rem] rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem]',
         HUB_FOOTER_CHROME_MB_CLASS,
         'shadow-[var(--shadow-elevated)]',
       )}

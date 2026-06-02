@@ -37,9 +37,13 @@ const MODE_ICONS = {
   liked: TocSortLikedIcon,
 } as const
 
-/** Language/tag chips — 20% above default px-2 py-1 text-xs. */
+/** Sort mode toggles — 20% taller than default p-2 icon buttons (32px → ~38px). */
+const TOC_SORT_BUTTON_CLASS =
+  'flex min-w-0 flex-1 items-center justify-center rounded-md px-[0.6rem] py-[0.7rem] transition-colors'
+
+/** Language/tag chips — match TOC list typography; padding 20% above prior chip sizing. */
 const TOC_FILTER_CHIP_CLASS =
-  'rounded-md px-[0.6rem] py-[0.3rem] text-[0.9rem] leading-none font-medium transition-colors'
+  'rounded-md px-[0.72rem] py-[0.36rem] text-sm leading-snug font-medium transition-colors'
 
 export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerTocSidebarProps) {
   const { t } = useTranslation()
@@ -125,7 +129,7 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
                 aria-label={label}
                 title={label}
                 className={cn(
-                  'flex min-w-0 flex-1 items-center justify-center rounded-md p-2 transition-colors',
+                  TOC_SORT_BUTTON_CLASS,
                   selected
                     ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
                     : 'bg-[var(--color-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/80',

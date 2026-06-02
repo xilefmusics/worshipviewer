@@ -18,8 +18,47 @@ export function measureStackedSectionHeights(measureRoot: HTMLElement): number[]
 }
 
 /**
+ * Pack sections into a fixed number of columns for scroll mode.
+ * Fills each column top-to-bottom in song order before starting the next.
+ * The last column may grow taller than `maxColumnHeight` (page scroll handles overflow).
+ */
+export function packSectionsIntoFixedColumns(
+  sectionHeights: number[],
+  maxColumnHeight: number,
+  columnCount: number,
+): number[][] {
+  if (sectionHeights.length === 0) return []
+
+  const count = Math.max(1, columnCount)
+  const columns: number[][] = Array.from({ length: count }, () => [])
+  let columnIndex = 0
+  let usedHeight = 0
+
+  for (let index = 0; index < sectionHeights.length; index++) {
+    const sectionHeight = sectionHeights[index]
+    if (
+      columnIndex < count - 1 &&
+      columns[columnIndex].length > 0 &&
+      usedHeight + sectionHeight > maxColumnHeight
+    ) {
+      columnIndex++
+      usedHeight = 0
+    }
+    columns[columnIndex].push(index)
+    usedHeight += sectionHeight
+  }
+
+  while (columns.length > 1 && columns[columns.length - 1].length === 0) {
+    columns.pop()
+  }
+
+  return columns
+}
+
+/**
  * Pack every section into exactly `columnCount` columns (scroll overflow).
  * Assigns each section to the shortest column so columns stay roughly balanced.
+ * @deprecated Prefer {@link packSectionsIntoFixedColumns} for scroll layouts.
  */
 export function packSectionsForScroll(
   sectionHeights: number[],
@@ -123,6 +162,26 @@ export function packSectionsIntoColumnsWithOverflow(
   }
 
   return columns
+}
+
+/** Tallest total height among packed columns (sum of section heights per column). */
+export function tallestPackedColumnHeight(
+  sectionHeights: number[],
+  packedColumns: number[][],
+): number {
+  return packedColumns.reduce((max, column) => {
+    const height = column.reduce((sum, sectionIndex) => sum + sectionHeights[sectionIndex], 0)
+    return Math.max(max, height)
+  }, 0)
+}
+
+/** Whether scroll mode needs vertical scrolling for the packed layout. */
+export function scrollModeNeedsVerticalScroll(
+  sectionHeights: number[],
+  packedColumns: number[][],
+  columnHeightPx: number,
+): boolean {
+  return tallestPackedColumnHeight(sectionHeights, packedColumns) > columnHeightPx + 1
 }
 
 /** Whether packed column indices still match the current section list. */

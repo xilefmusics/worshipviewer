@@ -67,6 +67,8 @@
   position: absolute;
   left: 0;
   top: 0;
+  height: 0;
+  overflow: hidden;
   pointer-events: none;
 }
 
@@ -85,8 +87,12 @@
 }
 
 .player-chords-three-column--scroll .player-chords-three-column__scroll {
-  overflow-y: auto;
   overflow-x: hidden;
+  overflow-y: hidden;
+}
+
+.player-chords-three-column--scroll .player-chords-three-column__scroll--scrollable {
+  overflow-y: auto;
 }
 
 .player-chords-three-column--scroll .player-chords-three-column__column-area {
@@ -106,6 +112,12 @@
   overflow: visible;
   height: auto;
   min-height: 100%;
+}
+
+.player-chords-three-column--scroll.player-chords-three-column--fits .player-chords-three-column__column-area,
+.player-chords-three-column--scroll.player-chords-three-column--fits .player-chords-three-column__row,
+.player-chords-three-column--scroll.player-chords-three-column--fits .player-chords-three-column__column {
+  min-height: auto;
 }
 
 .player-chords-three-column__content p {
