@@ -23,7 +23,7 @@ test('J1: General tab', async ({ page }) => {
 test('J2: Player Default tab', async ({ page }) => {
   const settings = new SettingsPage(page)
   await settings.goto('player')
-  await expect(page.getByText(/chord format|scroll mode/i).first()).toBeVisible()
+  await expect(page.getByText(/chord format|player layout/i).first()).toBeVisible()
 })
 
 // Flow: J3 — e2e smoke; detailed options in component test

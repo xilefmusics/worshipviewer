@@ -20,16 +20,16 @@ function mockStorage() {
 }
 
 describe('hub view mode', () => {
-  it('defaults collections to card and songs/setlists to list', () => {
-    expect(getDefaultViewMode('collections')).toBe('card')
+  it('defaults collections and songs/setlists to list', () => {
+    expect(getDefaultViewMode('collections')).toBe('list')
     expect(getDefaultViewMode('songs')).toBe('list')
     expect(getDefaultViewMode('setlists')).toBe('list')
   })
 
-  it('falls back to card for collections when storage key is missing', () => {
+  it('falls back to list for collections when storage key is missing', () => {
     const storage = mockStorage()
-    expect(readCollectionsViewMode(storage)).toBe('card')
-    expect(readHubViewMode('collections', storage)).toBe('card')
+    expect(readCollectionsViewMode(storage)).toBe('list')
+    expect(readHubViewMode('collections', storage)).toBe('list')
   })
 
   it('always returns list for songs and setlists', () => {
@@ -48,7 +48,7 @@ describe('hub view mode', () => {
   it('ignores invalid stored values for collections', () => {
     const storage = mockStorage()
     storage.setItem(COLLECTIONS_VIEW_MODE_KEY, 'grid')
-    expect(readCollectionsViewMode(storage)).toBe('card')
+    expect(readCollectionsViewMode(storage)).toBe('list')
   })
 
   it('persists adaptive collections preference', () => {

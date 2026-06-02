@@ -17,6 +17,32 @@ export function measureStackedSectionHeights(measureRoot: HTMLElement): number[]
   return heights
 }
 
+/**
+ * Pack every section into exactly `columnCount` columns (scroll overflow).
+ * Assigns each section to the shortest column so columns stay roughly balanced.
+ */
+export function packSectionsForScroll(
+  sectionHeights: number[],
+  columnCount: number,
+): number[][] {
+  if (sectionHeights.length === 0) return []
+
+  const count = Math.max(1, Math.min(columnCount, sectionHeights.length))
+  const columns: number[][] = Array.from({ length: count }, () => [])
+  const usedHeights = Array.from({ length: count }, () => 0)
+
+  for (let index = 0; index < sectionHeights.length; index++) {
+    let target = 0
+    for (let columnIndex = 1; columnIndex < count; columnIndex++) {
+      if (usedHeights[columnIndex] < usedHeights[target]) target = columnIndex
+    }
+    columns[target].push(index)
+    usedHeights[target] += sectionHeights[index]
+  }
+
+  return columns
+}
+
 /** Pack section indices into columns, filling each column top-to-bottom before starting the next. */
 export function packSectionsIntoColumns(
   sectionHeights: number[],

@@ -13,6 +13,8 @@ import { getChordEngine } from '@/lib/chord-engine'
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
 import { songTitleFromData } from '@/lib/song-import-export'
 import type { ChordSongData } from '@/ports/chord-engine'
+import { expandSongSectionsForPlayer } from '@/lib/player/expand-song-sections'
+import type { PlayerOverflowStyle } from '@/lib/player/effective-scroll-type'
 import { cn } from '@/lib/utils'
 
 import './player-chords.css'
@@ -21,6 +23,7 @@ import {
   arePackedColumnsEqual,
   isPackedColumnsValid,
   measureStackedSectionHeights,
+  packSectionsForScroll,
   packSectionsIntoColumnsWithOverflow,
   shiftOverflowSection,
 } from './chords-three-column-pack'
@@ -45,7 +48,9 @@ type ChordsThreeColumnSlideProps = {
   nextSong?: Song | null
   nextDisplayKey?: string | null
   chordFormat: ChordFormatPreference
-  columnCount?: 2 | 3
+  columnCount?: 1 | 2 | 3
+  overflowStyle?: PlayerOverflowStyle
+  expandSections?: boolean
   fillParent?: boolean
 }
 
@@ -105,6 +110,7 @@ function songMetaLines(
 
 function useMultiColumnSongRender(
   song: Song | null | undefined,
+  songData: ChordSongData | undefined,
   displayKey: string | null | undefined,
   chordFormat: ChordFormatPreference,
   renderPass: number,
@@ -113,7 +119,6 @@ function useMultiColumnSongRender(
     key: '',
     state: { status: 'loading' },
   })
-  const songData = song?.data as ChordSongData | undefined
   const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
   const renderKey = song ? `${song.id}:${displayKey ?? ''}:${renderPass}:${representation}` : ''
 
@@ -198,6 +203,19 @@ function availableColumnViewportSize(columnArea: HTMLElement): { width: number; 
   }
 }
 
+/** Scroll mode uses a flow-positioned column area; size from the padded scroll viewport. */
+function scrollModeColumnViewportSize(scrollEl: HTMLElement): { width: number; height: number } {
+  const style = getComputedStyle(scrollEl)
+  const padTop = Number.parseFloat(style.paddingTop) || 0
+  const padBottom = Number.parseFloat(style.paddingBottom) || 0
+  const padLeft = Number.parseFloat(style.paddingLeft) || 0
+  const padRight = Number.parseFloat(style.paddingRight) || 0
+  return {
+    width: scrollEl.clientWidth - padLeft - padRight,
+    height: scrollEl.clientHeight - padTop - padBottom,
+  }
+}
+
 function buildCombinedColumnCss(
   currentCss: string,
   nextRenderState: RenderState,
@@ -246,6 +264,8 @@ export function ChordsThreeColumnSlide({
   nextDisplayKey,
   chordFormat,
   columnCount = 3,
+  overflowStyle = 'cut',
+  expandSections = false,
   fillParent = false,
 }: ChordsThreeColumnSlideProps) {
   const { t } = useTranslation()
@@ -270,8 +290,30 @@ export function ChordsThreeColumnSlide({
 
   const showNextPreview = nextSong != null
   const songData = song.data as ChordSongData
-  const renderState = useMultiColumnSongRender(song, displayKey, chordFormat, renderPass)
-  const nextRenderState = useMultiColumnSongRender(nextSong, nextDisplayKey, chordFormat, 0)
+  const renderSongData = useMemo(
+    () => (expandSections ? expandSongSectionsForPlayer(songData) : songData),
+    [songData, expandSections],
+  )
+  const renderState = useMultiColumnSongRender(
+    song,
+    renderSongData,
+    displayKey,
+    chordFormat,
+    renderPass,
+  )
+  const nextSongData = nextSong?.data as ChordSongData | undefined
+  const nextRenderSongData = useMemo(
+    () =>
+      nextSongData && expandSections ? expandSongSectionsForPlayer(nextSongData) : nextSongData,
+    [nextSongData, expandSections],
+  )
+  const nextRenderState = useMultiColumnSongRender(
+    nextSong,
+    nextRenderSongData,
+    nextDisplayKey,
+    chordFormat,
+    0,
+  )
   const nextPreviewRenderState = showNextPreview ? nextRenderState : null
 
   const title = useMemo(() => songTitleFromData(songData), [songData])
@@ -311,7 +353,7 @@ export function ChordsThreeColumnSlide({
     layoutKey && columnLayoutCache?.key === layoutKey ? columnLayoutCache.layout : null
   const packingContextKey =
     layoutKey && columnLayout && columnSections
-      ? `${layoutKey}:${columnSections.length}:${columnLayout.columnWidthPx}:${columnLayout.columnHeightPx}:${columnLayout.fontSizePx}`
+      ? `${layoutKey}:${columnSections.length}:${columnLayout.columnWidthPx}:${columnLayout.columnHeightPx}:${columnLayout.fontSizePx}:${overflowStyle}`
       : null
   const packedColumns =
     packingContextKey && packedColumnsCache?.key === packingContextKey
@@ -325,7 +367,11 @@ export function ChordsThreeColumnSlide({
     if (!columnAreaEl) return
 
     const updateLayout = () => {
-      const { width, height } = availableColumnViewportSize(columnAreaEl)
+      const scrollEl = viewportRef.current
+      const { width, height } =
+        overflowStyle === 'scroll' && scrollEl
+          ? scrollModeColumnViewportSize(scrollEl)
+          : availableColumnViewportSize(columnAreaEl)
       if (width <= 0 || height <= 0) return
 
       const columnWidth = columnWidthInMultiColumnLayout(
@@ -364,7 +410,7 @@ export function ChordsThreeColumnSlide({
     observer.observe(columnAreaEl)
     if (viewportRef.current) observer.observe(viewportRef.current)
     return () => observer.disconnect()
-  }, [layoutKey, columnCount, renderState.status, columnSections?.length])
+  }, [layoutKey, columnCount, renderState.status, columnSections?.length, overflowStyle])
 
   useLayoutEffect(() => {
     if (!packingContextKey || !columnLayout || !columnSections) return
@@ -379,7 +425,10 @@ export function ChordsThreeColumnSlide({
       const heights = measureStackedSectionHeights(measureEl)
       if (heights.length !== columnSections.length || heights.some((height) => height <= 0)) return
 
-      const columns = packSectionsIntoColumnsWithOverflow(heights, columnLayout.columnHeightPx)
+      const columns =
+        overflowStyle === 'scroll'
+          ? packSectionsForScroll(heights, columnCount)
+          : packSectionsIntoColumnsWithOverflow(heights, columnLayout.columnHeightPx)
       setPackedColumnsCache((prev) => {
         if (prev?.key === packingContextKey && arePackedColumnsEqual(prev.columns, columns)) {
           return prev
@@ -394,9 +443,10 @@ export function ChordsThreeColumnSlide({
     const observer = new ResizeObserver(measureAndPack)
     observer.observe(measureEl)
     return () => observer.disconnect()
-  }, [packingContextKey, columnLayout, columnSections, combinedColumnCss])
+  }, [packingContextKey, columnLayout, columnSections, combinedColumnCss, overflowStyle, columnCount])
 
   useLayoutEffect(() => {
+    if (overflowStyle === 'scroll') return
     if (!columnLayout || !packedColumns || !columnSections || !packingContextKey) return
     if (!isPackedColumnsValid(packedColumns, columnSections.length)) return
 
@@ -438,7 +488,7 @@ export function ChordsThreeColumnSlide({
     if (changed && !arePackedColumnsEqual(columns, packedColumns)) {
       setPackedColumnsCache({ key: packingContextKey, columns })
     }
-  }, [columnLayout, packedColumns, combinedColumnCss, columnSections, packingContextKey])
+  }, [columnLayout, packedColumns, combinedColumnCss, columnSections, packingContextKey, overflowStyle])
 
   const layoutReady =
     columnLayout != null &&
@@ -450,6 +500,7 @@ export function ChordsThreeColumnSlide({
     <div
       className={cn(
         'player-chords-three-column',
+        overflowStyle === 'scroll' && 'player-chords-three-column--scroll',
         'h-full min-h-0 w-full',
         fillParent && 'flex-1',
       )}
@@ -513,7 +564,10 @@ export function ChordsThreeColumnSlide({
                     className="player-chords-three-column__row"
                     style={{
                       gap: `${COLUMN_GAP_PX}px`,
-                      height: `${columnLayout.columnHeightPx}px`,
+                      height:
+                        overflowStyle === 'scroll' ? 'auto' : `${columnLayout.columnHeightPx}px`,
+                      minHeight:
+                        overflowStyle === 'scroll' ? `${columnLayout.columnHeightPx}px` : undefined,
                       ...columnTypographyStyle(columnLayout),
                     }}
                   >
@@ -523,7 +577,14 @@ export function ChordsThreeColumnSlide({
                         className="player-chords-three-column__column player-chords-three-column__content"
                         style={{
                           width: `${columnLayout.columnWidthPx}px`,
-                          height: `${columnLayout.columnHeightPx}px`,
+                          height:
+                            overflowStyle === 'scroll'
+                              ? 'auto'
+                              : `${columnLayout.columnHeightPx}px`,
+                          minHeight:
+                            overflowStyle === 'scroll'
+                              ? `${columnLayout.columnHeightPx}px`
+                              : undefined,
                         }}
                       >
                         {sectionIndices.map((sectionIndex) =>

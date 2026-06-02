@@ -10,7 +10,7 @@ on:
       - "backend/**"
       - "cli/**"
       - "shared/**"
-      - "frontend/crates/chordlib-wasm/**"
+      - "frontend/**"
       - "docs/openapi.json"
       - "rust-toolchain.toml"
       - "Dockerfile"

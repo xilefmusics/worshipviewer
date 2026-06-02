@@ -18,11 +18,14 @@ import { Route as PlayerRouteRouteImport } from './routes/player/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PlayerIndexRouteImport } from './routes/player/index'
 import { Route as PlayerOutputRouteImport } from './routes/player/output'
+import { Route as HubUgcRouteImport } from './routes/_hub/ugc'
+import { Route as HubTermsRouteImport } from './routes/_hub/terms'
 import { Route as HubTeamsRouteImport } from './routes/_hub/teams'
 import { Route as HubSongsRouteImport } from './routes/_hub/songs'
 import { Route as HubSettingsRouteImport } from './routes/_hub/settings'
 import { Route as HubSetlistsRouteImport } from './routes/_hub/setlists'
 import { Route as HubSessionsRouteImport } from './routes/_hub/sessions'
+import { Route as HubPrivacyRouteImport } from './routes/_hub/privacy'
 import { Route as HubCollectionsRouteImport } from './routes/_hub/collections'
 import { Route as HubAboutRouteImport } from './routes/_hub/about'
 import { Route as HubTeamsTeamIdRouteImport } from './routes/_hub/teams.$teamId'
@@ -74,6 +77,16 @@ const PlayerOutputRoute = PlayerOutputRouteImport.update({
   path: '/output',
   getParentRoute: () => PlayerRouteRoute,
 } as any)
+const HubUgcRoute = HubUgcRouteImport.update({
+  id: '/ugc',
+  path: '/ugc',
+  getParentRoute: () => HubRoute,
+} as any)
+const HubTermsRoute = HubTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => HubRoute,
+} as any)
 const HubTeamsRoute = HubTeamsRouteImport.update({
   id: '/teams',
   path: '/teams',
@@ -97,6 +110,11 @@ const HubSetlistsRoute = HubSetlistsRouteImport.update({
 const HubSessionsRoute = HubSessionsRouteImport.update({
   id: '/sessions',
   path: '/sessions',
+  getParentRoute: () => HubRoute,
+} as any)
+const HubPrivacyRoute = HubPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => HubRoute,
 } as any)
 const HubCollectionsRoute = HubCollectionsRouteImport.update({
@@ -140,11 +158,14 @@ export interface FileRoutesByFullPath {
   '/logout': typeof LogoutRoute
   '/about': typeof HubAboutRoute
   '/collections': typeof HubCollectionsRouteWithChildren
+  '/privacy': typeof HubPrivacyRoute
   '/sessions': typeof HubSessionsRoute
   '/setlists': typeof HubSetlistsRouteWithChildren
   '/settings': typeof HubSettingsRoute
   '/songs': typeof HubSongsRouteWithChildren
   '/teams': typeof HubTeamsRouteWithChildren
+  '/terms': typeof HubTermsRoute
+  '/ugc': typeof HubUgcRoute
   '/player/output': typeof PlayerOutputRoute
   '/player/': typeof PlayerIndexRoute
   '/collections/$collectionId': typeof HubCollectionsCollectionIdRoute
@@ -160,11 +181,14 @@ export interface FileRoutesByTo {
   '/logout': typeof LogoutRoute
   '/about': typeof HubAboutRoute
   '/collections': typeof HubCollectionsRouteWithChildren
+  '/privacy': typeof HubPrivacyRoute
   '/sessions': typeof HubSessionsRoute
   '/setlists': typeof HubSetlistsRouteWithChildren
   '/settings': typeof HubSettingsRoute
   '/songs': typeof HubSongsRouteWithChildren
   '/teams': typeof HubTeamsRouteWithChildren
+  '/terms': typeof HubTermsRoute
+  '/ugc': typeof HubUgcRoute
   '/player/output': typeof PlayerOutputRoute
   '/player': typeof PlayerIndexRoute
   '/collections/$collectionId': typeof HubCollectionsCollectionIdRoute
@@ -183,11 +207,14 @@ export interface FileRoutesById {
   '/logout': typeof LogoutRoute
   '/_hub/about': typeof HubAboutRoute
   '/_hub/collections': typeof HubCollectionsRouteWithChildren
+  '/_hub/privacy': typeof HubPrivacyRoute
   '/_hub/sessions': typeof HubSessionsRoute
   '/_hub/setlists': typeof HubSetlistsRouteWithChildren
   '/_hub/settings': typeof HubSettingsRoute
   '/_hub/songs': typeof HubSongsRouteWithChildren
   '/_hub/teams': typeof HubTeamsRouteWithChildren
+  '/_hub/terms': typeof HubTermsRoute
+  '/_hub/ugc': typeof HubUgcRoute
   '/player/output': typeof PlayerOutputRoute
   '/player/': typeof PlayerIndexRoute
   '/_hub/collections/$collectionId': typeof HubCollectionsCollectionIdRoute
@@ -206,11 +233,14 @@ export interface FileRouteTypes {
     | '/logout'
     | '/about'
     | '/collections'
+    | '/privacy'
     | '/sessions'
     | '/setlists'
     | '/settings'
     | '/songs'
     | '/teams'
+    | '/terms'
+    | '/ugc'
     | '/player/output'
     | '/player/'
     | '/collections/$collectionId'
@@ -226,11 +256,14 @@ export interface FileRouteTypes {
     | '/logout'
     | '/about'
     | '/collections'
+    | '/privacy'
     | '/sessions'
     | '/setlists'
     | '/settings'
     | '/songs'
     | '/teams'
+    | '/terms'
+    | '/ugc'
     | '/player/output'
     | '/player'
     | '/collections/$collectionId'
@@ -248,11 +281,14 @@ export interface FileRouteTypes {
     | '/logout'
     | '/_hub/about'
     | '/_hub/collections'
+    | '/_hub/privacy'
     | '/_hub/sessions'
     | '/_hub/setlists'
     | '/_hub/settings'
     | '/_hub/songs'
     | '/_hub/teams'
+    | '/_hub/terms'
+    | '/_hub/ugc'
     | '/player/output'
     | '/player/'
     | '/_hub/collections/$collectionId'
@@ -336,6 +372,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlayerOutputRouteImport
       parentRoute: typeof PlayerRouteRoute
     }
+    '/_hub/ugc': {
+      id: '/_hub/ugc'
+      path: '/ugc'
+      fullPath: '/ugc'
+      preLoaderRoute: typeof HubUgcRouteImport
+      parentRoute: typeof HubRoute
+    }
+    '/_hub/terms': {
+      id: '/_hub/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof HubTermsRouteImport
+      parentRoute: typeof HubRoute
+    }
     '/_hub/teams': {
       id: '/_hub/teams'
       path: '/teams'
@@ -369,6 +419,13 @@ declare module '@tanstack/react-router' {
       path: '/sessions'
       fullPath: '/sessions'
       preLoaderRoute: typeof HubSessionsRouteImport
+      parentRoute: typeof HubRoute
+    }
+    '/_hub/privacy': {
+      id: '/_hub/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof HubPrivacyRouteImport
       parentRoute: typeof HubRoute
     }
     '/_hub/collections': {
@@ -481,21 +538,27 @@ const HubTeamsRouteWithChildren = HubTeamsRoute._addFileChildren(
 interface HubRouteChildren {
   HubAboutRoute: typeof HubAboutRoute
   HubCollectionsRoute: typeof HubCollectionsRouteWithChildren
+  HubPrivacyRoute: typeof HubPrivacyRoute
   HubSessionsRoute: typeof HubSessionsRoute
   HubSetlistsRoute: typeof HubSetlistsRouteWithChildren
   HubSettingsRoute: typeof HubSettingsRoute
   HubSongsRoute: typeof HubSongsRouteWithChildren
   HubTeamsRoute: typeof HubTeamsRouteWithChildren
+  HubTermsRoute: typeof HubTermsRoute
+  HubUgcRoute: typeof HubUgcRoute
 }
 
 const HubRouteChildren: HubRouteChildren = {
   HubAboutRoute: HubAboutRoute,
   HubCollectionsRoute: HubCollectionsRouteWithChildren,
+  HubPrivacyRoute: HubPrivacyRoute,
   HubSessionsRoute: HubSessionsRoute,
   HubSetlistsRoute: HubSetlistsRouteWithChildren,
   HubSettingsRoute: HubSettingsRoute,
   HubSongsRoute: HubSongsRouteWithChildren,
   HubTeamsRoute: HubTeamsRouteWithChildren,
+  HubTermsRoute: HubTermsRoute,
+  HubUgcRoute: HubUgcRoute,
 }
 
 const HubRouteWithChildren = HubRoute._addFileChildren(HubRouteChildren)

@@ -10,9 +10,10 @@ export const HUB_VIEW_MODE_CHANGE_EVENT = 'wv-hub-view-mode-change'
 
 const COLLECTIONS_ENTITY: HubEntity = 'collections'
 
-/** Default collections layout: cards (A4-style). Songs and setlists are always list. */
+/** Default hub layout: list rows. Songs and setlists always use list. */
 export function getDefaultViewMode(entity: HubEntity): HubViewMode {
-  return entity === 'collections' ? 'card' : 'list'
+  void entity
+  return 'list'
 }
 
 function isHubViewMode(value: string | null): value is HubViewMode {
@@ -37,7 +38,7 @@ export function readCollectionsViewMode(
   } catch {
     /* ignore */
   }
-  return 'card'
+  return 'list'
 }
 
 export function readHubViewMode(
