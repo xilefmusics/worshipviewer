@@ -84,6 +84,30 @@
   overflow: hidden;
 }
 
+.player-chords-three-column--scroll .player-chords-three-column__scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.player-chords-three-column--scroll .player-chords-three-column__column-area {
+  position: relative;
+  inset: auto;
+  overflow: visible;
+  /* Fill the scroll pane before content mounts (cut mode uses absolute inset). */
+  min-height: 100%;
+}
+
+.player-chords-three-column--scroll .player-chords-three-column__row {
+  height: auto;
+  min-height: 100%;
+}
+
+.player-chords-three-column--scroll .player-chords-three-column__column {
+  overflow: visible;
+  height: auto;
+  min-height: 100%;
+}
+
 .player-chords-three-column__content p {
   margin: 0 0 2.3077em;
 }

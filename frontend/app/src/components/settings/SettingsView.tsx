@@ -26,9 +26,11 @@ import {
   writeLyricCollapseWhitespacePreference,
 } from '@/lib/lyric-whitespace-preference'
 import {
-  readPlayerScrollPreferences,
-  writePlayerScrollLandscape,
-  writePlayerScrollPortrait,
+  readPlayerLayoutPreferences,
+  writePlayerLayoutLandscape,
+  writePlayerLayoutLinkedOrientations,
+  writePlayerLayoutPortrait,
+  writePlayerLayoutUnified,
 } from '@/lib/player-scroll-preference'
 import {
   DEFAULT_AV_PREFERENCES,
@@ -54,7 +56,7 @@ import {
   readSheetImageInvertPreference,
   writeSheetImageInvertPreference,
 } from '@/lib/sheet-image-invert-preference'
-import type { PlayerScrollType } from '@/lib/player/effective-scroll-type'
+import { PlayerLayoutSettingsCard } from '@/components/settings/PlayerLayoutSettingsCard'
 import type { HubViewMode } from '@/lib/hub-view-mode'
 import { clearAllLocalData } from '@/lib/clear-local'
 import { formatApproxBytes } from '@/lib/format-bytes'
@@ -310,7 +312,7 @@ export function SettingsView({
   const [chordFormatPreference, setChordFormatPreference] = useState(readChordFormatPreference)
   const [sheetBackgroundPreference, setSheetBackgroundPreference] = useState(readSheetBackgroundPreference)
   const [invertSheetImages, setInvertSheetImagesState] = useState(readSheetImageInvertPreference)
-  const [scrollPreferences, setScrollPreferences] = useState(readPlayerScrollPreferences)
+  const [layoutPreferences, setLayoutPreferences] = useState(readPlayerLayoutPreferences)
   const [defaultPlayerMode, setDefaultPlayerModeState] = useState<PlayerMode>(readPlayerDefaultMode)
   const [collapseLyricWhitespace, setCollapseLyricWhitespaceState] = useState(
     readLyricCollapseWhitespacePreference,
@@ -365,14 +367,14 @@ export function SettingsView({
   const collectionsViewModeOptions = useMemo<SettingsOption<HubViewMode>[]>(
     () => [
       {
-        value: 'card',
-        label: t('settings.collectionsViewMode.card'),
-        description: t('settings.collectionsViewMode.cardDescription'),
-      },
-      {
         value: 'list',
         label: t('settings.collectionsViewMode.list'),
         description: t('settings.collectionsViewMode.listDescription'),
+      },
+      {
+        value: 'card',
+        label: t('settings.collectionsViewMode.card'),
+        description: t('settings.collectionsViewMode.cardDescription'),
       },
       {
         value: 'adaptive',
@@ -399,41 +401,25 @@ export function SettingsView({
     [t],
   )
 
-  const scrollModeOptions = useMemo<SettingsOption<PlayerScrollType>[]>(
-    () => [
-      {
-        value: 'one_page',
-        label: t('settings.playerScroll.singleSheets'),
-        description: t('settings.playerScroll.pageDescription'),
-      },
-      {
-        value: 'book',
-        label: t('settings.playerScroll.bookView'),
-        description: t('settings.playerScroll.bookDescription'),
-      },
-      {
-        value: 'two_column',
-        label: t('settings.playerScroll.twoColumnView'),
-        description: t('settings.playerScroll.twoColumnDescription'),
-      },
-      {
-        value: 'two_column_next',
-        label: t('settings.playerScroll.twoColumnNextView'),
-        description: t('settings.playerScroll.twoColumnNextDescription'),
-      },
-      {
-        value: 'three_column',
-        label: t('settings.playerScroll.threeColumnView'),
-        description: t('settings.playerScroll.threeColumnDescription'),
-      },
-      {
-        value: 'three_column_next',
-        label: t('settings.playerScroll.threeColumnNextView'),
-        description: t('settings.playerScroll.threeColumnNextDescription'),
-      },
-    ],
-    [t],
-  )
+  function setUnifiedLayout(next: Parameters<typeof writePlayerLayoutUnified>[0]) {
+    writePlayerLayoutUnified(next)
+    setLayoutPreferences(readPlayerLayoutPreferences())
+  }
+
+  function setPortraitLayout(next: Parameters<typeof writePlayerLayoutPortrait>[0]) {
+    writePlayerLayoutPortrait(next)
+    setLayoutPreferences(readPlayerLayoutPreferences())
+  }
+
+  function setLandscapeLayout(next: Parameters<typeof writePlayerLayoutPortrait>[0]) {
+    writePlayerLayoutLandscape(next)
+    setLayoutPreferences(readPlayerLayoutPreferences())
+  }
+
+  function setLinkedOrientations(linkedOrientations: boolean) {
+    writePlayerLayoutLinkedOrientations(linkedOrientations)
+    setLayoutPreferences(readPlayerLayoutPreferences())
+  }
 
   const defaultPlayerModeOptions = useMemo<SettingsOption<PlayerMode>[]>(
     () => [
@@ -570,16 +556,6 @@ export function SettingsView({
   function setInvertSheetImages(enabled: boolean) {
     setInvertSheetImagesState(enabled)
     writeSheetImageInvertPreference(enabled)
-  }
-
-  function setPortraitScroll(next: PlayerScrollType) {
-    writePlayerScrollPortrait(next)
-    setScrollPreferences(readPlayerScrollPreferences())
-  }
-
-  function setLandscapeScroll(next: PlayerScrollType) {
-    writePlayerScrollLandscape(next)
-    setScrollPreferences(readPlayerScrollPreferences())
   }
 
   function setDefaultPlayerMode(next: PlayerMode) {
@@ -894,21 +870,49 @@ export function SettingsView({
             </CardContent>
           </Card>
 
-          <SettingsSection
-            title={t('settings.playerScroll.portraitTitle')}
-            description={t('settings.playerScroll.portraitDescription')}
-            options={scrollModeOptions}
-            value={scrollPreferences.portrait}
-            onChange={setPortraitScroll}
-          />
+          <Card>
+            <CardContent className="p-4">
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
+                  checked={!layoutPreferences.linkedOrientations}
+                  onChange={(e) => setLinkedOrientations(!e.target.checked)}
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span>{t('settings.playerScroll.separateOrientations')}</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
+                    {t('settings.playerScroll.separateOrientationsDescription')}
+                  </span>
+                </span>
+              </label>
+            </CardContent>
+          </Card>
 
-          <SettingsSection
-            title={t('settings.playerScroll.landscapeTitle')}
-            description={t('settings.playerScroll.landscapeDescription')}
-            options={scrollModeOptions}
-            value={scrollPreferences.landscape}
-            onChange={setLandscapeScroll}
-          />
+          {layoutPreferences.linkedOrientations ? (
+            <PlayerLayoutSettingsCard
+              title={t('settings.playerScroll.layoutTitle')}
+              description={t('settings.playerScroll.layoutDescription')}
+              value={layoutPreferences.portrait}
+              onChange={setUnifiedLayout}
+            />
+          ) : (
+            <>
+              <PlayerLayoutSettingsCard
+                title={t('settings.playerScroll.portraitTitle')}
+                description={t('settings.playerScroll.portraitDescription')}
+                value={layoutPreferences.portrait}
+                onChange={setPortraitLayout}
+              />
+
+              <PlayerLayoutSettingsCard
+                title={t('settings.playerScroll.landscapeTitle')}
+                description={t('settings.playerScroll.landscapeDescription')}
+                value={layoutPreferences.landscape}
+                onChange={setLandscapeLayout}
+              />
+            </>
+          )}
         </div>
       ) : null}
 

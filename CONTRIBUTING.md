@@ -102,7 +102,7 @@ CI fails if the three copies diverge or if `openapi_snapshot_matches_committed_f
 |----------|------|------|
 | [Backend CI](.github/workflows/backend-ci.yml) | PRs to `main`; pushes to non-`main` branches | `cargo test`, clippy, fmt, Spectral, OpenAPI tri-copy, `cargo audit` (backend, cli, shared, `chordlib-wasm`) |
 | [Frontend CI](.github/workflows/frontend-ci.yml) | PRs / pushes touching `frontend/` | Vitest, lint, typecheck, OpenAPI `schema.d.ts` drift, build, `pnpm audit` |
-| Docker publish | Push to `main` or tags | Build image; **Venom** integration tests run in the `tester` stage |
+| Docker publish | Push to `main` or tags when `backend/**`, `frontend/**`, or image build inputs change | Build image (backend + frontend); **Venom** integration tests run in the `tester` stage |
 
 **Playwright e2e** (`pnpm test:e2e` in `frontend/`) is **local-only** — intentionally not in CI (see action plan §2.1 deferral). Run against real backend on port 8788 before release.
 

@@ -3,10 +3,29 @@ import { describe, expect, it } from 'vitest'
 import {
   arePackedColumnsEqual,
   isPackedColumnsValid,
+  packSectionsForScroll,
   packSectionsIntoColumns,
   packSectionsIntoColumnsWithOverflow,
   shiftOverflowSection,
 } from './chords-three-column-pack'
+
+describe('packSectionsForScroll', () => {
+  it('places every section across the configured column count', () => {
+    expect(packSectionsForScroll([100, 200, 50, 150, 80], 3)).toEqual([
+      [0, 4],
+      [1],
+      [2, 3],
+    ])
+  })
+
+  it('uses a single column when columnCount is 1', () => {
+    expect(packSectionsForScroll([100, 200, 50], 1)).toEqual([[0, 1, 2]])
+  })
+
+  it('returns an empty array for no sections', () => {
+    expect(packSectionsForScroll([], 3)).toEqual([])
+  })
+})
 
 describe('packSectionsIntoColumns', () => {
   it('fills the first column before starting the next', () => {

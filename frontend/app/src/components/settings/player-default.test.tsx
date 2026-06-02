@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { nextPlayerScrollType } from '@/lib/player/effective-scroll-type'
+import {
+  layoutPreferenceToScrollType,
+  nextPlayerScrollType,
+  scrollTypeToLayoutPreference,
+} from '@/lib/player/effective-scroll-type'
 import {
   chordFormatToRepresentation,
   resolveChordFormatPreference,
@@ -15,13 +19,27 @@ describe('J2: Player Default tab options', () => {
     expect(chordFormatToRepresentation('nashville')).toBeTruthy()
   })
 
-  it('J2: scroll modes cycle through six variants', () => {
+  it('J2: scroll modes cycle through eight variants', () => {
     let mode = nextPlayerScrollType('one_page')
     const seen = new Set<string>(['one_page'])
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 8; i++) {
       seen.add(mode)
       mode = nextPlayerScrollType(mode)
     }
-    expect(seen.size).toBeGreaterThanOrEqual(6)
+    expect(seen.size).toBeGreaterThanOrEqual(8)
+  })
+
+  it('J2: layout preferences map to scroll types', () => {
+    expect(
+      layoutPreferenceToScrollType({
+        mode: 'free',
+        pageCount: 1,
+        columnCount: 1,
+        nextSongPreview: true,
+        overflowStyle: 'scroll',
+        expandSections: false,
+      }),
+    ).toBe('one_column_next')
+    expect(layoutPreferenceToScrollType(scrollTypeToLayoutPreference('book'))).toBe('book')
   })
 })

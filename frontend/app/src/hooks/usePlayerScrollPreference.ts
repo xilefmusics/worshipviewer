@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react'
 
 import {
   PLAYER_SCROLL_CHANGE_EVENT,
-  readPlayerScrollPreferences,
-  type PlayerScrollPreferences,
+  readPlayerLayoutPreferences,
+  type PlayerLayoutPreferences,
 } from '@/lib/player-scroll-preference'
 
-export function usePlayerScrollPreference(): PlayerScrollPreferences {
-  const [preferences, setPreferences] = useState(readPlayerScrollPreferences)
+export function usePlayerLayoutPreference(): PlayerLayoutPreferences {
+  const [preferences, setPreferences] = useState(readPlayerLayoutPreferences)
 
   useEffect(() => {
     const onChange = (event: Event) => {
-      const detail = (event as CustomEvent<PlayerScrollPreferences>).detail
-      setPreferences(detail ?? readPlayerScrollPreferences())
+      const detail = (event as CustomEvent<PlayerLayoutPreferences>).detail
+      setPreferences(detail ?? readPlayerLayoutPreferences())
     }
 
     globalThis.window.addEventListener(PLAYER_SCROLL_CHANGE_EVENT, onChange)
@@ -20,4 +20,9 @@ export function usePlayerScrollPreference(): PlayerScrollPreferences {
   }, [])
 
   return preferences
+}
+
+/** @deprecated Use usePlayerLayoutPreference */
+export function usePlayerScrollPreference(): PlayerLayoutPreferences {
+  return usePlayerLayoutPreference()
 }

@@ -19,8 +19,8 @@ import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
 import { Button } from '@/components/ui/button'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
 import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
-import { useMediaQuery } from '@/hooks/useMediaQuery'
-import { usePlayerScrollPreference } from '@/hooks/usePlayerScrollPreference'
+import { useIsPhoneWidth, useMediaQuery } from '@/hooks/useMediaQuery'
+import { usePlayerLayoutPreference } from '@/hooks/usePlayerScrollPreference'
 import { useOnline } from '@/hooks/use-online'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
@@ -30,14 +30,17 @@ import {
   effectiveScrollType,
   isMultiColumnScrollMode,
   isMultiColumnWithNextPreviewMode,
-  multiColumnCount,
+  layoutPreferenceToScrollType,
   nextPlayerScrollType,
+  resolveFreeColumnCount,
+  scrollTypeToLayoutPreference,
 } from '@/lib/player/effective-scroll-type'
 import { bookSpreadRightIndex, isBookSpreadMode } from '@/lib/player/book-spread'
 import {
+  layoutPreferenceForOrientation,
   scrollTypeForOrientation,
-  writePlayerScrollLandscape,
-  writePlayerScrollPortrait,
+  writePlayerLayoutLandscape,
+  writePlayerLayoutPortrait,
 } from '@/lib/player-scroll-preference'
 import {
   nextPlayerState,
@@ -169,7 +172,8 @@ export function PlayerBook({
   const queryClient = useQueryClient()
   const online = useOnline()
   const chordFormat = useChordFormatPreference()
-  const scrollPreferences = usePlayerScrollPreference()
+  const layoutPreferences = usePlayerLayoutPreference()
+  const isPhoneViewport = useIsPhoneWidth()
   const isLandscapeViewport = useMediaQuery('(orientation: landscape)')
   const isSmViewport = useMediaQuery('(min-width: 640px)')
   const tocInsetPx = isSmViewport ? PLAYER_TOC_WIDTH_PX.sm : PLAYER_TOC_WIDTH_PX.base
@@ -205,8 +209,17 @@ export function PlayerBook({
     writePlayerViewState(type, id, viewState)
   }, [type, id, viewState])
 
-  const effectiveScroll = effectiveScrollType(
-    scrollTypeForOrientation(sheetOrientation, scrollPreferences),
+  const layoutPreference = layoutPreferenceForOrientation(sheetOrientation, layoutPreferences)
+  const freeColumnCount =
+    layoutPreference.mode === 'free'
+      ? resolveFreeColumnCount(layoutPreference.columnCount, {
+          isPhone: isPhoneViewport,
+          isLandscape: sheetOrientation === 'landscape',
+        })
+      : null
+  const effectiveScroll = layoutPreferenceToScrollType(
+    layoutPreference,
+    freeColumnCount ?? undefined,
   )
   const bookSpread = isBookSpreadMode(effectiveScroll)
   const itemsLen = player.items.length
@@ -428,10 +441,12 @@ export function PlayerBook({
       }
       if (action === 'cycleScroll') {
         e.preventDefault()
-        const currentScroll = scrollTypeForOrientation(sheetOrientation, scrollPreferences)
+        const currentScroll = scrollTypeForOrientation(sheetOrientation, layoutPreferences)
         const next = nextPlayerScrollType(effectiveScrollType(currentScroll))
-        if (sheetOrientation === 'landscape') writePlayerScrollLandscape(next)
-        else writePlayerScrollPortrait(next)
+        const nextLayout = scrollTypeToLayoutPreference(next)
+        if (layoutPreferences.linkedOrientations) writePlayerLayoutPortrait(nextLayout)
+        else if (sheetOrientation === 'landscape') writePlayerLayoutLandscape(nextLayout)
+        else writePlayerLayoutPortrait(nextLayout)
         return
       }
       if (action === 'edit') {
@@ -499,7 +514,7 @@ export function PlayerBook({
     navigate,
     popoverOpen,
     chromeVisible,
-    scrollPreferences,
+    layoutPreferences,
     sheetOrientation,
     toggleCurrentSongLike,
     type,
@@ -525,9 +540,9 @@ export function PlayerBook({
       )
     }
 
-    const columnCount = multiColumnCount(effectiveScroll)
-    if (columnCount != null) {
-      const showNextPreview = isMultiColumnWithNextPreviewMode(effectiveScroll)
+    if (freeColumnCount != null) {
+      const showNextPreview =
+        layoutPreference.nextSongPreview || isMultiColumnWithNextPreviewMode(effectiveScroll)
       const nextItem = showNextPreview ? player.items[itemIndex + 1] : undefined
       const nextSong = nextItem?.type === 'chords' ? nextItem.song : undefined
       return (
@@ -541,7 +556,9 @@ export function PlayerBook({
               : undefined
           }
           chordFormat={chordFormat}
-          columnCount={columnCount}
+          columnCount={freeColumnCount}
+          overflowStyle={layoutPreference.overflowStyle}
+          expandSections={layoutPreference.expandSections}
           fillParent={fillParent}
         />
       )

@@ -30,7 +30,9 @@ describe('resolveTransposeKey', () => {
 describe('nextPlayerScrollType', () => {
   it('cycles through supported player scroll modes', () => {
     expect(nextPlayerScrollType('one_page')).toBe('book')
-    expect(nextPlayerScrollType('book')).toBe('two_column')
+    expect(nextPlayerScrollType('book')).toBe('one_column')
+    expect(nextPlayerScrollType('one_column')).toBe('one_column_next')
+    expect(nextPlayerScrollType('one_column_next')).toBe('two_column')
     expect(nextPlayerScrollType('two_column')).toBe('two_column_next')
     expect(nextPlayerScrollType('two_column_next')).toBe('three_column')
     expect(nextPlayerScrollType('three_column')).toBe('three_column_next')
