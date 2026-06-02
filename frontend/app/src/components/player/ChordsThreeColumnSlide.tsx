@@ -23,8 +23,9 @@ import {
   arePackedColumnsEqual,
   isPackedColumnsValid,
   measureStackedSectionHeights,
-  packSectionsForScroll,
+  packSectionsIntoFixedColumns,
   packSectionsIntoColumnsWithOverflow,
+  scrollModeNeedsVerticalScroll,
   shiftOverflowSection,
 } from './chords-three-column-pack'
 
@@ -286,6 +287,7 @@ export function ChordsThreeColumnSlide({
   const [packedColumnsCache, setPackedColumnsCache] = useState<{
     key: string
     columns: number[][]
+    needsVerticalScroll: boolean
   } | null>(null)
 
   const showNextPreview = nextSong != null
@@ -359,6 +361,10 @@ export function ChordsThreeColumnSlide({
     packingContextKey && packedColumnsCache?.key === packingContextKey
       ? packedColumnsCache.columns
       : null
+  const needsVerticalScroll =
+    overflowStyle === 'scroll' && packedColumnsCache?.key === packingContextKey
+      ? packedColumnsCache.needsVerticalScroll
+      : false
 
   useLayoutEffect(() => {
     if (!layoutKey) return
@@ -427,13 +433,24 @@ export function ChordsThreeColumnSlide({
 
       const columns =
         overflowStyle === 'scroll'
-          ? packSectionsForScroll(heights, columnCount)
+          ? packSectionsIntoFixedColumns(heights, columnLayout.columnHeightPx, columnCount)
           : packSectionsIntoColumnsWithOverflow(heights, columnLayout.columnHeightPx)
+      const nextNeedsVerticalScroll =
+        overflowStyle === 'scroll' &&
+        scrollModeNeedsVerticalScroll(heights, columns, columnLayout.columnHeightPx)
       setPackedColumnsCache((prev) => {
-        if (prev?.key === packingContextKey && arePackedColumnsEqual(prev.columns, columns)) {
+        if (
+          prev?.key === packingContextKey &&
+          arePackedColumnsEqual(prev.columns, columns) &&
+          prev.needsVerticalScroll === nextNeedsVerticalScroll
+        ) {
           return prev
         }
-        return { key: packingContextKey, columns }
+        return {
+          key: packingContextKey,
+          columns,
+          needsVerticalScroll: nextNeedsVerticalScroll,
+        }
       })
     }
 
@@ -486,7 +503,15 @@ export function ChordsThreeColumnSlide({
     }
 
     if (changed && !arePackedColumnsEqual(columns, packedColumns)) {
-      setPackedColumnsCache({ key: packingContextKey, columns })
+      setPackedColumnsCache({
+        key: packingContextKey,
+        columns,
+        needsVerticalScroll: scrollModeNeedsVerticalScroll(
+          heights,
+          columns,
+          columnLayout.columnHeightPx,
+        ),
+      })
     }
   }, [columnLayout, packedColumns, combinedColumnCss, columnSections, packingContextKey, overflowStyle])
 
@@ -501,6 +526,7 @@ export function ChordsThreeColumnSlide({
       className={cn(
         'player-chords-three-column',
         overflowStyle === 'scroll' && 'player-chords-three-column--scroll',
+        overflowStyle === 'scroll' && layoutReady && !needsVerticalScroll && 'player-chords-three-column--fits',
         'h-full min-h-0 w-full',
         fillParent && 'flex-1',
       )}
@@ -543,7 +569,15 @@ export function ChordsThreeColumnSlide({
           {renderState.sections.length === 0 ? (
             <p className="player-chords-three-column__empty">{t('player.threeColumnEmpty')}</p>
           ) : columnSections ? (
-            <div ref={viewportRef} className="player-chords-three-column__scroll">
+            <div
+              ref={viewportRef}
+              className={cn(
+                'player-chords-three-column__scroll',
+                overflowStyle === 'scroll' &&
+                  needsVerticalScroll &&
+                  'player-chords-three-column__scroll--scrollable',
+              )}
+            >
               <div ref={columnAreaRef} className="player-chords-three-column__column-area">
                 {columnLayout ? (
                   <div
@@ -567,7 +601,9 @@ export function ChordsThreeColumnSlide({
                       height:
                         overflowStyle === 'scroll' ? 'auto' : `${columnLayout.columnHeightPx}px`,
                       minHeight:
-                        overflowStyle === 'scroll' ? `${columnLayout.columnHeightPx}px` : undefined,
+                        overflowStyle === 'scroll' && needsVerticalScroll
+                          ? `${columnLayout.columnHeightPx}px`
+                          : undefined,
                       ...columnTypographyStyle(columnLayout),
                     }}
                   >
@@ -582,7 +618,7 @@ export function ChordsThreeColumnSlide({
                               ? 'auto'
                               : `${columnLayout.columnHeightPx}px`,
                           minHeight:
-                            overflowStyle === 'scroll'
+                            overflowStyle === 'scroll' && needsVerticalScroll
                               ? `${columnLayout.columnHeightPx}px`
                               : undefined,
                         }}

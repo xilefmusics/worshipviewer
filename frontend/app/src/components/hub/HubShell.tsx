@@ -601,7 +601,7 @@ function HubChrome({
             HUB_FOOTER_CLASS,
           )}
         >
-          <div className={cn(hubChromeRowClass, hubChromeRowLayoutClass, 'justify-center')}>
+          <div className={cn(hubChromeRowClass, 'items-center gap-[0.36rem] justify-center')}>
             <HubTabBar />
             {!hideHubPlus ? (
               <div className={cn('mt-[0.36rem] shrink-0', HUB_FOOTER_CHROME_MB_CLASS)}>

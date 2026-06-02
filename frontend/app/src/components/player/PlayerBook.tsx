@@ -142,6 +142,8 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
 
 const PLAYER_CHROME_EASE = [0.25, 0.1, 0.25, 1] as const
 const VIEWPORT_DOUBLE_TAP_MS = 300
+const VIEWPORT_TAP_MOVE_SLOP_PX = 10
+const VIEWPORT_SWIPE_MIN_PX = 48
 
 const playerChromeHeaderClass =
   'pointer-events-auto flex shrink-0 items-center gap-2 overflow-hidden border-b border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-2 sm:px-3 sm:py-3'
@@ -183,6 +185,8 @@ export function PlayerBook({
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [chromeVisible, setChromeVisible] = useState(false)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const touchMovedRef = useRef(false)
+  const suppressClickRef = useRef(false)
   const chromeToggleHandledRef = useRef(false)
   const lastViewportTapTimeRef = useRef<number | null>(null)
   const [likeBurstKey, setLikeBurstKey] = useState(0)
@@ -579,6 +583,27 @@ export function PlayerBook({
     const touch = e.touches[0]
     if (!touch) return
     touchStartRef.current = { x: touch.clientX, y: touch.clientY }
+    touchMovedRef.current = false
+  }
+
+  function onTouchMove(e: React.TouchEvent) {
+    const start = touchStartRef.current
+    const touch = e.touches[0]
+    if (!start || !touch || touchMovedRef.current) return
+
+    const dx = touch.clientX - start.x
+    const dy = touch.clientY - start.y
+    if (
+      Math.abs(dx) > VIEWPORT_TAP_MOVE_SLOP_PX ||
+      Math.abs(dy) > VIEWPORT_TAP_MOVE_SLOP_PX
+    ) {
+      touchMovedRef.current = true
+    }
+  }
+
+  function onTouchCancel() {
+    touchStartRef.current = null
+    touchMovedRef.current = false
   }
 
   const handleViewportPointer = useCallback(
@@ -628,12 +653,21 @@ export function PlayerBook({
 
     const dx = touch.clientX - start.x
     const dy = touch.clientY - start.y
-    const isSwipe = Math.abs(dx) >= 48 && Math.abs(dx) >= Math.abs(dy) * 1.2
+    const isSwipe =
+      Math.abs(dx) >= VIEWPORT_SWIPE_MIN_PX && Math.abs(dx) >= Math.abs(dy) * 1.2
 
     if (isSwipe) {
+      touchMovedRef.current = false
+      suppressClickRef.current = true
       if (navBlocked || chromeVisible) return
       if (dx > 0) dispatch({ type: 'prev' })
       else dispatch({ type: 'next' })
+      return
+    }
+
+    if (touchMovedRef.current) {
+      touchMovedRef.current = false
+      suppressClickRef.current = true
       return
     }
 
@@ -644,6 +678,11 @@ export function PlayerBook({
   }
 
   function onMainClick(e: React.MouseEvent<HTMLElement>) {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
+
     if (chromeToggleHandledRef.current) {
       chromeToggleHandledRef.current = false
       return
@@ -803,7 +842,9 @@ export function PlayerBook({
             transition={chromeTransition}
             onClick={onMainClick}
             onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
+            onTouchCancel={onTouchCancel}
           >
             {likeBurstActive ? (
               <PlayerLikeHeartBurst
