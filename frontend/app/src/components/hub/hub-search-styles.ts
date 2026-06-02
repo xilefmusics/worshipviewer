@@ -1,5 +1,5 @@
 /** Hub header pill typography (display-only title rows). */
-export const HUB_SEARCH_PILL_TEXT_CLASS = 'text-[0.7875rem]'
+export const HUB_SEARCH_PILL_TEXT_CLASS = 'text-[length:var(--hub-list-subtitle-size)]'
 
 /**
  * Matches the hub header search field (`HubChrome`).

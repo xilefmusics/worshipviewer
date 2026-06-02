@@ -7,6 +7,7 @@ import { AvOutlinePanel } from '@/components/player/av/AvOutlinePanel'
 import { AvSectionShortcuts } from '@/components/player/av/AvSectionShortcuts'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
 import { AvSlidesPanel } from '@/components/player/av/AvSlidesPanel'
+import { PlayerEditMenu } from '@/components/player/PlayerEditMenu'
 import { PlayerTocSidebar } from '@/components/player/PlayerTocSidebar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
 import { OutputIcon } from '@/components/icons/lucide-animated/output-icon'
@@ -55,12 +56,15 @@ import {
 } from '@/lib/player/av-session-state'
 import {
   PLAYER_HEADER_ICON_SIZE,
+  PLAYER_TOC_WIDTH_CLASS,
   playerHeaderIconButtonClass,
   playerHeaderIconClass,
 } from '@/lib/player/player-chrome'
+import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { tocEntryForIndex } from '@/lib/player/player-helpers'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { buildSettingsSearch } from '@/lib/settings-route'
+import { cn } from '@/lib/utils'
 
 import './player-av.css'
 
@@ -240,6 +244,36 @@ export function PlayerAv({
     [type, id, session.itemIndex],
   )
 
+  const rawItem = player.items[session.itemIndex]
+
+  const navigateToSongEditor = useCallback(() => {
+    const item = player.items[session.itemIndex]
+    if (item?.type !== 'chords') return
+    void navigate({
+      to: '/songs/$songId',
+      params: { songId: item.song.id },
+      search: buildSongEditorReturnSearch(playerReturnContext),
+    })
+  }, [navigate, player.items, playerReturnContext, session.itemIndex])
+
+  const navigateToResourceEditor = useCallback(() => {
+    if (type === 'setlist') {
+      void navigate({
+        to: '/setlists/$setlistId',
+        params: { setlistId: id },
+        search: buildSongEditorReturnSearch(playerReturnContext),
+      })
+      return
+    }
+    if (type === 'collection') {
+      void navigate({
+        to: '/collections/$collectionId',
+        params: { collectionId: id },
+        search: buildSongEditorReturnSearch(playerReturnContext),
+      })
+    }
+  }, [id, navigate, playerReturnContext, type])
+
   useEffect(() => {
     writeAvSessionState(type, id, session)
   }, [type, id, session])
@@ -314,11 +348,11 @@ export function PlayerAv({
   )
 
   const goToItem = useCallback((itemIndex: number) => {
-    setSession((state) => ({
-      ...state,
-      itemIndex,
-      slideIndex: 0,
-    }))
+    setSession((state) => {
+      const next: AvSessionState = { ...state, itemIndex, slideIndex: 0, screenState: 'live' }
+      setProjected(next)
+      return next
+    })
   }, [])
 
   const toggleBlank = useCallback(() => {
@@ -514,6 +548,12 @@ export function PlayerAv({
           >
             <OutputIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
           </Button>
+          <PlayerEditMenu
+            playerType={type}
+            canEditSong={rawItem?.type === 'chords'}
+            onEditSong={navigateToSongEditor}
+            onEditResource={navigateToResourceEditor}
+          />
           <Button
             type="button"
             variant="outline"
@@ -567,14 +607,15 @@ export function PlayerAv({
           </div>
         </div>
 
-        <aside className="player-av__right w-44 shrink-0 sm:w-56">
+        <aside className={cn('player-av__right shrink-0', PLAYER_TOC_WIDTH_CLASS)}>
           <div className="player-av__preview">
             <AvSlideView
-              contentText={projectedText}
+              preview
+              contentText={currentText}
               contentLayer={prefs.contentLayer}
               backgroundLayer={prefs.backgroundLayer}
               transition={prefs.transition}
-              screenState={projected.screenState}
+              screenState={session.screenState}
             />
           </div>
 

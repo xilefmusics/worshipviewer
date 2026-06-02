@@ -24,6 +24,8 @@ type AvSlideViewProps = {
   compact?: boolean
   /** When false, omit the projection background (for UI thumbnails over a checkerboard). */
   showBackground?: boolean
+  /** Operator sidebar preview: no transition, px-sized lyrics. */
+  preview?: boolean
 }
 
 export function AvSlideView({
@@ -35,6 +37,7 @@ export function AvSlideView({
   className,
   compact = false,
   showBackground = true,
+  preview = false,
 }: AvSlideViewProps) {
   const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
@@ -56,36 +59,49 @@ export function AvSlideView({
     )
   }
 
+  const slideBody = (
+    <AvSlideContent
+      text={contentText}
+      contentLayer={contentLayer}
+      compact={compact}
+      preview={preview}
+    />
+  )
+
   return (
-    <div className={cn('av-slide-view', className)}>
+    <div className={cn('av-slide-view', preview && 'av-slide-view--preview', className)}>
       {showBackground ? (
         <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__background" />
       ) : null}
       <div className="av-slide-view__content">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={contentText}
-            initial={
-              effectiveTransition.style === 'none'
-                ? false
-                : effectiveTransition.style === 'slide'
-                  ? { opacity: 0, x: 24 }
-                  : { opacity: 0 }
-            }
-            animate={{ opacity: 1, x: 0 }}
-            exit={
-              effectiveTransition.style === 'none'
-                ? undefined
-                : effectiveTransition.style === 'slide'
-                  ? { opacity: 0, x: -24 }
-                  : { opacity: 0 }
-            }
-            transition={{ duration }}
-            className="h-full w-full"
-          >
-            <AvSlideContent text={contentText} contentLayer={contentLayer} compact={compact} />
-          </motion.div>
-        </AnimatePresence>
+        {preview ? (
+          <div className="h-full w-full">{slideBody}</div>
+        ) : (
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={contentText}
+              initial={
+                effectiveTransition.style === 'none'
+                  ? false
+                  : effectiveTransition.style === 'slide'
+                    ? { opacity: 0, x: 24 }
+                    : { opacity: 0 }
+              }
+              animate={{ opacity: 1, x: 0 }}
+              exit={
+                effectiveTransition.style === 'none'
+                  ? undefined
+                  : effectiveTransition.style === 'slide'
+                    ? { opacity: 0, x: -24 }
+                    : { opacity: 0 }
+              }
+              transition={{ duration }}
+              className="h-full w-full"
+            >
+              {slideBody}
+            </motion.div>
+          </AnimatePresence>
+        )}
       </div>
     </div>
   )

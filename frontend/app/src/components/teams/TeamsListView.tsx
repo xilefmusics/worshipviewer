@@ -13,6 +13,13 @@ import { useSession } from '@/hooks/useSession'
 import { useTeamsList } from '@/hooks/useTeamsList'
 import { useOnline } from '@/hooks/use-online'
 import { getTeamDisplayName } from '@/lib/team-display-name'
+import {
+  HUB_LIST_AVATAR_CLASS,
+  HUB_LIST_ROW_BORDER_CLASS,
+  HUB_LIST_ROW_SHELL_CLASS,
+  HUB_LIST_SUBTITLE_CLASS,
+  HUB_LIST_TITLE_CLASS,
+} from '@/components/hub/hub-list-styles'
 import { cn } from '@/lib/utils'
 
 function TeamListAvatar({ cover, label }: { cover: string; label: string }) {
@@ -21,7 +28,10 @@ function TeamListAvatar({ cover, label }: { cover: string; label: string }) {
 
   return (
     <div
-      className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--color-muted)] text-sm font-medium text-[var(--color-foreground)]"
+      className={cn(
+        HUB_LIST_AVATAR_CLASS,
+        'flex items-center justify-center text-[length:var(--hub-list-subtitle-size)] font-semibold text-[var(--color-foreground)]',
+      )}
       data-testid="team-list-avatar"
     >
       {src ? (
@@ -128,11 +138,11 @@ export function TeamsListView({ createIntent, onConsumeCreateIntent }: TeamsList
         {showSkeleton ? (
           <div className="flex flex-col gap-0">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex gap-3 border-b border-[var(--color-border)] py-3">
-                <div className="h-10 w-10 shrink-0 animate-pulse rounded-lg bg-[var(--color-muted)]" />
-                <div className="flex flex-1 flex-col gap-2 py-1">
-                  <div className="h-4 w-2/3 animate-pulse rounded bg-[var(--color-muted)]" />
-                  <div className="h-3 w-1/2 animate-pulse rounded bg-[var(--color-muted)]" />
+              <div key={i} className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_BORDER_CLASS)}>
+                <div className={cn(HUB_LIST_AVATAR_CLASS, 'animate-pulse border-0')} />
+                <div className="flex flex-1 flex-col gap-1.5 py-0.5">
+                  <div className="h-[1.0625rem] w-2/3 animate-pulse rounded bg-[var(--color-muted)]" />
+                  <div className="h-[0.9375rem] w-1/2 animate-pulse rounded bg-[var(--color-muted)]" />
                 </div>
               </div>
             ))}
@@ -166,19 +176,20 @@ export function TeamsListView({ createIntent, onConsumeCreateIntent }: TeamsList
             {items.map((team) => {
               const label = getTeamDisplayName(team, me?.id, t)
               return (
-                <li key={team.id} className="border-b border-[var(--color-border)] last:border-0">
+                <li key={team.id} className={HUB_LIST_ROW_BORDER_CLASS}>
                   <button
                     type="button"
                     onClick={() => openTeam(team.id)}
                     className={cn(
-                      'flex w-full min-w-0 items-start gap-3 py-3 text-left transition-transform',
+                      HUB_LIST_ROW_SHELL_CLASS,
+                      'w-full min-w-0 items-start text-left transition-transform',
                       'active:scale-[0.985] motion-reduce:transform-none',
                     )}
                   >
                     <TeamListAvatar cover={team.cover ?? ''} label={label} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-[var(--color-foreground)]">{label}</p>
-                      <p className="text-xs text-[var(--color-muted-foreground)]">
+                    <div className="min-w-0 flex-1 py-0.5">
+                      <p className={HUB_LIST_TITLE_CLASS}>{label}</p>
+                      <p className={cn(HUB_LIST_SUBTITLE_CLASS, 'truncate')}>
                         {t('teams.memberCount', { count: team.members.length })}
                       </p>
                     </div>

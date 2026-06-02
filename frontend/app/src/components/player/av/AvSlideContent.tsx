@@ -8,11 +8,20 @@ type AvSlideContentProps = {
   contentLayer: AvContentLayer
   className?: string
   compact?: boolean
+  /** Sidebar preview: fixed px type instead of cqw (small container). */
+  preview?: boolean
 }
 
-export function AvSlideContent({ text, contentLayer, className, compact = false }: AvSlideContentProps) {
+export function AvSlideContent({
+  text,
+  contentLayer,
+  className,
+  compact = false,
+  preview = false,
+}: AvSlideContentProps) {
   const fontSizeCqw = contentLayer.fontSize / 19.2
   const paddingCqw = fontSizeCqw * 2
+  const previewFontPx = contentLayer.fontSize * 0.22
   const lines = compact ? [text.split('\n')[0] ?? ''] : text.split('\n')
 
   return (
@@ -22,12 +31,17 @@ export function AvSlideContent({ text, contentLayer, className, compact = false 
         `av-slide-content--valign-${contentLayer.verticalAlign}`,
         `av-slide-content--halign-${contentLayer.horizontalAlign}`,
         compact && 'av-slide-content--compact',
+        preview && 'av-slide-content--preview',
         className,
       )}
     >
       <div
         className="av-slide-content__inner"
-        style={compact ? undefined : { padding: `${paddingCqw}cqw` }}
+        style={
+          compact || preview
+            ? undefined
+            : { padding: `${paddingCqw}cqw` }
+        }
       >
         {lines.map((line, index) => (
           <div
@@ -38,7 +52,13 @@ export function AvSlideContent({ text, contentLayer, className, compact = false 
               `av-slide-content__line--shadow-${contentLayer.textShadow}`,
               `av-slide-content__line--transform-${contentLayer.textTransform}`,
             )}
-            style={compact ? undefined : { fontSize: `${fontSizeCqw}cqw` }}
+            style={
+              compact
+                ? undefined
+                : preview
+                  ? { fontSize: `${previewFontPx}px` }
+                  : { fontSize: `${fontSizeCqw}cqw` }
+            }
           >
             {line || '\u00a0'}
           </div>

@@ -27,7 +27,7 @@
     --color-surface: oklch(0.2 0 0);
     --color-muted: oklch(0.26 0 0);
     --color-foreground: oklch(0.97 0 0);
-    --color-muted-foreground: oklch(0.72 0 0);
+    --color-muted-foreground: oklch(0.65 0 0);
     --color-border: oklch(0.34 0 0);
   }
 }
@@ -37,6 +37,6 @@
   --color-surface: oklch(0.2 0 0);
   --color-muted: oklch(0.26 0 0);
   --color-foreground: oklch(0.97 0 0);
-  --color-muted-foreground: oklch(0.72 0 0);
+  --color-muted-foreground: oklch(0.65 0 0);
   --color-border: oklch(0.34 0 0);
 }

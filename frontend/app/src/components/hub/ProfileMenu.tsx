@@ -9,7 +9,6 @@ import {
   IconLogout,
   IconSessions,
   IconSettings,
-  IconUsers,
 } from '@/components/icons/profile-menu-icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -39,7 +38,7 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
   const { canShowInstall, openInstall } = usePwaInstall()
   const { imageSrc, onImageError, initials } = useUserAvatarDisplay(user)
   const [hoveredRow, setHoveredRow] = useState<
-    'settings' | 'teams' | 'sessions' | 'about' | 'install' | 'logout' | null
+    'settings' | 'sessions' | 'about' | 'install' | 'logout' | null
   >(null)
 
   async function onLogout() {
@@ -98,16 +97,6 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
         >
           <IconSettings isHovered={hoveredRow === 'settings'} />
           {t('hub.profile.settings')}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => {
-            void navigate({ to: '/teams' })
-          }}
-          onMouseEnter={() => setHoveredRow('teams')}
-          onMouseLeave={() => setHoveredRow(null)}
-        >
-          <IconUsers isHovered={hoveredRow === 'teams'} />
-          {t('hub.profile.teams')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => {

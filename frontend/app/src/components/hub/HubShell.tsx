@@ -14,6 +14,12 @@ import { SessionLoadingFallback } from '@/components/SessionLoadingFallback'
 import { SessionUnavailableScreen } from '@/components/SessionUnavailableScreen'
 import { SetlistPaletteRegistrarProvider } from '@/context/SetlistPaletteBridgeContext'
 import type { SetlistPaletteBridge } from '@/lib/setlist-palette-bridge'
+import {
+  HUB_FOOTER_CHROME_MB_CLASS,
+  HUB_FOOTER_CLASS,
+  HUB_MAIN_FOOTER_SCROLL_PAD_CLASS,
+} from '@/components/hub/hub-chrome-styles'
+import { HUB_TAB_LABEL_CLASS } from '@/components/hub/hub-list-styles'
 import { HUB_SEARCH_INPUT_CLASS, HUB_SEARCH_PILL_TEXT_CLASS } from '@/components/hub/hub-search-styles'
 import { HubTabBar } from '@/components/hub/HubTabBar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
@@ -102,6 +108,7 @@ function HubChrome({
   const isSongDetail = /^\/songs\/[^/]+$/.test(pathname)
   const songEditorId = isSongDetail ? pathname.slice('/songs/'.length) : ''
   const isSettings = pathname === '/settings'
+  const isSessions = pathname === '/sessions'
   const isAbout = pathname === '/about'
   const songEditorPlayerReturn = isSongDetail
     ? parsePlayerEditorReturnSearch(locationSearch as Record<string, unknown>)
@@ -126,7 +133,14 @@ function HubChrome({
     isSetlistDetail ||
     isCollectionDetail ||
     isSongDetail
-  const showFooter = !isTeamDetail && !isSetlistDetail && !isCollectionDetail && !isSongDetail
+  const showFooter =
+    !isTeamDetail &&
+    !isSetlistDetail &&
+    !isCollectionDetail &&
+    !isSongDetail &&
+    !isSettings &&
+    !isSessions &&
+    !isAbout
   const reduceMotion = useReducedMotion()
   const [createHovered, setCreateHovered] = useState(false)
   const [searchFieldHovered, setSearchFieldHovered] = useState(false)
@@ -444,6 +458,51 @@ function HubChrome({
                 </div>
               </div>
             </>
+          ) : isSessions ? (
+            <>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={() => {
+                  void navigate({ to: '/collections' })
+                }}
+                className={hubDetailBackButtonClass}
+                aria-label={t('settings.back')}
+              >
+                <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
+              </Button>
+              <div
+                ref={searchAnchorRef}
+                className="relative my-[0.36rem] min-w-0 flex-1"
+                onMouseEnter={() => setSearchFieldHovered(true)}
+                onMouseLeave={() => setSearchFieldHovered(false)}
+              >
+                <div
+                  className={cn(paletteOpen && 'pointer-events-none invisible')}
+                  aria-hidden={paletteOpen}
+                >
+                  <SearchIcon
+                    aria-hidden
+                    className="pointer-events-none absolute left-[0.65rem] top-1/2 z-10 -translate-y-1/2 text-[var(--color-muted-foreground)]"
+                    isHovered={searchIconActive}
+                    size={18}
+                  />
+                  <Input
+                    ref={searchInputRef}
+                    type="search"
+                    value={qInput}
+                    onChange={(e) => setQInput(e.target.value)}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setSearchFocused(false)}
+                    placeholder={t('hub.searchPlaceholder')}
+                    aria-label={t('hub.searchAria')}
+                    tabIndex={paletteOpen ? -1 : 0}
+                    className={HUB_SEARCH_INPUT_CLASS}
+                  />
+                </div>
+              </div>
+            </>
           ) : isAbout ? (
             <>
               <Button
@@ -513,9 +572,7 @@ function HubChrome({
         ref={mainScrollRef}
         className={cn(
           'min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pt-[calc(5.5575rem+env(safe-area-inset-top,0px))] [-webkit-overflow-scrolling:touch]',
-          showFooter
-            ? 'pb-[calc(6.12rem+env(safe-area-inset-bottom,0px))]'
-            : 'pb-[calc(1rem+env(safe-area-inset-bottom,0px))]',
+          showFooter ? HUB_MAIN_FOOTER_SCROLL_PAD_CLASS : 'pb-[calc(1rem+env(safe-area-inset-bottom,0px))]',
         )}
       >
         <HubScrollContainerRefContext.Provider value={mainScrollRef}>
@@ -540,13 +597,14 @@ function HubChrome({
       {showFooter ? (
         <footer
           className={cn(
-            'fixed bottom-0 left-0 right-0 z-40 flex justify-center bg-transparent px-3 pb-[calc(0.54rem+env(safe-area-inset-bottom,0px))] pt-[0.36rem]',
+            'fixed bottom-0 left-0 right-0 z-40 flex justify-center bg-transparent px-3',
+            HUB_FOOTER_CLASS,
           )}
         >
           <div className={cn(hubChromeRowClass, hubChromeRowLayoutClass, 'justify-center')}>
             <HubTabBar />
             {!hideHubPlus ? (
-              <div className="my-[0.36rem] shrink-0">
+              <div className={cn('mt-[0.36rem] shrink-0', HUB_FOOTER_CHROME_MB_CLASS)}>
                 <Button
                   type="button"
                   variant="outline"
@@ -569,7 +627,8 @@ function HubChrome({
                   className={cn(
                     'flex size-[3.6rem] flex-col items-center justify-center gap-0.5 rounded-full px-1 py-0 font-medium',
                     '[&_svg]:!size-[1.44rem] [&_svg]:shrink-0',
-                    'text-[6.48px] leading-none tracking-tight text-[var(--color-muted-foreground)] sm:text-[7.2px]',
+                    HUB_TAB_LABEL_CLASS,
+                    'text-[var(--color-muted-foreground)]',
                     'shadow-[var(--shadow-elevated)] hover:bg-[var(--color-muted)]',
                   )}
                   aria-label={
