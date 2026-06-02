@@ -56,8 +56,9 @@ export function packSectionsIntoFixedColumns(
 }
 
 /**
- * @deprecated Prefer {@link packSectionsIntoFixedColumns} for scroll layouts.
+ * Pack every section into exactly `columnCount` columns (scroll overflow).
  * Assigns each section to the shortest column so columns stay roughly balanced.
+ * @deprecated Prefer {@link packSectionsIntoFixedColumns} for scroll layouts.
  */
 export function packSectionsForScroll(
   sectionHeights: number[],
