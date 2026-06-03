@@ -29,6 +29,39 @@ export function resolveLocalePreference(
   return 'browser'
 }
 
+export function readLocalePreference(
+  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+): LocalePreference {
+  return resolveLocalePreference(
+    storage.getItem(LOCALE_STORAGE_KEY),
+    storage.getItem(BROWSER_LOCALE_FLAG_KEY),
+  )
+}
+
+/** Browser default: follow navigator languages; do not persist an explicit locale. */
+export function writeBrowserLocalePreference(
+  storage: Pick<Storage, 'setItem' | 'removeItem'> = globalThis.localStorage,
+): void {
+  storage.setItem(BROWSER_LOCALE_FLAG_KEY, '1')
+  storage.removeItem(LOCALE_STORAGE_KEY)
+}
+
+export function writeExplicitLocalePreference(
+  locale: AppLocale,
+  storage: Pick<Storage, 'setItem' | 'removeItem'> = globalThis.localStorage,
+): void {
+  storage.removeItem(BROWSER_LOCALE_FLAG_KEY)
+  storage.setItem(LOCALE_STORAGE_KEY, locale)
+}
+
+export function ensureBrowserLocaleStorage(
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = globalThis.localStorage,
+): void {
+  if (readLocalePreference(storage) === 'browser') {
+    writeBrowserLocalePreference(storage)
+  }
+}
+
 /**
  * Resolve initial UI locale: `?lang=` QA override > persisted > browser languages.
  */

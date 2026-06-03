@@ -13,9 +13,9 @@ describe('resolveSheetBackgroundPreference', () => {
     expect(resolveSheetBackgroundPreference('app')).toBe('app')
   })
 
-  it('falls back to white for missing or invalid values', () => {
-    expect(resolveSheetBackgroundPreference(null)).toBe('white')
-    expect(resolveSheetBackgroundPreference('paper')).toBe('white')
+  it('falls back to app for missing or invalid values', () => {
+    expect(resolveSheetBackgroundPreference(null)).toBe('app')
+    expect(resolveSheetBackgroundPreference('paper')).toBe('app')
   })
 })
 
@@ -42,16 +42,16 @@ describe('applySheetBackgroundPreference', () => {
 })
 
 describe('writeSheetBackgroundPreference', () => {
-  it('stores app and clears white', () => {
+  it('stores white and clears app', () => {
     const storage = {
       setItem: vi.fn(),
       removeItem: vi.fn(),
     }
 
-    writeSheetBackgroundPreference('app', storage)
-    expect(storage.setItem).toHaveBeenCalledWith(SHEET_BACKGROUND_STORAGE_KEY, 'app')
-
     writeSheetBackgroundPreference('white', storage)
+    expect(storage.setItem).toHaveBeenCalledWith(SHEET_BACKGROUND_STORAGE_KEY, 'white')
+
+    writeSheetBackgroundPreference('app', storage)
     expect(storage.removeItem).toHaveBeenCalledWith(SHEET_BACKGROUND_STORAGE_KEY)
   })
 
