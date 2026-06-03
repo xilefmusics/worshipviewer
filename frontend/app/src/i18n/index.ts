@@ -7,11 +7,14 @@ import {
   BROWSER_LOCALE_FLAG_KEY,
   LOCALE_STORAGE_KEY,
   type AppLocale,
+  ensureBrowserLocaleStorage,
   resolveInitialLocale,
 } from '@/lib/locale'
 
 export function initI18n(): void {
   if (typeof globalThis.window === 'undefined') return
+
+  ensureBrowserLocaleStorage()
 
   const params = new URLSearchParams(globalThis.window.location.search)
   const stored = globalThis.localStorage.getItem(LOCALE_STORAGE_KEY)
@@ -31,15 +34,6 @@ export function initI18n(): void {
     lng,
     fallbackLng: 'en',
     interpolation: { escapeValue: false },
-  })
-
-  i18n.on('languageChanged', (l) => {
-    if (globalThis.localStorage.getItem(BROWSER_LOCALE_FLAG_KEY) === '1') {
-      return
-    }
-    if (l === 'en' || l === 'de') {
-      globalThis.localStorage.setItem(LOCALE_STORAGE_KEY, l)
-    }
   })
 }
 

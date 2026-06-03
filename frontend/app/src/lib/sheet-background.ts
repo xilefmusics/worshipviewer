@@ -5,8 +5,8 @@ export const SHEET_BACKGROUND_CHANGE_EVENT = 'wv-sheet-background-change'
 export type SheetBackgroundPreference = 'white' | 'app'
 
 export function resolveSheetBackgroundPreference(value: string | null): SheetBackgroundPreference {
-  if (value === 'app') return 'app'
-  return 'white'
+  if (value === 'white') return 'white'
+  return 'app'
 }
 
 export function applySheetBackgroundPreference(
@@ -31,7 +31,7 @@ export function writeSheetBackgroundPreference(
   preference: SheetBackgroundPreference,
   storage: Pick<Storage, 'setItem' | 'removeItem'> = globalThis.localStorage,
 ): void {
-  if (preference === 'white') {
+  if (preference === 'app') {
     storage.removeItem(SHEET_BACKGROUND_STORAGE_KEY)
   } else {
     storage.setItem(SHEET_BACKGROUND_STORAGE_KEY, preference)

@@ -61,10 +61,10 @@ import type { HubViewMode } from '@/lib/hub-view-mode'
 import { clearAllLocalData } from '@/lib/clear-local'
 import { formatApproxBytes } from '@/lib/format-bytes'
 import {
-  BROWSER_LOCALE_FLAG_KEY,
-  LOCALE_STORAGE_KEY,
   mapLanguagesToLocale,
-  resolveLocalePreference,
+  readLocalePreference,
+  writeBrowserLocalePreference,
+  writeExplicitLocalePreference,
   type AppLocale,
   type LocalePreference,
 } from '@/lib/locale'
@@ -89,10 +89,7 @@ type SettingsOption<T extends string | number> = {
 const settingsTabs: SettingsTab[] = ['general', 'player', 'playerRoles']
 
 function getLocalePreference(): LocalePreference {
-  return resolveLocalePreference(
-    globalThis.localStorage.getItem(LOCALE_STORAGE_KEY),
-    globalThis.localStorage.getItem(BROWSER_LOCALE_FLAG_KEY),
-  )
+  return readLocalePreference()
 }
 
 function OptionButton<T extends string | number>({
@@ -525,15 +522,13 @@ export function SettingsView({
   async function setLocalePreference(next: LocalePreference) {
     setLocalePreferenceState(next)
     if (next === 'browser') {
-      globalThis.localStorage.setItem(BROWSER_LOCALE_FLAG_KEY, '1')
-      globalThis.localStorage.removeItem(LOCALE_STORAGE_KEY)
+      writeBrowserLocalePreference()
       await i18n.changeLanguage(mapLanguagesToLocale(globalThis.navigator.languages))
       return
     }
 
     const locale: AppLocale = next
-    globalThis.localStorage.removeItem(BROWSER_LOCALE_FLAG_KEY)
-    globalThis.localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+    writeExplicitLocalePreference(locale)
     await i18n.changeLanguage(locale)
   }
 

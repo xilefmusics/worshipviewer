@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  BROWSER_LOCALE_FLAG_KEY,
+  LOCALE_STORAGE_KEY,
+  ensureBrowserLocaleStorage,
   mapLanguagesToLocale,
+  readLocalePreference,
   resolveInitialLocale,
   resolveLocalePreference,
+  writeBrowserLocalePreference,
+  writeExplicitLocalePreference,
 } from '@/lib/locale'
 
 describe('mapLanguagesToLocale', () => {
@@ -42,5 +48,61 @@ describe('resolveLocalePreference', () => {
   })
   it('falls back to browser mode for invalid stored values', () => {
     expect(resolveLocalePreference('fr', null)).toBe('browser')
+  })
+})
+
+describe('locale preference storage', () => {
+  it('defaults to browser without an explicit locale key', () => {
+    const storage = new Map<string, string>()
+    const mockStorage = {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value)
+      },
+      removeItem: (key: string) => {
+        storage.delete(key)
+      },
+    }
+
+    expect(readLocalePreference(mockStorage)).toBe('browser')
+    ensureBrowserLocaleStorage(mockStorage)
+    expect(storage.get(BROWSER_LOCALE_FLAG_KEY)).toBe('1')
+    expect(storage.has(LOCALE_STORAGE_KEY)).toBe(false)
+  })
+
+  it('stores explicit locales without the browser flag', () => {
+    const storage = new Map<string, string>([[BROWSER_LOCALE_FLAG_KEY, '1']])
+    const mockStorage = {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value)
+      },
+      removeItem: (key: string) => {
+        storage.delete(key)
+      },
+    }
+
+    writeExplicitLocalePreference('de', mockStorage)
+    expect(storage.get(LOCALE_STORAGE_KEY)).toBe('de')
+    expect(storage.has(BROWSER_LOCALE_FLAG_KEY)).toBe(false)
+    expect(readLocalePreference(mockStorage)).toBe('de')
+  })
+
+  it('clears explicit locale when switching back to browser', () => {
+    const storage = new Map<string, string>([[LOCALE_STORAGE_KEY, 'en']])
+    const mockStorage = {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value)
+      },
+      removeItem: (key: string) => {
+        storage.delete(key)
+      },
+    }
+
+    writeBrowserLocalePreference(mockStorage)
+    expect(storage.get(BROWSER_LOCALE_FLAG_KEY)).toBe('1')
+    expect(storage.has(LOCALE_STORAGE_KEY)).toBe(false)
+    expect(readLocalePreference(mockStorage)).toBe('browser')
   })
 })

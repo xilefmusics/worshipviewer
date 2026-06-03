@@ -64,8 +64,8 @@ export const DEFAULT_AV_PREFERENCES: AvPreferences = {
     preset: 2,
   },
   transition: {
-    style: 'fade',
-    durationMs: 250,
+    style: 'none',
+    durationMs: 0,
   },
   projection: {
     outputFullscreenOnDblClick: true,
