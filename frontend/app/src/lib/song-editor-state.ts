@@ -2,6 +2,7 @@ import type { components } from '@/api/schema'
 
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
 import {
+  chordSymbolToPitchLevel,
   coerceMusicalKeyString,
   resolveSongDataKey,
   songLinkKeyEditorToWire,
@@ -213,14 +214,12 @@ export function patchSongDataFromSongData(data: ChordSongData): PatchSongData {
   return patchSongDataFromParsed(data, metadataStripFromSongData(data))
 }
 
-export function applyMetadataStripToSource(
-  engine: ChordEngine,
+export function mergeSongDataWithMetadataStrip(
   parsed: ChordSongData,
   strip: SongMetadataStrip,
-  chordFormat: ChordFormatPreference = 'letters',
-): string {
+): ChordSongData {
   const patch = patchSongDataFromParsed(parsed, strip)
-  const merged: ChordSongData = {
+  return {
     ...parsed,
     titles: patch.titles ?? undefined,
     subtitle: patch.subtitle,
@@ -232,6 +231,129 @@ export function applyMetadataStripToSource(
     key: patch.key,
     tags: patch.tags ?? undefined,
   }
+}
+
+export type KeyChangeChordMode = 'transpose' | 'keep'
+
+/** Ask when switching between two set keys (not when clearing or first assigning). */
+export function shouldPromptKeyChangeChords(previousKey: string, nextKey: string): boolean {
+  const from = previousKey.trim()
+  const to = nextKey.trim()
+  return Boolean(from && to && from !== to)
+}
+
+function remapStoredLevelForKeyChange(
+  stored: number,
+  oldKeyPitchClass: number,
+  newKeyPitchClass: number,
+): number {
+  const relative = ((Math.round(stored) % 12) + 12) % 12
+  const absolute = (relative + oldKeyPitchClass) % 12
+  return (absolute + 12 - newKeyPitchClass) % 12
+}
+
+type WireSimpleChord = { level?: number }
+type WireChord = { main?: WireSimpleChord; base?: WireSimpleChord | null }
+type WirePart = { chord?: WireChord | null }
+type WireLine = { parts?: WirePart[] }
+type WireSection = { lines?: WireLine[] }
+
+function remapWireChord(chord: WireChord, oldKeyPc: number, newKeyPc: number): WireChord {
+  const mainLevel = chord.main?.level
+  if (typeof mainLevel !== 'number' || !Number.isFinite(mainLevel)) {
+    return chord
+  }
+
+  const next: WireChord = {
+    ...chord,
+    main: {
+      ...chord.main,
+      level: remapStoredLevelForKeyChange(mainLevel, oldKeyPc, newKeyPc),
+    },
+  }
+
+  const baseLevel = chord.base?.level
+  if (chord.base != null && typeof baseLevel === 'number' && Number.isFinite(baseLevel)) {
+    next.base = {
+      ...chord.base,
+      level: remapStoredLevelForKeyChange(baseLevel, oldKeyPc, newKeyPc),
+    }
+  }
+
+  return next
+}
+
+/** Preserve absolute chord roots when only the song key metadata changes (chordlib `transpose` does not do this). */
+export function remapSongChordLevelsForAbsolutePitch(
+  data: ChordSongData,
+  previousKey: string,
+  nextKey: string,
+): ChordSongData {
+  const oldKeyPc = chordSymbolToPitchLevel(previousKey)
+  const newKeyPc = chordSymbolToPitchLevel(nextKey)
+  if (oldKeyPc == null || newKeyPc == null) return data
+
+  const sections = data.sections
+  if (!Array.isArray(sections)) return data
+
+  return {
+    ...data,
+    sections: sections.map((section) => {
+      const sec = section as WireSection
+      if (!Array.isArray(sec.lines)) return section
+
+      return {
+        ...sec,
+        lines: sec.lines.map((line) => {
+          const ln = line as WireLine
+          if (!Array.isArray(ln.parts)) return line
+
+          return {
+            ...ln,
+            parts: ln.parts.map((part) => {
+              const p = part as WirePart
+              const chord = p.chord
+              if (chord == null || typeof chord !== 'object') return part
+              return {
+                ...p,
+                chord: remapWireChord(chord, oldKeyPc, newKeyPc),
+              }
+            }),
+          }
+        }),
+      }
+    }),
+  }
+}
+
+export function applyKeyChangeToSource(
+  engine: ChordEngine,
+  parsed: ChordSongData,
+  strip: SongMetadataStrip,
+  mode: KeyChangeChordMode,
+  previousKey: string,
+  chordFormat: ChordFormatPreference = 'letters',
+): string {
+  let merged = mergeSongDataWithMetadataStrip(parsed, strip)
+
+  if (
+    mode === 'keep' &&
+    shouldPromptKeyChangeChords(previousKey, strip.key) &&
+    strip.key.trim()
+  ) {
+    merged = remapSongChordLevelsForAbsolutePitch(merged, previousKey.trim(), strip.key.trim())
+  }
+
+  return engine.formatChordPro(merged, songEditorFormatOptions(chordFormat, merged))
+}
+
+export function applyMetadataStripToSource(
+  engine: ChordEngine,
+  parsed: ChordSongData,
+  strip: SongMetadataStrip,
+  chordFormat: ChordFormatPreference = 'letters',
+): string {
+  const merged = mergeSongDataWithMetadataStrip(parsed, strip)
   return engine.formatChordPro(merged, songEditorFormatOptions(chordFormat, merged))
 }
 

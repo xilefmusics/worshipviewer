@@ -2,6 +2,9 @@ import type { AvProjectionPayload } from '@/lib/player/av-preferences'
 
 export const AV_PROJECTION_STORAGE_PREFIX = 'wvAvProjection:'
 
+/** Single projection channel per browser profile — all AV players share one output. */
+export const AV_PROJECTION_SHARED_SESSION_ID = 'shared'
+
 const STORAGE_DEBOUNCE_MS = 75
 
 function storageKey(sessionId: string): string {
@@ -126,9 +129,11 @@ export function subscribeAvProjectionSync(
   }
 }
 
+export function getAvProjectionSessionId(): string {
+  return AV_PROJECTION_SHARED_SESSION_ID
+}
+
+/** @deprecated All players use {@link getAvProjectionSessionId}. */
 export function createAvProjectionSessionId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
-  }
-  return `av-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return getAvProjectionSessionId()
 }

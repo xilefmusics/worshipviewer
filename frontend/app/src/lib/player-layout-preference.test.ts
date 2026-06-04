@@ -23,7 +23,7 @@ describe('readPlayerLayoutPreferences', () => {
       pageCount: 1 as const,
       columnCount: 'adaptive' as const,
       nextSongPreview: false,
-      overflowStyle: 'cut' as const,
+      overflowStyle: 'scroll' as const,
       expandSections: false,
     }
     const mockStorage = {
@@ -148,7 +148,7 @@ describe('readPlayerLayoutPreferences', () => {
       pageCount: 1,
       columnCount: 2,
       nextSongPreview: true,
-      overflowStyle: 'cut',
+      overflowStyle: 'scroll',
       expandSections: false,
     })
     expect(prefs.landscape).toEqual(prefs.portrait)
@@ -225,7 +225,7 @@ describe('scrollTypeToLayoutPreference', () => {
       pageCount: 1,
       columnCount: 3,
       nextSongPreview: true,
-      overflowStyle: 'cut',
+      overflowStyle: 'scroll',
       expandSections: false,
     })
     expect(

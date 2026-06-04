@@ -49,7 +49,7 @@ function normalizeLayoutPreference(raw: unknown): PlayerLayoutPreference {
     ? value.columnCount
     : DEFAULT_PLAYER_LAYOUT_PREFERENCE.columnCount
   const nextSongPreview = value.nextSongPreview === true
-  const overflowStyle = value.overflowStyle === 'scroll' ? 'scroll' : 'cut'
+  const overflowStyle = value.overflowStyle === 'cut' ? 'cut' : 'scroll'
   const expandSections = value.expandSections === true
   return { mode, pageCount, columnCount, nextSongPreview, overflowStyle, expandSections }
 }

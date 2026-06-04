@@ -45,8 +45,8 @@ import {
   type AvScreenState,
 } from '@/lib/player/av-preferences'
 import {
-  createAvProjectionSessionId,
   createAvProjectionSync,
+  getAvProjectionSessionId,
   type AvProjectionSync,
 } from '@/lib/player/av-projection-sync'
 import {
@@ -138,9 +138,10 @@ export function PlayerAv({
   })
   const [tocVisible] = useState(true)
 
-  const sessionIdRef = useRef(createAvProjectionSessionId())
+  const sessionIdRef = useRef(getAvProjectionSessionId())
   const syncRef = useRef<AvProjectionSync | null>(null)
   const outputWindowRef = useRef<Window | null>(null)
+  const skipProjectionBroadcastRef = useRef(true)
 
   const itemsLen = player.items.length
   const tocRow = tocEntryForIndex(player.toc, session.itemIndex)
@@ -283,7 +284,6 @@ export function PlayerAv({
     return () => {
       syncRef.current?.close()
       syncRef.current = null
-      outputWindowRef.current?.close()
       outputWindowRef.current = null
     }
   }, [])
@@ -302,6 +302,10 @@ export function PlayerAv({
   }, [])
 
   useEffect(() => {
+    if (skipProjectionBroadcastRef.current) {
+      skipProjectionBroadcastRef.current = false
+      return
+    }
     const payload = buildAvProjectionPayload({
       contentText: projectedText,
       contentLayer: prefs.contentLayer,

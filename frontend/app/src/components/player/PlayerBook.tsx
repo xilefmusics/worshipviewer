@@ -35,7 +35,11 @@ import {
   resolveFreeColumnCount,
   scrollTypeToLayoutPreference,
 } from '@/lib/player/effective-scroll-type'
-import { bookSpreadRightIndex, isBookSpreadMode } from '@/lib/player/book-spread'
+import {
+  bookSpreadNavScrollType,
+  bookSpreadRightIndex,
+  shouldUseBookSpreadLayout,
+} from '@/lib/player/book-spread'
 import {
   layoutPreferenceForOrientation,
   scrollTypeForOrientation,
@@ -214,18 +218,6 @@ export function PlayerBook({
   }, [type, id, viewState])
 
   const layoutPreference = layoutPreferenceForOrientation(sheetOrientation, layoutPreferences)
-  const freeColumnCount =
-    layoutPreference.mode === 'free'
-      ? resolveFreeColumnCount(layoutPreference.columnCount, {
-          isPhone: isPhoneViewport,
-          isLandscape: sheetOrientation === 'landscape',
-        })
-      : null
-  const effectiveScroll = layoutPreferenceToScrollType(
-    layoutPreference,
-    freeColumnCount ?? undefined,
-  )
-  const bookSpread = isBookSpreadMode(effectiveScroll)
   const itemsLen = player.items.length
 
   const [nav, setNav] = useState<PlayerNavState>(() => {
@@ -238,6 +230,35 @@ export function PlayerBook({
       itemCount: itemsLen,
     })
   })
+
+  const currentItem = player.items[nav.index]
+  const currentItemType =
+    currentItem?.type === 'blob'
+      ? 'blob'
+      : currentItem?.type === 'chords'
+        ? 'chords'
+        : null
+
+  const resolvedFreeColumnCount =
+    layoutPreference.mode === 'free'
+      ? resolveFreeColumnCount(layoutPreference.columnCount, {
+          isPhone: isPhoneViewport,
+          isLandscape: sheetOrientation === 'landscape',
+        })
+      : null
+  const effectiveScroll = layoutPreferenceToScrollType(
+    layoutPreference,
+    resolvedFreeColumnCount ?? undefined,
+  )
+  const bookSpread = shouldUseBookSpreadLayout({
+    scrollType: effectiveScroll,
+    layoutPreference,
+    orientation: sheetOrientation,
+    isPhone: isPhoneViewport,
+    itemType: currentItemType,
+  })
+  const freeColumnCount = bookSpread ? null : resolvedFreeColumnCount
+  const navScrollType = bookSpreadNavScrollType(effectiveScroll, bookSpread)
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -254,13 +275,11 @@ export function PlayerBook({
     () => ({
       itemCount: itemsLen,
       betweenItems: player.between_items,
-      scrollType: effectiveScroll,
+      scrollType: navScrollType,
       itemTypeAt: (index: number) => itemTypeAt(player.items, index),
     }),
-    [itemsLen, player.between_items, effectiveScroll, player.items],
+    [itemsLen, player.between_items, navScrollType, player.items],
   )
-
-  const currentItem = player.items[nav.index]
   const displayToc = useMemo(
     () => mergeTocLikes(player.toc, likedBySongId),
     [player.toc, likedBySongId],

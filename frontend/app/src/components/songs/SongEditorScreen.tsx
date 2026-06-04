@@ -6,6 +6,15 @@ import { SongEditorPreview } from '@/components/songs/SongEditorPreview'
 import { SongEditorSource } from '@/components/songs/SongEditorSource'
 import { PlusIcon } from '@/components/icons/lucide-animated/plus-icon'
 import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -24,6 +33,7 @@ import { getChordEngine } from '@/lib/chord-engine'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
 import { songDetailQueryKey } from '@/lib/setlist-detail-key'
 import {
+  applyKeyChangeToSource,
   applyMetadataStripToSource,
   formatSourceFromSongData,
   createSongMetaTagEntry,
@@ -34,6 +44,8 @@ import {
   patchSongDataFromSongData,
   SONG_EDITOR_TIME_SIGNATURES,
   SONG_EDITOR_TYPING_DEBOUNCE_MS,
+  shouldPromptKeyChangeChords,
+  type KeyChangeChordMode,
   type SongMetadataStrip,
 } from '@/lib/song-editor-state'
 import {
@@ -94,6 +106,10 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   const [activeTab, setActiveTab] = useState<EditorTab>('source')
   const lastLoadedSongRef = useRef('')
   const [resumePrompt, setResumePrompt] = useState(false)
+  const [keyChangePrompt, setKeyChangePrompt] = useState<{
+    previousKey: string
+    pendingStrip: SongMetadataStrip
+  } | null>(null)
   const wentOfflineEditing = useRef(false)
 
   useEffect(() => {
@@ -311,6 +327,52 @@ export function SongEditorScreen({ songId }: { songId: string }) {
       queueMicrotask(() => notifyDraftEdited())
     },
     [engine, metadataStrip, notifyDraftEdited, parseResult, sourceBlocked, chordFormat],
+  )
+
+  const commitKeyChange = useCallback(
+    (strip: SongMetadataStrip, mode: KeyChangeChordMode, previousKey: string) => {
+      if (!engine || !parseResult?.ok || sourceBlocked) return
+      const nextSource = applyKeyChangeToSource(
+        engine,
+        parseResult.data,
+        strip,
+        mode,
+        previousKey,
+        chordFormat,
+      )
+      setSourceText(nextSource)
+      const reparsed = parseSourceWithEngine(engine, nextSource)
+      if (reparsed.ok) {
+        setMetadataStrip(metadataStripFromSongData(reparsed.data))
+        setParseError(null)
+      }
+      queueMicrotask(() => notifyDraftEdited())
+    },
+    [chordFormat, engine, notifyDraftEdited, parseResult, sourceBlocked],
+  )
+
+  const onKeySelectChange = useCallback(
+    (value: string) => {
+      if (sourceBlocked) return
+      const nextKey = value === '__none__' ? '' : value
+      const previousKey = metadataStrip.key
+      if (nextKey === previousKey) return
+
+      const pendingStrip = { ...metadataStrip, key: nextKey }
+
+      if (
+        engine &&
+        parseResult?.ok &&
+        shouldPromptKeyChangeChords(previousKey, nextKey)
+      ) {
+        setKeyChangePrompt({ previousKey, pendingStrip })
+        return
+      }
+
+      setMetadataStrip(pendingStrip)
+      queueMicrotask(() => commitMetadataStrip(pendingStrip))
+    },
+    [commitMetadataStrip, engine, metadataStrip, parseResult, sourceBlocked],
   )
 
   const onMetadataFieldBlur = useCallback(() => {
@@ -611,15 +673,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
               <span>{t('songs.editor.keyLabel')}</span>
               <Select
                 value={metadataStrip.key || '__none__'}
-                onValueChange={(v) => {
-                  if (sourceBlocked) return
-                  const nextKey = v === '__none__' ? '' : v
-                  setMetadataStrip((s) => {
-                    const next = { ...s, key: nextKey }
-                    queueMicrotask(() => commitMetadataStrip(next))
-                    return next
-                  })
-                }}
+                onValueChange={onKeySelectChange}
                 disabled={sourceBlocked}
               >
                 <SelectTrigger className="font-normal">
@@ -747,6 +801,58 @@ export function SongEditorScreen({ songId }: { songId: string }) {
           <span className="sr-only">{saveAria}</span>
         </div>
       </div>
+
+      <AlertDialog
+        open={keyChangePrompt != null}
+        onOpenChange={(open) => {
+          if (!open) setKeyChangePrompt(null)
+        }}
+      >
+        <AlertDialogContent className="min-w-0 w-[min(100%,28rem)] max-w-[calc(100vw-2rem)]">
+          <AlertDialogHeader className="min-w-0 text-left">
+            <AlertDialogTitle>{t('songs.editor.keyChangeTitle')}</AlertDialogTitle>
+            <AlertDialogDescription className="text-pretty leading-relaxed">
+              {keyChangePrompt
+                ? t('songs.editor.keyChangeDescription', {
+                    from: keyChangePrompt.previousKey,
+                    to: keyChangePrompt.pendingStrip.key,
+                  })
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col gap-2 sm:flex-col sm:items-stretch">
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() => {
+                const prompt = keyChangePrompt
+                setKeyChangePrompt(null)
+                if (!prompt) return
+                commitKeyChange(prompt.pendingStrip, 'transpose', prompt.previousKey)
+              }}
+            >
+              {t('songs.editor.keyChangeTranspose')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                const prompt = keyChangePrompt
+                setKeyChangePrompt(null)
+                if (!prompt) return
+                setMetadataStrip(prompt.pendingStrip)
+                commitKeyChange(prompt.pendingStrip, 'keep', prompt.previousKey)
+              }}
+            >
+              {t('songs.editor.keyChangeKeep')}
+            </Button>
+            <AlertDialogCancel className="mt-0 w-full">
+              {t('teams.dialogCancel')}
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

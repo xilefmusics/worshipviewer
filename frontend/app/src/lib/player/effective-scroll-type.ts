@@ -34,7 +34,7 @@ export const DEFAULT_PLAYER_LAYOUT_PREFERENCE: PlayerLayoutPreference = {
   pageCount: 1,
   columnCount: 'adaptive',
   nextSongPreview: false,
-  overflowStyle: 'cut',
+  overflowStyle: 'scroll',
   expandSections: false,
 }
 

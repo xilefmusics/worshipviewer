@@ -265,7 +265,7 @@ export function ChordsThreeColumnSlide({
   nextDisplayKey,
   chordFormat,
   columnCount = 3,
-  overflowStyle = 'cut',
+  overflowStyle = 'scroll',
   expandSections = false,
   fillParent = false,
 }: ChordsThreeColumnSlideProps) {

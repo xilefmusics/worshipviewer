@@ -73,7 +73,6 @@ test('I3: open & drive projection output window', async ({ page, seed }) => {
   await expect(popup.locator('.av-slide-view, .av-output')).toBeVisible({ timeout: 10_000 })
   await popup.close()
 
-  // Missing ?s param
   await gotoEn(page, '/player/output')
-  await expect(page.getByText(/missing projection session/i)).toBeVisible()
+  await expect(page.locator('.av-slide-view')).toBeVisible({ timeout: 10_000 })
 })

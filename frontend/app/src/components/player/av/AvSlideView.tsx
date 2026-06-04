@@ -10,6 +10,7 @@ import type {
 import { effectiveAvTransition } from '@/lib/player/av-preferences'
 import { AvBackgroundLayer } from '@/components/player/av/AvBackgroundLayer'
 import { AvSlideContent } from '@/components/player/av/AvSlideContent'
+import { AvSlideScaledStage } from '@/components/player/av/AvSlideScaledStage'
 import { cn } from '@/lib/utils'
 
 import './player-av.css'
@@ -24,8 +25,34 @@ type AvSlideViewProps = {
   compact?: boolean
   /** When false, omit the projection background (for UI thumbnails over a checkerboard). */
   showBackground?: boolean
-  /** Operator sidebar preview: no transition, px-sized lyrics. */
+  /** Operator sidebar preview: no transition animation. */
   preview?: boolean
+}
+
+function AvSlideCanvas({
+  contentText,
+  contentLayer,
+  backgroundLayer,
+  compact,
+  showBackground,
+}: Pick<
+  AvSlideViewProps,
+  'contentText' | 'contentLayer' | 'backgroundLayer' | 'compact' | 'showBackground'
+>) {
+  return (
+    <>
+      {showBackground ? (
+        <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__background" />
+      ) : null}
+      <div className="av-slide-view__content">
+        <AvSlideContent
+          text={contentText}
+          contentLayer={contentLayer}
+          compact={compact}
+        />
+      </div>
+    </>
+  )
 }
 
 export function AvSlideView({
@@ -51,31 +78,45 @@ export function AvSlideView({
   if (screenState === 'blank') {
     return (
       <div className={cn('av-slide-view', className)} aria-hidden>
-        {showBackground ? (
-          <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__background" />
-        ) : null}
+        {compact ? (
+          showBackground ? (
+            <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__background" />
+          ) : null
+        ) : (
+          <AvSlideScaledStage>
+            {showBackground ? (
+              <AvBackgroundLayer
+                layer={backgroundLayer}
+                className="av-slide-view__background"
+              />
+            ) : null}
+          </AvSlideScaledStage>
+        )}
         <p className="sr-only">{t('player.av.blankOn')}</p>
       </div>
     )
   }
 
   const slideBody = (
-    <AvSlideContent
-      text={contentText}
+    <AvSlideCanvas
+      contentText={contentText}
       contentLayer={contentLayer}
+      backgroundLayer={backgroundLayer}
+      screenState={screenState}
       compact={compact}
-      preview={preview}
+      showBackground={showBackground}
     />
   )
 
+  if (compact) {
+    return <div className={cn('av-slide-view', className)}>{slideBody}</div>
+  }
+
   return (
     <div className={cn('av-slide-view', preview && 'av-slide-view--preview', className)}>
-      {showBackground ? (
-        <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__background" />
-      ) : null}
-      <div className="av-slide-view__content">
+      <AvSlideScaledStage>
         {preview ? (
-          <div className="h-full w-full">{slideBody}</div>
+          slideBody
         ) : (
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -96,13 +137,13 @@ export function AvSlideView({
                     : { opacity: 0 }
               }
               transition={{ duration }}
-              className="h-full w-full"
+              className="av-slide-view__animated-layer"
             >
               {slideBody}
             </motion.div>
           </AnimatePresence>
         )}
-      </div>
+      </AvSlideScaledStage>
     </div>
   )
 }

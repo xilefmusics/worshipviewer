@@ -1,4 +1,9 @@
 import type { AvContentLayer } from '@/lib/player/av-preferences'
+import {
+  AV_SLIDE_EDGE_PADDING_PX,
+  avSlideInnerPaddingPx,
+  avSlideLineHeightPx,
+} from '@/lib/player/av-slide-scale'
 import { cn } from '@/lib/utils'
 
 import './player-av.css'
@@ -8,8 +13,6 @@ type AvSlideContentProps = {
   contentLayer: AvContentLayer
   className?: string
   compact?: boolean
-  /** Sidebar preview: fixed px type instead of cqw (small container). */
-  preview?: boolean
 }
 
 export function AvSlideContent({
@@ -17,12 +20,9 @@ export function AvSlideContent({
   contentLayer,
   className,
   compact = false,
-  preview = false,
 }: AvSlideContentProps) {
-  const fontSizeCqw = contentLayer.fontSize / 19.2
-  const paddingCqw = fontSizeCqw * 2
-  const previewFontPx = contentLayer.fontSize * 0.22
   const lines = compact ? [text.split('\n')[0] ?? ''] : text.split('\n')
+  const designFontSizePx = contentLayer.fontSize
 
   return (
     <div
@@ -31,16 +31,16 @@ export function AvSlideContent({
         `av-slide-content--valign-${contentLayer.verticalAlign}`,
         `av-slide-content--halign-${contentLayer.horizontalAlign}`,
         compact && 'av-slide-content--compact',
-        preview && 'av-slide-content--preview',
         className,
       )}
+      style={compact ? undefined : { padding: `${AV_SLIDE_EDGE_PADDING_PX}px` }}
     >
       <div
         className="av-slide-content__inner"
         style={
-          compact || preview
+          compact
             ? undefined
-            : { padding: `${paddingCqw}cqw` }
+            : { padding: `${avSlideInnerPaddingPx(designFontSizePx)}px` }
         }
       >
         {lines.map((line, index) => (
@@ -55,9 +55,10 @@ export function AvSlideContent({
             style={
               compact
                 ? undefined
-                : preview
-                  ? { fontSize: `${previewFontPx}px` }
-                  : { fontSize: `${fontSizeCqw}cqw` }
+                : {
+                    fontSize: `${designFontSizePx}px`,
+                    lineHeight: `${avSlideLineHeightPx(designFontSizePx)}px`,
+                  }
             }
           >
             {line || '\u00a0'}
