@@ -293,7 +293,7 @@ export function PlayerBook({
     (action: Parameters<typeof nextPlayerState>[1]) => {
       setNav((state) => nextPlayerState(state, action, navConfig))
     },
-    [navConfig],
+    [navConfig, setNav],
   )
 
   const navBlocked = evicted

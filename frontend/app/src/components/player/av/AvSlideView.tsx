@@ -102,7 +102,6 @@ export function AvSlideView({
       contentText={contentText}
       contentLayer={contentLayer}
       backgroundLayer={backgroundLayer}
-      screenState={screenState}
       compact={compact}
       showBackground={showBackground}
     />

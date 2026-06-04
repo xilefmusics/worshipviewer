@@ -171,7 +171,7 @@ describe('shouldPromptKeyChangeChords', () => {
 
 describe('remapSongChordLevelsForAbsolutePitch', () => {
   it('remaps stored levels so absolute pitch is unchanged', () => {
-    const song = {
+    const song: SongWire = {
       key: { level: 3 },
       sections: [
         {
@@ -184,7 +184,7 @@ describe('remapSongChordLevelsForAbsolutePitch', () => {
       ],
     }
 
-    const remapped = remapSongChordLevelsForAbsolutePitch(song, 'C', 'D')
+    const remapped = remapSongChordLevelsForAbsolutePitch(song, 'C', 'D') as SongWire
     const level = remapped.sections?.[0]?.lines?.[0]?.parts?.[0]?.chord?.main?.level
     expect(level).toBe(5)
   })
