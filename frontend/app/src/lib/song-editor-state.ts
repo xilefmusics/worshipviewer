@@ -89,15 +89,15 @@ export function songMetaTagsFromSongData(
 
 export function songMetaTagsToWireRecord(
   entries: SongMetaTagEntry[] | undefined,
-): Record<string, string> | null {
-  if (!entries?.length) return null
+): Record<string, string> {
   const record: Record<string, string> = {}
+  if (!entries?.length) return record
   for (const { key, value } of entries) {
     const trimmedKey = key.trim()
     if (!trimmedKey) continue
     record[trimmedKey] = value.trim()
   }
-  return Object.keys(record).length ? record : null
+  return record
 }
 
 export type ParseSourceResult =
@@ -369,6 +369,13 @@ export function songDataSnapshotsEqual(a: PatchSongData, b: PatchSongData): bool
   return stableSnapshotJson(a) === stableSnapshotJson(b)
 }
 
+function normalizeTagsSnapshot(tags: PatchSongData['tags']): Record<string, string> | null {
+  if (!tags || typeof tags !== 'object' || Array.isArray(tags)) return null
+  const entries = Object.entries(tags as Record<string, string>).filter(([key]) => key.trim())
+  if (!entries.length) return null
+  return Object.fromEntries(entries)
+}
+
 function stableSnapshotJson(data: PatchSongData): string {
   return JSON.stringify({
     titles: data.titles ?? null,
@@ -380,7 +387,7 @@ function stableSnapshotJson(data: PatchSongData): string {
     time: data.time ?? null,
     key: data.key ?? null,
     sections: data.sections ?? null,
-    tags: data.tags ?? null,
+    tags: normalizeTagsSnapshot(data.tags),
   })
 }
 

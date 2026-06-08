@@ -195,9 +195,9 @@ describe('songMetaTagsToWireRecord', () => {
     ).toEqual({ theme: 'Grace', author: 'John' })
   })
 
-  it('returns null when no valid entries remain', () => {
-    expect(songMetaTagsToWireRecord([])).toBeNull()
-    expect(songMetaTagsToWireRecord([{ id: '1', key: ' ', value: 'x' }])).toBeNull()
+  it('returns an empty record when no valid entries remain', () => {
+    expect(songMetaTagsToWireRecord([])).toEqual({})
+    expect(songMetaTagsToWireRecord([{ id: '1', key: ' ', value: 'x' }])).toEqual({})
   })
 })
 
@@ -303,5 +303,56 @@ describe('patchSongDataFromParsed tags', () => {
       },
     )
     expect(patch.tags).toEqual({ theme: 'Grace' })
+  })
+
+  it('sends an empty tags object when all meta tags are removed', () => {
+    const patch = patchSongDataFromParsed(
+      { sections: [], tags: { year: '2014' } },
+      {
+        title: '',
+        subtitle: '',
+        artists: '',
+        copyright: '',
+        languages: '',
+        tempo: '',
+        timeSignature: '',
+        key: '',
+        tags: [],
+      },
+    )
+    expect(patch.tags).toEqual({})
+  })
+})
+
+describe('songDataSnapshotsEqual tags', () => {
+  it('treats missing and empty tags as equivalent', () => {
+    const base = patchSongDataFromParsed({ sections: [] }, metadataStripFromSongData({ sections: [] }))
+    const withEmptyTags = { ...base, tags: {} }
+    const withNullTags = { ...base, tags: null }
+    expect(songDataSnapshotsEqual(base, withEmptyTags)).toBe(true)
+    expect(songDataSnapshotsEqual(base, withNullTags)).toBe(true)
+  })
+
+  it('detects tag removals', () => {
+    const base = patchSongDataFromParsed(
+      { sections: [], tags: { year: '2014' } },
+      metadataStripFromSongData({ sections: [], tags: { year: '2014' } }),
+    )
+    const cleared = patchSongDataFromParsed(
+      { sections: [], tags: { year: '2014' } },
+      {
+        title: '',
+        subtitle: '',
+        artists: '',
+        copyright: '',
+        languages: '',
+        tempo: '',
+        timeSignature: '',
+        key: '',
+        tags: [],
+      },
+    )
+    expect(songDataSnapshotsEqual(base, cleared)).toBe(false)
+    expect(buildSongPatchBody(base, cleared)?.data.tags).toEqual({})
   })
 })
