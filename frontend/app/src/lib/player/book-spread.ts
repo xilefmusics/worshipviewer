@@ -1,8 +1,47 @@
-import type { PlayerScrollType } from '@/lib/player/effective-scroll-type'
+import type {
+  PlayerLayoutPreference,
+  PlayerScrollType,
+} from '@/lib/player/effective-scroll-type'
 
 /** Book spread: two adjacent player items side by side (legacy player semantics). */
 export function isBookSpreadMode(scrollType: PlayerScrollType): boolean {
   return scrollType === 'book'
+}
+
+/** Free + adaptive columns in landscape: show blob attachments as a two-page book spread. */
+export function isFreeAdaptiveLandscapeBlobBookSpread(options: {
+  layoutPreference: PlayerLayoutPreference
+  orientation: 'portrait' | 'landscape'
+  isPhone: boolean
+  itemType: 'blob' | 'chords' | null
+}): boolean {
+  if (options.itemType !== 'blob') return false
+  if (options.isPhone || options.orientation !== 'landscape') return false
+  return (
+    options.layoutPreference.mode === 'free' &&
+    options.layoutPreference.columnCount === 'adaptive'
+  )
+}
+
+export function shouldUseBookSpreadLayout(options: {
+  scrollType: PlayerScrollType
+  layoutPreference: PlayerLayoutPreference
+  orientation: 'portrait' | 'landscape'
+  isPhone: boolean
+  itemType: 'blob' | 'chords' | null
+}): boolean {
+  return (
+    isBookSpreadMode(options.scrollType) ||
+    isFreeAdaptiveLandscapeBlobBookSpread(options)
+  )
+}
+
+/** Scroll type passed to player navigation when book spread layout is active. */
+export function bookSpreadNavScrollType(
+  scrollType: PlayerScrollType,
+  useBookSpread: boolean,
+): PlayerScrollType {
+  return useBookSpread ? 'book' : scrollType
 }
 
 function clampIndex(index: number, itemCount: number): number {

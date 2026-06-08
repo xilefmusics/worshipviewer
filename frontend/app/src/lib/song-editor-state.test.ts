@@ -1,13 +1,24 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ChordEngine, ChordSongData } from '@/ports/chord-engine'
+
+type SongWire = ChordSongData & {
+  sections?: Array<{
+    lines?: Array<{
+      parts?: Array<{ chord?: { main?: { level?: number } } }>
+    }>
+  }>
+}
 import { ChordEngineError } from '@/ports/chord-engine'
 
 import {
+  applyKeyChangeToSource,
   metadataStripFromSongData,
   parseErrorsFromResult,
   parseSourceWithEngine,
   patchSongDataFromParsed,
+  remapSongChordLevelsForAbsolutePitch,
+  shouldPromptKeyChangeChords,
   songDataSnapshotsEqual,
   songMetaTagsFromSongData,
   songMetaTagsToWireRecord,
@@ -146,6 +157,91 @@ describe('songMetaTagsToWireRecord', () => {
   it('returns null when no valid entries remain', () => {
     expect(songMetaTagsToWireRecord([])).toBeNull()
     expect(songMetaTagsToWireRecord([{ id: '1', key: ' ', value: 'x' }])).toBeNull()
+  })
+})
+
+describe('shouldPromptKeyChangeChords', () => {
+  it('prompts only when both keys are set and different', () => {
+    expect(shouldPromptKeyChangeChords('C', 'D')).toBe(true)
+    expect(shouldPromptKeyChangeChords('C', 'C')).toBe(false)
+    expect(shouldPromptKeyChangeChords('', 'D')).toBe(false)
+    expect(shouldPromptKeyChangeChords('C', '')).toBe(false)
+  })
+})
+
+describe('remapSongChordLevelsForAbsolutePitch', () => {
+  it('remaps stored levels so absolute pitch is unchanged', () => {
+    const song: SongWire = {
+      key: { level: 3 },
+      sections: [
+        {
+          lines: [
+            {
+              parts: [{ chord: { main: { level: 7 } } }],
+            },
+          ],
+        },
+      ],
+    }
+
+    const remapped = remapSongChordLevelsForAbsolutePitch(song, 'C', 'D') as SongWire
+    const level = remapped.sections?.[0]?.lines?.[0]?.parts?.[0]?.chord?.main?.level
+    expect(level).toBe(5)
+  })
+})
+
+describe('applyKeyChangeToSource', () => {
+  const stripD: SongMetadataStrip = {
+    title: 'A',
+    subtitle: '',
+    artists: '',
+    copyright: '',
+    languages: '',
+    tempo: '',
+    timeSignature: '',
+    key: 'D',
+    tags: [],
+  }
+
+  const songInC = {
+    titles: ['A'],
+    key: { level: 3 },
+    sections: [
+      {
+        lines: [
+          {
+            parts: [{ chord: { main: { level: 7 } } }],
+          },
+        ],
+      },
+    ],
+  }
+
+  it('transpose keeps key-relative stored levels', () => {
+    let formatted: SongWire | undefined
+    const engine = mockEngine({
+      formatChordPro(song) {
+        formatted = song
+        return 'formatted'
+      },
+    })
+
+    applyKeyChangeToSource(engine, songInC, stripD, 'transpose', 'C')
+    expect(formatted?.key).toEqual({ level: 5 })
+    expect(formatted?.sections?.[0]?.lines?.[0]?.parts?.[0]?.chord?.main?.level).toBe(7)
+  })
+
+  it('keep remaps stored levels before formatting', () => {
+    let formatted: SongWire | undefined
+    const engine = mockEngine({
+      formatChordPro(song) {
+        formatted = song
+        return 'formatted'
+      },
+    })
+
+    applyKeyChangeToSource(engine, songInC, stripD, 'keep', 'C')
+    expect(formatted?.sections?.[0]?.lines?.[0]?.parts?.[0]?.chord?.main?.level).toBe(5)
   })
 })
 

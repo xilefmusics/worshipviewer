@@ -2,12 +2,20 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { DEFAULT_AV_PREFERENCES, type AvProjectionPayload } from '@/lib/player/av-preferences'
 import {
+  AV_PROJECTION_SHARED_SESSION_ID,
+  createAvProjectionSessionId,
   createAvProjectionSync,
+  getAvProjectionSessionId,
   readAvProjectionSnapshot,
   writeAvProjectionSnapshot,
 } from '@/lib/player/av-projection-sync'
 
 describe('av-projection-sync', () => {
+  it('uses one shared session id for every AV player', () => {
+    expect(getAvProjectionSessionId()).toBe(AV_PROJECTION_SHARED_SESSION_ID)
+    expect(createAvProjectionSessionId()).toBe(AV_PROJECTION_SHARED_SESSION_ID)
+  })
+
   it('writes and reads snapshot from storage', () => {
     const map = new Map<string, string>()
     const storage = {

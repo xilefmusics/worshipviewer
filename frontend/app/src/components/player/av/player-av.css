@@ -3,7 +3,34 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  container-type: size;
+}
+
+.av-slide-view__stage {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.av-slide-view__scaled-slot {
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.av-slide-view__scaled-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+.av-slide-view__animated-layer {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 .av-slide-view--blackout {
@@ -27,7 +54,6 @@
   display: flex;
   width: 100%;
   height: 100%;
-  padding: 4cqw;
   box-sizing: border-box;
 }
 
@@ -276,10 +302,6 @@
 
 .player-av__preview .av-slide-view {
   height: 100%;
-}
-
-.av-slide-content--preview {
-  padding: 0.35rem 0.5rem;
 }
 
 .av-slides-panel-shell {
