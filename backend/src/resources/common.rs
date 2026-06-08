@@ -155,10 +155,17 @@ pub async fn song_links_to_owned(
         };
         by_id.insert(record_id_string(rid), r);
     }
+    map_song_link_records(links, &by_id)
+}
+
+fn map_song_link_records(
+    links: Vec<SongLinkRecord>,
+    by_id: &HashMap<String, SongRecord>,
+) -> Result<Vec<SongLinkOwned>, AppError> {
     let mut out = Vec::with_capacity(links.len());
     for link in links {
         let sid = record_id_string(&link.id);
-        let rec = by_id.remove(&sid).ok_or_else(|| {
+        let rec = by_id.get(&sid).cloned().ok_or_else(|| {
             AppError::database(
                 "referenced song not found (collection or setlist data may be inconsistent)",
             )
@@ -307,5 +314,42 @@ mod tests {
         assert_eq!(toc.len(), 2);
         assert_eq!(toc[0].nr, "1");
         assert_eq!(toc[1].nr, "x");
+    }
+
+    #[test]
+    fn map_song_link_records_reuses_song_for_duplicate_slots() {
+        let song_id = RecordId::new("song", "anchor");
+        let by_id = HashMap::from([(
+            record_id_string(&song_id),
+            SongRecord {
+                id: Some(song_id.clone()),
+                ..Default::default()
+            },
+        )]);
+        let links = vec![
+            SongLinkRecord::from(SongLink {
+                id: record_id_string(&song_id),
+                nr: Some("1".into()),
+                key: None,
+                tempo: None,
+            }),
+            SongLinkRecord::from(SongLink {
+                id: record_id_string(&song_id),
+                nr: Some("2".into()),
+                key: None,
+                tempo: None,
+            }),
+        ];
+
+        let owned = map_song_link_records(links, &by_id).unwrap();
+        assert_eq!(owned.len(), 2);
+        assert_eq!(owned[0].song.id, record_id_string(&song_id));
+        assert_eq!(owned[1].song.id, record_id_string(&song_id));
+        assert_eq!(owned[0].nr.as_deref(), Some("1"));
+        assert_eq!(owned[1].nr.as_deref(), Some("2"));
+
+        let player = player_from_song_links(HashSet::new(), owned).unwrap();
+        assert_eq!(player.toc().len(), 2);
+        assert_eq!(player.max_index(), 1);
     }
 }

@@ -272,17 +272,12 @@ impl Add for Player {
             return other;
         }
         let self_len = self.items.len();
-        let last_self_item = self.items.last().expect("non-empty").clone();
         Self {
             toc: self
                 .toc
                 .into_iter()
                 .chain(other.toc.iter().map(|item| TocItem {
-                    idx: if !other.items.is_empty() && self.items.last() == other.items.first() {
-                        item.idx + self_len.saturating_sub(1)
-                    } else {
-                        item.idx + self_len
-                    },
+                    idx: item.idx + self_len,
                     title: item.title.clone(),
                     id: item.id.clone(),
                     nr: item.nr.clone(),
@@ -292,12 +287,7 @@ impl Add for Player {
             items: self
                 .items
                 .into_iter()
-                .chain(
-                    other
-                        .items
-                        .into_iter()
-                        .skip_while(|item| *item == last_self_item),
-                )
+                .chain(other.items)
                 .collect(),
             scroll_type: self.scroll_type,
             scroll_type_cache_other_orientation: self.scroll_type_cache_other_orientation,
@@ -406,5 +396,67 @@ mod tests {
             PlayerItem::Chords(chords) => assert_eq!(chords.song.data.tempo, Some(120)),
             _ => panic!("expected chords player item"),
         }
+    }
+
+    #[test]
+    fn add_keeps_consecutive_duplicate_song_slots() {
+        let song = song_with_tempo(None);
+        let first = Player::from(SongLinkOwned {
+            song: song.clone(),
+            nr: Some("1".into()),
+            key: None,
+            tempo: None,
+            liked: false,
+        });
+        let second = Player::from(SongLinkOwned {
+            song,
+            nr: Some("2".into()),
+            key: None,
+            tempo: None,
+            liked: false,
+        });
+        let merged = first + second;
+
+        assert_eq!(merged.max_index(), 1);
+        let toc = merged.toc();
+        assert_eq!(toc.len(), 2);
+        assert_eq!(toc[0].idx, 0);
+        assert_eq!(toc[0].nr, "1");
+        assert_eq!(toc[1].idx, 1);
+        assert_eq!(toc[1].nr, "2");
+    }
+
+    #[test]
+    fn add_keeps_consecutive_duplicate_blob_only_song_slots() {
+        use crate::blob::BlobLink;
+
+        let song = Song {
+            id: "blob-song".into(),
+            blobs: vec![BlobLink {
+                id: "sheet-1".into(),
+            }],
+            ..Default::default()
+        };
+        let first = Player::from(SongLinkOwned {
+            song: song.clone(),
+            nr: Some("1".into()),
+            key: None,
+            tempo: None,
+            liked: false,
+        });
+        let second = Player::from(SongLinkOwned {
+            song,
+            nr: Some("2".into()),
+            key: None,
+            tempo: None,
+            liked: false,
+        });
+        let merged = first + second;
+
+        assert_eq!(merged.max_index(), 1);
+        let toc = merged.toc();
+        assert_eq!(toc.len(), 2);
+        assert_eq!(toc[0].idx, 0);
+        assert_eq!(toc[1].idx, 1);
     }
 }

@@ -850,6 +850,35 @@ mod tests {
         assert!(matches!(pl_nf, Err(AppError::NotFound(_))));
     }
 
+    /// Same song in consecutive setlist slots must still produce a playable player.
+    #[tokio::test]
+    async fn blc_setl_player_duplicate_consecutive_song_slots() {
+        let (db, owner, _read_u, _write_u, _noperm, _team_id) = four_user_setlist_fixture().await;
+        let sl = setlist_service(&db);
+        let s1 = create_song_with_title(&db, &owner, "Song One")
+            .await
+            .expect("s1");
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+
+        let created = sl
+            .create_setlist_for_user(
+                &owner_p,
+                setlist_with_songs(
+                    "Encore",
+                    &[(s1.id.as_str(), Some("1")), (s1.id.as_str(), Some("2"))],
+                ),
+            )
+            .await
+            .expect("create");
+
+        let player = sl
+            .setlist_player_for_user(&owner_p, &created.id)
+            .await
+            .expect("player with duplicate song slots");
+        assert_eq!(player.toc().len(), 2);
+        assert_eq!(player.max_index(), 1);
+    }
+
     /// BLC-SETL-009i: update succeeds for owner (title changes) and for write user;
     /// writer's change is visible to owner on subsequent get; read user and noperm user
     /// are rejected; wrong-table id returns InvalidRequest; non-existent id returns
