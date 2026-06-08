@@ -237,7 +237,9 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   useEffect(() => {
     if (!engine || !detail || saveRevision === 0) return
     queueMicrotask(() => {
-      setSourceText(formatSourceFromSongData(engine, detail.data as Record<string, unknown>, chordFormat))
+      const data = detail.data as Record<string, unknown>
+      setSourceText(formatSourceFromSongData(engine, data, chordFormat))
+      setMetadataStrip(metadataStripFromSongData(data))
       setParseError(null)
     })
   }, [saveRevision, engine, detail, chordFormat])
