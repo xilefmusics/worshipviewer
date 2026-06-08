@@ -92,6 +92,20 @@ describe('buildSongPatchBody', () => {
   })
 })
 
+describe('metadataStripFromSongData', () => {
+  it('joins multiple titles like artists and languages', () => {
+    const strip = metadataStripFromSongData({
+      titles: ['Anker', 'Anchor'],
+      artists: ['Urban Life Worship', 'Hillsong Worship'],
+      languages: ['de', 'en'],
+      sections: [],
+    })
+    expect(strip.title).toBe('Anker, Anchor')
+    expect(strip.artists).toBe('Urban Life Worship, Hillsong Worship')
+    expect(strip.languages).toBe('de, en')
+  })
+})
+
 describe('patchSongDataFromParsed', () => {
   it('tolerates partial strip objects', () => {
     const patch = patchSongDataFromParsed(
@@ -99,6 +113,33 @@ describe('patchSongDataFromParsed', () => {
       { title: 'B' } as SongMetadataStrip,
     )
     expect(patch.titles).toEqual(['B'])
+  })
+
+  it('splits comma-separated titles like artists and languages', () => {
+    const patch = patchSongDataFromParsed(
+      { sections: [] },
+      {
+        title: 'Anker, Anchor',
+        subtitle: '',
+        artists: 'Urban Life Worship, Hillsong Worship',
+        copyright: '',
+        languages: 'de, en',
+        tempo: '',
+        timeSignature: '',
+        key: '',
+        tags: [],
+      },
+    )
+    expect(patch.titles).toEqual(['Anker', 'Anchor'])
+    expect(patch.artists).toEqual(['Urban Life Worship', 'Hillsong Worship'])
+    expect(patch.languages).toEqual(['de', 'en'])
+  })
+
+  it('round-trips multiple titles through the metadata strip', () => {
+    const data = { titles: ['Anker', 'Anchor'], sections: [] }
+    const strip = metadataStripFromSongData(data)
+    const patch = patchSongDataFromParsed(data, strip)
+    expect(patch.titles).toEqual(['Anker', 'Anchor'])
   })
 
   it('maps 4/4 and 6/8 time signatures only', () => {

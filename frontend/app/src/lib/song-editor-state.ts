@@ -147,14 +147,14 @@ function parseTimeSignature(value: string): number[] | null {
 }
 
 export function metadataStripFromSongData(data: ChordSongData): SongMetadataStrip {
-  const titles = Array.isArray(data.titles) ? data.titles : []
+  const titles = Array.isArray(data.titles) ? data.titles.filter(Boolean).map(String) : []
   const artists = Array.isArray(data.artists) ? data.artists.filter(Boolean) : []
   const languages = Array.isArray(data.languages) ? data.languages.filter(Boolean) : []
   const tempo =
     typeof data.tempo === 'number' && Number.isFinite(data.tempo) ? String(Math.round(data.tempo)) : ''
 
   return {
-    title: typeof titles[0] === 'string' ? titles[0] : '',
+    title: titles.join(', '),
     subtitle: typeof data.subtitle === 'string' ? data.subtitle : '',
     artists: artists.join(', '),
     copyright: typeof data.copyright === 'string' ? data.copyright : '',
@@ -186,9 +186,9 @@ export function patchSongDataFromParsed(
 ): PatchSongData {
   const strip = normalizeMetadataStrip(stripInput)
   const sections = Array.isArray(parsed.sections) ? parsed.sections : []
-  const title = strip.title.trim()
-  const titles = title
-    ? [title]
+  const titlesFromStrip = splitCsv(strip.title)
+  const titles = titlesFromStrip.length
+    ? titlesFromStrip
     : Array.isArray(parsed.titles) && parsed.titles.length
       ? parsed.titles.map(String)
       : ['']
