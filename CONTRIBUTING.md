@@ -2,6 +2,8 @@
 
 Thank you for helping improve Worship Viewer. This document covers the workflows contributors use most often.
 
+**AI coding agents:** read [AGENTS.md](AGENTS.md) in addition to this file. Agents must not commit code that has not been autoformatted, linted, and unit-tested.
+
 ## Prerequisites
 
 | Stack | Version / tool |
@@ -46,18 +48,32 @@ Runs fmt, audit, backend tests/clippy, OpenAPI tri-copy + Spectral, and the full
 
 ## Before opening a PR
 
+Run checks in this order: **format → lint/typecheck → unit tests → build**. Apply fixes and re-run until clean. The one-shot script `./scripts/verify-ci.sh` runs the full CI-equivalent gate (recommended).
+
 ### Backend / shared / CLI
 
 ```bash
-(cd backend && cargo fmt --check)
-(cd shared && cargo fmt --check)
-(cd cli && cargo fmt --check)
+# 1. Format (apply locally; CI uses --check)
+(cd backend && cargo fmt)
+(cd shared && cargo fmt)
+(cd cli && cargo fmt)
+
+# 2. Lint
 cd backend && cargo clippy -- -D warnings
+
+# 3. Unit tests
 cd backend && cargo test -- --test-threads=4
+
+# 4. Supply chain (also in verify-ci.sh)
 (cd backend && cargo audit)
 (cd cli && cargo audit)
 (cd shared && cargo audit)
 (cd frontend/crates/chordlib-wasm && cargo audit)
+
+# Verify formatting in CI mode
+(cd backend && cargo fmt --check)
+(cd shared && cargo fmt --check)
+(cd cli && cargo fmt --check)
 ```
 
 ### Frontend
@@ -65,9 +81,19 @@ cd backend && cargo test -- --test-threads=4
 ```bash
 pnpm -C frontend install
 pnpm -C frontend build:wasm
-pnpm -C frontend test
+
+# 1. Format (auto-fix ESLint issues where possible)
+pnpm --filter app exec eslint . --fix
+
+# 2. Lint and typecheck
 pnpm -C frontend lint
 pnpm -C frontend typecheck
+pnpm --filter app lint:flows
+
+# 3. Unit tests
+pnpm -C frontend test
+
+# 4. Build and audit
 pnpm -C frontend build
 pnpm -C frontend audit --audit-level=high
 ```
