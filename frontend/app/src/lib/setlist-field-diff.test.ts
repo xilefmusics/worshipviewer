@@ -120,6 +120,16 @@ describe('buildSetlistPatchBody', () => {
     ).toEqual({ owner: 'team-b' })
   })
 
+  it('omits empty owner drafts', () => {
+    expect(
+      buildSetlistPatchBody(base, {
+        title: 'A',
+        owner: '',
+        songs: [{ id: 'x', key: 'C' }],
+      }),
+    ).toBeNull()
+  })
+
   it('detects slot tempo drift', () => {
     expect(
       buildSetlistPatchBody(base, {

@@ -36,8 +36,9 @@ export function buildSetlistPatchBody(
   if (draft.title !== baseline.title) {
     body.title = draft.title
   }
-  if (draft.owner !== baseline.owner) {
-    body.owner = draft.owner
+  const draftOwner = draft.owner.trim()
+  if (draftOwner && draftOwner !== baseline.owner) {
+    body.owner = draftOwner
   }
   if (!songsEqual(draft.songs, baseline.songs)) {
     body.songs = draft.songs.map((l) => songLinkForSetlistMutation(l))
