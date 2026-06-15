@@ -84,6 +84,14 @@
     "createCollectionAria": "Sammlung erstellen",
     "createSongAria": "Song erstellen",
     "createLabel": "Neu",
+    "filters": {
+      "teamLabel": "Team",
+      "teamAria": "Bibliothek nach Team filtern",
+      "openAria": "Bibliotheksfilter öffnen",
+      "closeAria": "Bibliotheksfilter schließen",
+      "allTeams": "Alle Teams",
+      "loadingTeams": "Teams werden geladen…"
+    },
     "profile": {
       "openMenu": "Profilmenü öffnen",
       "openMenuOffline": "Profilmenü öffnen (offline)",
@@ -123,6 +131,11 @@
       "noResults": "Keine Treffer für deine Suche.",
       "clearSearch": "Suche löschen",
       "offlineNone": "Keine gespeicherten Daten für diesen Tab. Verbinde dich, um zu laden.",
+      "filtered": {
+        "collections": "Keine Sammlungen für dieses Team.",
+        "songs": "Keine Lieder für dieses Team.",
+        "setlists": "Keine Setlisten für dieses Team."
+      },
       "none": {
         "collections": "Noch keine Sammlungen.",
         "songs": "Noch keine Lieder.",

@@ -30,13 +30,13 @@ const hubListNotifyOnChangeProps = [
 const hubListNotify: NotifyOnChangeProps = hubListNotifyOnChangeProps as unknown as NotifyOnChangeProps
 
 export function useInfiniteHubList(entity: HubEntity) {
-  const { debouncedQ } = useHubSearch()
+  const { debouncedQ, selectedTeamId } = useHubSearch()
   const queryClient = useQueryClient()
   const q = debouncedQ
   const online = useOnline()
 
   return useInfiniteQuery({
-    queryKey: hubListKey(entity, q),
+    queryKey: hubListKey(entity, q, selectedTeamId),
     initialPageParam: 0,
     notifyOnChangeProps: hubListNotify,
     /** Fresh after restore: refetch when online; snapshots never expire on disk. */
@@ -48,11 +48,11 @@ export function useInfiniteHubList(entity: HubEntity) {
       const page = pageParam as number
       switch (entity) {
         case 'collections':
-          return fetchCollectionsPage(queryClient, { page, q, signal })
+          return fetchCollectionsPage(queryClient, { page, q, teamId: selectedTeamId, signal })
         case 'songs':
-          return fetchSongsPage(queryClient, { page, q, signal })
+          return fetchSongsPage(queryClient, { page, q, teamId: selectedTeamId, signal })
         case 'setlists':
-          return fetchSetlistsPage(queryClient, { page, q, signal })
+          return fetchSetlistsPage(queryClient, { page, q, teamId: selectedTeamId, signal })
       }
     },
     getNextPageParam: (_last, allPages) => getNextPageIndex(allPages),

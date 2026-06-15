@@ -2,6 +2,7 @@ import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
+import type { RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -22,7 +23,9 @@ import {
 import { HUB_TAB_LABEL_CLASS } from '@/components/hub/hub-list-styles'
 import { HUB_SEARCH_INPUT_CLASS, HUB_SEARCH_PILL_TEXT_CLASS } from '@/components/hub/hub-search-styles'
 import { HubTabBar } from '@/components/hub/HubTabBar'
+import { HubTeamFilterSelect } from '@/components/hub/HubTeamFilterSelect'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
+import { FilterIcon } from '@/components/icons/filter-icon'
 import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
 import { SearchIcon } from '@/components/icons/lucide-animated/search-icon'
 import { IconHubPlus } from '@/components/icons/hub-tab-icons'
@@ -81,6 +84,99 @@ function OfflineBanner() {
   )
 }
 
+function isLibraryListPath(pathname: string): boolean {
+  return pathname === '/collections' || pathname === '/songs' || pathname === '/setlists'
+}
+
+function HubLibrarySearchField({
+  searchAnchorRef,
+  searchInputRef,
+  paletteOpen,
+  qInput,
+  setQInput,
+  searchIconActive,
+  onSearchFocus,
+  onSearchBlur,
+  onSearchMouseEnter,
+  onSearchMouseLeave,
+}: {
+  searchAnchorRef: RefObject<HTMLDivElement | null>
+  searchInputRef: RefObject<HTMLInputElement | null>
+  paletteOpen: boolean
+  qInput: string
+  setQInput: (value: string) => void
+  searchIconActive: boolean
+  onSearchFocus: () => void
+  onSearchBlur: () => void
+  onSearchMouseEnter: () => void
+  onSearchMouseLeave: () => void
+}) {
+  const { t } = useTranslation()
+  const { selectedTeamId } = useHubSearch()
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const filterActive = filtersOpen || selectedTeamId != null
+
+  return (
+    <div
+      ref={searchAnchorRef}
+      className="relative my-[0.36rem] min-w-0 flex-1"
+      onMouseEnter={onSearchMouseEnter}
+      onMouseLeave={onSearchMouseLeave}
+    >
+      <div
+        className={cn(
+          'flex h-[3.6rem] w-full min-w-0 items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-elevated)] transition-[max-width]',
+          paletteOpen && 'pointer-events-none invisible',
+        )}
+        aria-hidden={paletteOpen}
+      >
+        <SearchIcon
+          aria-hidden
+          className="pointer-events-none ml-[0.65rem] shrink-0 text-[var(--color-muted-foreground)]"
+          isHovered={searchIconActive}
+          size={18}
+        />
+        <Input
+          ref={searchInputRef}
+          type="search"
+          value={qInput}
+          onChange={(e) => setQInput(e.target.value)}
+          onFocus={onSearchFocus}
+          onBlur={onSearchBlur}
+          placeholder={t('hub.searchPlaceholder')}
+          aria-label={t('hub.searchAria')}
+          tabIndex={paletteOpen ? -1 : 0}
+          className="h-full min-w-0 flex-1 rounded-full border-0 bg-transparent pl-2 pr-1 shadow-none focus-visible:outline-none"
+        />
+        <button
+          type="button"
+          aria-label={filtersOpen ? t('hub.filters.closeAria') : t('hub.filters.openAria')}
+          aria-pressed={filtersOpen}
+          onClick={() => setFiltersOpen((open) => !open)}
+          className={cn(
+            'mr-1 flex size-10 shrink-0 items-center justify-center rounded-full text-[var(--color-muted-foreground)] outline-none transition-colors',
+            'hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]',
+            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]',
+            filterActive && 'bg-[var(--color-muted)] text-[var(--color-foreground)]',
+          )}
+        >
+          <FilterIcon />
+        </button>
+        {filtersOpen ? (
+          <>
+            <div className="h-8 w-px shrink-0 bg-[var(--color-border)]" aria-hidden />
+            <HubTeamFilterSelect
+              id="hub-team-filter-inline"
+              className="mr-2 w-[min(12rem,42vw)] shrink-0"
+              triggerClassName="h-9 border-0 bg-transparent px-2 shadow-none"
+            />
+          </>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 function HubChrome({
   children,
   searchAnchorRef,
@@ -95,7 +191,7 @@ function HubChrome({
   const { t } = useTranslation()
   const { data: user } = useSession()
   const queryClient = useQueryClient()
-  const { qInput, setQInput } = useHubSearch()
+  const { qInput, setQInput, setSelectedTeamId } = useHubSearch()
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const locationSearch = useRouterState({ select: (s) => s.location.search })
@@ -111,6 +207,7 @@ function HubChrome({
   const isSettings = pathname === '/settings'
   const isSessions = pathname === '/sessions'
   const isAbout = pathname === '/about'
+  const showLibraryFilters = isLibraryListPath(pathname)
   const songEditorPlayerReturn = isSongDetail
     ? parsePlayerEditorReturnSearch(locationSearch as Record<string, unknown>)
     : null
@@ -187,8 +284,15 @@ function HubChrome({
     if (prev !== null && hubSectionKey !== null && hubSectionKey !== prev) {
       setQInput('')
     }
+    if (
+      hubSectionKey !== 'collections' &&
+      hubSectionKey !== 'songs' &&
+      hubSectionKey !== 'setlists'
+    ) {
+      setSelectedTeamId(null)
+    }
     prevHubSectionRef.current = hubSectionKey
-  }, [hubSectionKey, setQInput])
+  }, [hubSectionKey, setQInput, setSelectedTeamId])
 
   useEffect(() => {
     const prev = prevOnlineRef.current
@@ -531,6 +635,19 @@ function HubChrome({
                 </div>
               </div>
             </>
+          ) : showLibraryFilters ? (
+            <HubLibrarySearchField
+              searchAnchorRef={searchAnchorRef}
+              searchInputRef={searchInputRef}
+              paletteOpen={paletteOpen}
+              qInput={qInput}
+              setQInput={setQInput}
+              searchIconActive={searchIconActive}
+              onSearchFocus={() => setSearchFocused(true)}
+              onSearchBlur={() => setSearchFocused(false)}
+              onSearchMouseEnter={() => setSearchFieldHovered(true)}
+              onSearchMouseLeave={() => setSearchFieldHovered(false)}
+            />
           ) : (
             <div
               ref={searchAnchorRef}
