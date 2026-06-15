@@ -1,3 +1,5 @@
+import { getLocalStorage, safeGetItem, safeRemoveItem, safeSetItem } from '@/lib/browser-storage'
+
 /** Persisted store key — align with i18next / future Settings (E4). */
 export const LOCALE_STORAGE_KEY = 'i18nextLng'
 export const BROWSER_LOCALE_FLAG_KEY = 'wv_use_browser_locale'
@@ -30,32 +32,32 @@ export function resolveLocalePreference(
 }
 
 export function readLocalePreference(
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): LocalePreference {
   return resolveLocalePreference(
-    storage.getItem(LOCALE_STORAGE_KEY),
-    storage.getItem(BROWSER_LOCALE_FLAG_KEY),
+    safeGetItem(LOCALE_STORAGE_KEY, storage),
+    safeGetItem(BROWSER_LOCALE_FLAG_KEY, storage),
   )
 }
 
 /** Browser default: follow navigator languages; do not persist an explicit locale. */
 export function writeBrowserLocalePreference(
-  storage: Pick<Storage, 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem' | 'removeItem'> | null = getLocalStorage(),
 ): void {
-  storage.setItem(BROWSER_LOCALE_FLAG_KEY, '1')
-  storage.removeItem(LOCALE_STORAGE_KEY)
+  safeSetItem(BROWSER_LOCALE_FLAG_KEY, '1', storage)
+  safeRemoveItem(LOCALE_STORAGE_KEY, storage)
 }
 
 export function writeExplicitLocalePreference(
   locale: AppLocale,
-  storage: Pick<Storage, 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem' | 'removeItem'> | null = getLocalStorage(),
 ): void {
-  storage.removeItem(BROWSER_LOCALE_FLAG_KEY)
-  storage.setItem(LOCALE_STORAGE_KEY, locale)
+  safeRemoveItem(BROWSER_LOCALE_FLAG_KEY, storage)
+  safeSetItem(LOCALE_STORAGE_KEY, locale, storage)
 }
 
 export function ensureBrowserLocaleStorage(
-  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null = getLocalStorage(),
 ): void {
   if (readLocalePreference(storage) === 'browser') {
     writeBrowserLocalePreference(storage)

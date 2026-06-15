@@ -1,21 +1,23 @@
+import { getLocalStorage, safeGetItem, safeRemoveItem, safeSetItem } from '@/lib/browser-storage'
+
 export const HIDE_CHORDS_STORAGE_KEY = 'wv_hide_chords'
 
 export const HIDE_CHORDS_CHANGE_EVENT = 'wv-hide-chords-change'
 
 export function readHideChordsPreference(
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): boolean {
-  return storage.getItem(HIDE_CHORDS_STORAGE_KEY) === 'true'
+  return safeGetItem(HIDE_CHORDS_STORAGE_KEY, storage) === 'true'
 }
 
 export function writeHideChordsPreference(
   enabled: boolean,
-  storage: Pick<Storage, 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem' | 'removeItem'> | null = getLocalStorage(),
 ): void {
   if (enabled) {
-    storage.setItem(HIDE_CHORDS_STORAGE_KEY, 'true')
+    safeSetItem(HIDE_CHORDS_STORAGE_KEY, 'true', storage)
   } else {
-    storage.removeItem(HIDE_CHORDS_STORAGE_KEY)
+    safeRemoveItem(HIDE_CHORDS_STORAGE_KEY, storage)
   }
 
   if (typeof globalThis.window !== 'undefined') {

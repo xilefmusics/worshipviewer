@@ -10,6 +10,7 @@ import {
   ensureBrowserLocaleStorage,
   resolveInitialLocale,
 } from '@/lib/locale'
+import { getLocalStorage, safeGetItem } from '@/lib/browser-storage'
 
 export function initI18n(): void {
   if (typeof globalThis.window === 'undefined') return
@@ -17,12 +18,15 @@ export function initI18n(): void {
   ensureBrowserLocaleStorage()
 
   const params = new URLSearchParams(globalThis.window.location.search)
-  const stored = globalThis.localStorage.getItem(LOCALE_STORAGE_KEY)
-  const browserFlag = globalThis.localStorage.getItem(BROWSER_LOCALE_FLAG_KEY)
+  const storage = getLocalStorage()
+  const stored = safeGetItem(LOCALE_STORAGE_KEY, storage)
+  const browserFlag = safeGetItem(BROWSER_LOCALE_FLAG_KEY, storage)
+  const languages =
+    typeof globalThis.navigator === 'undefined' ? [] : globalThis.navigator.languages
   const lng: AppLocale = resolveInitialLocale(
     params,
     stored,
-    globalThis.navigator.languages,
+    languages,
     browserFlag,
   )
 

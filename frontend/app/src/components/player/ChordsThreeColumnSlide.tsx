@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { useHideChordsPreference } from '@/hooks/useHideChordsPreference'
+import { observeElementResize } from '@/lib/browser-apis'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import {
   columnWidthInMultiColumnLayout,
@@ -423,10 +424,9 @@ export function ChordsThreeColumnSlide({
     }
 
     updateLayout()
-    const observer = new ResizeObserver(updateLayout)
-    observer.observe(columnAreaEl)
-    if (viewportRef.current) observer.observe(viewportRef.current)
-    return () => observer.disconnect()
+    const cleanups = [observeElementResize(columnAreaEl, updateLayout)]
+    if (viewportRef.current) cleanups.push(observeElementResize(viewportRef.current, updateLayout))
+    return () => cleanups.forEach((cleanup) => cleanup())
   }, [layoutKey, columnCount, renderState.status, columnSections?.length, overflowStyle])
 
   useLayoutEffect(() => {
@@ -468,9 +468,7 @@ export function ChordsThreeColumnSlide({
     measureAndPack()
     void document.fonts.ready.then(measureAndPack)
 
-    const observer = new ResizeObserver(measureAndPack)
-    observer.observe(measureEl)
-    return () => observer.disconnect()
+    return observeElementResize(measureEl, measureAndPack)
   }, [packingContextKey, columnLayout, columnSections, combinedColumnCss, overflowStyle, columnCount])
 
   useLayoutEffect(() => {

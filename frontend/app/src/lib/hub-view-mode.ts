@@ -1,3 +1,4 @@
+import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
 import type { HubEntity } from '@/lib/hub-entity'
 
 export type HubLayoutMode = 'list' | 'card'
@@ -30,20 +31,16 @@ export function resolveCollectionsLayoutMode(
 }
 
 export function readCollectionsViewMode(
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): HubViewMode {
-  try {
-    const raw = storage.getItem(COLLECTIONS_VIEW_MODE_KEY)
-    if (isHubViewMode(raw)) return raw
-  } catch {
-    /* ignore */
-  }
+  const raw = safeGetItem(COLLECTIONS_VIEW_MODE_KEY, storage)
+  if (isHubViewMode(raw)) return raw
   return 'list'
 }
 
 export function readHubViewMode(
   entity: HubEntity,
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): HubViewMode {
   if (entity !== 'collections') return 'list'
   return readCollectionsViewMode(storage)
@@ -61,20 +58,16 @@ function dispatchCollectionsViewModeChange(mode: HubViewMode): void {
 
 export function writeCollectionsViewMode(
   mode: HubViewMode,
-  storage: Pick<Storage, 'setItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem'> | null = getLocalStorage(),
 ): void {
-  try {
-    storage.setItem(COLLECTIONS_VIEW_MODE_KEY, mode)
-  } catch {
-    /* ignore */
-  }
+  safeSetItem(COLLECTIONS_VIEW_MODE_KEY, mode, storage)
   dispatchCollectionsViewModeChange(mode)
 }
 
 export function writeHubViewMode(
   entity: HubEntity,
   mode: HubViewMode,
-  storage: Pick<Storage, 'setItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem'> | null = getLocalStorage(),
 ): void {
   if (entity !== 'collections') return
   writeCollectionsViewMode(mode, storage)

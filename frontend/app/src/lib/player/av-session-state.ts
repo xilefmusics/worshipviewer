@@ -1,3 +1,4 @@
+import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
 import type { PlayerEntityType } from '@/lib/player-route'
 import type { AvScreenState } from '@/lib/player/av-preferences'
 import { parseOptionalPlayerIndex } from '@/lib/player/player-editor-return'
@@ -23,10 +24,10 @@ function parseScreenState(parsed: Partial<AvSessionState> & { blackout?: boolean
 export function readAvSessionState(
   type: PlayerEntityType,
   id: string,
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): AvSessionState {
   try {
-    const raw = storage.getItem(avSessionStorageKey(type, id))
+    const raw = safeGetItem(avSessionStorageKey(type, id), storage)
     if (!raw) {
       return { itemIndex: 0, slideIndex: 0, screenState: 'live' }
     }
@@ -47,7 +48,7 @@ export function writeAvSessionState(
   type: PlayerEntityType,
   id: string,
   state: AvSessionState,
-  storage: Pick<Storage, 'setItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem'> | null = getLocalStorage(),
 ): void {
-  storage.setItem(avSessionStorageKey(type, id), JSON.stringify(state))
+  safeSetItem(avSessionStorageKey(type, id), JSON.stringify(state), storage)
 }

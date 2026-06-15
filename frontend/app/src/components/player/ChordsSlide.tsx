@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { useHideChordsPreference } from '@/hooks/useHideChordsPreference'
+import { observeElementResize } from '@/lib/browser-apis'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import { getChordEngine } from '@/lib/chord-engine'
 import { cssScaleToFitViewport } from '@/lib/chord-a4-scale'
@@ -85,10 +86,8 @@ export function ChordsSlide({
       const rect = el.getBoundingClientRect()
       setViewportSize({ width: rect.width, height: rect.height })
     }
-    const observer = new ResizeObserver(() => updateSize())
-    observer.observe(el)
     updateSize()
-    return () => observer.disconnect()
+    return observeElementResize(el, () => updateSize())
   }, [])
 
   const retry = useCallback(() => {
@@ -133,9 +132,7 @@ export function ChordsSlide({
     }
 
     measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
+    return observeElementResize(el, measure)
   }, [renderKey, renderState])
 
   const scaledReady = renderState.status === 'ready' && cssScale != null

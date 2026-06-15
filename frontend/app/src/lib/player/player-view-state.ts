@@ -1,3 +1,4 @@
+import { getLocalStorage, safeGetItem, safeRemoveItem, safeSetItem } from '@/lib/browser-storage'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { parseOptionalPlayerIndex } from '@/lib/player/player-editor-return'
 
@@ -15,10 +16,10 @@ export function playerViewStorageKey(type: PlayerEntityType, id: string): string
 export function readPlayerViewState(
   type: PlayerEntityType,
   id: string,
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): PlayerViewState {
   try {
-    const raw = storage.getItem(playerViewStorageKey(type, id))
+    const raw = safeGetItem(playerViewStorageKey(type, id), storage)
     if (!raw) {
       return { transposeByItem: {} }
     }
@@ -39,17 +40,17 @@ export function writePlayerViewState(
   type: PlayerEntityType,
   id: string,
   state: PlayerViewState,
-  storage: Pick<Storage, 'setItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem'> | null = getLocalStorage(),
 ): void {
-  storage.setItem(playerViewStorageKey(type, id), JSON.stringify(state))
+  safeSetItem(playerViewStorageKey(type, id), JSON.stringify(state), storage)
 }
 
 export function clearPlayerViewStateForResource(
   type: PlayerEntityType,
   id: string,
-  storage: Pick<Storage, 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'removeItem'> | null = getLocalStorage(),
 ): void {
-  storage.removeItem(playerViewStorageKey(type, id))
+  safeRemoveItem(playerViewStorageKey(type, id), storage)
 }
 
 export function setTransposeForItem(

@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useSession } from '@/hooks/useSession'
+import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
 import { hubListRootKey } from '@/lib/hub-list-keys'
 import { teamsListRootKey } from '@/lib/teams-sessions-keys'
 import { getNextPageIndex } from '@/lib/list-pagination'
@@ -29,20 +30,12 @@ import { cn } from '@/lib/utils'
 const LAST_OWNER_LS = 'wv.setlistCreate.lastOwnerTeamId'
 
 function readLastOwnerFromLs(): string | null {
-  try {
-    const raw = globalThis.localStorage?.getItem(LAST_OWNER_LS)
-    return raw && raw.trim() ? raw.trim() : null
-  } catch {
-    return null
-  }
+  const raw = safeGetItem(LAST_OWNER_LS, getLocalStorage())
+  return raw && raw.trim() ? raw.trim() : null
 }
 
 function writeLastOwnerToLs(teamId: string) {
-  try {
-    globalThis.localStorage?.setItem(LAST_OWNER_LS, teamId)
-  } catch {
-    /* ignore */
-  }
+  safeSetItem(LAST_OWNER_LS, teamId, getLocalStorage())
 }
 
 type CreateSetlistDialogProps = {

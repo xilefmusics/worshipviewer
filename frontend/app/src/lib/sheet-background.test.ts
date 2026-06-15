@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   applySheetBackgroundPreference,
+  readSheetBackgroundPreference,
   resolveSheetBackgroundPreference,
   SHEET_BACKGROUND_STORAGE_KEY,
   writeSheetBackgroundPreference,
@@ -67,5 +68,31 @@ describe('writeSheetBackgroundPreference', () => {
 
     expect(globalThis.window.dispatchEvent).toHaveBeenCalled()
     vi.unstubAllGlobals()
+  })
+})
+
+describe('sheet background storage safety', () => {
+  it('falls back to app when storage reads throw', () => {
+    const storage = {
+      getItem: vi.fn(() => {
+        throw new DOMException('blocked', 'SecurityError')
+      }),
+    }
+
+    expect(readSheetBackgroundPreference(storage)).toBe('app')
+  })
+
+  it('ignores storage write failures', () => {
+    const storage = {
+      setItem: vi.fn(() => {
+        throw new DOMException('full', 'QuotaExceededError')
+      }),
+      removeItem: vi.fn(() => {
+        throw new DOMException('blocked', 'SecurityError')
+      }),
+    }
+
+    expect(() => writeSheetBackgroundPreference('white', storage)).not.toThrow()
+    expect(() => writeSheetBackgroundPreference('app', storage)).not.toThrow()
   })
 })

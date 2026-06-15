@@ -105,4 +105,29 @@ describe('locale preference storage', () => {
     expect(storage.has(LOCALE_STORAGE_KEY)).toBe(false)
     expect(readLocalePreference(mockStorage)).toBe('browser')
   })
+
+  it('falls back to browser preference when storage reads throw', () => {
+    const storage = {
+      getItem: () => {
+        throw new DOMException('blocked', 'SecurityError')
+      },
+    }
+
+    expect(readLocalePreference(storage)).toBe('browser')
+  })
+
+  it('ignores storage write failures', () => {
+    const storage = {
+      getItem: () => null,
+      setItem: () => {
+        throw new DOMException('full', 'QuotaExceededError')
+      },
+      removeItem: () => {
+        throw new DOMException('blocked', 'SecurityError')
+      },
+    }
+
+    expect(() => ensureBrowserLocaleStorage(storage)).not.toThrow()
+    expect(() => writeExplicitLocalePreference('de', storage)).not.toThrow()
+  })
 })

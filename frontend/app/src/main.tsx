@@ -9,10 +9,18 @@ import { initAppearance } from '@/lib/appearance'
 import { initSheetBackground } from '@/lib/sheet-background'
 import { initLogoutQueue } from '@/lib/logout-queue'
 
-initAppearance()
-initSheetBackground()
-initI18n()
-initLogoutQueue()
+function runBootstrapStep(step: () => void): void {
+  try {
+    step()
+  } catch {
+    /* Keep React mount non-fatal when an older browser rejects a startup API. */
+  }
+}
+
+runBootstrapStep(initAppearance)
+runBootstrapStep(initSheetBackground)
+runBootstrapStep(initI18n)
+runBootstrapStep(initLogoutQueue)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

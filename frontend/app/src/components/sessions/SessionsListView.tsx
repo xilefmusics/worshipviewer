@@ -22,6 +22,7 @@ import { useHubSearch } from '@/hooks/useHubSearch'
 import { useOnline } from '@/hooks/use-online'
 import { useSessionsList } from '@/hooks/useSessionsList'
 import { useSessionsMetrics } from '@/hooks/useSessionsMetrics'
+import { observeElementIntersection } from '@/lib/browser-apis'
 import { readSsoSessionIdFromDocumentCookie } from '@/lib/sso-session-cookie'
 import { sessionMetricsKey, sessionsListRootKey } from '@/lib/teams-sessions-keys'
 import { cn } from '@/lib/utils'
@@ -89,7 +90,8 @@ export function SessionsListView() {
     const root = scrollRef.current
     const sentinel = sentinelRef.current
     if (!root || !sentinel) return
-    const obs = new IntersectionObserver(
+    return observeElementIntersection(
+      sentinel,
       (entries) => {
         if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
           void fetchNextPage()
@@ -97,8 +99,6 @@ export function SessionsListView() {
       },
       { root, rootMargin: '120px' },
     )
-    obs.observe(sentinel)
-    return () => obs.disconnect()
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, items.length, scrollRef])
 
   const showSkeleton = isPending && !data

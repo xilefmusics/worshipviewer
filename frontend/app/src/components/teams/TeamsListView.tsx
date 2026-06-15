@@ -12,6 +12,7 @@ import { useCoverImageSrc } from '@/hooks/useCoverImageSrc'
 import { useSession } from '@/hooks/useSession'
 import { useTeamsList } from '@/hooks/useTeamsList'
 import { useOnline } from '@/hooks/use-online'
+import { observeElementIntersection } from '@/lib/browser-apis'
 import { getTeamDisplayName } from '@/lib/team-display-name'
 import {
   HUB_LIST_AVATAR_CLASS,
@@ -81,7 +82,8 @@ export function TeamsListView({ createIntent, onConsumeCreateIntent }: TeamsList
     const root = scrollRef.current
     const sentinel = sentinelRef.current
     if (!root || !sentinel) return
-    const obs = new IntersectionObserver(
+    return observeElementIntersection(
+      sentinel,
       (entries) => {
         if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
           void fetchNextPage()
@@ -89,8 +91,6 @@ export function TeamsListView({ createIntent, onConsumeCreateIntent }: TeamsList
       },
       { root, rootMargin: '120px' },
     )
-    obs.observe(sentinel)
-    return () => obs.disconnect()
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, items.length, scrollRef])
 
   const openTeam = useCallback(

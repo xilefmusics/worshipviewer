@@ -19,9 +19,28 @@ export const HUB_LISTS_STORAGE_KEY = 'tanstack-query-hub-lists'
 export const HUB_LISTS_UPDATED_AT_KEY = 'tanstack-query-hub-lists-updated-at'
 
 const dexieKvStorage: AsyncStorage<string> = {
-  getItem: (key: string) => appDb.kv.get(key).then((row) => row?.value ?? null),
-  setItem: (key: string, value: string) => appDb.kv.put({ key, value }),
-  removeItem: (key: string) => appDb.kv.delete(key),
+  getItem: async (key: string) => {
+    try {
+      const row = await appDb.kv.get(key)
+      return row?.value ?? null
+    } catch {
+      return null
+    }
+  },
+  setItem: async (key: string, value: string) => {
+    try {
+      await appDb.kv.put({ key, value })
+    } catch {
+      /* Persistence is best-effort; online usage must continue without IndexedDB. */
+    }
+  },
+  removeItem: async (key: string) => {
+    try {
+      await appDb.kv.delete(key)
+    } catch {
+      /* Persistence is best-effort; online usage must continue without IndexedDB. */
+    }
+  },
 }
 
 const hubListsStorage: AsyncStorage<string> = {

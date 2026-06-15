@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { listenToMediaQuery } from '@/lib/browser-apis'
 import { isIosOrIpadosDevice, isMacDesktopSafari } from '@/lib/platform'
 import { PwaInstallContext } from '@/pwa/pwa-install-context'
 import { cn } from '@/lib/utils'
@@ -89,12 +90,12 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
   }, [])
 
   useEffect(() => {
+    if (typeof globalThis.matchMedia !== 'function') return
     const mq = globalThis.matchMedia('(display-mode: standalone)')
     const sync = () => {
       setIsStandalone(getIsStandalone())
     }
-    mq.addEventListener('change', sync)
-    return () => mq.removeEventListener('change', sync)
+    return listenToMediaQuery(mq, sync)
   }, [])
 
   useEffect(() => {

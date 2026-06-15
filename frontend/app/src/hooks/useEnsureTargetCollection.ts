@@ -5,6 +5,7 @@ import { api } from '@/api/client'
 import type { components } from '@/api/schema'
 import { fetchCollectionsPage } from '@/api/list-fetch'
 import { parseProblemResponse } from '@/api/problem'
+import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
 import { hubListKey } from '@/lib/hub-list-keys'
 import { getNextPageIndex } from '@/lib/list-pagination'
 import { isPersonalTeamName } from '@/lib/team-display-name'
@@ -16,20 +17,12 @@ type Collection = components['schemas']['Collection']
 const LAST_COLLECTION_LS = 'wv.songCreate.lastCollectionId'
 
 function readLastCollectionFromLs(): string | null {
-  try {
-    const raw = globalThis.localStorage?.getItem(LAST_COLLECTION_LS)
-    return raw && raw.trim() ? raw.trim() : null
-  } catch {
-    return null
-  }
+  const raw = safeGetItem(LAST_COLLECTION_LS, getLocalStorage())
+  return raw && raw.trim() ? raw.trim() : null
 }
 
 export function writeLastCollectionToLs(collectionId: string) {
-  try {
-    globalThis.localStorage?.setItem(LAST_COLLECTION_LS, collectionId)
-  } catch {
-    /* ignore */
-  }
+  safeSetItem(LAST_COLLECTION_LS, collectionId, getLocalStorage())
 }
 
 export type UseEnsureTargetCollectionOptions = {

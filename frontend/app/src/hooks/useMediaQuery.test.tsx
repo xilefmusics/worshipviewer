@@ -42,4 +42,31 @@ describe('useMediaQuery viewport reflow', () => {
     const { result } = renderHook(() => useMediaQuery('(orientation: landscape)'))
     expect(result.current).toBe(true)
   })
+
+  it('falls back to Safari-style addListener and removeListener', () => {
+    let listener: (() => void) | null = null
+    const mq = {
+      matches: false,
+      media: '(min-width: 768px)',
+      addListener: vi.fn((fn: () => void) => {
+        listener = fn
+      }),
+      removeListener: vi.fn(),
+    }
+
+    vi.stubGlobal('matchMedia', () => mq)
+
+    const { result, unmount } = renderHook(() => useMediaQuery('(min-width: 768px)'))
+    expect(result.current).toBe(false)
+    expect(mq.addListener).toHaveBeenCalled()
+
+    mq.matches = true
+    act(() => {
+      listener?.()
+    })
+    expect(result.current).toBe(true)
+
+    unmount()
+    expect(mq.removeListener).toHaveBeenCalled()
+  })
 })

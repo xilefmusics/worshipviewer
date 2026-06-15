@@ -1,3 +1,5 @@
+import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
+
 export const LYRIC_COLLAPSE_WHITESPACE_STORAGE_KEY = 'wv_lyric_collapse_whitespace'
 
 export function normalizeLyricWhitespace(text: string): string {
@@ -5,16 +7,16 @@ export function normalizeLyricWhitespace(text: string): string {
 }
 
 export function readLyricCollapseWhitespacePreference(
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): boolean {
-  const raw = storage.getItem(LYRIC_COLLAPSE_WHITESPACE_STORAGE_KEY)
+  const raw = safeGetItem(LYRIC_COLLAPSE_WHITESPACE_STORAGE_KEY, storage)
   if (raw === 'false') return false
   return true
 }
 
 export function writeLyricCollapseWhitespacePreference(
   enabled: boolean,
-  storage: Pick<Storage, 'setItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem'> | null = getLocalStorage(),
 ): void {
-  storage.setItem(LYRIC_COLLAPSE_WHITESPACE_STORAGE_KEY, enabled ? 'true' : 'false')
+  safeSetItem(LYRIC_COLLAPSE_WHITESPACE_STORAGE_KEY, enabled ? 'true' : 'false', storage)
 }

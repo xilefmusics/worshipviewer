@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { observeElementResize } from '@/lib/browser-apis'
 import {
   AV_SLIDE_DESIGN_HEIGHT_PX,
   AV_SLIDE_DESIGN_WIDTH_PX,
@@ -23,10 +24,8 @@ export function AvSlideScaledStage({ children }: AvSlideScaledStageProps) {
       setViewportSize({ width: rect.width, height: rect.height })
     }
 
-    const observer = new ResizeObserver(updateSize)
-    observer.observe(el)
     updateSize()
-    return () => observer.disconnect()
+    return observeElementResize(el, updateSize)
   }, [])
 
   const scale = avSlideScaleToFitViewport(viewportSize.width, viewportSize.height)

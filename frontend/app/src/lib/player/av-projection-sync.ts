@@ -1,4 +1,5 @@
 import type { AvProjectionPayload } from '@/lib/player/av-preferences'
+import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
 
 export const AV_PROJECTION_STORAGE_PREFIX = 'wvAvProjection:'
 
@@ -23,10 +24,10 @@ export type AvProjectionSync = {
 
 export function readAvProjectionSnapshot(
   sessionId: string,
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): AvProjectionPayload | null {
   try {
-    const raw = storage.getItem(storageKey(sessionId))
+    const raw = safeGetItem(storageKey(sessionId), storage)
     if (!raw) return null
     return JSON.parse(raw) as AvProjectionPayload
   } catch {
@@ -37,14 +38,14 @@ export function readAvProjectionSnapshot(
 export function writeAvProjectionSnapshot(
   sessionId: string,
   payload: AvProjectionPayload,
-  storage: Pick<Storage, 'setItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem'> | null = getLocalStorage(),
 ): void {
-  storage.setItem(storageKey(sessionId), JSON.stringify(payload))
+  safeSetItem(storageKey(sessionId), JSON.stringify(payload), storage)
 }
 
 export function createAvProjectionSync(
   sessionId: string,
-  storage: Pick<Storage, 'getItem' | 'setItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem' | 'setItem'> | null = getLocalStorage(),
 ): AvProjectionSync {
   let channel: BroadcastChannel | null = null
   let storageTimer: ReturnType<typeof setTimeout> | null = null
@@ -90,7 +91,7 @@ export type AvProjectionListener = {
 export function subscribeAvProjectionSync(
   sessionId: string,
   onPayload: (payload: AvProjectionPayload) => void,
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): AvProjectionListener {
   const latest = readAvProjectionSnapshot(sessionId, storage)
   if (latest) onPayload(latest)

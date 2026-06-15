@@ -1,3 +1,4 @@
+import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
 import type { ChordRepresentation } from '@/ports/chord-engine'
 
 export const CHORD_FORMAT_STORAGE_KEY = 'wv_chord_format'
@@ -16,16 +17,16 @@ export function chordFormatToRepresentation(preference: ChordFormatPreference): 
 }
 
 export function readChordFormatPreference(
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): ChordFormatPreference {
-  return resolveChordFormatPreference(storage.getItem(CHORD_FORMAT_STORAGE_KEY))
+  return resolveChordFormatPreference(safeGetItem(CHORD_FORMAT_STORAGE_KEY, storage))
 }
 
 export function writeChordFormatPreference(
   preference: ChordFormatPreference,
-  storage: Pick<Storage, 'setItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem'> | null = getLocalStorage(),
 ): void {
-  storage.setItem(CHORD_FORMAT_STORAGE_KEY, preference)
+  safeSetItem(CHORD_FORMAT_STORAGE_KEY, preference, storage)
   if (typeof globalThis.window !== 'undefined') {
     globalThis.window.dispatchEvent(new CustomEvent(CHORD_FORMAT_CHANGE_EVENT, { detail: preference }))
   }
