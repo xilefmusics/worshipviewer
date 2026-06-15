@@ -3,7 +3,7 @@
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Inclusive lower and exclusive upper bound (UTC) for aggregated metrics.
+/// Inclusive UTC instant range for daily metrics.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MonitoringMetricsQuery {
     pub start: DateTime<Utc>,

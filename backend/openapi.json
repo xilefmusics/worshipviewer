@@ -31,65 +31,6 @@
         ],
         "type": "object"
       },
-      "ActivityCalendarMetrics": {
-        "properties": {
-          "dau_date": {
-            "type": "string"
-          },
-          "dau_over_mau": {
-            "format": "double",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "dau_users": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "mau_month": {
-            "type": "string"
-          },
-          "mau_users": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "wau_rolling_7d_users": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "mau_month",
-          "mau_users",
-          "dau_date",
-          "dau_users",
-          "wau_rolling_7d_users"
-        ],
-        "type": "object"
-      },
-      "AdminMonitoringMetrics": {
-        "properties": {
-          "distinct_admin_users": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "request_count": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "request_count",
-          "distinct_admin_users"
-        ],
-        "type": "object"
-      },
       "Blob": {
         "example": {
           "file_type": "image/png",
@@ -445,57 +386,6 @@
         ],
         "type": "object"
       },
-      "EngagementMetrics": {
-        "properties": {
-          "distinct_active_users_product": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "distinct_sessions_in_window": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "distinct_sessions_on_end_day": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "product_requests_with_user": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "requests_per_active_user_product": {
-            "format": "double",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "requests_per_session": {
-            "format": "double",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "sessioned_requests_in_window": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "product_requests_with_user",
-          "distinct_active_users_product",
-          "distinct_sessions_on_end_day",
-          "sessioned_requests_in_window",
-          "distinct_sessions_in_window"
-        ],
-        "type": "object"
-      },
       "ErrorResponse": {
         "deprecated": true,
         "description": "Standard error envelope returned by all API error responses.\n\n`code` is a stable, machine-readable identifier; `error` is a human-readable\ndescription.",
@@ -514,97 +404,6 @@
           "error"
         ],
         "title": "ErrorResponse",
-        "type": "object"
-      },
-      "FamilyErrorRates": {
-        "properties": {
-          "count_5xx": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "family": {
-            "$ref": "#/components/schemas/RouteFamily"
-          },
-          "rate_5xx": {
-            "format": "double",
-            "type": "number"
-          },
-          "total_requests": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "family",
-          "total_requests",
-          "count_5xx",
-          "rate_5xx"
-        ],
-        "type": "object"
-      },
-      "FamilyLatency": {
-        "properties": {
-          "family": {
-            "$ref": "#/components/schemas/RouteFamily"
-          },
-          "p95_ms": {
-            "format": "double",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "p99_ms": {
-            "format": "double",
-            "type": [
-              "number",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "family"
-        ],
-        "type": "object"
-      },
-      "FeatureFamilyMetrics": {
-        "properties": {
-          "distinct_users_in_mau_month": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "distinct_users_in_window": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "key": {
-            "type": "string"
-          },
-          "path_prefix": {
-            "type": "string"
-          },
-          "pct_of_mau": {
-            "format": "double",
-            "type": "number"
-          },
-          "request_count": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "key",
-          "path_prefix",
-          "request_count",
-          "distinct_users_in_window",
-          "distinct_users_in_mau_month",
-          "pct_of_mau"
-        ],
         "type": "object"
       },
       "FileType": {
@@ -702,37 +501,6 @@
         ],
         "type": "object"
       },
-      "IdLike404Metrics": {
-        "properties": {
-          "id_like_404_count": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "id_like_404_share_of_404": {
-            "format": "double",
-            "type": "number"
-          },
-          "top_id_like_404_paths": {
-            "items": {
-              "$ref": "#/components/schemas/TopFailingRoute"
-            },
-            "type": "array"
-          },
-          "total_404_count": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id_like_404_count",
-          "total_404_count",
-          "id_like_404_share_of_404",
-          "top_id_like_404_paths"
-        ],
-        "type": "object"
-      },
       "Kind": {
         "description": "Chord quality on the wire (`kind` field of [`ChordSchema`]).",
         "enum": [
@@ -744,41 +512,6 @@
           "Suspended4"
         ],
         "type": "string"
-      },
-      "LatencyMetrics": {
-        "properties": {
-          "by_method": {
-            "items": {
-              "$ref": "#/components/schemas/MethodLatency"
-            },
-            "type": "array"
-          },
-          "by_route_family": {
-            "items": {
-              "$ref": "#/components/schemas/FamilyLatency"
-            },
-            "type": "array"
-          },
-          "p95_ms_all": {
-            "format": "double",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "p99_ms_all": {
-            "format": "double",
-            "type": [
-              "number",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "by_route_family",
-          "by_method"
-        ],
-        "type": "object"
       },
       "LikeStatus": {
         "additionalProperties": false,
@@ -807,68 +540,91 @@
         ],
         "type": "object"
       },
-      "MethodLatency": {
+      "MonitoringDurationMetrics": {
         "properties": {
-          "method": {
-            "type": "string"
-          },
-          "p95_ms": {
-            "format": "double",
-            "type": [
-              "number",
-              "null"
-            ]
-          },
-          "p99_ms": {
-            "format": "double",
-            "type": [
-              "number",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "method"
-        ],
-        "type": "object"
-      },
-      "MetricsWindowWire": {
-        "properties": {
-          "days_spanned": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "end": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "requests_per_day": {
+          "avg": {
             "format": "double",
             "type": "number"
           },
-          "start": {
-            "format": "date-time",
-            "type": "string"
+          "avg_failure": {
+            "format": "double",
+            "type": "number"
           },
-          "total_requests": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
+          "avg_success": {
+            "format": "double",
+            "type": "number"
+          },
+          "max": {
+            "format": "double",
+            "type": "number"
+          },
+          "min": {
+            "format": "double",
+            "type": "number"
+          },
+          "p95": {
+            "format": "double",
+            "type": "number"
+          },
+          "p99": {
+            "format": "double",
+            "type": "number"
           }
         },
         "required": [
-          "start",
-          "end",
-          "days_spanned",
-          "total_requests",
-          "requests_per_day"
+          "avg",
+          "min",
+          "max",
+          "p95",
+          "p99",
+          "avg_success",
+          "avg_failure"
+        ],
+        "type": "object"
+      },
+      "MonitoringMetricWindow": {
+        "properties": {
+          "requests": {
+            "$ref": "#/components/schemas/MonitoringRequestMetrics"
+          },
+          "users": {
+            "$ref": "#/components/schemas/MonitoringUserMetrics"
+          }
+        },
+        "required": [
+          "users",
+          "requests"
+        ],
+        "type": "object"
+      },
+      "MonitoringMetricsDay": {
+        "properties": {
+          "daily": {
+            "$ref": "#/components/schemas/MonitoringMetricWindow"
+          },
+          "date": {
+            "format": "date",
+            "type": "string"
+          },
+          "monthly": {
+            "$ref": "#/components/schemas/MonitoringMetricWindow"
+          },
+          "weekly": {
+            "$ref": "#/components/schemas/MonitoringMetricWindow"
+          }
+        },
+        "required": [
+          "date",
+          "daily",
+          "weekly",
+          "monthly"
         ],
         "type": "object"
       },
       "MonitoringMetricsQuery": {
         "properties": {
           "end": {
-            "description": "Exclusive upper bound (UTC, RFC 3339).",
+            "description": "Inclusive upper bound (UTC, RFC 3339).",
             "format": "date-time",
             "type": "string"
           },
@@ -884,76 +640,122 @@
         ],
         "type": "object"
       },
-      "MonitoringMetricsResponse": {
+      "MonitoringRequestMetrics": {
         "properties": {
-          "activation_skipped_reason": {
-            "type": [
-              "string",
-              "null"
-            ]
+          "avg_per_user": {
+            "format": "double",
+            "type": "number"
           },
-          "activity_calendar": {
-            "$ref": "#/components/schemas/ActivityCalendarMetrics"
+          "client_error": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
-          "admin_monitoring": {
-            "$ref": "#/components/schemas/AdminMonitoringMetrics"
+          "duration": {
+            "$ref": "#/components/schemas/MonitoringDurationMetrics"
           },
-          "engagement": {
-            "$ref": "#/components/schemas/EngagementMetrics"
+          "error_rate": {
+            "format": "double",
+            "type": "number"
           },
-          "feature_usage": {
-            "items": {
-              "$ref": "#/components/schemas/FeatureFamilyMetrics"
-            },
-            "type": "array"
+          "failed": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
-          "latency": {
-            "$ref": "#/components/schemas/LatencyMetrics"
+          "max_per_user": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
-          "mutations": {
-            "$ref": "#/components/schemas/MutationHealthMetrics"
+          "median_per_user": {
+            "format": "double",
+            "type": "number"
           },
-          "new_user_activation": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/NewUserActivationMetrics"
-              }
-            ]
+          "p95_per_user": {
+            "format": "double",
+            "type": "number"
           },
-          "probing": {
-            "$ref": "#/components/schemas/IdLike404Metrics"
+          "server_error": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
-          "reliability": {
-            "$ref": "#/components/schemas/ReliabilityMetrics"
+          "successful": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           },
-          "top_failing_routes": {
-            "items": {
-              "$ref": "#/components/schemas/TopFailingRoute"
-            },
-            "type": "array"
-          },
-          "traffic": {
-            "$ref": "#/components/schemas/TrafficMetrics"
-          },
-          "window": {
-            "$ref": "#/components/schemas/MetricsWindowWire"
+          "total": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "required": [
-          "window",
-          "reliability",
-          "latency",
-          "activity_calendar",
-          "traffic",
-          "top_failing_routes",
-          "feature_usage",
-          "mutations",
-          "engagement",
-          "admin_monitoring",
-          "probing"
+          "total",
+          "successful",
+          "failed",
+          "client_error",
+          "server_error",
+          "error_rate",
+          "duration",
+          "avg_per_user",
+          "median_per_user",
+          "p95_per_user",
+          "max_per_user"
+        ],
+        "type": "object"
+      },
+      "MonitoringUserMetrics": {
+        "properties": {
+          "active": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "churn_rate": {
+            "format": "double",
+            "type": "number"
+          },
+          "churned": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "net_growth": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "new": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "retained": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "retention_rate": {
+            "format": "double",
+            "type": "number"
+          },
+          "returning_users": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "active",
+          "new",
+          "returning_users",
+          "retained",
+          "churned",
+          "net_growth",
+          "retention_rate",
+          "churn_rate"
         ],
         "type": "object"
       },
@@ -970,61 +772,6 @@
         },
         "required": [
           "owner"
-        ],
-        "type": "object"
-      },
-      "MutationHealthMetrics": {
-        "properties": {
-          "mutations_2xx": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "mutations_4xx": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "mutations_5xx": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "total_mutations": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "total_mutations",
-          "mutations_2xx",
-          "mutations_4xx",
-          "mutations_5xx"
-        ],
-        "type": "object"
-      },
-      "NewUserActivationMetrics": {
-        "properties": {
-          "activated_within_7d": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "activation_rate": {
-            "format": "double",
-            "type": "number"
-          },
-          "new_users_in_window": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "new_users_in_window",
-          "activated_within_7d",
-          "activation_rate"
         ],
         "type": "object"
       },
@@ -1560,104 +1307,6 @@
         "title": "ProblemDetails",
         "type": "object"
       },
-      "ReliabilityMetrics": {
-        "properties": {
-          "authenticated_share": {
-            "format": "double",
-            "type": "number"
-          },
-          "count_401_all": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "count_401_api_v1": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "count_403_all": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "count_429_all": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "count_5xx_all": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "error_count_all": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "error_count_api_v1": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "error_rate_all": {
-            "description": "`status_code >= 400` / total in window.",
-            "format": "double",
-            "type": "number"
-          },
-          "error_rate_api_v1": {
-            "description": "Same, paths under `/api/v1/`.",
-            "format": "double",
-            "type": "number"
-          },
-          "five_xx_by_route_family": {
-            "items": {
-              "$ref": "#/components/schemas/FamilyErrorRates"
-            },
-            "type": "array"
-          },
-          "rate_401_all": {
-            "format": "double",
-            "type": "number"
-          },
-          "rate_401_api_v1": {
-            "format": "double",
-            "type": "number"
-          },
-          "rate_403_all": {
-            "format": "double",
-            "type": "number"
-          },
-          "rate_429_all": {
-            "format": "double",
-            "type": "number"
-          },
-          "rate_5xx_all": {
-            "format": "double",
-            "type": "number"
-          }
-        },
-        "required": [
-          "error_rate_all",
-          "error_count_all",
-          "error_rate_api_v1",
-          "error_count_api_v1",
-          "rate_5xx_all",
-          "count_5xx_all",
-          "rate_401_all",
-          "count_401_all",
-          "rate_403_all",
-          "count_403_all",
-          "rate_401_api_v1",
-          "count_401_api_v1",
-          "rate_429_all",
-          "count_429_all",
-          "five_xx_by_route_family",
-          "authenticated_share"
-        ],
-        "type": "object"
-      },
       "Role": {
         "enum": [
           "default",
@@ -1671,15 +1320,6 @@
           "default",
           "prefer_sharp",
           "prefer_flat"
-        ],
-        "type": "string"
-      },
-      "RouteFamily": {
-        "enum": [
-          "api_v1",
-          "auth",
-          "docs",
-          "other"
         ],
         "type": "string"
       },
@@ -2304,59 +1944,6 @@
           "title",
           "nr",
           "liked"
-        ],
-        "type": "object"
-      },
-      "TopFailingRoute": {
-        "properties": {
-          "error_count": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "path": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "path",
-          "error_count"
-        ],
-        "type": "object"
-      },
-      "TrafficMetrics": {
-        "properties": {
-          "mix": {
-            "items": {
-              "$ref": "#/components/schemas/TrafficMixEntry"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "mix"
-        ],
-        "type": "object"
-      },
-      "TrafficMixEntry": {
-        "properties": {
-          "count": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "family": {
-            "$ref": "#/components/schemas/RouteFamily"
-          },
-          "share": {
-            "format": "double",
-            "type": "number"
-          }
-        },
-        "required": [
-          "family",
-          "count",
-          "share"
         ],
         "type": "object"
       },
@@ -4967,7 +4554,7 @@
             }
           },
           {
-            "description": "Exclusive upper bound (UTC, RFC 3339).",
+            "description": "Inclusive upper bound (UTC, RFC 3339).",
             "in": "query",
             "name": "end",
             "required": true,
@@ -4982,11 +4569,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MonitoringMetricsResponse"
+                  "items": {
+                    "$ref": "#/components/schemas/MonitoringMetricsDay"
+                  },
+                  "type": "array"
                 }
               }
             },
-            "description": "Aggregated HTTP audit metrics for `[start, end)` (UTC). Rates are 0.0–1.0."
+            "description": "Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps. Rates are 0.0–1.0."
           },
           "400": {
             "content": {
@@ -4996,7 +4586,7 @@
                 }
               }
             },
-            "description": "Invalid or disallowed time window"
+            "description": "Invalid or disallowed date range"
           },
           "401": {
             "content": {

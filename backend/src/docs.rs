@@ -9,11 +9,8 @@ use shared::AboutResponse;
 use crate::resources::blob::PatchBlob;
 use crate::resources::collection::PatchCollection;
 use crate::resources::monitoring::{
-    ActivityCalendarMetrics, AdminMonitoringMetrics, EngagementMetrics, FamilyErrorRates,
-    FamilyLatency, FeatureFamilyMetrics, HttpAuditLog, IdLike404Metrics, LatencyMetrics,
-    MethodLatency, MetricsWindowWire, MonitoringMetricsQuery, MonitoringMetricsResponse,
-    MutationHealthMetrics, NewUserActivationMetrics, ReliabilityMetrics, RouteFamily,
-    TopFailingRoute, TrafficMetrics, TrafficMixEntry,
+    HttpAuditLog, MonitoringDurationMetrics, MonitoringMetricWindow, MonitoringMetricsDay,
+    MonitoringMetricsQuery, MonitoringRequestMetrics, MonitoringUserMetrics,
 };
 use crate::resources::setlist::PatchSetlist;
 use crate::resources::song::{PatchSong, PatchSongData};
@@ -266,24 +263,11 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
             TeamInvitation,
             HttpAuditLog,
             MonitoringMetricsQuery,
-            MonitoringMetricsResponse,
-            MetricsWindowWire,
-            ReliabilityMetrics,
-            FamilyErrorRates,
-            RouteFamily,
-            LatencyMetrics,
-            FamilyLatency,
-            MethodLatency,
-            ActivityCalendarMetrics,
-            TrafficMetrics,
-            TrafficMixEntry,
-            TopFailingRoute,
-            FeatureFamilyMetrics,
-            MutationHealthMetrics,
-            EngagementMetrics,
-            AdminMonitoringMetrics,
-            NewUserActivationMetrics,
-            IdLike404Metrics
+            MonitoringMetricsDay,
+            MonitoringMetricWindow,
+            MonitoringUserMetrics,
+            MonitoringRequestMetrics,
+            MonitoringDurationMetrics
         )
     ),
     tags(
