@@ -39,10 +39,11 @@ export async function runOrderedSongsPdfExport(
   title: string,
   links: HubExportSongLink[],
   chordFormat: ChordFormatPreference,
+  hideChords?: boolean,
 ): Promise<void> {
   const songs = await hydrateSongLinksForHubExport(queryClient, links)
   const engine = await getChordEngine()
-  await exportSetlistPdf(engine, title, songs, chordFormat)
+  await exportSetlistPdf(engine, title, songs, chordFormat, hideChords)
 }
 
 export async function runOrderedSongsZipExport(
@@ -51,8 +52,9 @@ export async function runOrderedSongsZipExport(
   links: HubExportSongLink[],
   format: TextExportFormat,
   chordFormat: ChordFormatPreference,
+  hideChords?: boolean,
 ): Promise<void> {
   const songs = await hydrateSongLinksForHubExport(queryClient, links)
   const engine = await getChordEngine()
-  await exportOrderedSongsZip(engine, title, songs, format, chordFormat)
+  await exportOrderedSongsZip(engine, title, songs, format, chordFormat, hideChords)
 }

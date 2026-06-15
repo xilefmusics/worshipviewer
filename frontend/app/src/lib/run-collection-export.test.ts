@@ -35,6 +35,7 @@ describe('runCollectionExport', () => {
       'Hymns',
       expect.any(Array),
       'letters',
+      undefined,
     )
   })
 
@@ -46,6 +47,18 @@ describe('runCollectionExport', () => {
       expect.any(Array),
       'worshippro',
       'nashville',
+      undefined,
+    )
+  })
+
+  it('forwards hide chords preference', async () => {
+    await runCollectionExport(queryClient, 'coll-1', 'pdf', 'letters', true)
+    expect(runOrderedSongsPdfExport).toHaveBeenCalledWith(
+      queryClient,
+      'Hymns',
+      expect.any(Array),
+      'letters',
+      true,
     )
   })
 })

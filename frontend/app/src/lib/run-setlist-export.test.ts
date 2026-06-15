@@ -35,6 +35,7 @@ describe('runSetlistExport', () => {
       'Sunday',
       expect.any(Array),
       'letters',
+      undefined,
     )
     expect(runOrderedSongsZipExport).not.toHaveBeenCalled()
   })
@@ -47,6 +48,18 @@ describe('runSetlistExport', () => {
       expect.any(Array),
       'chordpro',
       'nashville',
+      undefined,
+    )
+  })
+
+  it('forwards hide chords preference', async () => {
+    await runSetlistExport(queryClient, 'sl-1', 'pdf', 'letters', true)
+    expect(runOrderedSongsPdfExport).toHaveBeenCalledWith(
+      queryClient,
+      'Sunday',
+      expect.any(Array),
+      'letters',
+      true,
     )
   })
 })

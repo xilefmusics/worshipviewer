@@ -16,14 +16,15 @@ export async function runSetlistExport(
   setlistId: string,
   kind: SetlistExportKind,
   chordFormat: ChordFormatPreference,
+  hideChords?: boolean,
 ): Promise<void> {
   const detail = await fetchSetlistDetail(queryClient, { id: setlistId })
   const links = normalizeSongLinksForEditor(detail.songs)
   if (kind === 'pdf') {
-    await runOrderedSongsPdfExport(queryClient, detail.title, links, chordFormat)
+    await runOrderedSongsPdfExport(queryClient, detail.title, links, chordFormat, hideChords)
     return
   }
-  await runOrderedSongsZipExport(queryClient, detail.title, links, kind, chordFormat)
+  await runOrderedSongsZipExport(queryClient, detail.title, links, kind, chordFormat, hideChords)
 }
 
 /** @deprecated Use {@link runSetlistExport}. */
