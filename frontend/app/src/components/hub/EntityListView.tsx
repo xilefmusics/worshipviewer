@@ -51,6 +51,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
+import { useHideChordsPreference } from '@/hooks/useHideChordsPreference'
 import { useHubSearch } from '@/hooks/useHubSearch'
 import { useCoverImageSrc } from '@/hooks/useCoverImageSrc'
 import { useDeleteHubEntity, HubDeleteConflictError } from '@/hooks/useDeleteHubEntity'
@@ -560,6 +561,7 @@ function HubItemContextMenu({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const chordFormat = useChordFormatPreference()
+  const hideChords = useHideChordsPreference()
   const [editHot, setEditHot] = useState(false)
   const [playHot, setPlayHot] = useState(false)
   const [addToSetlistHot, setAddToSetlistHot] = useState(false)
@@ -635,9 +637,9 @@ function HubItemContextMenu({
       const toastId = toast.loading(t('hub.actions.exportPreparing'))
       try {
         if (entity === 'setlists') {
-          await runSetlistExport(queryClient, itemId, kind, chordFormat)
+          await runSetlistExport(queryClient, itemId, kind, chordFormat, hideChords)
         } else if (entity === 'collections') {
-          await runCollectionExport(queryClient, itemId, kind, chordFormat)
+          await runCollectionExport(queryClient, itemId, kind, chordFormat, hideChords)
         }
         toast.dismiss(toastId)
       } catch (e) {
@@ -651,7 +653,7 @@ function HubItemContextMenu({
         console.error(`${entity} export failed`, e)
       }
     },
-    [chordFormat, entity, itemId, queryClient, t],
+    [chordFormat, entity, hideChords, itemId, queryClient, t],
   )
 
   const onSongExport = useCallback(
@@ -659,7 +661,7 @@ function HubItemContextMenu({
       if (!hubSong) return
       const toastId = toast.loading(t('hub.actions.exportPreparing'))
       try {
-        await runSongExport(hubSong.data as Record<string, unknown>, kind, chordFormat)
+        await runSongExport(hubSong.data as Record<string, unknown>, kind, chordFormat, undefined, hideChords)
         toast.dismiss(toastId)
       } catch (e) {
         toast.dismiss(toastId)
@@ -668,7 +670,7 @@ function HubItemContextMenu({
         console.error('Song export failed', e)
       }
     },
-    [chordFormat, hubSong, t],
+    [chordFormat, hideChords, hubSong, t],
   )
 
   const onSaveOffline = useCallback(async () => {

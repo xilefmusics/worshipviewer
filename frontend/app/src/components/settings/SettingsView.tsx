@@ -53,6 +53,10 @@ import {
   writeSheetBackgroundPreference,
 } from '@/lib/sheet-background'
 import {
+  readHideChordsPreference,
+  writeHideChordsPreference,
+} from '@/lib/hide-chords-preference'
+import {
   readSheetImageInvertPreference,
   writeSheetImageInvertPreference,
 } from '@/lib/sheet-image-invert-preference'
@@ -307,6 +311,7 @@ export function SettingsView({
   const [localePreference, setLocalePreferenceState] = useState(getLocalePreference)
   const [appearancePreference, setAppearancePreference] = useState(readAppearancePreference)
   const [chordFormatPreference, setChordFormatPreference] = useState(readChordFormatPreference)
+  const [hideChords, setHideChordsState] = useState(readHideChordsPreference)
   const [sheetBackgroundPreference, setSheetBackgroundPreference] = useState(readSheetBackgroundPreference)
   const [invertSheetImages, setInvertSheetImagesState] = useState(readSheetImageInvertPreference)
   const [layoutPreferences, setLayoutPreferences] = useState(readPlayerLayoutPreferences)
@@ -541,6 +546,11 @@ export function SettingsView({
   function setChordFormat(next: ChordFormatPreference) {
     setChordFormatPreference(next)
     writeChordFormatPreference(next)
+  }
+
+  function setHideChords(enabled: boolean) {
+    setHideChordsState(enabled)
+    writeHideChordsPreference(enabled)
   }
 
   function setSheetBackground(next: SheetBackgroundPreference) {
@@ -829,6 +839,26 @@ export function SettingsView({
             value={chordFormatPreference}
             onChange={setChordFormat}
           />
+
+          <Card>
+            <CardContent className="p-4">
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
+                  aria-label={t('settings.hideChords.label')}
+                  checked={hideChords}
+                  onChange={(e) => setHideChords(e.target.checked)}
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span>{t('settings.hideChords.label')}</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
+                    {t('settings.hideChords.description')}
+                  </span>
+                </span>
+              </label>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader className="p-4 pb-3">

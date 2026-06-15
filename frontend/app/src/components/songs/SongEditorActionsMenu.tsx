@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { useHideChordsPreference } from '@/hooks/useHideChordsPreference'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,6 +61,7 @@ export function SongEditorActionsMenu({
   playDisabled,
 }: SongEditorActionsMenuProps) {
   const { t } = useTranslation()
+  const hideChords = useHideChordsPreference()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [replaceOpen, setReplaceOpen] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
@@ -107,13 +109,13 @@ export function SongEditorActionsMenu({
       if (!exportData) return
       onExportError?.(null)
       try {
-        await runSongExport(exportData, kind, chordFormat, engine ?? undefined)
+        await runSongExport(exportData, kind, chordFormat, engine ?? undefined, hideChords)
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e)
         onExportError?.(message || t('songs.editor.exportFailed'))
       }
     },
-    [chordFormat, engine, exportData, onExportError, t],
+    [chordFormat, engine, exportData, hideChords, onExportError, t],
   )
 
   return (
