@@ -148,6 +148,13 @@ pub async fn song_links_to_owned(
     let records: Vec<SongRecord> = response
         .take(0)
         .map_err(|e| crate::log_and_convert!(AppError::database, "song.batch_by_id.take", e))?;
+    song_link_records_to_owned(links, records)
+}
+
+fn song_link_records_to_owned(
+    links: Vec<SongLinkRecord>,
+    records: Vec<SongRecord>,
+) -> Result<Vec<SongLinkOwned>, AppError> {
     let mut by_id: HashMap<String, SongRecord> = HashMap::with_capacity(records.len());
     for r in records {
         let Some(ref rid) = r.id else {
@@ -158,7 +165,7 @@ pub async fn song_links_to_owned(
     let mut out = Vec::with_capacity(links.len());
     for link in links {
         let sid = record_id_string(&link.id);
-        let rec = by_id.remove(&sid).ok_or_else(|| {
+        let rec = by_id.get(&sid).cloned().ok_or_else(|| {
             AppError::database(
                 "referenced song not found (collection or setlist data may be inconsistent)",
             )
@@ -212,6 +219,8 @@ impl From<SongLink> for SongLinkRecord {
 mod tests {
     use std::collections::HashSet;
 
+    use chordlib::types::Song as SongData;
+    use shared::song::CreateSong;
     use shared::song::Song;
     use surrealdb::types::RecordId;
 
@@ -307,5 +316,41 @@ mod tests {
         assert_eq!(toc.len(), 2);
         assert_eq!(toc[0].nr, "1");
         assert_eq!(toc[1].nr, "x");
+    }
+
+    #[test]
+    fn song_link_records_to_owned_allows_duplicate_song_links() {
+        let links = vec![
+            SongLinkRecord {
+                id: RecordId::new("song", "dup"),
+                nr: Some("1".into()),
+                key: None,
+                tempo: None,
+            },
+            SongLinkRecord {
+                id: RecordId::new("song", "dup"),
+                nr: Some("2".into()),
+                key: None,
+                tempo: None,
+            },
+        ];
+        let records = vec![SongRecord::from_payload(
+            Some(RecordId::new("song", "dup")),
+            Some(RecordId::new("team", "team-1")),
+            CreateSong {
+                collection: "collection-1".into(),
+                not_a_song: false,
+                blobs: vec![],
+                data: SongData::default(),
+            },
+        )];
+
+        let owned = song_link_records_to_owned(links, records).unwrap();
+
+        assert_eq!(owned.len(), 2);
+        assert_eq!(owned[0].song.id, "dup");
+        assert_eq!(owned[1].song.id, "dup");
+        assert_eq!(owned[0].nr.as_deref(), Some("1"));
+        assert_eq!(owned[1].nr.as_deref(), Some("2"));
     }
 }

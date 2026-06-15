@@ -273,12 +273,13 @@ impl Add for Player {
         }
         let self_len = self.items.len();
         let last_self_item = self.items.last().expect("non-empty").clone();
+        let skip_leading_shared_blob = |item: &PlayerItem| matches!((&last_self_item, item), (PlayerItem::Blob(a), PlayerItem::Blob(b)) if a == b);
         Self {
             toc: self
                 .toc
                 .into_iter()
                 .chain(other.toc.iter().map(|item| TocItem {
-                    idx: if !other.items.is_empty() && self.items.last() == other.items.first() {
+                    idx: if other.items.first().is_some_and(skip_leading_shared_blob) {
                         item.idx + self_len.saturating_sub(1)
                     } else {
                         item.idx + self_len
@@ -292,12 +293,7 @@ impl Add for Player {
             items: self
                 .items
                 .into_iter()
-                .chain(
-                    other
-                        .items
-                        .into_iter()
-                        .skip_while(|item| *item == last_self_item),
-                )
+                .chain(other.items.into_iter().skip_while(skip_leading_shared_blob))
                 .collect(),
             scroll_type: self.scroll_type,
             scroll_type_cache_other_orientation: self.scroll_type_cache_other_orientation,
@@ -406,5 +402,50 @@ mod tests {
             PlayerItem::Chords(chords) => assert_eq!(chords.song.data.tempo, Some(120)),
             _ => panic!("expected chords player item"),
         }
+    }
+
+    #[test]
+    fn add_keeps_identical_chord_songs_as_separate_items() {
+        let song = song_with_tempo(Some(120));
+        let link = |song: Song| SongLinkOwned {
+            song,
+            nr: None,
+            key: None,
+            tempo: None,
+            liked: false,
+        };
+        let player = Player::from(link(song.clone())) + Player::from(link(song));
+
+        assert_eq!(player.items.len(), 2);
+        assert!(matches!(player.items[0], PlayerItem::Chords(_)));
+        assert!(matches!(player.items[1], PlayerItem::Chords(_)));
+        assert_eq!(player.toc.len(), 2);
+        assert_eq!(player.toc[0].idx, 0);
+        assert_eq!(player.toc[1].idx, 1);
+    }
+
+    #[test]
+    fn add_condenses_identical_adjacent_blob_items() {
+        let song = Song {
+            id: "blob-song".into(),
+            blobs: vec![crate::blob::BlobLink {
+                id: "blob-1".into(),
+            }],
+            ..Default::default()
+        };
+        let link = |song: Song| SongLinkOwned {
+            song,
+            nr: None,
+            key: None,
+            tempo: None,
+            liked: false,
+        };
+        let player = Player::from(link(song.clone())) + Player::from(link(song));
+
+        assert_eq!(player.items.len(), 1);
+        assert!(matches!(player.items[0], PlayerItem::Blob(_)));
+        assert_eq!(player.toc.len(), 2);
+        assert_eq!(player.toc[0].idx, 0);
+        assert_eq!(player.toc[1].idx, 0);
     }
 }
