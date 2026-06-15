@@ -1355,6 +1355,234 @@ mod list_pagination {
 }
 
 #[cfg(test)]
+mod team_filter {
+    use super::*;
+    use actix_web::http::StatusCode;
+    use actix_web::http::header::{HeaderName, LINK};
+    use shared::api::ListQuery;
+    use shared::collection::CreateCollection;
+    use shared::setlist::CreateSetlist;
+    use shared::song::CreateSong;
+
+    use crate::test_helpers::{
+        auth_ctx_for_user, collection_service, minimal_song_data, setlist_service,
+        two_shared_teams_for_user,
+    };
+
+    async fn authed_user_and_token(db: &Arc<Database>, email: &str) -> (User, String) {
+        let user = create_user(db, email).await.unwrap();
+        let token = create_session_token(db, user.clone()).await.unwrap();
+        (user, token)
+    }
+
+    fn total_count(resp: &actix_web::dev::ServiceResponse) -> u64 {
+        resp.headers()
+            .get(HeaderName::from_static("x-total-count"))
+            .expect("X-Total-Count")
+            .to_str()
+            .expect("total count header")
+            .parse()
+            .expect("numeric total count")
+    }
+
+    async fn seed_team_filter_data(db: &Arc<Database>, user: &User) -> (String, String) {
+        let (team_a, team_b) = two_shared_teams_for_user(db, user).await.expect("teams");
+        let ctx = auth_ctx_for_user(db, user).await.expect("auth");
+
+        let coll_svc = collection_service(db);
+        let collection_a = coll_svc
+            .create_collection_for_user(
+                &ctx,
+                CreateCollection {
+                    owner: Some(team_a.clone()),
+                    title: "Team A Collection".into(),
+                    cover: "mysongs".into(),
+                    songs: vec![],
+                },
+            )
+            .await
+            .expect("collection a");
+        coll_svc
+            .create_collection_for_user(
+                &ctx,
+                CreateCollection {
+                    owner: Some(team_a.clone()),
+                    title: "Team A Collection 2".into(),
+                    cover: "mysongs".into(),
+                    songs: vec![],
+                },
+            )
+            .await
+            .expect("collection a 2");
+        let collection_b = coll_svc
+            .create_collection_for_user(
+                &ctx,
+                CreateCollection {
+                    owner: Some(team_b.clone()),
+                    title: "Team B Collection".into(),
+                    cover: "mysongs".into(),
+                    songs: vec![],
+                },
+            )
+            .await
+            .expect("collection b");
+
+        let song_svc = crate::test_helpers::song_service(db);
+        for (collection, title) in [
+            (collection_a.id.as_str(), "Team A Song 1"),
+            (collection_a.id.as_str(), "Team A Song 2"),
+            (collection_b.id.as_str(), "Team B Song"),
+        ] {
+            let mut data = minimal_song_data();
+            data.titles = vec![title.to_string()];
+            song_svc
+                .create_song_for_user(
+                    &ctx,
+                    CreateSong {
+                        collection: collection.to_string(),
+                        not_a_song: false,
+                        blobs: vec![],
+                        data,
+                    },
+                )
+                .await
+                .expect("song");
+        }
+
+        let setlist_svc = setlist_service(db);
+        for (owner, title) in [
+            (team_a.as_str(), "Team A Setlist 1"),
+            (team_a.as_str(), "Team A Setlist 2"),
+            (team_b.as_str(), "Team B Setlist"),
+        ] {
+            setlist_svc
+                .create_setlist_for_user(
+                    &ctx,
+                    CreateSetlist {
+                        owner: Some(owner.to_string()),
+                        title: title.into(),
+                        songs: vec![],
+                    },
+                )
+                .await
+                .expect("setlist");
+        }
+
+        (team_a, team_b)
+    }
+
+    async fn assert_team_filter_for_endpoint(path: &str, owner_field: &str) {
+        let db = test_db().await.unwrap();
+        let (user, token) = authed_user_and_token(&db, "team-filter-owner@test.local").await;
+        let (team_a, _) = seed_team_filter_data(&db, &user).await;
+        let app = test::init_service(build_app(db.clone())).await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("{path}?team={team_a}"))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(total_count(&resp), 2);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        let items = body.as_array().expect("array");
+        assert_eq!(items.len(), 2);
+        assert!(
+            items
+                .iter()
+                .all(|item| item[owner_field].as_str() == Some(team_a.as_str())),
+            "all returned items should belong to requested team"
+        );
+    }
+
+    #[actix_web::test]
+    async fn team_filter_limits_songs_to_requested_team() {
+        assert_team_filter_for_endpoint("/api/v1/songs", "owner").await;
+    }
+
+    #[actix_web::test]
+    async fn team_filter_limits_collections_to_requested_team() {
+        assert_team_filter_for_endpoint("/api/v1/collections", "owner").await;
+    }
+
+    #[actix_web::test]
+    async fn team_filter_limits_setlists_to_requested_team() {
+        assert_team_filter_for_endpoint("/api/v1/setlists", "owner").await;
+    }
+
+    #[actix_web::test]
+    async fn team_filter_link_header_preserves_team() {
+        let db = test_db().await.unwrap();
+        let (user, token) = authed_user_and_token(&db, "team-filter-link@test.local").await;
+        let (team_a, _) = seed_team_filter_data(&db, &user).await;
+        let app = test::init_service(build_app(db.clone())).await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/songs?team={team_a}&page=0&page_size=1"))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(total_count(&resp), 2);
+        let link = resp
+            .headers()
+            .get(LINK)
+            .expect("Link header")
+            .to_str()
+            .expect("link header string");
+        assert!(link.contains(&format!("team={team_a}")), "got {link}");
+    }
+
+    #[actix_web::test]
+    async fn team_filter_invalid_values_return_400() {
+        let db = test_db().await.unwrap();
+        let (_, token) = authed_user_and_token(&db, "team-filter-invalid@test.local").await;
+        let app = test::init_service(build_app(db.clone())).await;
+
+        for uri in ["/api/v1/songs?team=", "/api/v1/songs?team=team:abc"] {
+            let req = test::TestRequest::get()
+                .uri(uri)
+                .insert_header(("Authorization", format!("Bearer {token}")))
+                .to_request();
+            let resp = test::call_service(&app, req).await;
+            assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "uri {uri}");
+            let body: serde_json::Value = test::read_body_json(resp).await;
+            assert_eq!(body["code"], "invalid_request");
+        }
+    }
+
+    #[actix_web::test]
+    async fn team_filter_inaccessible_team_returns_empty_results() {
+        let db = test_db().await.unwrap();
+        let (owner, _) = authed_user_and_token(&db, "team-filter-access-owner@test.local").await;
+        let (team_a, _) = seed_team_filter_data(&db, &owner).await;
+        let (_, token) = authed_user_and_token(&db, "team-filter-access-other@test.local").await;
+        let app = test::init_service(build_app(db.clone())).await;
+
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/songs?team={team_a}"))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(total_count(&resp), 0);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        assert!(body.as_array().expect("array").is_empty());
+    }
+
+    #[actix_web::test]
+    async fn list_query_preserves_team_in_pagination_links() {
+        assert_eq!(
+            ListQuery::new()
+                .with_team("abc")
+                .with_page_size(1)
+                .query_string_for_page(2),
+            "page=2&page_size=1&team=abc"
+        );
+    }
+}
+
+#[cfg(test)]
 mod monitoring_http {
     use super::*;
     use actix_web::http::StatusCode;

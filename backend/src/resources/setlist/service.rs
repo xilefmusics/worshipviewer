@@ -9,7 +9,7 @@ use tracing::instrument;
 
 use crate::auth::AuthorizationContext;
 use crate::error::AppError;
-use crate::resources::common::resolve_owner_team;
+use crate::resources::common::{read_teams_for_query, resolve_owner_team};
 use crate::resources::song::LikedSongIds;
 use crate::resources::team::{parse_owner_record_id, thing_record_key};
 
@@ -36,7 +36,7 @@ impl<R: SetlistRepository, L: LikedSongIds> SetlistService<R, L> {
         ctx: &AuthorizationContext,
         pagination: ListQuery,
     ) -> Result<Vec<Setlist>, AppError> {
-        let read_teams = ctx.read_teams();
+        let read_teams = read_teams_for_query(&ctx.read_teams(), pagination.team.as_deref())?;
         self.repo.get_setlists(&read_teams, pagination).await
     }
 
@@ -44,10 +44,12 @@ impl<R: SetlistRepository, L: LikedSongIds> SetlistService<R, L> {
     pub async fn count_setlists_for_user(
         &self,
         ctx: &AuthorizationContext,
-        q: Option<&str>,
+        query: &ListQuery,
     ) -> Result<u64, AppError> {
-        let read_teams = ctx.read_teams();
-        self.repo.count_setlists(&read_teams, q).await
+        let read_teams = read_teams_for_query(&ctx.read_teams(), query.team.as_deref())?;
+        self.repo
+            .count_setlists(&read_teams, query.q.as_deref())
+            .await
     }
 
     #[instrument(level = "debug", err, skip(self, ctx))]

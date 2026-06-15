@@ -78,6 +78,25 @@ pub fn team_thing(id: &str) -> Result<RecordId, AppError> {
     Ok(RecordId::new(tb, sid))
 }
 
+/// Narrow readable teams by an optional plain team id query filter.
+pub fn read_teams_for_query(
+    read_teams: &[RecordId],
+    team: Option<&str>,
+) -> Result<Vec<RecordId>, AppError> {
+    let Some(team) = team else {
+        return Ok(read_teams.to_vec());
+    };
+    if team.trim().is_empty() {
+        return Err(AppError::invalid_request("team must not be empty"));
+    }
+    let team = team_thing(team)?;
+    if read_teams.contains(&team) {
+        Ok(vec![team])
+    } else {
+        Ok(Vec::new())
+    }
+}
+
 /// Resolve optional `owner` from PUT/PATCH bodies: must be a team the caller may write.
 pub fn resolve_owner_team(
     write_teams: &[RecordId],

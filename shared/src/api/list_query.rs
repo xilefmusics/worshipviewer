@@ -10,6 +10,7 @@ pub struct ListQuery {
     pub page: Option<u32>,
     pub page_size: Option<u32>,
     pub q: Option<String>,
+    pub team: Option<String>,
 }
 
 impl ListQuery {
@@ -32,6 +33,11 @@ impl ListQuery {
         self
     }
 
+    pub fn with_team(mut self, team: impl Into<String>) -> Self {
+        self.team = Some(team.into());
+        self
+    }
+
     /// Validate the query parameters and return `Err` with a human-readable
     /// message when they are out of range.
     ///
@@ -44,6 +50,14 @@ impl ListQuery {
             }
             if ps > PAGE_SIZE_MAX {
                 return Err(format!("page_size must not exceed {PAGE_SIZE_MAX}"));
+            }
+        }
+        if let Some(ref team) = self.team {
+            if team.trim().is_empty() {
+                return Err("team must not be empty".into());
+            }
+            if team.contains(':') {
+                return Err("invalid team id".into());
             }
         }
         Ok(self)
@@ -107,6 +121,9 @@ impl ListQuery {
         if let Some(ref q) = self.q {
             parts.push(format!("q={}", encode_query_value(q)));
         }
+        if let Some(ref team) = self.team {
+            parts.push(format!("team={}", encode_query_value(team)));
+        }
         if parts.is_empty() {
             String::new()
         } else {
@@ -114,7 +131,7 @@ impl ListQuery {
         }
     }
 
-    /// Query string without `?`, with `page` overridden (keeps `page_size`, `q`).
+    /// Query string without `?`, with `page` overridden (keeps `page_size`, `q`, `team`).
     pub fn query_string_for_page(&self, page: u32) -> String {
         let mut q = self.clone();
         q.page = Some(page);
@@ -152,6 +169,7 @@ impl PageQuery {
             page: self.page,
             page_size: self.page_size,
             q: None,
+            team: None,
         }
         .validate()
         .map(|lq| Self {
@@ -165,6 +183,7 @@ impl PageQuery {
             page: self.page,
             page_size: self.page_size,
             q: None,
+            team: None,
         }
     }
 

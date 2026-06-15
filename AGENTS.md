@@ -69,6 +69,10 @@ pnpm -C frontend test
 
 Add or update tests when you change behavior. Do not delete or skip tests to make the suite pass.
 
+When backend API behavior changes, also update the relevant
+`docs/business-logic-constraints/` page(s) in the same change and add/update
+HTTP/API coverage for the public contract.
+
 ### 4. Build (when you changed build inputs)
 
 ```bash

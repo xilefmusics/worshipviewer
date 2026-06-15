@@ -16,7 +16,9 @@ use crate::auth::AuthorizationContext;
 use crate::database::Database;
 use crate::error::AppError;
 use crate::resources::blob::service::BlobServiceHandle;
-use crate::resources::common::{player_from_song_links, resolve_owner_team, song_thing};
+use crate::resources::common::{
+    player_from_song_links, read_teams_for_query, resolve_owner_team, song_thing,
+};
 use crate::resources::song::LikedSongIds;
 use crate::resources::team::{parse_owner_record_id, thing_record_key};
 use crate::resources::user::profile_picture;
@@ -71,7 +73,7 @@ impl<R: CollectionRepository, L: LikedSongIds> CollectionService<R, L> {
         ctx: &AuthorizationContext,
         pagination: ListQuery,
     ) -> Result<Vec<Collection>, AppError> {
-        let read_teams = ctx.read_teams();
+        let read_teams = read_teams_for_query(&ctx.read_teams(), pagination.team.as_deref())?;
         self.repo.get_collections(&read_teams, pagination).await
     }
 
@@ -79,10 +81,12 @@ impl<R: CollectionRepository, L: LikedSongIds> CollectionService<R, L> {
     pub async fn count_collections_for_user(
         &self,
         ctx: &AuthorizationContext,
-        q: Option<&str>,
+        query: &ListQuery,
     ) -> Result<u64, AppError> {
-        let read_teams = ctx.read_teams();
-        self.repo.count_collections(&read_teams, q).await
+        let read_teams = read_teams_for_query(&ctx.read_teams(), query.team.as_deref())?;
+        self.repo
+            .count_collections(&read_teams, query.q.as_deref())
+            .await
     }
 
     #[instrument(level = "debug", err, skip(self, ctx))]

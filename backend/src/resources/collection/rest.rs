@@ -48,7 +48,8 @@ pub fn scope(cover_upload_max_bytes: usize) -> Scope {
     params(
         ("page" = Option<u32>, Query, description = "Zero-based page (default 0). `X-Total-Count` = filtered total before pagination; last page when `items.len() < page_size` or empty (`list-pagination.md`).", minimum = 0, nullable = true),
         ("page_size" = Option<u32>, Query, description = "Items per page. Must be 1–500. Defaults to 50.", minimum = 1, maximum = 500, example = 50, nullable = true),
-        ("q" = Option<String>, Query, description = "Search query (title): full-text via text_search analyzer (stemming) plus case-insensitive substring match")
+        ("q" = Option<String>, Query, description = "Search query (title): full-text via text_search analyzer (stemming) plus case-insensitive substring match"),
+        ("team" = Option<String>, Query, description = "Filter by owning team id. Must be a plain team id, not `team:...`.")
     ),
     responses(
         (status = 200, description = "Return all collections. `X-Total-Count` header contains the total number of matching collections.", body = [Collection]),
@@ -74,14 +75,11 @@ async fn get_collections(
         .into_inner()
         .validate()
         .map_err(crate::error::map_list_query_error)?;
-    let q_ref = query.q.clone();
     let q_link = query.clone();
     let page = query.page.unwrap_or(0);
     let page_size = query.page_size.unwrap_or(PAGE_SIZE_DEFAULT);
-    let collections = svc.list_collections_for_user(&ctx, query).await?;
-    let total = svc
-        .count_collections_for_user(&ctx, q_ref.as_deref())
-        .await?;
+    let collections = svc.list_collections_for_user(&ctx, query.clone()).await?;
+    let total = svc.count_collections_for_user(&ctx, &query).await?;
     Ok(HttpResponse::Ok()
         .insert_header((
             header::HeaderName::from_static("x-total-count"),
