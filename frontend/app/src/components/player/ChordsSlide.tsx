@@ -26,6 +26,7 @@ type RenderState =
 type ChordsSlideProps = {
   song: Song
   displayKey?: string | null
+  languageIndex?: number | null
   chordFormat: ChordFormatPreference
   orientation: Orientation
   /** Fill a fixed-size book spread slot instead of growing with content. */
@@ -35,6 +36,7 @@ type ChordsSlideProps = {
 export function ChordsSlide({
   song,
   displayKey,
+  languageIndex,
   chordFormat,
   orientation,
   fillParent = false,
@@ -59,7 +61,7 @@ export function ChordsSlide({
 
   const songData = song.data as ChordSongData
   const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
-  const renderKey = `${song.id}:${displayKey ?? ''}:${renderPass}:${representation}:${hideChords ? 'hidden' : 'shown'}`
+  const renderKey = `${song.id}:${displayKey ?? ''}:${languageIndex ?? ''}:${renderPass}:${representation}:${hideChords ? 'hidden' : 'shown'}`
   const renderState = useMemo(
     (): RenderState =>
       renderCache.key === renderKey ? renderCache.state : { status: 'loading' },
@@ -101,6 +103,7 @@ export function ChordsSlide({
         const engine = await getChordEngine()
         const page = engine.renderA4Html(songData, {
           key: displayKey ?? undefined,
+          language: languageIndex ?? undefined,
           scale: 1,
           representation,
         })
@@ -116,7 +119,7 @@ export function ChordsSlide({
     return () => {
       cancelled = true
     }
-  }, [renderKey, songData, displayKey, representation, hideChords])
+  }, [renderKey, songData, displayKey, languageIndex, representation, hideChords])
 
   useLayoutEffect(() => {
     if (renderState.status !== 'ready') return

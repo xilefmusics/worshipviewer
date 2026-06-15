@@ -63,8 +63,10 @@ import { resolveTransposeKey } from '@/lib/player/transpose-key'
 import {
   readPlayerViewState,
   clearTransposeForItem,
+  clearLanguageForItem,
   setPlayerNavPosition,
   setTransposeForItem,
+  setLanguageForItem,
   writePlayerViewState,
   type PlayerViewState,
 } from '@/lib/player/player-view-state'
@@ -77,6 +79,7 @@ import {
 import type { PlayerMode } from '@/lib/player/player-mode'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
+import { resolveSongLanguageIndex, songLanguageOptions } from '@/lib/player/song-language'
 import { buildSettingsSearch } from '@/lib/settings-route'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
 import { resolveSongDataKey } from '@/lib/setlist-song-links'
@@ -186,7 +189,8 @@ export function PlayerBook({
   const sheetOrientation = isLandscapeViewport ? 'landscape' : 'portrait'
   const reduceMotion = useReducedMotion()
   const chromeTransition = reduceMotion ? { duration: 0 } : { duration: 0.22, ease: PLAYER_CHROME_EASE }
-  const [popoverOpen, setPopoverOpen] = useState(false)
+  const [keyPopoverOpen, setKeyPopoverOpen] = useState(false)
+  const [languagePopoverOpen, setLanguagePopoverOpen] = useState(false)
   const [chromeVisible, setChromeVisible] = useState(false)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const touchMovedRef = useRef(false)
@@ -366,7 +370,17 @@ export function PlayerBook({
           try {
             const engine = await getChordEngine()
             const key = resolveSongDataKey(nextItem.song.data as Record<string, unknown>)
-            const renderOpts = { key: key ?? undefined, representation: chordFormatToRepresentation(chordFormat) }
+            const languageOptions = songLanguageOptions(nextItem.song.data as Record<string, unknown>)
+            const selectedLanguageIndex = resolveSongLanguageIndex(
+              languageOptions,
+              viewState.languageByItem?.[prefetchIndex],
+            )
+            const languageIndex = selectedLanguageIndex > 0 ? selectedLanguageIndex : null
+            const renderOpts = {
+              key: key ?? undefined,
+              language: languageIndex ?? undefined,
+              representation: chordFormatToRepresentation(chordFormat),
+            }
             if (isMultiColumnScrollMode(effectiveScroll)) {
               engine.renderA4SectionHtmls(nextItem.song.data, renderOpts)
             } else {
@@ -380,7 +394,17 @@ export function PlayerBook({
     })()
 
     return () => controller.abort()
-  }, [nav.index, online, itemsLen, player.items, allowNetworkFetch, bookSpread, effectiveScroll, chordFormat])
+  }, [
+    nav.index,
+    online,
+    itemsLen,
+    player.items,
+    allowNetworkFetch,
+    bookSpread,
+    effectiveScroll,
+    chordFormat,
+    viewState.languageByItem,
+  ])
 
   const backTo = hubPathForPlayerType(type)
   const localTranspose = viewState.transposeByItem[nav.index]
@@ -392,6 +416,15 @@ export function PlayerBook({
     currentItem?.type === 'chords'
       ? resolvePlayerItemKey(currentItem, type, slotKey, localTranspose)
       : null
+  const currentLanguageOptions =
+    currentItem?.type === 'chords' ? songLanguageOptions(currentItem.song.data as Record<string, unknown>) : []
+  const currentLanguageIndex = resolveSongLanguageIndex(
+    currentLanguageOptions,
+    viewState.languageByItem?.[nav.index],
+  )
+  const currentLanguageLabel =
+    currentLanguageOptions[currentLanguageIndex]?.label ?? `L${currentLanguageIndex + 1}`
+  const showLanguageSelector = currentItem?.type === 'chords' && currentLanguageOptions.length > 1
 
   const playerReturnContext = useMemo(
     () => ({ playerType: type, playerId: id, playerIndex: nav.index }),
@@ -427,7 +460,10 @@ export function PlayerBook({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      const action = playerKeyboardAction(e.key, e.target, { popoverOpen, chromeVisible })
+      const action = playerKeyboardAction(e.key, e.target, {
+        popoverOpen: keyPopoverOpen || languagePopoverOpen,
+        chromeVisible,
+      })
       if (!action) return
 
       if (action === 'prev') {
@@ -452,13 +488,16 @@ export function PlayerBook({
       }
       if (action === 'escape') {
         e.preventDefault()
-        if (popoverOpen) setPopoverOpen(false)
-        else void navigate({ to: backTo })
+        if (keyPopoverOpen || languagePopoverOpen) {
+          setKeyPopoverOpen(false)
+          setLanguagePopoverOpen(false)
+        } else void navigate({ to: backTo })
         return
       }
       if (action === 'toggleChrome') {
         e.preventDefault()
-        setPopoverOpen(false)
+        setKeyPopoverOpen(false)
+        setLanguagePopoverOpen(false)
         setChromeVisible((visible) => !visible)
         return
       }
@@ -493,13 +532,13 @@ export function PlayerBook({
       if (typeof action === 'object' && action.type === 'setTransposeKey') {
         e.preventDefault()
         setViewState((state) => setTransposeForItem(state, nav.index, action.key))
-        setPopoverOpen(false)
+        setKeyPopoverOpen(false)
         return
       }
       if (action === 'resetTranspose') {
         e.preventDefault()
         setViewState((state) => clearTransposeForItem(state, nav.index))
-        setPopoverOpen(false)
+        setKeyPopoverOpen(false)
         return
       }
       if (action === 'transposeUp') {
@@ -507,7 +546,7 @@ export function PlayerBook({
         const nextKey = resolveTransposeKey(displayKey, 1)
         if (nextKey) {
           setViewState((state) => setTransposeForItem(state, nav.index, nextKey))
-          setPopoverOpen(false)
+          setKeyPopoverOpen(false)
         }
         return
       }
@@ -516,7 +555,7 @@ export function PlayerBook({
         const nextKey = resolveTransposeKey(displayKey, -1)
         if (nextKey) {
           setViewState((state) => setTransposeForItem(state, nav.index, nextKey))
-          setPopoverOpen(false)
+          setKeyPopoverOpen(false)
         }
         return
       }
@@ -535,7 +574,8 @@ export function PlayerBook({
     nav.index,
     navBlocked,
     navigate,
-    popoverOpen,
+    keyPopoverOpen,
+    languagePopoverOpen,
     chromeVisible,
     layoutPreferences,
     sheetOrientation,
@@ -550,6 +590,23 @@ export function PlayerBook({
     if (item.type !== 'chords') return null
     const itemSlotKey = resolveSongDataKey(item.song.data as Record<string, unknown>)
     return resolvePlayerItemKey(item, type, itemSlotKey, viewState.transposeByItem[itemIndex])
+  }
+
+  function languageOptionsForItem(item: PlayerItem) {
+    if (item.type !== 'chords') return []
+    return songLanguageOptions(item.song.data as Record<string, unknown>)
+  }
+
+  function selectedLanguageIndexForItem(item: PlayerItem, itemIndex: number): number | null {
+    if (item.type !== 'chords') return null
+    const options = languageOptionsForItem(item)
+    if (options.length === 0) return null
+    return resolveSongLanguageIndex(options, viewState.languageByItem?.[itemIndex])
+  }
+
+  function renderLanguageIndexForItem(item: PlayerItem, itemIndex: number): number | null {
+    const selected = selectedLanguageIndexForItem(item, itemIndex)
+    return selected != null && selected > 0 ? selected : null
   }
 
   function renderPlayerItem(item: PlayerItem, itemIndex: number, fillParent = false) {
@@ -572,10 +629,16 @@ export function PlayerBook({
         <ChordsThreeColumnSlide
           song={item.song}
           displayKey={displayKeyForItem(item, itemIndex)}
+          languageIndex={renderLanguageIndexForItem(item, itemIndex)}
           nextSong={nextSong}
           nextDisplayKey={
             nextItem?.type === 'chords'
               ? displayKeyForItem(nextItem, itemIndex + 1)
+              : undefined
+          }
+          nextLanguageIndex={
+            nextItem?.type === 'chords'
+              ? renderLanguageIndexForItem(nextItem, itemIndex + 1)
               : undefined
           }
           chordFormat={chordFormat}
@@ -591,6 +654,7 @@ export function PlayerBook({
       <ChordsSlide
         song={item.song}
         displayKey={displayKeyForItem(item, itemIndex)}
+        languageIndex={renderLanguageIndexForItem(item, itemIndex)}
         chordFormat={chordFormat}
         orientation={sheetOrientation}
         fillParent={fillParent}
@@ -638,7 +702,8 @@ export function PlayerBook({
       const zone = viewportPointerZone(clientX, rect)
 
       if (chromeVisible) {
-        setPopoverOpen(false)
+        setKeyPopoverOpen(false)
+        setLanguagePopoverOpen(false)
         if (zone !== 'middle') {
           setChromeVisible(false)
           return true
@@ -656,7 +721,8 @@ export function PlayerBook({
         if (!navBlocked) dispatch({ type: 'next' })
         return true
       }
-      setPopoverOpen(false)
+      setKeyPopoverOpen(false)
+      setLanguagePopoverOpen(false)
       setChromeVisible(true)
       if (doubleTap) toggleCurrentSongLike()
       return true
@@ -767,53 +833,98 @@ export function PlayerBook({
 
               <div className="flex shrink-0 items-center gap-1">
                 {showChordsControls && currentItem.type === 'chords' ? (
-                  <PopoverRoot open={popoverOpen} onOpenChange={setPopoverOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className={playerHeaderIconButtonClass}
-                        aria-label={t('player.transpose.current', {
-                          key: displayKey ?? t('player.transpose.default'),
-                        })}
-                      >
-                        <span className={cn(playerHeaderIconClass, 'text-sm font-semibold leading-none')}>
-                          {displayKey ?? '♮'}
-                        </span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent align="end" className="w-56 p-2">
-                      <div className="grid grid-cols-4 gap-1">
+                  <>
+                    {showLanguageSelector ? (
+                      <PopoverRoot open={languagePopoverOpen} onOpenChange={setLanguagePopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className={playerHeaderIconButtonClass}
+                            aria-label={t('player.language.current', {
+                              language: currentLanguageLabel,
+                            })}
+                          >
+                            <span className={cn(playerHeaderIconClass, 'text-xs font-semibold leading-none')}>
+                              {currentLanguageLabel}
+                            </span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-48 p-2">
+                          <div className="grid gap-1">
+                            {currentLanguageOptions.map((option) => (
+                              <Button
+                                key={option.index}
+                                type="button"
+                                size="sm"
+                                variant={currentLanguageIndex === option.index ? 'default' : 'outline'}
+                                onClick={() => {
+                                  setViewState((s) =>
+                                    option.index === 0
+                                      ? clearLanguageForItem(s, nav.index)
+                                      : setLanguageForItem(s, nav.index, option.index),
+                                  )
+                                  setLanguagePopoverOpen(false)
+                                }}
+                              >
+                                {option.index === 0
+                                  ? t('player.language.defaultOption', { language: option.label })
+                                  : option.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </PopoverRoot>
+                    ) : null}
+                    <PopoverRoot open={keyPopoverOpen} onOpenChange={setKeyPopoverOpen}>
+                      <PopoverTrigger asChild>
                         <Button
                           type="button"
-                          size="sm"
-                          variant={localTranspose === undefined ? 'default' : 'outline'}
-                          className="col-span-4"
-                          onClick={() => {
-                            setViewState((s) => clearTransposeForItem(s, nav.index))
-                            setPopoverOpen(false)
-                          }}
+                          variant="outline"
+                          size="icon"
+                          className={playerHeaderIconButtonClass}
+                          aria-label={t('player.transpose.current', {
+                            key: displayKey ?? t('player.transpose.default'),
+                          })}
                         >
-                          {t('player.transpose.default')}
+                          <span className={cn(playerHeaderIconClass, 'text-sm font-semibold leading-none')}>
+                            {displayKey ?? '♮'}
+                          </span>
                         </Button>
-                        {MUSICAL_KEYS.map((key) => (
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-56 p-2">
+                        <div className="grid grid-cols-4 gap-1">
                           <Button
-                            key={key}
                             type="button"
                             size="sm"
-                            variant={displayKey === key ? 'default' : 'outline'}
+                            variant={localTranspose === undefined ? 'default' : 'outline'}
+                            className="col-span-4"
                             onClick={() => {
-                              setViewState((s) => setTransposeForItem(s, nav.index, key))
-                              setPopoverOpen(false)
+                              setViewState((s) => clearTransposeForItem(s, nav.index))
+                              setKeyPopoverOpen(false)
                             }}
                           >
-                            {key}
+                            {t('player.transpose.default')}
                           </Button>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </PopoverRoot>
+                          {MUSICAL_KEYS.map((key) => (
+                            <Button
+                              key={key}
+                              type="button"
+                              size="sm"
+                              variant={displayKey === key ? 'default' : 'outline'}
+                              onClick={() => {
+                                setViewState((s) => setTransposeForItem(s, nav.index, key))
+                                setKeyPopoverOpen(false)
+                              }}
+                            >
+                              {key}
+                            </Button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </PopoverRoot>
+                  </>
                 ) : null}
                 <PlayerEditMenu
                   playerType={type}

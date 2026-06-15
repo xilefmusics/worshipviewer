@@ -49,8 +49,10 @@ type ColumnSection = {
 type ChordsThreeColumnSlideProps = {
   song: Song
   displayKey?: string | null
+  languageIndex?: number | null
   nextSong?: Song | null
   nextDisplayKey?: string | null
+  nextLanguageIndex?: number | null
   chordFormat: ChordFormatPreference
   columnCount?: 1 | 2 | 3
   overflowStyle?: PlayerOverflowStyle
@@ -116,6 +118,7 @@ function useMultiColumnSongRender(
   song: Song | null | undefined,
   songData: ChordSongData | undefined,
   displayKey: string | null | undefined,
+  languageIndex: number | null | undefined,
   chordFormat: ChordFormatPreference,
   hideChords: boolean,
   renderPass: number,
@@ -126,7 +129,7 @@ function useMultiColumnSongRender(
   })
   const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
   const renderKey = song
-    ? `${song.id}:${displayKey ?? ''}:${renderPass}:${representation}:${hideChords ? 'hidden' : 'shown'}`
+    ? `${song.id}:${displayKey ?? ''}:${languageIndex ?? ''}:${renderPass}:${representation}:${hideChords ? 'hidden' : 'shown'}`
     : ''
 
   useEffect(() => {
@@ -138,6 +141,7 @@ function useMultiColumnSongRender(
         const engine = await getChordEngine()
         const page = engine.renderA4SectionHtmls(songData, {
           key: displayKey ?? undefined,
+          language: languageIndex ?? undefined,
           representation,
         })
         if (cancelled) return
@@ -157,7 +161,7 @@ function useMultiColumnSongRender(
     return () => {
       cancelled = true
     }
-  }, [song, songData, displayKey, renderKey, representation, hideChords])
+  }, [song, songData, displayKey, languageIndex, renderKey, representation, hideChords])
 
   if (!song || !songData || renderCache.key !== renderKey) {
     return LOADING_RENDER_STATE
@@ -270,8 +274,10 @@ function columnTypographyStyle(columnLayout: {
 export function ChordsThreeColumnSlide({
   song,
   displayKey,
+  languageIndex,
   nextSong,
   nextDisplayKey,
+  nextLanguageIndex,
   chordFormat,
   columnCount = 3,
   overflowStyle = 'scroll',
@@ -310,6 +316,7 @@ export function ChordsThreeColumnSlide({
     song,
     renderSongData,
     displayKey,
+    languageIndex,
     chordFormat,
     hideChords,
     renderPass,
@@ -324,6 +331,7 @@ export function ChordsThreeColumnSlide({
     nextSong,
     nextRenderSongData,
     nextDisplayKey,
+    nextLanguageIndex,
     chordFormat,
     hideChords,
     0,

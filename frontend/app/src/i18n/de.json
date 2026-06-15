@@ -275,6 +275,10 @@
       "current": "Transponieren: {{key}}, ändern",
       "default": "Standard"
     },
+    "language": {
+      "current": "Sprache: {{language}}, ändern",
+      "defaultOption": "{{language}} (Standard)"
+    },
     "chordFormat": {
       "current": "Akkordformat: {{format}}, ändern"
     },
