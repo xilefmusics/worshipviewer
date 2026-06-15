@@ -9,7 +9,7 @@
 
 ## List pagination and search
 
-- **BLC-SONG-005:** **`GET /songs`** supports **`page`**, **`page_size`**, optional **`q`**, and the shared rules in [list-pagination.md](./list-pagination.md) (including whitespace-only **`q`** treated as no filter).
+- **BLC-SONG-005:** **`GET /songs`** supports **`page`**, **`page_size`**, optional **`q`**, optional **`team`**, and the shared rules in [list-pagination.md](./list-pagination.md) (including whitespace-only **`q`** treated as no filter and **`team`** as a plain owning-team id).
 
 ## When / then
 
@@ -18,7 +18,7 @@
 - **BLC-SONG-008:** WHEN the caller is the personal-team **owner**, or **admin** / **content_maintainer** on the owning team, THEN **PUT**/**DELETE** are allowed (subject to validation).
 - **BLC-SONG-009:** **POST** MUST include **`collection`** (collection id). The new song’s **`owner`** IS the **owning team of that collection**. The caller MUST have **library edit** access to that team; otherwise **404** (or **400** for malformed id / missing **`collection`**), same visibility pattern as collections.
 - **BLC-SONG-010:** WHEN **POST** completes THEN the new song IS appended to the given **`collection`**’s **`songs`** list. Songs are never created without a collection placement (no server-side default collection).
-- **BLC-SONG-011:** WHEN **GET /songs** runs THEN only songs whose **`owner`** team the caller may read are returned; optional **`q`** matches **title**, **artists**, and lyric text as defined by the list-search behavior (stemmed where applicable).
+- **BLC-SONG-011:** WHEN **GET /songs** runs THEN only songs whose **`owner`** team the caller may read are returned; optional **`team`** narrows that visible set to one owning team and returns an empty list/count when the caller cannot read that team; optional **`q`** matches **title**, **artists**, and lyric text as defined by the list-search behavior (stemmed where applicable).
 - **BLC-SONG-012:** WHEN **GET /songs/{id}** runs THEN visibility matches the list rule AND the response includes **`liked`** for the current user.
 - **BLC-SONG-013:** WHEN **GET …/player** runs THEN visibility matches **GET /songs/{id}**.
 - **BLC-SONG-014:** WHEN **DELETE /songs/{id}** succeeds THEN the song no longer appears via the API under the same access rules as **PUT**.

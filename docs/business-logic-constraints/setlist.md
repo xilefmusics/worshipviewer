@@ -12,7 +12,7 @@
 
 ## List pagination and search
 
-- **BLC-SETL-005:** **`GET /setlists`** supports **`page`**, **`page_size`**, optional **`q`** (title search), and [list-pagination.md](./list-pagination.md) (including whitespace-only **`q`** as no filter).
+- **BLC-SETL-005:** **`GET /setlists`** supports **`page`**, **`page_size`**, optional **`q`** (title search), optional **`team`**, and [list-pagination.md](./list-pagination.md) (including whitespace-only **`q`** as no filter).
 
 ## When / then
 
@@ -20,7 +20,7 @@
 - **BLC-SETL-007:** WHEN the caller is **guest** on the owning team and attempts **PUT** or **DELETE** THEN the API responds **404**.
 - **BLC-SETL-008:** WHEN the caller is the personal-team **owner**, or **admin** / **content_maintainer** on the owning team, THEN **PUT**/**DELETE** are allowed (subject to validation).
 - **BLC-SETL-009:** WHEN **POST** omits **`owner`** THEN the new setlist’s **`owner`** IS the caller’s **personal** team. WHEN **POST** includes **`owner`**, the same team ACL rules apply as for collections ([collection.md](./collection.md) **BLC-COLL-009**).
-- **BLC-SETL-010:** WHEN **GET /setlists** runs THEN only setlists whose **`owner`** team the caller may read are returned; optional **`q`** filters by **title**.
+- **BLC-SETL-010:** WHEN **GET /setlists** runs THEN only setlists whose **`owner`** team the caller may read are returned; optional **`team`** narrows that visible set to one owning team and returns an empty list/count when the caller cannot read that team; optional **`q`** filters by **title**.
 - **BLC-SETL-011:** WHEN **GET /setlists/{id}**, **…/songs**, or **…/player** runs THEN visibility matches **GET /setlists/{id}**.
 - **BLC-SETL-012:** WHEN **DELETE** succeeds THEN the setlist no longer appears under the same read rules.
 - **BLC-SETL-018:** WHEN **PATCH /setlists/{id}** runs THEN only fields present in the body are updated; omitted fields are unchanged; unknown fields are rejected (**`deny_unknown_fields`**), matching **BLC-SONG-019**. Optimistic concurrency uses **`If-Match`** with the resource **ETag**.

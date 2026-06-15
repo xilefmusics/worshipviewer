@@ -76,6 +76,10 @@ cd backend && cargo test -- --test-threads=4
 (cd cli && cargo fmt --check)
 ```
 
+When backend API behavior changes, update the relevant
+[`docs/business-logic-constraints/`](docs/business-logic-constraints/) page(s)
+in the same PR and add/update HTTP/API tests for the public contract.
+
 ### Frontend
 
 ```bash

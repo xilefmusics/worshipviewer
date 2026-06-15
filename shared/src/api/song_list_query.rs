@@ -17,6 +17,7 @@ use super::ListQuery;
         "page": 0,
         "page_size": 50,
         "q": "grace",
+        "team": "team_example",
         "sort": "-id"
     }))
 )]
@@ -25,6 +26,7 @@ pub struct SongListQuery {
     pub page: Option<u32>,
     pub page_size: Option<u32>,
     pub q: Option<String>,
+    pub team: Option<String>,
     /// Sort: comma-separated fields, `-` prefix for descending (e.g. `-id`, `title`, `-id,title`).
     /// Use `relevance` when searching (`q` non-empty). Legacy tokens (`id_desc`, …) accepted with a warning.
     #[cfg_attr(feature = "backend", schema(value_type = Option<String>, example = "-id"))]
@@ -119,6 +121,7 @@ impl From<ListQuery> for SongListQuery {
             page: list.page,
             page_size: list.page_size,
             q: list.q,
+            team: list.team,
             sort: None,
             lang: None,
             tag: None,
@@ -133,6 +136,7 @@ impl SongListQuery {
             page: self.page,
             page_size: self.page_size,
             q: self.q.clone(),
+            team: self.team.clone(),
         }
     }
 

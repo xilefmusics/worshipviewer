@@ -13,7 +13,7 @@ use crate::auth::AuthorizationContext;
 use crate::database::Database;
 use crate::error::AppError;
 use crate::resources::collection::CollectionRepository;
-use crate::resources::common::resolve_owner_team;
+use crate::resources::common::{read_teams_for_query, resolve_owner_team};
 
 use crate::resources::team::{parse_owner_record_id, thing_record_key};
 use tracing::instrument;
@@ -95,7 +95,7 @@ impl<R: SongRepository, L: LikedSongIds, C: CollectionRepository> SongService<R,
     ) -> Result<Vec<Song>, AppError> {
         let user_id = ctx.user.id.clone();
         let liked_set = self.likes.liked_song_ids(&user_id).await?;
-        let read_teams = ctx.read_teams();
+        let read_teams = read_teams_for_query(&ctx.read_teams(), query.team.as_deref())?;
         Ok(self
             .repo
             .get_songs(&read_teams, query)
@@ -114,7 +114,7 @@ impl<R: SongRepository, L: LikedSongIds, C: CollectionRepository> SongService<R,
         ctx: &AuthorizationContext,
         query: &SongListQuery,
     ) -> Result<u64, AppError> {
-        let read_teams = ctx.read_teams();
+        let read_teams = read_teams_for_query(&ctx.read_teams(), query.team.as_deref())?;
         self.repo.count_songs(&read_teams, query).await
     }
 
