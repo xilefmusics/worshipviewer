@@ -1,3 +1,5 @@
+import { getLocalStorage, safeGetItem, safeRemoveItem, safeSetItem } from '@/lib/browser-storage'
+
 export const SHEET_BACKGROUND_STORAGE_KEY = 'wv_sheet_background'
 
 export const SHEET_BACKGROUND_CHANGE_EVENT = 'wv-sheet-background-change'
@@ -22,19 +24,19 @@ export function applySheetBackgroundPreference(
 }
 
 export function readSheetBackgroundPreference(
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): SheetBackgroundPreference {
-  return resolveSheetBackgroundPreference(storage.getItem(SHEET_BACKGROUND_STORAGE_KEY))
+  return resolveSheetBackgroundPreference(safeGetItem(SHEET_BACKGROUND_STORAGE_KEY, storage))
 }
 
 export function writeSheetBackgroundPreference(
   preference: SheetBackgroundPreference,
-  storage: Pick<Storage, 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem' | 'removeItem'> | null = getLocalStorage(),
 ): void {
   if (preference === 'app') {
-    storage.removeItem(SHEET_BACKGROUND_STORAGE_KEY)
+    safeRemoveItem(SHEET_BACKGROUND_STORAGE_KEY, storage)
   } else {
-    storage.setItem(SHEET_BACKGROUND_STORAGE_KEY, preference)
+    safeSetItem(SHEET_BACKGROUND_STORAGE_KEY, preference, storage)
   }
 
   if (typeof globalThis.document !== 'undefined') {

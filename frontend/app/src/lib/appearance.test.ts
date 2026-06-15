@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   APPEARANCE_STORAGE_KEY,
   applyAppearancePreference,
+  readAppearancePreference,
   resolveAppearancePreference,
   writeAppearancePreference,
 } from '@/lib/appearance'
@@ -57,5 +58,31 @@ describe('writeAppearancePreference', () => {
 
     writeAppearancePreference('system', storage)
     expect(storage.removeItem).toHaveBeenCalledWith(APPEARANCE_STORAGE_KEY)
+  })
+})
+
+describe('appearance storage safety', () => {
+  it('falls back to system when storage reads throw', () => {
+    const storage = {
+      getItem: vi.fn(() => {
+        throw new DOMException('blocked', 'SecurityError')
+      }),
+    }
+
+    expect(readAppearancePreference(storage)).toBe('system')
+  })
+
+  it('ignores storage write failures', () => {
+    const storage = {
+      setItem: vi.fn(() => {
+        throw new DOMException('full', 'QuotaExceededError')
+      }),
+      removeItem: vi.fn(() => {
+        throw new DOMException('blocked', 'SecurityError')
+      }),
+    }
+
+    expect(() => writeAppearancePreference('dark', storage)).not.toThrow()
+    expect(() => writeAppearancePreference('system', storage)).not.toThrow()
   })
 })

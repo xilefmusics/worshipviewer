@@ -61,6 +61,7 @@ import { downloadPlayerForOffline, removeOfflinePlayerCopy } from '@/lib/offline
 import { useOnline } from '@/hooks/use-online'
 import { useSession } from '@/hooks/useSession'
 import { useTeamDetail } from '@/hooks/useTeamDetail'
+import { observeElementIntersection } from '@/lib/browser-apis'
 import { exportPdfHintTitle } from '@/lib/export-pdf-hint'
 import { runCollectionExport } from '@/lib/run-collection-export'
 import { runSetlistExport } from '@/lib/run-setlist-export'
@@ -243,7 +244,8 @@ export function EntityListView({ entity }: EntityListViewProps) {
     const sentinel = sentinelRef.current
     if (!root || !sentinel) return
 
-    const obs = new IntersectionObserver(
+    return observeElementIntersection(
+      sentinel,
       (entries) => {
         const hit = entries[0]?.isIntersecting
         if (hit && hasNextPage && !isFetchingNextPage) {
@@ -252,8 +254,6 @@ export function EntityListView({ entity }: EntityListViewProps) {
       },
       { root, rootMargin: '120px' },
     )
-    obs.observe(sentinel)
-    return () => obs.disconnect()
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, items.length, scrollRef])
 
   const showSkeleton = isPending && !data

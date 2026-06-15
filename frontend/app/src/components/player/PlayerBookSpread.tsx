@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
+import { observeElementResize } from '@/lib/browser-apis'
 import { bookSpreadLayout } from '@/lib/chord-a4-scale'
 
 type PlayerBookSpreadProps = {
@@ -20,10 +21,8 @@ export function PlayerBookSpread({ left, right }: PlayerBookSpreadProps) {
       setViewportSize({ width: rect.width, height: rect.height })
     }
 
-    const observer = new ResizeObserver(updateSize)
-    observer.observe(el)
     updateSize()
-    return () => observer.disconnect()
+    return observeElementResize(el, updateSize)
   }, [])
 
   const hasTwoPages = right != null

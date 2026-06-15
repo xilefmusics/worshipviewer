@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
+import { observeElementResize } from '@/lib/browser-apis'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import { cssScaleToViewportWidth } from '@/lib/chord-a4-scale'
 import { chordFormatToRepresentation } from '@/lib/chord-format'
@@ -79,10 +80,8 @@ export function SongEditorPreview({
       const rect = el.getBoundingClientRect()
       setViewportSize({ width: rect.width, height: rect.height })
     }
-    const observer = new ResizeObserver(() => updateSize())
-    observer.observe(el)
     updateSize()
-    return () => observer.disconnect()
+    return observeElementResize(el, () => updateSize())
   }, [])
 
   const retry = useCallback(() => {
@@ -131,9 +130,7 @@ export function SongEditorPreview({
     }
 
     measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
+    return observeElementResize(el, measure)
   }, [activeRenderKey, renderState])
 
   const scaledReady = renderState.status === 'ready' && cssScale != null

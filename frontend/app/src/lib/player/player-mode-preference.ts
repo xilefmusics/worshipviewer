@@ -1,17 +1,18 @@
+import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
 import type { PlayerMode } from '@/lib/player/player-mode'
 
 export const PLAYER_DEFAULT_MODE_STORAGE_KEY = 'playerDefaultMode'
 
 export function readPlayerDefaultMode(
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): PlayerMode {
-  const raw = storage.getItem(PLAYER_DEFAULT_MODE_STORAGE_KEY)
+  const raw = safeGetItem(PLAYER_DEFAULT_MODE_STORAGE_KEY, storage)
   return raw === 'av' ? 'av' : 'normal'
 }
 
 export function writePlayerDefaultMode(
   mode: PlayerMode,
-  storage: Pick<Storage, 'setItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem'> | null = getLocalStorage(),
 ): void {
-  storage.setItem(PLAYER_DEFAULT_MODE_STORAGE_KEY, mode)
+  safeSetItem(PLAYER_DEFAULT_MODE_STORAGE_KEY, mode, storage)
 }

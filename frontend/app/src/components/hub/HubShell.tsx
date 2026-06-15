@@ -36,6 +36,7 @@ import { useTeamDetail } from '@/hooks/useTeamDetail'
 import { useCollectionDetailQuery } from '@/hooks/useCollectionDetailQuery'
 import { useSetlistDetailQuery } from '@/hooks/useSetlistDetailQuery'
 import { useSongDetailQuery } from '@/hooks/useSongDetailQuery'
+import { listenToMediaQuery } from '@/lib/browser-apis'
 import { getTeamDisplayName, isPersonalTeamName } from '@/lib/team-display-name'
 import {
   buildPlayerReturnSearch,
@@ -677,8 +678,7 @@ export function HubShell() {
     if (!mq) return
     const fn = () => setPaletteOk(mq.matches)
     fn()
-    mq.addEventListener('change', fn)
-    return () => mq.removeEventListener('change', fn)
+    return listenToMediaQuery(mq, fn)
   }, [])
 
   if (isPending) {

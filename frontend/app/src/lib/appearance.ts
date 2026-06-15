@@ -1,3 +1,5 @@
+import { getLocalStorage, safeGetItem, safeRemoveItem, safeSetItem } from '@/lib/browser-storage'
+
 export const APPEARANCE_STORAGE_KEY = 'wv_appearance'
 
 export type AppearancePreference = 'system' | 'light' | 'dark'
@@ -20,21 +22,21 @@ export function applyAppearancePreference(
 }
 
 export function readAppearancePreference(
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): AppearancePreference {
-  return resolveAppearancePreference(storage.getItem(APPEARANCE_STORAGE_KEY))
+  return resolveAppearancePreference(safeGetItem(APPEARANCE_STORAGE_KEY, storage))
 }
 
 export function writeAppearancePreference(
   preference: AppearancePreference,
-  storage: Pick<Storage, 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem' | 'removeItem'> | null = getLocalStorage(),
 ): void {
   if (preference === 'system') {
-    storage.removeItem(APPEARANCE_STORAGE_KEY)
+    safeRemoveItem(APPEARANCE_STORAGE_KEY, storage)
     return
   }
 
-  storage.setItem(APPEARANCE_STORAGE_KEY, preference)
+  safeSetItem(APPEARANCE_STORAGE_KEY, preference, storage)
 }
 
 export function initAppearance(): void {

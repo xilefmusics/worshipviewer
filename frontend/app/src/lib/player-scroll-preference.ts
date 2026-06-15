@@ -1,5 +1,6 @@
 import type { components } from '@/api/schema'
 
+import { getLocalStorageOrFallback } from '@/lib/browser-storage'
 import {
   DEFAULT_PLAYER_LAYOUT_PREFERENCE,
   layoutPreferenceToScrollType,
@@ -97,7 +98,7 @@ function readLinkedOrientations(
 }
 
 export function readPlayerLayoutPreferences(
-  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = getLocalStorageOrFallback(),
 ): PlayerLayoutPreferences {
   const portrait = readLayoutForOrientation('portrait', storage)
   const linkedOrientations = readLinkedOrientations(storage)
@@ -109,7 +110,7 @@ export function readPlayerLayoutPreferences(
 
 /** @deprecated Use readPlayerLayoutPreferences */
 export function readPlayerScrollPreferences(
-  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = getLocalStorageOrFallback(),
 ): PlayerScrollPreferences {
   const layout = readPlayerLayoutPreferences(storage)
   return {
@@ -128,7 +129,7 @@ function dispatchLayoutChange(preferences: PlayerLayoutPreferences): void {
 
 export function writePlayerLayoutLinkedOrientations(
   linked: boolean,
-  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = getLocalStorageOrFallback(),
 ): void {
   storage.setItem(PLAYER_LAYOUT_LINKED_KEY, linked ? 'true' : 'false')
   if (linked) {
@@ -140,7 +141,7 @@ export function writePlayerLayoutLinkedOrientations(
 
 export function writePlayerLayoutPortrait(
   preference: PlayerLayoutPreference,
-  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = getLocalStorageOrFallback(),
 ): void {
   const normalized = normalizeLayoutPreference(preference)
   storage.setItem(PLAYER_LAYOUT_PORTRAIT_KEY, JSON.stringify(normalized))
@@ -152,7 +153,7 @@ export function writePlayerLayoutPortrait(
 
 export function writePlayerLayoutLandscape(
   preference: PlayerLayoutPreference,
-  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = getLocalStorageOrFallback(),
 ): void {
   storage.setItem(
     PLAYER_LAYOUT_LANDSCAPE_KEY,
@@ -164,7 +165,7 @@ export function writePlayerLayoutLandscape(
 /** Update the shared layout when orientations are linked, or portrait only otherwise. */
 export function writePlayerLayoutUnified(
   preference: PlayerLayoutPreference,
-  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = getLocalStorageOrFallback(),
 ): void {
   writePlayerLayoutPortrait(preference, storage)
 }
@@ -172,7 +173,7 @@ export function writePlayerLayoutUnified(
 /** @deprecated Use writePlayerLayoutPortrait */
 export function writePlayerScrollPortrait(
   scrollType: PlayerScrollType,
-  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = getLocalStorageOrFallback(),
 ): void {
   writePlayerLayoutPortrait(scrollTypeToLayoutPreference(scrollType), storage)
 }
@@ -180,7 +181,7 @@ export function writePlayerScrollPortrait(
 /** @deprecated Use writePlayerLayoutLandscape */
 export function writePlayerScrollLandscape(
   scrollType: PlayerScrollType,
-  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = getLocalStorageOrFallback(),
 ): void {
   writePlayerLayoutLandscape(scrollTypeToLayoutPreference(scrollType), storage)
 }

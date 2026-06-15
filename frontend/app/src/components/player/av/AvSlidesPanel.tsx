@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { AvBackgroundSelector } from '@/components/player/av/AvBackgroundSelector'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
+import { observeElementResize } from '@/lib/browser-apis'
 import type {
   AvBackgroundLayer,
   AvBackgroundPreset,
@@ -39,11 +40,9 @@ function useSlidePanelMultiColumn(): [RefObject<HTMLDivElement | null>, boolean]
     }
 
     update(el.getBoundingClientRect().width)
-    const observer = new ResizeObserver(([entry]) => {
-      update(entry.contentRect.width)
+    return observeElementResize(el, ([entry]) => {
+      update(entry?.contentRect.width ?? el.getBoundingClientRect().width)
     })
-    observer.observe(el)
-    return () => observer.disconnect()
   }, [])
 
   return [ref, multiColumn]

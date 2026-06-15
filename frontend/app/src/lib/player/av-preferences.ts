@@ -1,3 +1,4 @@
+import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
 import type { PlayerMode } from '@/lib/player/player-mode'
 
 export type AvTextAlign = 'left' | 'center' | 'right'
@@ -151,10 +152,10 @@ function mergeProjection(raw: Partial<AvProjectionPrefs> | undefined): AvProject
 }
 
 export function readAvPreferences(
-  storage: Pick<Storage, 'getItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'getItem'> | null = getLocalStorage(),
 ): AvPreferences {
   try {
-    const raw = storage.getItem(AV_PREFERENCES_STORAGE_KEY)
+    const raw = safeGetItem(AV_PREFERENCES_STORAGE_KEY, storage)
     if (!raw) return DEFAULT_AV_PREFERENCES
     const parsed = JSON.parse(raw) as Partial<AvPreferences>
     return {
@@ -170,9 +171,9 @@ export function readAvPreferences(
 
 export function writeAvPreferences(
   prefs: AvPreferences,
-  storage: Pick<Storage, 'setItem'> = globalThis.localStorage,
+  storage: Pick<Storage, 'setItem'> | null = getLocalStorage(),
 ): void {
-  storage.setItem(AV_PREFERENCES_STORAGE_KEY, JSON.stringify(prefs))
+  safeSetItem(AV_PREFERENCES_STORAGE_KEY, JSON.stringify(prefs), storage)
 }
 
 export function effectiveAvTransition(

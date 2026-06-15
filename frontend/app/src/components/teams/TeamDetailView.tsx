@@ -34,6 +34,7 @@ import { getTeamDisplayName, isPersonalTeamName } from '@/lib/team-display-name'
 import { buildTeamInviteLink, resolveTeamInviteLink } from '@/lib/team-invite-link'
 import { isUserTeamAdmin } from '@/lib/team-permissions'
 import { teamDetailKey, teamInvitationsKey, teamsListRootKey } from '@/lib/teams-sessions-keys'
+import { observeElementIntersection } from '@/lib/browser-apis'
 import { cn } from '@/lib/utils'
 import { useHubScrollContainerRef } from '@/context/HubScrollContainerContext'
 import { useOnline } from '@/hooks/use-online'
@@ -170,7 +171,8 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
     const root = scrollRef.current
     const el = invSentinelRef.current
     if (!root || !el || !team) return
-    const obs = new IntersectionObserver(
+    return observeElementIntersection(
+      el,
       (entries) => {
         if (entries[0]?.isIntersecting && invHasNext && !invFetchNext) {
           void invFetchNextPage()
@@ -178,8 +180,6 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
       },
       { root, rootMargin: '120px' },
     )
-    obs.observe(el)
-    return () => obs.disconnect()
   }, [invHasNext, invFetchNext, invFetchNextPage, invitations.length, team, scrollRef])
 
   const createInvite = useMutation({

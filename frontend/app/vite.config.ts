@@ -86,6 +86,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      // Pin Safari 16 support instead of inheriting Vite's moving baseline target.
+      target: ['safari16', 'es2020'],
       rollupOptions: {
         output: {
           manualChunks(id) {
