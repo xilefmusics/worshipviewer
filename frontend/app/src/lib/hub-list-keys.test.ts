@@ -11,6 +11,17 @@ describe('isHubListQueryKey', () => {
     expect(isHubListQueryKey(hubListKey('setlists', ''))).toBe(true)
   })
 
+  it('separates all-team and team-filtered list caches', () => {
+    expect(hubListKey('songs', 'grace')).toEqual(['hubLists', 'songs', 'grace', null])
+    expect(hubListKey('songs', 'grace', null)).toEqual(['hubLists', 'songs', 'grace', null])
+    expect(hubListKey('songs', 'grace', 'team-1')).toEqual([
+      'hubLists',
+      'songs',
+      'grace',
+      'team-1',
+    ])
+  })
+
   it('is false for session, teams, and other roots', () => {
     expect(isHubListQueryKey(SESSION_QUERY_KEY)).toBe(false)
     expect(isHubListQueryKey(teamsListKey(''))).toBe(false)

@@ -30,14 +30,16 @@ async function on401(queryClient: QueryClient): Promise<never> {
 
 export async function fetchCollectionsPage(
   queryClient: QueryClient,
-  args: { page: number; q: string; signal?: AbortSignal },
+  args: { page: number; q: string; teamId?: string | null; signal?: AbortSignal },
 ): Promise<{ items: Collection[]; total: number | undefined }> {
+  const team = args.teamId?.trim() || undefined
   const { data, response, error } = await api.GET('/api/v1/collections', {
     params: {
       query: {
         page: args.page,
         page_size: PAGE_SIZE,
         q: args.q.trim() || undefined,
+        team,
       },
     },
     signal: args.signal,
@@ -51,14 +53,16 @@ export async function fetchCollectionsPage(
 
 export async function fetchSetlistsPage(
   queryClient: QueryClient,
-  args: { page: number; q: string; signal?: AbortSignal },
+  args: { page: number; q: string; teamId?: string | null; signal?: AbortSignal },
 ): Promise<{ items: Setlist[]; total: number | undefined }> {
+  const team = args.teamId?.trim() || undefined
   const { data, response, error } = await api.GET('/api/v1/setlists', {
     params: {
       query: {
         page: args.page,
         page_size: PAGE_SIZE,
         q: args.q.trim() || undefined,
+        team,
       },
     },
     signal: args.signal,
@@ -72,15 +76,17 @@ export async function fetchSetlistsPage(
 
 export async function fetchSongsPage(
   queryClient: QueryClient,
-  args: { page: number; q: string; signal?: AbortSignal },
+  args: { page: number; q: string; teamId?: string | null; signal?: AbortSignal },
 ): Promise<{ items: Song[]; total: number | undefined }> {
   const q = args.q.trim()
+  const team = args.teamId?.trim() || undefined
   const { data, response, error } = await api.GET('/api/v1/songs', {
     params: {
       query: {
         page: args.page,
         page_size: PAGE_SIZE,
         q: q || undefined,
+        team,
         sort: q ? 'relevance' : undefined,
       },
     },

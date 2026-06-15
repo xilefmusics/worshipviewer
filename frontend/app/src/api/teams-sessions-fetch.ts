@@ -14,6 +14,7 @@ export type CreateTeam = components['schemas']['CreateTeam']
 export type PatchTeam = components['schemas']['PatchTeam']
 export type TeamRole = components['schemas']['TeamRole']
 
+export const TEAMS_PAGE_SIZE = 50
 const PAGE_SIZE = 50
 
 export class ApiUnauthorizedError extends Error {
@@ -54,7 +55,7 @@ export async function fetchTeamsPage(
     params: {
       query: {
         page: args.page,
-        page_size: PAGE_SIZE,
+        page_size: TEAMS_PAGE_SIZE,
         q: args.q.trim() || undefined,
       },
     },

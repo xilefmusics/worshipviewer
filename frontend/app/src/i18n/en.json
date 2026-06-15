@@ -84,6 +84,14 @@
     "createCollectionAria": "Create collection",
     "createSongAria": "Create song",
     "createLabel": "Add",
+    "filters": {
+      "teamLabel": "Team",
+      "teamAria": "Filter library by team",
+      "openAria": "Open library filters",
+      "closeAria": "Close library filters",
+      "allTeams": "All teams",
+      "loadingTeams": "Loading teams…"
+    },
     "profile": {
       "openMenu": "Open profile menu",
       "openMenuOffline": "Open profile menu (offline)",
@@ -123,6 +131,11 @@
       "noResults": "No results match your search.",
       "clearSearch": "Clear search",
       "offlineNone": "No saved data for this tab. Connect to load.",
+      "filtered": {
+        "collections": "No collections for this team.",
+        "songs": "No songs for this team.",
+        "setlists": "No setlists for this team."
+      },
       "none": {
         "collections": "No collections yet.",
         "songs": "No songs yet.",

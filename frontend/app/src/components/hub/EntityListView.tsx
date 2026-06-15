@@ -103,7 +103,7 @@ const tapTransition = { duration: 0.12, ease: [0.25, 0.1, 0.25, 1] as const }
 
 export function EntityListView({ entity }: EntityListViewProps) {
   const { t } = useTranslation()
-  const { debouncedQ, setQInput } = useHubSearch()
+  const { debouncedQ, selectedTeamId, setQInput } = useHubSearch()
   const reduceMotion = useReducedMotion()
   const queryClient = useQueryClient()
   const scrollRef = useHubScrollContainerRef()
@@ -167,10 +167,10 @@ export function EntityListView({ entity }: EntityListViewProps) {
       toast.info(t('hub.refresh.offlineBlocked'))
       return
     }
-    await queryClient.resetQueries({ queryKey: hubListKey(entity, debouncedQ) })
+    await queryClient.resetQueries({ queryKey: hubListKey(entity, debouncedQ, selectedTeamId) })
     await refetch()
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [queryClient, entity, debouncedQ, refetch, scrollRef, networkOnline, t])
+  }, [queryClient, entity, debouncedQ, selectedTeamId, refetch, scrollRef, networkOnline, t])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -351,6 +351,10 @@ export function EntityListView({ entity }: EntityListViewProps) {
                   {t('hub.empty.clearSearch')}
                 </Button>
               </>
+            ) : selectedTeamId ? (
+              <p className="text-sm text-[var(--color-muted-foreground)]">
+                {t(`hub.empty.filtered.${entity}`)}
+              </p>
             ) : !networkOnline ? (
               <p className="text-sm text-[var(--color-muted-foreground)]">{t('hub.empty.offlineNone')}</p>
             ) : (

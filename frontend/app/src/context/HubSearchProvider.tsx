@@ -7,6 +7,7 @@ const DEBOUNCE_MS = 300
 export function HubSearchProvider({ children }: { children: React.ReactNode }) {
   const [qInput, setQInputState] = useState('')
   const [debouncedQ, setDebouncedQ] = useState('')
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedQ(qInput), DEBOUNCE_MS)
@@ -22,8 +23,10 @@ export function HubSearchProvider({ children }: { children: React.ReactNode }) {
       qInput,
       setQInput,
       debouncedQ,
+      selectedTeamId,
+      setSelectedTeamId,
     }),
-    [qInput, setQInput, debouncedQ],
+    [qInput, setQInput, debouncedQ, selectedTeamId],
   )
 
   return <HubSearchContext.Provider value={value}>{children}</HubSearchContext.Provider>
