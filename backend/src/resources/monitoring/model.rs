@@ -11,10 +11,10 @@ pub const METRICS_MAX_WINDOW_DAYS: i64 = 90;
 #[derive(Debug, Clone, serde::Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Query)]
 pub struct MonitoringMetricsQuery {
-    /// Inclusive lower bound (UTC calendar date, `YYYY-MM-DD`).
-    pub start: NaiveDate,
-    /// Inclusive upper bound (UTC calendar date, `YYYY-MM-DD`).
-    pub end: NaiveDate,
+    /// Inclusive lower bound (UTC, RFC 3339).
+    pub start: DateTime<Utc>,
+    /// Inclusive upper bound (UTC, RFC 3339).
+    pub end: DateTime<Utc>,
 }
 
 impl MonitoringMetricsQuery {
@@ -23,14 +23,17 @@ impl MonitoringMetricsQuery {
             return Err("start must be on or before end".into());
         }
         let max = Duration::days(METRICS_MAX_WINDOW_DAYS);
-        let requested_days = self.end.signed_duration_since(self.start) + Duration::days(1);
+        let requested_days = self
+            .end
+            .date_naive()
+            .signed_duration_since(self.start.date_naive())
+            + Duration::days(1);
         if requested_days > max {
             return Err(format!(
                 "date range must include at most {METRICS_MAX_WINDOW_DAYS} days"
             ));
         }
-        let today = Utc::now().date_naive();
-        if self.end > today {
+        if self.end > Utc::now() {
             return Err("end must not be in the future".into());
         }
         Ok(self)

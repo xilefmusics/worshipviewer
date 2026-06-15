@@ -1586,7 +1586,7 @@ mod team_filter {
 mod monitoring_http {
     use super::*;
     use actix_web::http::StatusCode;
-    use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
+    use chrono::{Duration as ChronoDuration, NaiveDate, SecondsFormat, Utc};
     use serde::Deserialize;
     use std::time::Duration;
     use surrealdb::types::{Datetime, RecordId, SurrealValue};
@@ -1786,12 +1786,26 @@ mod monitoring_http {
         start: NaiveDate,
         end: NaiveDate,
     ) -> serde_json::Value {
+        let start_param = start
+            .and_hms_opt(0, 0, 0)
+            .map(|t| chrono::DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
+            .expect("valid start timestamp")
+            .to_rfc3339_opts(SecondsFormat::Secs, true)
+            .replace(':', "%3A");
+        let now = Utc::now();
+        let end_param = if end >= now.date_naive() {
+            now
+        } else {
+            end.and_hms_opt(23, 59, 59)
+                .map(|t| chrono::DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
+                .expect("valid end timestamp")
+        }
+        .to_rfc3339_opts(SecondsFormat::Secs, true)
+        .replace(':', "%3A");
         let app = test::init_service(build_app(db)).await;
         let req = test::TestRequest::get()
             .uri(&format!(
-                "/api/v1/monitoring/metrics?start={}&end={}",
-                start.format("%Y-%m-%d"),
-                end.format("%Y-%m-%d")
+                "/api/v1/monitoring/metrics?start={start_param}&end={end_param}"
             ))
             .insert_header(("Authorization", format!("Bearer {token}")))
             .to_request();
@@ -1979,7 +1993,7 @@ mod monitoring_http {
         let token = create_session_token(&db, user).await.unwrap();
         let app = test::init_service(build_app(db)).await;
         let req = test::TestRequest::get()
-            .uri("/api/v1/monitoring/metrics?start=2026-04-01&end=2026-04-02")
+            .uri("/api/v1/monitoring/metrics?start=2026-04-01T00%3A00%3A00Z&end=2026-04-02T00%3A00%3A00Z")
             .insert_header(("Authorization", format!("Bearer {token}")));
         assert_eq!(call_status!(app, req), StatusCode::FORBIDDEN);
     }
@@ -1991,7 +2005,7 @@ mod monitoring_http {
         let (_, token) = make_admin(&db, "mon-metrics-badwin@test.local").await;
         let app = test::init_service(build_app(db)).await;
         let req = test::TestRequest::get()
-            .uri("/api/v1/monitoring/metrics?start=2026-04-02&end=2026-04-01")
+            .uri("/api/v1/monitoring/metrics?start=2026-04-02T00%3A00%3A00Z&end=2026-04-01T00%3A00%3A00Z")
             .insert_header(("Authorization", format!("Bearer {token}")));
         assert_eq!(call_status!(app, req), StatusCode::BAD_REQUEST);
     }

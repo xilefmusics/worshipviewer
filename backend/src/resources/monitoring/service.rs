@@ -47,23 +47,25 @@ impl MonitoringMetricsService {
         query: MonitoringMetricsQuery,
     ) -> Result<Vec<MonitoringMetricsDay>, AppError> {
         let query = query.validate().map_err(AppError::invalid_request)?;
+        let start_date = query.start.date_naive();
+        let end_date = query.end.date_naive();
         let today = Utc::now().date_naive();
         let yesterday = today - Duration::days(1);
 
-        if query.start <= yesterday {
-            Self::fill_completed_cache(db, query.start, yesterday).await?;
-            let cached = Self::read_cached_range(db, query.start, query.end.min(yesterday)).await?;
-            Self::fill_missing_completed_days(db, query.start, query.end.min(yesterday), &cached)
+        if start_date <= yesterday {
+            Self::fill_completed_cache(db, start_date, yesterday).await?;
+            let cached = Self::read_cached_range(db, start_date, end_date.min(yesterday)).await?;
+            Self::fill_missing_completed_days(db, start_date, end_date.min(yesterday), &cached)
                 .await?;
         }
 
-        let mut out = if query.start <= yesterday {
-            Self::read_cached_range(db, query.start, query.end.min(yesterday)).await?
+        let mut out = if start_date <= yesterday {
+            Self::read_cached_range(db, start_date, end_date.min(yesterday)).await?
         } else {
             Vec::new()
         };
 
-        if query.end >= today {
+        if end_date >= today {
             out.push(Self::compute_day(db, today).await?);
         }
 

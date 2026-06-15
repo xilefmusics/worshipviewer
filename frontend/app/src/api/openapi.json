@@ -624,13 +624,13 @@
       "MonitoringMetricsQuery": {
         "properties": {
           "end": {
-            "description": "Inclusive upper bound (UTC calendar date, `YYYY-MM-DD`).",
-            "format": "date",
+            "description": "Inclusive upper bound (UTC, RFC 3339).",
+            "format": "date-time",
             "type": "string"
           },
           "start": {
-            "description": "Inclusive lower bound (UTC calendar date, `YYYY-MM-DD`).",
-            "format": "date",
+            "description": "Inclusive lower bound (UTC, RFC 3339).",
+            "format": "date-time",
             "type": "string"
           }
         },
@@ -4544,22 +4544,22 @@
         "operationId": "get_monitoring_metrics",
         "parameters": [
           {
-            "description": "Inclusive lower bound (UTC calendar date, `YYYY-MM-DD`).",
+            "description": "Inclusive lower bound (UTC, RFC 3339).",
             "in": "query",
             "name": "start",
             "required": true,
             "schema": {
-              "format": "date",
+              "format": "date-time",
               "type": "string"
             }
           },
           {
-            "description": "Inclusive upper bound (UTC calendar date, `YYYY-MM-DD`).",
+            "description": "Inclusive upper bound (UTC, RFC 3339).",
             "in": "query",
             "name": "end",
             "required": true,
             "schema": {
-              "format": "date",
+              "format": "date-time",
               "type": "string"
             }
           }
@@ -4576,7 +4576,7 @@
                 }
               }
             },
-            "description": "Daily cached HTTP audit metrics for inclusive UTC calendar dates. Rates are 0.0–1.0."
+            "description": "Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps. Rates are 0.0–1.0."
           },
           "400": {
             "content": {

@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+use chrono::{DateTime, Utc};
 use shared::api::{ApiClient, PageQuery};
 use shared::monitoring::MonitoringMetricsQuery;
 use shared::net::DefaultHttpClient;
@@ -37,11 +37,11 @@ pub async fn handle_monitoring(
             Ok(())
         }
         MonitoringCommand::Metrics { start, end } => {
-            let start: NaiveDate = start
+            let start: DateTime<Utc> = start
                 .trim()
                 .parse()
                 .map_err(|e: chrono::ParseError| format!("invalid --start: {e}"))?;
-            let end: NaiveDate = end
+            let end: DateTime<Utc> = end
                 .trim()
                 .parse()
                 .map_err(|e: chrono::ParseError| format!("invalid --end: {e}"))?;

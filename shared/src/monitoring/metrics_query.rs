@@ -1,13 +1,13 @@
 //! Query parameters for `GET /api/v1/monitoring/metrics`.
 
-use chrono::NaiveDate;
+use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Inclusive UTC calendar date range for daily metrics.
+/// Inclusive UTC instant range for daily metrics.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MonitoringMetricsQuery {
-    pub start: NaiveDate,
-    pub end: NaiveDate,
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
 }
 
 fn encode_query_component(s: &str) -> String {
@@ -28,8 +28,8 @@ fn encode_query_component(s: &str) -> String {
 
 impl MonitoringMetricsQuery {
     pub fn to_query_string(&self) -> String {
-        let start = self.start.format("%Y-%m-%d").to_string();
-        let end = self.end.format("%Y-%m-%d").to_string();
+        let start = self.start.to_rfc3339_opts(SecondsFormat::Secs, true);
+        let end = self.end.to_rfc3339_opts(SecondsFormat::Secs, true);
         format!(
             "?start={}&end={}",
             encode_query_component(&start),

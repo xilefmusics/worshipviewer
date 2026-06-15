@@ -3,7 +3,7 @@
 ## Static
 
 - **BLC-MON-001:** Every HTTP request handled by the backend results in **one** `http_request_audit` row (including `/auth/*`, `/api/docs/*`, and static asset routes), written **asynchronously** with best-effort persistence (logging failures MUST NOT change the HTTP response).
-- **BLC-MON-005:** **`GET /api/v1/monitoring/metrics`** exposes one daily metrics entry per inclusive UTC calendar date (`start=YYYY-MM-DD&end=YYYY-MM-DD`); access is **admin-only** (same pattern as **BLC-MON-004** for audit logs). Query parameters and response shape are defined in OpenAPI.
+- **BLC-MON-005:** **`GET /api/v1/monitoring/metrics`** exposes one daily metrics entry per UTC calendar day touched by inclusive RFC 3339 `start` and `end` timestamps; access is **admin-only** (same pattern as **BLC-MON-004** for audit logs). Query parameters and response shape are defined in OpenAPI.
 - **BLC-MON-007:** Monitoring metrics are cached in the `metrics` table per completed UTC calendar day. Requests calculate and upsert missing completed days through yesterday; today is calculated dynamically when included and MUST NOT be persisted in `metrics`.
 - **BLC-MON-008:** Each daily metrics entry contains `daily`, `weekly`, and `monthly` rolling windows. User aggregates MUST NOT expose user or session identities; request distribution metrics store only aggregate request counts.
 - **BLC-MON-006:** Successful **OTP** and **OIDC** logins produce monitoring/audit records suitable for security review (see `audit_events` tests); failed login attempts SHOULD be auditable where the implementation records them.
