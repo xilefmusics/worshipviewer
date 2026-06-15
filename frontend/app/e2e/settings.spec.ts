@@ -40,11 +40,6 @@ test('J2+J3: settings preferences round-trip after reload', async ({ page }) => 
   await page.reload()
   await expect(page.getByRole('radio', { name: /nashville/i })).toBeChecked()
 
-  await settings.goto('player')
-  await page.getByRole('checkbox', { name: /hide chords in player and exports/i }).click()
-  await page.reload()
-  await expect(page.getByRole('checkbox', { name: /hide chords in player and exports/i })).toBeChecked()
-
   await settings.goto('playerRoles')
   await page.getByRole('radio', { name: /fade/i }).click()
   await page.reload()

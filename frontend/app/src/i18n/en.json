@@ -382,10 +382,6 @@
       "nashville": "Nashville",
       "nashvilleDescription": "Show Nashville numbers such as 1, 4, and 6m."
     },
-    "hideChords": {
-      "label": "Hide chords in player and exports",
-      "description": "Show only song lyrics in the player and when exporting PDF or text files. The song editor is not affected."
-    },
     "sheetBackground": {
       "title": "Sheet background",
       "description": "Choose the background behind chord sheets and attachments in the player and song preview.",

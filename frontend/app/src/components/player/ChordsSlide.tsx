@@ -3,12 +3,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { useHideChordsPreference } from '@/hooks/useHideChordsPreference'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import { getChordEngine } from '@/lib/chord-engine'
 import { cssScaleToFitViewport } from '@/lib/chord-a4-scale'
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
-import { stripChordsFromChordlibHtml } from '@/lib/strip-chords-from-html'
 import type { ChordSongData } from '@/ports/chord-engine'
 import { cn } from '@/lib/utils'
 
@@ -39,7 +37,6 @@ export function ChordsSlide({
   fillParent = false,
 }: ChordsSlideProps) {
   const { t } = useTranslation()
-  const hideChords = useHideChordsPreference()
   const viewportRef = useRef<HTMLDivElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
@@ -58,7 +55,7 @@ export function ChordsSlide({
 
   const songData = song.data as ChordSongData
   const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
-  const renderKey = `${song.id}:${displayKey ?? ''}:${renderPass}:${representation}:${hideChords ? 'hidden' : 'shown'}`
+  const renderKey = `${song.id}:${displayKey ?? ''}:${renderPass}:${representation}`
   const renderState = useMemo(
     (): RenderState =>
       renderCache.key === renderKey ? renderCache.state : { status: 'loading' },
@@ -106,8 +103,7 @@ export function ChordsSlide({
           representation,
         })
         if (cancelled) return
-        const html = hideChords ? stripChordsFromChordlibHtml(page.html) : page.html
-        setRenderCache({ key: renderKey, state: { status: 'ready', html, css: page.css } })
+        setRenderCache({ key: renderKey, state: { status: 'ready', html: page.html, css: page.css } })
       } catch (e) {
         if (cancelled) return
         const message = e instanceof Error ? e.message : String(e)
@@ -117,7 +113,7 @@ export function ChordsSlide({
     return () => {
       cancelled = true
     }
-  }, [renderKey, songData, displayKey, representation, hideChords])
+  }, [renderKey, songData, displayKey, representation])
 
   useLayoutEffect(() => {
     if (renderState.status !== 'ready') return

@@ -3,7 +3,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { useHideChordsPreference } from '@/hooks/useHideChordsPreference'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import {
   columnWidthInMultiColumnLayout,
@@ -12,7 +11,6 @@ import {
 } from '@/lib/chord-a4-scale'
 import { getChordEngine } from '@/lib/chord-engine'
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
-import { stripChordsFromChordlibHtml } from '@/lib/strip-chords-from-html'
 import { songTitleFromData } from '@/lib/song-import-export'
 import type { ChordSongData } from '@/ports/chord-engine'
 import { expandSongSectionsForPlayer } from '@/lib/player/expand-song-sections'
@@ -116,7 +114,6 @@ function useMultiColumnSongRender(
   songData: ChordSongData | undefined,
   displayKey: string | null | undefined,
   chordFormat: ChordFormatPreference,
-  hideChords: boolean,
   renderPass: number,
 ): RenderState {
   const [renderCache, setRenderCache] = useState<{ key: string; state: RenderState }>({
@@ -124,9 +121,7 @@ function useMultiColumnSongRender(
     state: { status: 'loading' },
   })
   const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
-  const renderKey = song
-    ? `${song.id}:${displayKey ?? ''}:${renderPass}:${representation}:${hideChords ? 'hidden' : 'shown'}`
-    : ''
+  const renderKey = song ? `${song.id}:${displayKey ?? ''}:${renderPass}:${representation}` : ''
 
   useEffect(() => {
     if (!song || !songData) return
@@ -140,12 +135,9 @@ function useMultiColumnSongRender(
           representation,
         })
         if (cancelled) return
-        const sections = hideChords
-          ? page.sections.map((section) => stripChordsFromChordlibHtml(section))
-          : page.sections
         setRenderCache({
           key: renderKey,
-          state: { status: 'ready', sections, css: page.css },
+          state: { status: 'ready', sections: page.sections, css: page.css },
         })
       } catch (e) {
         if (cancelled) return
@@ -156,7 +148,7 @@ function useMultiColumnSongRender(
     return () => {
       cancelled = true
     }
-  }, [song, songData, displayKey, renderKey, representation, hideChords])
+  }, [song, songData, displayKey, renderKey, representation])
 
   if (!song || !songData || renderCache.key !== renderKey) {
     return LOADING_RENDER_STATE
@@ -278,7 +270,6 @@ export function ChordsThreeColumnSlide({
   fillParent = false,
 }: ChordsThreeColumnSlideProps) {
   const { t } = useTranslation()
-  const hideChords = useHideChordsPreference()
   const viewportRef = useRef<HTMLDivElement>(null)
   const columnAreaRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLDivElement>(null)
@@ -310,7 +301,6 @@ export function ChordsThreeColumnSlide({
     renderSongData,
     displayKey,
     chordFormat,
-    hideChords,
     renderPass,
   )
   const nextSongData = nextSong?.data as ChordSongData | undefined
@@ -324,7 +314,6 @@ export function ChordsThreeColumnSlide({
     nextRenderSongData,
     nextDisplayKey,
     chordFormat,
-    hideChords,
     0,
   )
   const nextPreviewRenderState = showNextPreview ? nextRenderState : null

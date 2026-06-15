@@ -2,10 +2,7 @@ import JSZip from 'jszip'
 
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
-import { readHideChordsPreference } from '@/lib/hide-chords-preference'
 import { resolveSongDataKey } from '@/lib/setlist-song-links'
-import { stripChordsFromChordlibHtml } from '@/lib/strip-chords-from-html'
-import { stripChordsFromChordpro } from '@/lib/strip-chords-from-chordpro'
 import { songEditorFormatOptions } from '@/lib/song-editor-state'
 import type { ChordEngine, ChordSongData } from '@/ports/chord-engine'
 
@@ -111,17 +108,15 @@ export function formatSongForExport(
   format: TextExportFormat,
   chordFormat: ChordFormatPreference,
   keyOverride?: string,
-  hideChords: boolean = readHideChordsPreference(),
 ): string {
   const worshipPro = format === 'worshippro'
   const key =
     keyOverride ?? resolveSongDataKey(data as Record<string, unknown>) ?? undefined
-  const text = engine.formatChordPro(data, {
+  return engine.formatChordPro(data, {
     worshipPro,
     key,
     representation: chordFormatToRepresentation(chordFormat),
   })
-  return hideChords ? stripChordsFromChordpro(text) : text
 }
 
 export function orderedSongZipEntryNames(
@@ -166,12 +161,11 @@ export function exportSongText(
   data: ChordSongData,
   format: TextExportFormat,
   chordFormat: ChordFormatPreference,
-  hideChords: boolean = readHideChordsPreference(),
 ): void {
   const worshipPro = format === 'worshippro'
   const ext = worshipPro ? 'wp' : 'cp'
   const basename = sanitizeDownloadBasename(songTitleFromData(data))
-  const text = formatSongForExport(engine, data, format, chordFormat, undefined, hideChords)
+  const text = formatSongForExport(engine, data, format, chordFormat)
   downloadTextFile(`${basename}.${ext}`, text)
 }
 
@@ -363,15 +357,12 @@ function renderA4ExportPage(
   data: ChordSongData,
   key: string | undefined,
   chordFormat: ChordFormatPreference,
-  hideChords: boolean = readHideChordsPreference(),
 ): PdfExportPage {
-  const page = engine.renderA4Html(data, {
+  return engine.renderA4Html(data, {
     key,
     representation: chordFormatToRepresentation(chordFormat),
     scale: 1,
   })
-  if (!hideChords) return page
-  return { html: stripChordsFromChordlibHtml(page.html), css: page.css }
 }
 
 export type HubExportSong = {
@@ -388,7 +379,6 @@ export async function exportOrderedSongsZip(
   songs: HubExportSong[],
   format: TextExportFormat,
   chordFormat: ChordFormatPreference,
-  hideChords: boolean = readHideChordsPreference(),
 ): Promise<void> {
   if (songs.length === 0) {
     throw new Error('No exportable songs')
@@ -396,7 +386,7 @@ export async function exportOrderedSongsZip(
   const zip = new JSZip()
   const entryNames = orderedSongZipEntryNames(songs, format)
   songs.forEach((song, index) => {
-    const text = formatSongForExport(engine, song.data, format, chordFormat, song.key, hideChords)
+    const text = formatSongForExport(engine, song.data, format, chordFormat, song.key)
     zip.file(entryNames[index]!, text)
   })
   const blob = await zip.generateAsync({ type: 'blob' })
@@ -412,10 +402,9 @@ export async function exportSongPdf(
   engine: ChordEngine,
   data: ChordSongData,
   chordFormat: ChordFormatPreference,
-  hideChords: boolean = readHideChordsPreference(),
 ): Promise<void> {
   const key = resolveSongDataKey(data as Record<string, unknown>) ?? undefined
-  const pages = [renderA4ExportPage(engine, data, key, chordFormat, hideChords)]
+  const pages = [renderA4ExportPage(engine, data, key, chordFormat)]
   const title = sanitizeDownloadBasename(songTitleFromData(data))
   await printPdfDocument(pages, title)
 }
@@ -429,13 +418,12 @@ export async function exportSetlistPdf(
   setlistTitle: string,
   songs: HubExportSong[],
   chordFormat: ChordFormatPreference,
-  hideChords: boolean = readHideChordsPreference(),
 ): Promise<void> {
   if (songs.length === 0) {
     throw new Error('No exportable songs')
   }
   const pages = songs.map((song) =>
-    renderA4ExportPage(engine, song.data, song.key, chordFormat, hideChords),
+    renderA4ExportPage(engine, song.data, song.key, chordFormat),
   )
   const title = sanitizeDownloadBasename(setlistTitle)
   await printPdfDocument(pages, title)

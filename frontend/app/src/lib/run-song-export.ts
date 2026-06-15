@@ -14,12 +14,11 @@ export async function runSongExport(
   kind: SongExportKind,
   chordFormat: ChordFormatPreference,
   engine?: ChordEngine,
-  hideChords?: boolean,
 ): Promise<void> {
   const resolved = engine ?? (await getChordEngine())
   if (kind === 'pdf') {
-    await exportSongPdf(resolved, data, chordFormat, hideChords)
+    await exportSongPdf(resolved, data, chordFormat)
     return
   }
-  exportSongText(resolved, data, kind, chordFormat, hideChords)
+  exportSongText(resolved, data, kind, chordFormat)
 }
