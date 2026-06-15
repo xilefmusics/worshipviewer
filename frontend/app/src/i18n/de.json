@@ -382,6 +382,10 @@
       "nashville": "Nashville",
       "nashvilleDescription": "Zeigt Nashville-Ziffern wie 1, 4 und 6m."
     },
+    "hideChords": {
+      "label": "Akkorde im Player und Export ausblenden",
+      "description": "Zeigt im Player und beim Export von PDF- oder Textdateien nur Songtext. Der Song-Editor bleibt unverändert."
+    },
     "sheetBackground": {
       "title": "Blatt-Hintergrund",
       "description": "Hintergrund hinter Akkordblättern und Anhängen im Player und in der Song-Vorschau.",

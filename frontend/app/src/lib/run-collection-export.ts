@@ -16,14 +16,15 @@ export async function runCollectionExport(
   collectionId: string,
   kind: CollectionExportKind,
   chordFormat: ChordFormatPreference,
+  hideChords?: boolean,
 ): Promise<void> {
   const detail = await fetchCollectionDetail(queryClient, { id: collectionId })
   const links = normalizeSongLinksForCollectionEditor(detail.songs)
   if (kind === 'pdf') {
-    await runOrderedSongsPdfExport(queryClient, detail.title, links, chordFormat)
+    await runOrderedSongsPdfExport(queryClient, detail.title, links, chordFormat, hideChords)
     return
   }
-  await runOrderedSongsZipExport(queryClient, detail.title, links, kind, chordFormat)
+  await runOrderedSongsZipExport(queryClient, detail.title, links, kind, chordFormat, hideChords)
 }
 
 /** @deprecated Use {@link runCollectionExport}. */

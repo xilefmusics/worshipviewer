@@ -9,6 +9,7 @@ import {
   chordFormatToRepresentation,
   resolveChordFormatPreference,
 } from '@/lib/chord-format'
+import { readHideChordsPreference } from '@/lib/hide-chords-preference'
 
 // Flow: J2 — Player Default tab option surfaces
 describe('J2: Player Default tab options', () => {
@@ -17,6 +18,11 @@ describe('J2: Player Default tab options', () => {
     expect(resolveChordFormatPreference('nashville')).toBe('nashville')
     expect(chordFormatToRepresentation('letters')).toBeTruthy()
     expect(chordFormatToRepresentation('nashville')).toBeTruthy()
+  })
+
+  it('J2: hide chords preference defaults to off', () => {
+    expect(readHideChordsPreference({ getItem: () => null })).toBe(false)
+    expect(readHideChordsPreference({ getItem: () => 'true' })).toBe(true)
   })
 
   it('J2: scroll modes cycle through eight variants', () => {
