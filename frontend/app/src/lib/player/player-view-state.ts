@@ -4,6 +4,7 @@ import { parseOptionalPlayerIndex } from '@/lib/player/player-editor-return'
 
 export type PlayerViewState = {
   transposeByItem: Record<number, string | null>
+  languageByItem?: Record<number, number>
   itemIndex?: number
   /** Intra-item page when scroll mode supports paging within an item. */
   pageOffset?: number
@@ -21,18 +22,19 @@ export function readPlayerViewState(
   try {
     const raw = safeGetItem(playerViewStorageKey(type, id), storage)
     if (!raw) {
-      return { transposeByItem: {} }
+      return { transposeByItem: {}, languageByItem: {} }
     }
     const parsed = JSON.parse(raw) as Partial<PlayerViewState>
     const itemIndex = parseOptionalPlayerIndex(parsed.itemIndex)
     const pageOffset = parseOptionalPlayerIndex(parsed.pageOffset)
     return {
       transposeByItem: parsed.transposeByItem ?? {},
+      languageByItem: parsed.languageByItem ?? {},
       ...(itemIndex != null ? { itemIndex } : {}),
       ...(pageOffset != null ? { pageOffset } : {}),
     }
   } catch {
-    return { transposeByItem: {} }
+    return { transposeByItem: {}, languageByItem: {} }
   }
 }
 
@@ -68,6 +70,23 @@ export function clearTransposeForItem(state: PlayerViewState, itemIndex: number)
   const next = { ...state.transposeByItem }
   delete next[itemIndex]
   return { ...state, transposeByItem: next }
+}
+
+export function setLanguageForItem(
+  state: PlayerViewState,
+  itemIndex: number,
+  languageIndex: number,
+): PlayerViewState {
+  return {
+    ...state,
+    languageByItem: { ...(state.languageByItem ?? {}), [itemIndex]: languageIndex },
+  }
+}
+
+export function clearLanguageForItem(state: PlayerViewState, itemIndex: number): PlayerViewState {
+  const next = { ...(state.languageByItem ?? {}) }
+  delete next[itemIndex]
+  return { ...state, languageByItem: next }
 }
 
 export function setPlayerItemIndex(state: PlayerViewState, itemIndex: number): PlayerViewState {

@@ -8,6 +8,8 @@ import {
   readPlayerViewState,
   writePlayerViewState,
   playerViewStorageKey,
+  setLanguageForItem,
+  clearLanguageForItem,
   setPlayerNavPosition,
 } from '@/lib/player/player-view-state'
 
@@ -29,6 +31,39 @@ describe('player-view-state', () => {
 
     const loaded = readPlayerViewState('song', 's1', mockStorage)
     expect(loaded.transposeByItem[0]).toBe('G')
+  })
+
+  it('persists and reads language settings', () => {
+    const storage = new Map<string, string>()
+    const mockStorage = {
+      getItem: (k: string) => storage.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        storage.set(k, v)
+      },
+    }
+
+    writePlayerViewState(
+      'song',
+      's1',
+      { transposeByItem: {}, languageByItem: { 0: 1 } },
+      mockStorage,
+    )
+
+    const loaded = readPlayerViewState('song', 's1', mockStorage)
+    expect(loaded.languageByItem?.[0]).toBe(1)
+  })
+
+  it('uses empty language settings for legacy stored state', () => {
+    const storage = new Map<string, string>([
+      [playerViewStorageKey('song', 's1'), JSON.stringify({ transposeByItem: { 0: 'G' } })],
+    ])
+    const mockStorage = {
+      getItem: (k: string) => storage.get(k) ?? null,
+    }
+
+    const loaded = readPlayerViewState('song', 's1', mockStorage)
+    expect(loaded.transposeByItem[0]).toBe('G')
+    expect(loaded.languageByItem).toEqual({})
   })
 
   it('persists and reads item index', () => {
@@ -70,6 +105,14 @@ describe('player-view-state', () => {
     const next = setPlayerNavPosition({ transposeByItem: {} }, 4, 2)
     expect(next.itemIndex).toBe(4)
     expect(next.pageOffset).toBe(2)
+  })
+
+  it('sets and clears language settings for an item', () => {
+    const selected = setLanguageForItem({ transposeByItem: {} }, 2, 1)
+    expect(selected.languageByItem?.[2]).toBe(1)
+
+    const cleared = clearLanguageForItem(selected, 2)
+    expect(cleared.languageByItem?.[2]).toBeUndefined()
   })
 })
 

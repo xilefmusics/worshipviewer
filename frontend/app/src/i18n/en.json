@@ -275,6 +275,10 @@
       "current": "Transpose: {{key}}, change",
       "default": "Default"
     },
+    "language": {
+      "current": "Language: {{language}}, change",
+      "defaultOption": "{{language}} (default)"
+    },
     "chordFormat": {
       "current": "Chord format: {{format}}, change"
     },
