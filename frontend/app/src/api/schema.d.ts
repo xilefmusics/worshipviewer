@@ -1595,7 +1595,8 @@ export interface components {
          *       "page": 0,
          *       "page_size": 50,
          *       "q": "grace",
-         *       "sort": "-id"
+         *       "sort": "-id",
+         *       "team": "team_example"
          *     }
          */
         SongListQuery: {
@@ -1614,6 +1615,7 @@ export interface components {
             sort?: string | null;
             /** @description Case-insensitive substring match against the stringified `data.tags` object (keys and values). */
             tag?: string | null;
+            team?: string | null;
         };
         SongUserSpecificAddons: {
             liked: boolean;
@@ -2517,6 +2519,8 @@ export interface operations {
                 page_size?: number | null;
                 /** @description Search query (title): full-text via text_search analyzer (stemming) plus case-insensitive substring match */
                 q?: string;
+                /** @description Filter by owning team id. Must be a plain team id, not `team:...`. */
+                team?: string;
             };
             header?: never;
             path?: never;
@@ -3583,6 +3587,8 @@ export interface operations {
                 page_size?: number | null;
                 /** @description Search query (title): full-text via text_search analyzer (stemming) plus case-insensitive substring match */
                 q?: string;
+                /** @description Filter by owning team id. Must be a plain team id, not `team:...`. */
+                team?: string;
             };
             header?: never;
             path?: never;
@@ -4255,6 +4261,8 @@ export interface operations {
                 page_size?: number | null;
                 /** @description Search query: full-text on titles (plus case-insensitive title substring), artists, and line lyrics via text_search analyzer (stemming) */
                 q?: string;
+                /** @description Filter by owning team id. Must be a plain team id, not `team:...`. */
+                team?: string;
                 /** @description Sort: JSON:API-style comma-separated keys (`-` = descending), e.g. `-id`, `title`, `relevance` (with `q`). Legacy `id_desc` / … still accepted. */
                 sort?: string;
                 /** @description Filter: song must list this language in `data.languages`. */

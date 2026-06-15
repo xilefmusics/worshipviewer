@@ -2059,7 +2059,8 @@
           "page": 0,
           "page_size": 50,
           "q": "grace",
-          "sort": "-id"
+          "sort": "-id",
+          "team": "team_example"
         },
         "properties": {
           "lang": {
@@ -2101,6 +2102,12 @@
           },
           "tag": {
             "description": "Case-insensitive substring match against the stringified `data.tags` object (keys and values).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "team": {
             "type": [
               "string",
               "null"
@@ -3609,6 +3616,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Filter by owning team id. Must be a plain team id, not `team:...`.",
+            "in": "query",
+            "name": "team",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5078,6 +5094,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Filter by owning team id. Must be a plain team id, not `team:...`.",
+            "in": "query",
+            "name": "team",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5988,6 +6013,15 @@
             "description": "Search query: full-text on titles (plus case-insensitive title substring), artists, and line lyrics via text_search analyzer (stemming)",
             "in": "query",
             "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter by owning team id. Must be a plain team id, not `team:...`.",
+            "in": "query",
+            "name": "team",
             "required": false,
             "schema": {
               "type": "string"
