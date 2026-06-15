@@ -820,24 +820,6 @@ export interface components {
             /** @description Semver from `Cargo.toml` at compile time (`CARGO_PKG_VERSION`). */
             version: string;
         };
-        ActivityCalendarMetrics: {
-            dau_date: string;
-            /** Format: double */
-            dau_over_mau?: number | null;
-            /** Format: int64 */
-            dau_users: number;
-            mau_month: string;
-            /** Format: int64 */
-            mau_users: number;
-            /** Format: int64 */
-            wau_rolling_7d_users: number;
-        };
-        AdminMonitoringMetrics: {
-            /** Format: int64 */
-            distinct_admin_users: number;
-            /** Format: int64 */
-            request_count: number;
-        };
         /**
          * @example {
          *       "file_type": "image/png",
@@ -1002,22 +984,6 @@ export interface components {
             email: string;
             role?: components["schemas"]["Role"];
         };
-        EngagementMetrics: {
-            /** Format: int64 */
-            distinct_active_users_product: number;
-            /** Format: int64 */
-            distinct_sessions_in_window: number;
-            /** Format: int64 */
-            distinct_sessions_on_end_day: number;
-            /** Format: int64 */
-            product_requests_with_user: number;
-            /** Format: double */
-            requests_per_active_user_product?: number | null;
-            /** Format: double */
-            requests_per_session?: number | null;
-            /** Format: int64 */
-            sessioned_requests_in_window: number;
-        };
         /**
          * ErrorResponse
          * @deprecated
@@ -1031,34 +997,6 @@ export interface components {
             code: string;
             /** @description Human-readable description of the error. */
             error: string;
-        };
-        FamilyErrorRates: {
-            /** Format: int64 */
-            count_5xx: number;
-            family: components["schemas"]["RouteFamily"];
-            /** Format: double */
-            rate_5xx: number;
-            /** Format: int64 */
-            total_requests: number;
-        };
-        FamilyLatency: {
-            family: components["schemas"]["RouteFamily"];
-            /** Format: double */
-            p95_ms?: number | null;
-            /** Format: double */
-            p99_ms?: number | null;
-        };
-        FeatureFamilyMetrics: {
-            /** Format: int64 */
-            distinct_users_in_mau_month: number;
-            /** Format: int64 */
-            distinct_users_in_window: number;
-            key: string;
-            path_prefix: string;
-            /** Format: double */
-            pct_of_mau: number;
-            /** Format: int64 */
-            request_count: number;
         };
         /**
          * @description Stored image format for blobs. Wire values are MIME type strings.
@@ -1095,28 +1033,11 @@ export interface components {
             /** Format: int64 */
             request_count: number;
         };
-        IdLike404Metrics: {
-            /** Format: int64 */
-            id_like_404_count: number;
-            /** Format: double */
-            id_like_404_share_of_404: number;
-            top_id_like_404_paths: components["schemas"]["TopFailingRoute"][];
-            /** Format: int64 */
-            total_404_count: number;
-        };
         /**
          * @description Chord quality on the wire (`kind` field of [`ChordSchema`]).
          * @enum {string}
          */
         Kind: "Major" | "Minor" | "Diminished" | "Augmented" | "Suspended2" | "Suspended4";
-        LatencyMetrics: {
-            by_method: components["schemas"]["MethodLatency"][];
-            by_route_family: components["schemas"]["FamilyLatency"][];
-            /** Format: double */
-            p95_ms_all?: number | null;
-            /** Format: double */
-            p99_ms_all?: number | null;
-        };
         LikeStatus: {
             liked: boolean;
         };
@@ -1124,51 +1045,85 @@ export interface components {
         Line: {
             parts: components["schemas"]["Part"][];
         };
-        MethodLatency: {
-            method: string;
+        MonitoringDurationMetrics: {
             /** Format: double */
-            p95_ms?: number | null;
+            avg: number;
             /** Format: double */
-            p99_ms?: number | null;
+            avg_failure: number;
+            /** Format: double */
+            avg_success: number;
+            /** Format: double */
+            max: number;
+            /** Format: double */
+            min: number;
+            /** Format: double */
+            p95: number;
+            /** Format: double */
+            p99: number;
         };
-        MetricsWindowWire: {
-            /** Format: int64 */
-            days_spanned: number;
-            /** Format: date-time */
-            end: string;
-            /** Format: double */
-            requests_per_day: number;
-            /** Format: date-time */
-            start: string;
-            /** Format: int64 */
-            total_requests: number;
+        MonitoringMetricWindow: {
+            requests: components["schemas"]["MonitoringRequestMetrics"];
+            users: components["schemas"]["MonitoringUserMetrics"];
+        };
+        MonitoringMetricsDay: {
+            daily: components["schemas"]["MonitoringMetricWindow"];
+            /** Format: date */
+            date: string;
+            monthly: components["schemas"]["MonitoringMetricWindow"];
+            weekly: components["schemas"]["MonitoringMetricWindow"];
         };
         MonitoringMetricsQuery: {
             /**
-             * Format: date-time
-             * @description Exclusive upper bound (UTC, RFC 3339).
+             * Format: date
+             * @description Inclusive upper bound (UTC calendar date, `YYYY-MM-DD`).
              */
             end: string;
             /**
-             * Format: date-time
-             * @description Inclusive lower bound (UTC, RFC 3339).
+             * Format: date
+             * @description Inclusive lower bound (UTC calendar date, `YYYY-MM-DD`).
              */
             start: string;
         };
-        MonitoringMetricsResponse: {
-            activation_skipped_reason?: string | null;
-            activity_calendar: components["schemas"]["ActivityCalendarMetrics"];
-            admin_monitoring: components["schemas"]["AdminMonitoringMetrics"];
-            engagement: components["schemas"]["EngagementMetrics"];
-            feature_usage: components["schemas"]["FeatureFamilyMetrics"][];
-            latency: components["schemas"]["LatencyMetrics"];
-            mutations: components["schemas"]["MutationHealthMetrics"];
-            new_user_activation?: null | components["schemas"]["NewUserActivationMetrics"];
-            probing: components["schemas"]["IdLike404Metrics"];
-            reliability: components["schemas"]["ReliabilityMetrics"];
-            top_failing_routes: components["schemas"]["TopFailingRoute"][];
-            traffic: components["schemas"]["TrafficMetrics"];
-            window: components["schemas"]["MetricsWindowWire"];
+        MonitoringRequestMetrics: {
+            /** Format: double */
+            avg_per_user: number;
+            /** Format: int64 */
+            client_error: number;
+            duration: components["schemas"]["MonitoringDurationMetrics"];
+            /** Format: double */
+            error_rate: number;
+            /** Format: int64 */
+            failed: number;
+            /** Format: int64 */
+            max_per_user: number;
+            /** Format: double */
+            median_per_user: number;
+            /** Format: double */
+            p95_per_user: number;
+            /** Format: int64 */
+            server_error: number;
+            /** Format: int64 */
+            successful: number;
+            /** Format: int64 */
+            total: number;
+        };
+        MonitoringUserMetrics: {
+            /** Format: int64 */
+            active: number;
+            /** Format: double */
+            churn_rate: number;
+            /** Format: int64 */
+            churned: number;
+            /** Format: int64 */
+            net_growth: number;
+            /** Format: int64 */
+            new: number;
+            /** Format: int64 */
+            retained: number;
+            /** Format: double */
+            retention_rate: number;
+            /** Format: int64 */
+            returning_users: number;
         };
         /**
          * @description Target owning team for a library resource move (`owner` string matches GET responses).
@@ -1178,24 +1133,6 @@ export interface components {
          */
         MoveOwner: {
             owner: string;
-        };
-        MutationHealthMetrics: {
-            /** Format: int64 */
-            mutations_2xx: number;
-            /** Format: int64 */
-            mutations_4xx: number;
-            /** Format: int64 */
-            mutations_5xx: number;
-            /** Format: int64 */
-            total_mutations: number;
-        };
-        NewUserActivationMetrics: {
-            /** Format: int64 */
-            activated_within_7d: number;
-            /** Format: double */
-            activation_rate: number;
-            /** Format: int64 */
-            new_users_in_window: number;
         };
         /** @enum {string} */
         Orientation: "portrait" | "landscape";
@@ -1362,45 +1299,6 @@ export interface components {
             title: string;
             type: string;
         };
-        ReliabilityMetrics: {
-            /** Format: double */
-            authenticated_share: number;
-            /** Format: int64 */
-            count_401_all: number;
-            /** Format: int64 */
-            count_401_api_v1: number;
-            /** Format: int64 */
-            count_403_all: number;
-            /** Format: int64 */
-            count_429_all: number;
-            /** Format: int64 */
-            count_5xx_all: number;
-            /** Format: int64 */
-            error_count_all: number;
-            /** Format: int64 */
-            error_count_api_v1: number;
-            /**
-             * Format: double
-             * @description `status_code >= 400` / total in window.
-             */
-            error_rate_all: number;
-            /**
-             * Format: double
-             * @description Same, paths under `/api/v1/`.
-             */
-            error_rate_api_v1: number;
-            five_xx_by_route_family: components["schemas"]["FamilyErrorRates"][];
-            /** Format: double */
-            rate_401_all: number;
-            /** Format: double */
-            rate_401_api_v1: number;
-            /** Format: double */
-            rate_403_all: number;
-            /** Format: double */
-            rate_429_all: number;
-            /** Format: double */
-            rate_5xx_all: number;
-        };
         /** @enum {string} */
         Role: "default" | "admin";
         /**
@@ -1408,8 +1306,6 @@ export interface components {
          * @enum {string}
          */
         RootSpellingHint: "default" | "prefer_sharp" | "prefer_flat";
-        /** @enum {string} */
-        RouteFamily: "api_v1" | "auth" | "docs" | "other";
         /** @enum {string} */
         ScrollType: "one_page" | "half_page" | "two_page" | "book" | "two_half_page";
         /** @description Verse, chorus, bridge, etc. */
@@ -1683,21 +1579,6 @@ export interface components {
             /** @description Display number/label for this TOC row. */
             nr: string;
             title: string;
-        };
-        TopFailingRoute: {
-            /** Format: int64 */
-            error_count: number;
-            path: string;
-        };
-        TrafficMetrics: {
-            mix: components["schemas"]["TrafficMixEntry"][];
-        };
-        TrafficMixEntry: {
-            /** Format: int64 */
-            count: number;
-            family: components["schemas"]["RouteFamily"];
-            /** Format: double */
-            share: number;
         };
         /**
          * @description Move a song link from this collection into another (`POST …/collections/{id}/songs/{song_id}/transfer`).
@@ -3508,9 +3389,9 @@ export interface operations {
     get_monitoring_metrics: {
         parameters: {
             query: {
-                /** @description Inclusive lower bound (UTC, RFC 3339). */
+                /** @description Inclusive lower bound (UTC calendar date, `YYYY-MM-DD`). */
                 start: string;
-                /** @description Exclusive upper bound (UTC, RFC 3339). */
+                /** @description Inclusive upper bound (UTC calendar date, `YYYY-MM-DD`). */
                 end: string;
             };
             header?: never;
@@ -3519,16 +3400,16 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Aggregated HTTP audit metrics for `[start, end)` (UTC). Rates are 0.0–1.0. */
+            /** @description Daily cached HTTP audit metrics for inclusive UTC calendar dates. Rates are 0.0–1.0. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MonitoringMetricsResponse"];
+                    "application/json": components["schemas"]["MonitoringMetricsDay"][];
                 };
             };
-            /** @description Invalid or disallowed time window */
+            /** @description Invalid or disallowed date range */
             400: {
                 headers: {
                     [name: string]: unknown;

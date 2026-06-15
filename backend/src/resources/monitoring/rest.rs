@@ -13,8 +13,9 @@ use shared::api::{PAGE_SIZE_DEFAULT, PageQuery};
 
 use super::MonitoringMetricsQuery;
 use super::repo::MonitoringRepo;
+use super::service::MonitoringMetricsService;
 #[allow(unused_imports)] // Only referenced from `utoipa::path` response schemas
-use super::{HttpAuditLog, MonitoringMetricsResponse};
+use super::{HttpAuditLog, MonitoringMetricsDay};
 
 pub fn scope() -> Scope {
     actix_web::web::scope("/monitoring").service(
@@ -85,8 +86,8 @@ async fn list_http_audit_logs(
     path = "/api/v1/monitoring/metrics",
     params(MonitoringMetricsQuery),
     responses(
-        (status = 200, description = "Aggregated HTTP audit metrics for `[start, end)` (UTC). Rates are 0.0–1.0.", body = MonitoringMetricsResponse),
-        (status = 400, description = "Invalid or disallowed time window", body = Problem, content_type = "application/problem+json"),
+        (status = 200, description = "Daily cached HTTP audit metrics for inclusive UTC calendar dates. Rates are 0.0–1.0.", body = [MonitoringMetricsDay]),
+        (status = 400, description = "Invalid or disallowed date range", body = Problem, content_type = "application/problem+json"),
         (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
         (status = 403, description = "Admin role required", body = Problem, content_type = "application/problem+json"),
         (status = 429, description = "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers", body = Problem, content_type = "application/problem+json"),
@@ -103,10 +104,6 @@ async fn get_monitoring_metrics(
     db: Data<Database>,
     query: Query<MonitoringMetricsQuery>,
 ) -> Result<HttpResponse, AppError> {
-    let query = query
-        .into_inner()
-        .validate()
-        .map_err(AppError::invalid_request)?;
-    let body = MonitoringRepo::fetch_metrics(db.get_ref(), query.as_window()).await?;
+    let body = MonitoringMetricsService::get_range(db.get_ref(), query.into_inner()).await?;
     Ok(HttpResponse::Ok().json(body))
 }

@@ -1586,9 +1586,10 @@ mod team_filter {
 mod monitoring_http {
     use super::*;
     use actix_web::http::StatusCode;
+    use chrono::{Duration as ChronoDuration, NaiveDate, Utc};
     use serde::Deserialize;
     use std::time::Duration;
-    use surrealdb::types::{RecordId, SurrealValue};
+    use surrealdb::types::{Datetime, RecordId, SurrealValue};
 
     use shared::user::Role;
 
@@ -1673,6 +1674,137 @@ mod monitoring_http {
         let row: Option<AuditClient> = r.take(0).expect("take client");
         row.map(|x| (x.client_origin, x.client_version))
             .unwrap_or_else(|| ("unknown".to_string(), None))
+    }
+
+    fn yesterday() -> NaiveDate {
+        Utc::now().date_naive() - ChronoDuration::days(1)
+    }
+
+    async fn seed_metric_audit(
+        db: &Arc<Database>,
+        request_id: &str,
+        user_id: Option<&str>,
+        date: NaiveDate,
+        status_code: i64,
+        duration_ms: i64,
+    ) {
+        let created_at = Datetime::from(
+            date.and_hms_opt(12, 0, 0)
+                .map(|t| chrono::DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
+                .expect("valid seeded timestamp"),
+        );
+        let user_id = user_id.map(str::to_owned);
+        let r = db
+            .db
+            .query(
+                "CREATE http_request_audit SET request_id = $rid, method = 'GET', path = '/api/v1/songs', \
+                 status_code = $status, duration_ms = $duration, \
+                 user = IF $user_id = NONE THEN NONE ELSE type::record('user', $user_id) END, \
+                 session = NONE, client_origin = 'unknown', client_version = NONE, created_at = $created_at",
+            )
+            .bind(("rid", request_id.to_string()))
+            .bind(("status", status_code))
+            .bind(("duration", duration_ms))
+            .bind(("user_id", user_id))
+            .bind(("created_at", created_at))
+            .await
+            .expect("seed metric audit");
+        r.check().expect("seed metric audit statement ok");
+    }
+
+    async fn metrics_cache_count(db: &Arc<Database>, date: Option<NaiveDate>) -> u64 {
+        #[derive(Deserialize, SurrealValue)]
+        struct CountRow {
+            count: u64,
+        }
+        let mut q = if date.is_some() {
+            db.db
+                .query("SELECT count() AS count FROM metrics WHERE date = $date GROUP ALL")
+        } else {
+            db.db
+                .query("SELECT count() AS count FROM metrics GROUP ALL")
+        };
+        if let Some(date) = date {
+            q = q.bind(("date", date.format("%Y-%m-%d").to_string()));
+        }
+        let mut r = q.await.expect("count metrics cache");
+        let rows: Vec<CountRow> = r.take(0).expect("take metrics cache count");
+        rows.into_iter().next().map(|row| row.count).unwrap_or(0)
+    }
+
+    async fn seed_cached_metrics_day(db: &Arc<Database>, date: NaiveDate) {
+        let window = serde_json::json!({
+            "users": {
+                "active": 0,
+                "new": 0,
+                "returning_users": 0,
+                "retained": 0,
+                "churned": 0,
+                "net_growth": 0,
+                "retention_rate": 0.0,
+                "churn_rate": 0.0
+            },
+            "requests": {
+                "total": 0,
+                "successful": 0,
+                "failed": 0,
+                "client_error": 0,
+                "server_error": 0,
+                "error_rate": 0.0,
+                "duration": {
+                    "avg": 0.0,
+                    "min": 0.0,
+                    "max": 0.0,
+                    "p95": 0.0,
+                    "p99": 0.0,
+                    "avg_success": 0.0,
+                    "avg_failure": 0.0
+                },
+                "avg_per_user": 0.0,
+                "median_per_user": 0.0,
+                "p95_per_user": 0.0,
+                "max_per_user": 0
+            }
+        });
+        let date = date.format("%Y-%m-%d").to_string();
+        let r = db
+            .db
+            .query(
+                "LET $thing = type::record('metrics', $date);
+                 UPSERT $thing SET date = $date, daily = $window, weekly = $window, monthly = $window;",
+            )
+            .bind(("date", date))
+            .bind(("window", window))
+            .await
+            .expect("seed cached metrics");
+        r.check().expect("seed cached metrics statement ok");
+    }
+
+    async fn get_metrics_json(
+        db: Arc<Database>,
+        token: &str,
+        start: NaiveDate,
+        end: NaiveDate,
+    ) -> serde_json::Value {
+        let app = test::init_service(build_app(db)).await;
+        let req = test::TestRequest::get()
+            .uri(&format!(
+                "/api/v1/monitoring/metrics?start={}&end={}",
+                start.format("%Y-%m-%d"),
+                end.format("%Y-%m-%d")
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        let status = resp.status();
+        if status != StatusCode::OK {
+            let body = test::read_body(resp).await;
+            panic!(
+                "expected metrics status 200, got {status}: {}",
+                String::from_utf8_lossy(&body)
+            );
+        }
+        test::read_body_json(resp).await
     }
 
     /// `X-Worship-Client` is stored on the audit row (integration check).
@@ -1847,74 +1979,182 @@ mod monitoring_http {
         let token = create_session_token(&db, user).await.unwrap();
         let app = test::init_service(build_app(db)).await;
         let req = test::TestRequest::get()
-            .uri("/api/v1/monitoring/metrics?start=2026-04-01T00:00:00Z&end=2026-04-02T00:00:00Z")
+            .uri("/api/v1/monitoring/metrics?start=2026-04-01&end=2026-04-02")
             .insert_header(("Authorization", format!("Bearer {token}")));
         assert_eq!(call_status!(app, req), StatusCode::FORBIDDEN);
     }
 
-    /// GET /monitoring/metrics: invalid window returns 400.
+    /// GET /monitoring/metrics: invalid date range returns 400.
     #[actix_web::test]
     async fn monitoring_metrics_invalid_window_400() {
         let db = test_db().await.unwrap();
         let (_, token) = make_admin(&db, "mon-metrics-badwin@test.local").await;
         let app = test::init_service(build_app(db)).await;
         let req = test::TestRequest::get()
-            .uri("/api/v1/monitoring/metrics?start=2026-04-02T00:00:00Z&end=2026-04-01T00:00:00Z")
+            .uri("/api/v1/monitoring/metrics?start=2026-04-02&end=2026-04-01")
             .insert_header(("Authorization", format!("Bearer {token}")));
         assert_eq!(call_status!(app, req), StatusCode::BAD_REQUEST);
     }
 
-    /// GET /monitoring/metrics: admin receives aggregated counts for seeded audit rows.
+    /// GET /monitoring/metrics: rolling windows and request aggregates use seeded audit rows.
     #[actix_web::test]
-    async fn monitoring_metrics_admin_seeded_audit() {
+    async fn monitoring_metrics_daily_weekly_monthly_seeded_audit() {
         let db = test_db().await.unwrap();
-        for (rid, path, status) in [
-            ("seed-met-1", "/api/v1/songs", 200i64),
-            ("seed-met-2", "/auth/callback", 200),
-            (
-                "seed-met-3",
-                "/api/v1/songs/550e8400-e29b-41d4-a716-446655440404",
-                404,
-            ),
-            ("seed-met-4", "/api/v1/users", 500),
-        ] {
-            let r = db
-                .db
-                .query(
-                    "CREATE http_request_audit SET request_id = $rid, method = 'GET', path = $path, \
-                     status_code = $status, duration_ms = 10, user = NONE, session = NONE, \
-                     client_origin = 'unknown', client_version = NONE, \
-                     created_at = d'2026-04-01T12:00:00Z'",
-                )
-                .bind(("rid", rid.to_string()))
-                .bind(("path", path.to_string()))
-                .bind(("status", status))
-                .await
-                .expect("seed audit");
-            r.check().expect("seed audit statement ok");
-        }
+        let day = yesterday();
+        seed_metric_audit(
+            &db,
+            "seed-met-prev-retained",
+            Some("u_retained"),
+            day - ChronoDuration::days(1),
+            200,
+            5,
+        )
+        .await;
+        seed_metric_audit(&db, "seed-met-current-new-ok", Some("u_new"), day, 200, 10).await;
+        seed_metric_audit(
+            &db,
+            "seed-met-current-new-client",
+            Some("u_new"),
+            day,
+            404,
+            30,
+        )
+        .await;
+        seed_metric_audit(
+            &db,
+            "seed-met-current-returning-server",
+            Some("u_retained"),
+            day,
+            500,
+            50,
+        )
+        .await;
+        seed_metric_audit(&db, "seed-met-current-anon-server", None, day, 503, 70).await;
+        seed_metric_audit(
+            &db,
+            "seed-met-week-churn",
+            Some("u_week_churn"),
+            day - ChronoDuration::days(7),
+            200,
+            15,
+        )
+        .await;
+        seed_metric_audit(
+            &db,
+            "seed-met-month-churn",
+            Some("u_month_churn"),
+            day - ChronoDuration::days(30),
+            200,
+            20,
+        )
+        .await;
 
         let (_, token) = make_admin(&db, "mon-metrics-seed@test.local").await;
-        let app = test::init_service(build_app(db)).await;
-        let req = test::TestRequest::get()
-            .uri("/api/v1/monitoring/metrics?start=2026-04-01T00:00:00Z&end=2026-04-02T00:00:00Z")
-            .insert_header(("Authorization", format!("Bearer {token}")))
-            .to_request();
-        let resp = test::call_service(&app, req).await;
-        assert_eq!(resp.status(), StatusCode::OK);
-        let body: serde_json::Value = test::read_body_json(resp).await;
-        assert!(
-            body["window"]["total_requests"].as_u64().unwrap() >= 4,
-            "expected at least the four seeded rows in total_requests (plus optional handler audit row): {body:?}"
-        );
-        assert!(
-            body["reliability"]["error_count_all"].as_u64().unwrap() >= 2,
-            "expected seeded 404 and 500 to count as errors: {body:?}"
-        );
-        assert!(
-            body["probing"]["id_like_404_count"].as_u64().unwrap() >= 1,
-            "expected uuid-shaped 404 to count as id-like: {body:?}"
-        );
+        let body = get_metrics_json(db.clone(), &token, day, day).await;
+        let row = &body.as_array().expect("metrics array")[0];
+        assert_eq!(row["date"], day.format("%Y-%m-%d").to_string());
+
+        let daily_users = &row["daily"]["users"];
+        assert_eq!(daily_users["active"], 2);
+        assert_eq!(daily_users["new"], 1);
+        assert_eq!(daily_users["returning_users"], 1);
+        assert_eq!(daily_users["retained"], 1);
+        assert_eq!(daily_users["churned"], 0);
+        assert_eq!(daily_users["net_growth"], 1);
+        assert_eq!(daily_users["retention_rate"], 1.0);
+        assert_eq!(daily_users["churn_rate"], 0.0);
+
+        let daily_requests = &row["daily"]["requests"];
+        assert_eq!(daily_requests["total"], 4);
+        assert_eq!(daily_requests["successful"], 1);
+        assert_eq!(daily_requests["failed"], 3);
+        assert_eq!(daily_requests["client_error"], 1);
+        assert_eq!(daily_requests["server_error"], 2);
+        assert_eq!(daily_requests["error_rate"], 0.75);
+        assert_eq!(daily_requests["duration"]["avg"], 40.0);
+        assert_eq!(daily_requests["duration"]["min"], 10.0);
+        assert_eq!(daily_requests["duration"]["max"], 70.0);
+        assert_eq!(daily_requests["duration"]["p95"], 70.0);
+        assert_eq!(daily_requests["duration"]["p99"], 70.0);
+        assert_eq!(daily_requests["duration"]["avg_success"], 10.0);
+        assert_eq!(daily_requests["duration"]["avg_failure"], 50.0);
+        assert_eq!(daily_requests["avg_per_user"], 1.5);
+        assert_eq!(daily_requests["median_per_user"], 1.5);
+        assert_eq!(daily_requests["p95_per_user"], 2.0);
+        assert_eq!(daily_requests["max_per_user"], 2);
+
+        assert_eq!(row["weekly"]["users"]["active"], 2);
+        assert_eq!(row["weekly"]["users"]["new"], 2);
+        assert_eq!(row["weekly"]["users"]["churned"], 1);
+        assert_eq!(row["monthly"]["users"]["active"], 3);
+        assert_eq!(row["monthly"]["users"]["new"], 3);
+        assert_eq!(row["monthly"]["users"]["churned"], 1);
+    }
+
+    /// GET /monitoring/metrics: cache hit returns persisted completed-day metrics.
+    #[actix_web::test]
+    async fn monitoring_metrics_cache_hit_uses_persisted_day() {
+        let db = test_db().await.unwrap();
+        let day = yesterday();
+        seed_metric_audit(&db, "seed-cache-hit-1", Some("u_cache"), day, 200, 10).await;
+        let (_, token) = make_admin(&db, "mon-metrics-cache-hit@test.local").await;
+
+        let first = get_metrics_json(db.clone(), &token, day, day).await;
+        assert_eq!(first[0]["daily"]["requests"]["total"], 1);
+        assert_eq!(metrics_cache_count(&db, Some(day)).await, 1);
+
+        seed_metric_audit(&db, "seed-cache-hit-2", Some("u_cache"), day, 200, 10).await;
+        let second = get_metrics_json(db.clone(), &token, day, day).await;
+        assert_eq!(second[0]["daily"]["requests"]["total"], 1);
+        assert_eq!(metrics_cache_count(&db, Some(day)).await, 1);
+    }
+
+    /// GET /monitoring/metrics: partial cache miss fills missing completed days.
+    #[actix_web::test]
+    async fn monitoring_metrics_partial_cache_miss_fills_missing_days() {
+        let db = test_db().await.unwrap();
+        let day = yesterday();
+        let previous = day - ChronoDuration::days(1);
+        seed_metric_audit(&db, "seed-partial-day", Some("u_partial"), day, 200, 10).await;
+        seed_cached_metrics_day(&db, previous).await;
+        let (_, token) = make_admin(&db, "mon-metrics-partial@test.local").await;
+
+        assert_eq!(metrics_cache_count(&db, None).await, 1);
+
+        let second = get_metrics_json(db.clone(), &token, previous, day).await;
+        assert_eq!(second.as_array().expect("second metrics").len(), 2);
+        assert_eq!(metrics_cache_count(&db, None).await, 2);
+        assert_eq!(second[0]["date"], previous.format("%Y-%m-%d").to_string());
+        assert_eq!(second[1]["date"], day.format("%Y-%m-%d").to_string());
+    }
+
+    /// GET /monitoring/metrics: no cached data backfills completed requested day.
+    #[actix_web::test]
+    async fn monitoring_metrics_no_cache_backfills_completed_day() {
+        let db = test_db().await.unwrap();
+        let day = yesterday();
+        seed_metric_audit(&db, "seed-no-cache", Some("u_no_cache"), day, 200, 10).await;
+        let (_, token) = make_admin(&db, "mon-metrics-no-cache@test.local").await;
+
+        assert_eq!(metrics_cache_count(&db, None).await, 0);
+        let body = get_metrics_json(db.clone(), &token, day, day).await;
+        assert_eq!(body.as_array().expect("metrics").len(), 1);
+        assert_eq!(metrics_cache_count(&db, Some(day)).await, 1);
+    }
+
+    /// GET /monitoring/metrics: today is returned dynamically but not cached.
+    #[actix_web::test]
+    async fn monitoring_metrics_today_is_not_cached() {
+        let db = test_db().await.unwrap();
+        let today = Utc::now().date_naive();
+        seed_metric_audit(&db, "seed-today-dynamic", Some("u_today"), today, 200, 10).await;
+        let (_, token) = make_admin(&db, "mon-metrics-today@test.local").await;
+
+        let body = get_metrics_json(db.clone(), &token, today, today).await;
+        assert_eq!(body.as_array().expect("metrics").len(), 1);
+        assert_eq!(body[0]["date"], today.format("%Y-%m-%d").to_string());
+        assert_eq!(body[0]["daily"]["requests"]["total"], 1);
+        assert_eq!(metrics_cache_count(&db, Some(today)).await, 0);
     }
 }
 

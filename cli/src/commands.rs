@@ -462,7 +462,7 @@ pub enum MonitoringCommand {
         #[arg(long)]
         page_size: Option<u32>,
     },
-    /// Admin: aggregated metrics for `[start, end)` (RFC 3339 UTC).
+    /// Admin: daily metrics for inclusive UTC dates (`YYYY-MM-DD`).
     Metrics {
         #[arg(long)]
         start: String,
