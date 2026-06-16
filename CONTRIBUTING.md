@@ -139,7 +139,7 @@ CI fails if the three copies diverge or if `openapi_snapshot_matches_committed_f
 ### Database migrations
 
 1. Add `backend/db-migrations/YYYYMMDDHHMMSS_description.surql`.
-2. Never edit shipped migrations — add a forward script instead.
+2. Never edit any existing shipped database migration script. If a schema change is needed, restore the original script exactly and add a new forward migration instead.
 3. Read [`backend/db-migrations/README.md`](backend/db-migrations/README.md).
 4. Run `cargo test database::migrations::tests` in `backend/`.
 
