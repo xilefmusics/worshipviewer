@@ -82,7 +82,7 @@ import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { resolveSongLanguageIndex, songLanguageOptions } from '@/lib/player/song-language'
 import { buildSettingsSearch } from '@/lib/settings-route'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
-import { resolveSongDataKey } from '@/lib/setlist-song-links'
+import { languageIndexForSongLink, resolveSongDataKey } from '@/lib/setlist-song-links'
 import { cn } from '@/lib/utils'
 
 type Player = components['schemas']['Player']
@@ -371,9 +371,13 @@ export function PlayerBook({
             const engine = await getChordEngine()
             const key = resolveSongDataKey(nextItem.song.data as Record<string, unknown>)
             const languageOptions = songLanguageOptions(nextItem.song.data as Record<string, unknown>)
+            const slotLanguageIndex = languageIndexForSongLink(
+              nextItem.song.data as Record<string, unknown>,
+              nextItem.language,
+            )
             const selectedLanguageIndex = resolveSongLanguageIndex(
               languageOptions,
-              viewState.languageByItem?.[prefetchIndex],
+              viewState.languageByItem?.[prefetchIndex] ?? slotLanguageIndex,
             )
             const languageIndex = selectedLanguageIndex > 0 ? selectedLanguageIndex : null
             const renderOpts = {
@@ -418,10 +422,8 @@ export function PlayerBook({
       : null
   const currentLanguageOptions =
     currentItem?.type === 'chords' ? songLanguageOptions(currentItem.song.data as Record<string, unknown>) : []
-  const currentLanguageIndex = resolveSongLanguageIndex(
-    currentLanguageOptions,
-    viewState.languageByItem?.[nav.index],
-  )
+  const currentLanguageIndex =
+    currentItem?.type === 'chords' ? (selectedLanguageIndexForItem(currentItem, nav.index) ?? 0) : 0
   const currentLanguageLabel =
     currentLanguageOptions[currentLanguageIndex]?.label ?? `L${currentLanguageIndex + 1}`
   const showLanguageSelector = currentItem?.type === 'chords' && currentLanguageOptions.length > 1
@@ -601,7 +603,11 @@ export function PlayerBook({
     if (item.type !== 'chords') return null
     const options = languageOptionsForItem(item)
     if (options.length === 0) return null
-    return resolveSongLanguageIndex(options, viewState.languageByItem?.[itemIndex])
+    const slotLanguageIndex = languageIndexForSongLink(
+      item.song.data as Record<string, unknown>,
+      item.language,
+    )
+    return resolveSongLanguageIndex(options, viewState.languageByItem?.[itemIndex] ?? slotLanguageIndex)
   }
 
   function renderLanguageIndexForItem(item: PlayerItem, itemIndex: number): number | null {

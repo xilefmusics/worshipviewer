@@ -324,6 +324,7 @@ pub fn setlist_with_songs(title: &str, song_ids: &[(&str, Option<&str>)]) -> Cre
                 nr: nr.map(|s| s.into()),
                 key: None,
                 tempo: None,
+                language: None,
             })
             .collect(),
     }

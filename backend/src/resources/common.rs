@@ -132,6 +132,7 @@ pub fn player_from_song_links(
                 nr: Some(link.nr.unwrap_or_else(|| (idx + 1).to_string())),
                 key: link.key,
                 tempo: link.tempo,
+                language: link.language,
             })
         })
         .try_fold(Player::default(), |acc, player| {
@@ -194,6 +195,7 @@ fn song_link_records_to_owned(
             nr: link.nr,
             key: link.key.map(|k| k.0),
             tempo: link.tempo,
+            language: link.language,
             liked: false,
         });
     }
@@ -210,6 +212,8 @@ pub struct SongLinkRecord {
     key: Option<SimpleChordField>,
     #[serde(default)]
     tempo: Option<u32>,
+    #[serde(default)]
+    language: Option<String>,
 }
 
 impl From<SongLinkRecord> for SongLink {
@@ -219,6 +223,7 @@ impl From<SongLinkRecord> for SongLink {
             nr: record.nr,
             key: record.key.map(|k| k.0),
             tempo: record.tempo,
+            language: record.language,
         }
     }
 }
@@ -230,6 +235,7 @@ impl From<SongLink> for SongLinkRecord {
             nr: link.nr,
             key: link.key.map(SimpleChordField),
             tempo: link.tempo,
+            language: link.language,
         }
     }
 }
@@ -318,6 +324,7 @@ mod tests {
                 nr: None,
                 key: None,
                 tempo: None,
+                language: None,
                 liked: false,
             },
             SongLinkOwned {
@@ -325,6 +332,7 @@ mod tests {
                 nr: Some("x".into()),
                 key: None,
                 tempo: None,
+                language: None,
                 liked: false,
             },
         ];
@@ -345,12 +353,14 @@ mod tests {
                 nr: Some("1".into()),
                 key: None,
                 tempo: None,
+                language: None,
             },
             SongLinkRecord {
                 id: RecordId::new("song", "dup"),
                 nr: Some("2".into()),
                 key: None,
                 tempo: None,
+                language: None,
             },
         ];
         let records = vec![SongRecord::from_payload(

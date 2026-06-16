@@ -23,6 +23,8 @@ pub struct PlayerBlobItem {
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct PlayerChordsItem {
     pub song: Song,
+    /// Language override for this player item; `None` uses the song's default language.
+    pub language: Option<String>,
 }
 
 impl Default for PlayerItem {

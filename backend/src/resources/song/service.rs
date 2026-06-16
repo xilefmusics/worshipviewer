@@ -144,6 +144,7 @@ impl<R: SongRepository, L: LikedSongIds, C: CollectionRepository> SongService<R,
             nr: None,
             key: None,
             tempo: None,
+            language: None,
             liked: self
                 .repo
                 .get_song_like(&read_teams, &ctx.user.id, id)
@@ -183,6 +184,7 @@ impl<R: SongRepository, L: LikedSongIds, C: CollectionRepository> SongService<R,
                     nr: None,
                     key: None,
                     tempo: None,
+                    language: None,
                 },
             )
             .await

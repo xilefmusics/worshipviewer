@@ -46,6 +46,23 @@ See [README.md](README.md) for production-like single-process runs, Playwright e
 
 Runs fmt, audit, backend tests/clippy, OpenAPI tri-copy + Spectral, and the full frontend gate. Does **not** run Playwright e2e or Docker/Venom.
 
+## Commit messages
+
+Use **Conventional Commits** for all commits:
+
+- Format: `type(scope): summary`
+- Keep the summary short, imperative, and specific
+- Add a commit body that explains the change, the motivation, and any notable tradeoffs
+- Use `scope` when it helps clarify the area touched, such as `backend`, `frontend`, or `docs`
+
+Example:
+
+```text
+feat(frontend): add song language selector
+
+Explain why the selector is needed, what behavior changed, and any follow-up work or caveats.
+```
+
 ## Before opening a PR
 
 Run checks in this order: **format → lint/typecheck → unit tests → build**. Apply fixes and re-run until clean. The one-shot script `./scripts/verify-ci.sh` runs the full CI-equivalent gate (recommended).

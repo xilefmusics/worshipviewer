@@ -13,16 +13,27 @@ vi.mock('@/api/client', () => ({
 
 import { useSetlistAutosave } from '@/hooks/useSetlistAutosave'
 
-function createWrapper() {
+function createWrapperWithClient() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return ({ children }: { children: ReactNode }) => (
+  const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   )
+  return { queryClient, wrapper }
+}
+
+function createWrapper() {
+  return createWrapperWithClient().wrapper
 }
 
 const baseline = {
   title: 'Setlist',
-  songs: [] as { id: string; nr: string; key: string | null; tempo: number | null }[],
+  songs: [] as {
+    id: string
+    nr?: string
+    key: string | null
+    tempo: number | null
+    language?: string | null
+  }[],
   owner: 'team-1',
 }
 
@@ -68,6 +79,51 @@ describe('useSetlistAutosave', () => {
 
     expect(patchMock).toHaveBeenCalledOnce()
     expect(result.current.saveIcon).toBe('idle')
+    unmount()
+  })
+
+  it('invalidates the setlist player cache after a slot tempo PATCH', async () => {
+    patchMock.mockResolvedValue({
+      response: { ok: true, status: 200 },
+      data: {
+        id: 'sl-1',
+        title: 'Setlist',
+        songs: [{ id: 'song-1', key: null, tempo: 88, language: null }],
+        owner: 'team-1',
+      },
+      error: undefined,
+    })
+    const { queryClient, wrapper } = createWrapperWithClient()
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+
+    const { result, unmount } = renderHook(
+      () =>
+        useSetlistAutosave({
+          setlistId: 'sl-1',
+          baseline: {
+            ...baseline,
+            songs: [{ id: 'song-1', key: null, tempo: null, language: null }],
+          },
+          draftTitle: 'Setlist',
+          draftSongs: [{ id: 'song-1', key: null, tempo: 88, language: null }],
+          draftOwner: 'team-1',
+          canAutosavePatch: true,
+        }),
+      { wrapper },
+    )
+
+    act(() => {
+      result.current.notifyDraftEdited()
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+
+    expect(patchMock).toHaveBeenCalledWith('/api/v1/setlists/{id}', {
+      params: { path: { id: 'sl-1' } },
+      body: { songs: [{ id: 'song-1', key: null, tempo: 88, language: null }] },
+    })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['player', 'setlist', 'sl-1'] })
     unmount()
   })
 

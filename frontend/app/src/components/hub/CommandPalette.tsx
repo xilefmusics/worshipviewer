@@ -15,7 +15,7 @@ import {
   type HubNavigateTarget,
 } from '@/commands/hub-commands'
 import type { SetlistPaletteBridge } from '@/lib/setlist-palette-bridge'
-import { resolveSongDataKey } from '@/lib/setlist-song-links'
+import { defaultSongLinkLanguage, resolveSongDataKey } from '@/lib/setlist-song-links'
 import { useHubSearch } from '@/hooks/useHubSearch'
 import { useSongPickerQuery, type Song } from '@/hooks/useSongPickerQuery'
 import { usePwaInstall } from '@/pwa/pwa-install-context'
@@ -147,6 +147,7 @@ export function CommandPalette({
     b.insertSongLink({
       id: songId,
       key: resolveSongDataKey(songData as Record<string, unknown>),
+      language: defaultSongLinkLanguage(songData as Record<string, unknown>),
       nr: null,
     })
     beginClose()

@@ -1087,6 +1087,7 @@ mod tests {
                             nr: Some("9".into()),
                             key: None,
                             tempo: None,
+                            language: None,
                         }]),
                         owner: None,
                     },

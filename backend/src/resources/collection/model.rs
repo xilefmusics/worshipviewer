@@ -72,6 +72,7 @@ mod tests {
                     nr: None,
                     key: None,
                     tempo: None,
+                    language: None,
                 }],
             },
         );

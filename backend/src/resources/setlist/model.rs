@@ -63,6 +63,7 @@ mod tests {
                     nr: Some("1".into()),
                     key: None,
                     tempo: None,
+                    language: Some("de".into()),
                 }],
             },
         );
@@ -72,6 +73,7 @@ mod tests {
         assert_eq!(setlist.title, "Sunday");
         assert_eq!(setlist.songs.len(), 1);
         assert_eq!(setlist.songs[0].id, "s1");
+        assert_eq!(setlist.songs[0].language.as_deref(), Some("de"));
     }
 
     #[tokio::test]

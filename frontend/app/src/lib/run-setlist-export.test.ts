@@ -23,7 +23,7 @@ describe('runSetlistExport', () => {
     vi.clearAllMocks()
     fetchSetlistDetail.mockResolvedValue({
       title: 'Sunday',
-      songs: [{ id: 'song-1', nr: '1', key: null, tempo: null }],
+      songs: [{ id: 'song-1', nr: '1', key: null, tempo: null, language: 'de' }],
     })
   })
 
@@ -48,6 +48,18 @@ describe('runSetlistExport', () => {
       expect.any(Array),
       'chordpro',
       'nashville',
+      undefined,
+    )
+  })
+
+  it('forwards setlist slot language to ordered export links', async () => {
+    await runSetlistExport(queryClient, 'sl-1', 'chordpro', 'letters')
+    expect(runOrderedSongsZipExport).toHaveBeenCalledWith(
+      queryClient,
+      'Sunday',
+      [{ id: 'song-1', key: null, tempo: null, language: 'de' }],
+      'chordpro',
+      'letters',
       undefined,
     )
   })
