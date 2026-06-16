@@ -12,7 +12,20 @@ import { useSongPickerQuery } from '@/hooks/useSongPickerQuery'
 import { useSession } from '@/hooks/useSession'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { resolveSongDataKey } from '@/lib/setlist-song-links'
+import {
+  defaultSongLinkLanguage,
+  resolveSongDataKey,
+  songLanguageOptions,
+  songArtistForLanguage,
+  songTitleForLanguage,
+} from '@/lib/setlist-song-links'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { formattedTimeSignature, normalizedTempoBpm } from '@/lib/song-display-meta'
 import { getTeamDisplayName } from '@/lib/team-display-name'
 import { teamDetailKey } from '@/lib/teams-sessions-keys'
@@ -25,7 +38,7 @@ type SetlistSongPickerSheetProps = {
   onOpenChange: (open: boolean) => void
   duplicateCountFor: (songId: string) => number
   blockedAdd?: boolean
-  onPickSong: (song: Song) => void
+  onPickSong: (song: Song, language: string | null) => void
   sheetTitleKey?: string
   searchPlaceholderKey?: string
   searchAriaKey?: string
@@ -54,6 +67,7 @@ export function SetlistSongPickerSheet({
   const queryClient = useQueryClient()
   const shouldReduceMotion = useReducedMotion()
   const [q, setQ] = useState('')
+  const [selectedLanguages, setSelectedLanguages] = useState<Record<string, string>>({})
   const [dragOffset, setDragOffset] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const pointerStartY = useRef<number | null>(null)
@@ -85,8 +99,11 @@ export function SetlistSongPickerSheet({
       toast.error(t(pickerExcludedKey))
       return
     }
-    onPickSong(song)
+    const language =
+      selectedLanguages[song.id] ?? defaultSongLinkLanguage(song.data as Record<string, unknown>)
+    onPickSong(song, language)
     setQ('')
+    setSelectedLanguages({})
     onOpenChange(false)
   }
 
@@ -95,7 +112,10 @@ export function SetlistSongPickerSheet({
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next)
-        if (!next) setQ('')
+        if (!next) {
+          setQ('')
+          setSelectedLanguages({})
+        }
       }}
     >
       <Dialog.Portal forceMount>
@@ -191,6 +211,11 @@ export function SetlistSongPickerSheet({
                         }
 
                         const songKey = resolveSongDataKey(song.data as Record<string, unknown>)
+                        const languageOptions = songLanguageOptions(song.data as Record<string, unknown>)
+                        const selectedLanguage =
+                          selectedLanguages[song.id] ??
+                          defaultSongLinkLanguage(song.data as Record<string, unknown>) ??
+                          ''
                         const bpm = normalizedTempoBpm(song.data.tempo)
                         const meter = formattedTimeSignature(song.data.time)
                         let tempoMeterLine: string | null = null
@@ -201,22 +226,32 @@ export function SetlistSongPickerSheet({
 
                         return (
                           <li key={`${song.id}-${song.owner}`}>
-                            <button
-                              type="button"
-                              disabled={blockedAdd}
-                              title={blockedAdd ? t(waitForSaveKey) : undefined}
+                            <div
                               className={cn(
                                 'flex w-full gap-2 rounded-lg px-3 py-2 text-left hover:bg-[var(--color-muted)]',
                                 blockedAdd && 'cursor-not-allowed opacity-55',
                               )}
-                              onClick={() => tryInsert(song)}
                             >
-                              <span className="min-w-0 flex-1">
+                              <button
+                                type="button"
+                                disabled={blockedAdd}
+                                title={blockedAdd ? t(waitForSaveKey) : undefined}
+                                className="min-w-0 flex-1 text-left"
+                                onClick={() => tryInsert(song)}
+                              >
                                 <span className="line-clamp-2 text-sm font-medium leading-snug">
-                                  {(song.data.titles?.[0] ?? '—').trim() || '—'}
+                                  {songTitleForLanguage(
+                                    song.data as Record<string, unknown>,
+                                    selectedLanguage || null,
+                                    '—',
+                                  )}
                                 </span>
                                 <span className="line-clamp-1 text-xs text-[var(--color-muted-foreground)]">
-                                  {(song.data.artists ?? []).filter(Boolean).join(', ') || '—'}
+                                  {songArtistForLanguage(
+                                    song.data as Record<string, unknown>,
+                                    selectedLanguage || null,
+                                    '—',
+                                  )}
                                 </span>
                                 {tempoMeterLine ? (
                                   <span className="mt-0.5 block truncate text-xs text-[var(--color-muted-foreground)]">
@@ -243,15 +278,38 @@ export function SetlistSongPickerSheet({
                                     })}
                                   </span>
                                 ) : null}
-                              </span>
+                              </button>
                               <span className="inline-flex max-w-[11rem] shrink-0 flex-col items-stretch justify-center self-stretch text-left">
                                 <span
                                   className="inline-flex h-9 w-full items-center justify-start rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs font-normal shadow-sm"
                                 >
                                   {t('setlists.editor.keyChip', { symbol: songKey ?? '—' })}
                                 </span>
+                                {languageOptions.length > 1 ? (
+                                  <Select
+                                    value={selectedLanguage}
+                                    onValueChange={(language) =>
+                                      setSelectedLanguages((prev) => ({ ...prev, [song.id]: language }))
+                                    }
+                                    disabled={blockedAdd}
+                                  >
+                                    <SelectTrigger
+                                      aria-label={t('setlists.editor.languageSelectAria')}
+                                      className="mt-1 h-9 w-full justify-start px-2 text-xs"
+                                    >
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {languageOptions.map((language) => (
+                                        <SelectItem key={language} value={language}>
+                                          {language}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : null}
                               </span>
-                            </button>
+                            </div>
                           </li>
                         )
                       })}

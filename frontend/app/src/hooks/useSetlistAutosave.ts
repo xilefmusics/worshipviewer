@@ -9,7 +9,7 @@ import type { components } from '@/api/schema'
 import { hubListRootKey } from '@/lib/hub-list-keys'
 import { parseRetryAfterSeconds } from '@/lib/http-retry-after'
 import { buildSetlistPatchBody } from '@/lib/setlist-field-diff'
-import { setlistDetailKey } from '@/lib/setlist-detail-key'
+import { playerQueryKey, setlistDetailKey } from '@/lib/setlist-detail-key'
 
 import { normalizeSongLinksForEditor, type EditorSongLink } from '@/lib/setlist-song-links'
 
@@ -106,6 +106,7 @@ export function useSetlistAutosave({
     (data: Setlist) => {
       queryClient.setQueryData(setlistDetailKey(setlistId), data)
       invalidateHubPassive()
+      void queryClient.invalidateQueries({ queryKey: playerQueryKey('setlist', setlistId) })
     },
     [invalidateHubPassive, queryClient, setlistId],
   )

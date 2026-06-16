@@ -8,6 +8,7 @@ import {
 } from '@/lib/player/av-lyric-slides'
 import type { AvLyricSplitPrefs } from '@/lib/player/av-preferences'
 import { itemTypeAt, tocEntryForIndex } from '@/lib/player/player-helpers'
+import { languageIndexForSongLink, songTitleForLanguage } from '@/lib/setlist-song-links'
 
 type Player = components['schemas']['Player']
 type PlayerItem = components['schemas']['PlayerItem']
@@ -35,11 +36,12 @@ export function avSlidesForItem(
     }
   }
   const songData = item.song.data
-  const title = songData.titles?.[0]?.trim() || 'Untitled'
+  const title = songTitleForLanguage(songData as Record<string, unknown>, item.language)
+  const languageIndex = languageIndexForSongLink(songData as Record<string, unknown>, item.language) ?? 0
   const lyricData = buildAvLyricSlides(
     songData.sections,
     split.maxLinesPerSlide,
-    0,
+    languageIndex,
     split.balanceSlideLines,
     split.collapseLyricWhitespace,
   )
@@ -167,7 +169,7 @@ export function avItemTitle(
   if (tocTitle?.trim()) return tocTitle.trim()
   if (!item) return ''
   if (item.type === 'chords') {
-    return item.song.data.titles?.[0]?.trim() || ''
+    return songTitleForLanguage(item.song.data as Record<string, unknown>, item.language, '')
   }
   return ''
 }

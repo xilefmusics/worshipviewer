@@ -10,10 +10,16 @@ import {
   insertAt,
   moveIndex,
   normalizeSongLinkNr,
+  normalizeSongLinkLanguage,
   normalizeSongLinksForCollectionEditor,
   normalizeSongLinksForEditor,
   removeAt,
   resolveSongDataKey,
+  defaultSongLinkLanguage,
+  languageIndexForSongLink,
+  songLanguageOptions,
+  songArtistForLanguage,
+  songTitleForLanguage,
   songLinkForCollectionMutation,
   songLinkForSetlistMutation,
   songLinkTempoEditorToWire,
@@ -72,7 +78,7 @@ describe('songLinkForSetlistMutation', () => {
   it('includes tempo override on wire payload', () => {
     expect(
       songLinkForSetlistMutation({ id: 's1', key: 'C', tempo: 96 }),
-    ).toEqual({ id: 's1', key: { level: 3 }, tempo: 96 })
+    ).toEqual({ id: 's1', key: { level: 3 }, tempo: 96, language: null })
   })
 
   it('serializes inherit tempo as null', () => {
@@ -80,35 +86,81 @@ describe('songLinkForSetlistMutation', () => {
       id: 's1',
       key: null,
       tempo: null,
+      language: null,
+    })
+  })
+
+  it('includes language override on wire payload', () => {
+    expect(songLinkForSetlistMutation({ id: 's1', key: null, language: ' de ' })).toEqual({
+      id: 's1',
+      key: null,
+      tempo: null,
+      language: 'de',
     })
   })
 })
 
 describe('normalizeSongLinksForEditor', () => {
   it('carries tempo from wire links', () => {
-    const links: WireSongLink[] = [{ id: 'a', key: null, tempo: 72 }]
-    expect(normalizeSongLinksForEditor(links)).toEqual([{ id: 'a', key: null, tempo: 72 }])
+    const links: WireSongLink[] = [{ id: 'a', key: null, tempo: 72, language: 'de' }]
+    expect(normalizeSongLinksForEditor(links)).toEqual([
+      { id: 'a', key: null, tempo: 72, language: 'de' },
+    ])
   })
 
   it('keeps id and key only', () => {
     expect(normalizeSongLinksForEditor([{ id: 'a', key: { level: 3 }, nr: '1' }])).toEqual([
-      { id: 'a', key: 'C', tempo: null },
+      { id: 'a', key: 'C', tempo: null, language: null },
     ])
     expect(normalizeSongLinksForEditor([{ id: 'b', key: null }])).toEqual([
-      { id: 'b', key: null, tempo: null },
+      { id: 'b', key: null, tempo: null, language: null },
     ])
   })
 
   it('normalizes opaque song ids to strings', () => {
     expect(normalizeSongLinksForEditor([{ id: 99 as unknown as string, key: null }])).toEqual([
-      { id: '99', key: null, tempo: null },
+      { id: '99', key: null, tempo: null, language: null },
     ])
   })
 
   it('coerces wire `{ level }` keys to chord symbols', () => {
     expect(
       normalizeSongLinksForEditor([{ id: 'a', key: { level: 8 } } as WireSongLink]),
-    ).toEqual([{ id: 'a', key: 'F', tempo: null }])
+    ).toEqual([{ id: 'a', key: 'F', tempo: null, language: null }])
+  })
+})
+
+describe('song link language helpers', () => {
+  it('normalizes optional language tags', () => {
+    expect(normalizeSongLinkLanguage(' de-CH ')).toBe('de-CH')
+    expect(normalizeSongLinkLanguage('')).toBeNull()
+    expect(normalizeSongLinkLanguage(null)).toBeNull()
+  })
+
+  it('extracts unique selectable song languages', () => {
+    expect(songLanguageOptions({ languages: ['en', 'de', 'en', ' '] })).toEqual(['en', 'de'])
+    expect(defaultSongLinkLanguage({ languages: [' en '] })).toBe('en')
+  })
+
+  it('resolves selected language tags to chord-engine indexes', () => {
+    const data = { languages: ['en', 'de', 'fr'] }
+    expect(languageIndexForSongLink(data, 'de')).toBe(1)
+    expect(languageIndexForSongLink(data, 'it')).toBeUndefined()
+    expect(languageIndexForSongLink(data, null)).toBeUndefined()
+  })
+
+  it('resolves parallel titles from selected language tags', () => {
+    const data = { languages: ['en', 'de'], titles: ['Anchor', 'Anker'] }
+    expect(songTitleForLanguage(data, 'de')).toBe('Anker')
+    expect(songTitleForLanguage(data, 'fr')).toBe('Anchor')
+    expect(songTitleForLanguage({ titles: [] }, null, '—')).toBe('—')
+  })
+
+  it('resolves parallel artists from selected language tags', () => {
+    const data = { languages: ['en', 'de'], artists: ['English Artist', 'Deutsche Kuenstler'] }
+    expect(songArtistForLanguage(data, 'de')).toBe('Deutsche Kuenstler')
+    expect(songArtistForLanguage(data, 'fr')).toBe('English Artist')
+    expect(songArtistForLanguage({ artists: [] }, null, '—')).toBe('—')
   })
 })
 

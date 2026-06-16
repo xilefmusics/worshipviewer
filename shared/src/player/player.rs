@@ -12,6 +12,22 @@ fn empty_item() -> &'static PlayerItem {
     EMPTY_ITEM.get_or_init(PlayerItem::default)
 }
 
+fn title_for_language(song: &crate::song::Song, language: Option<&str>) -> String {
+    let title_at = |idx: usize| song.data.titles.get(idx).filter(|s| !s.trim().is_empty());
+    let selected_idx = language.and_then(|lang| {
+        song.data
+            .languages
+            .iter()
+            .position(|candidate| candidate.trim() == lang)
+    });
+    selected_idx
+        .and_then(title_at)
+        .or_else(|| title_at(0))
+        .map(String::as_str)
+        .unwrap_or_else(|| song.data.title())
+        .to_string()
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct Player {
@@ -328,6 +344,7 @@ impl From<SongLinkOwned> for Player {
                     }
                     items.push(PlayerItem::Chords(Box::new(super::PlayerChordsItem {
                         song,
+                        language: link.language.clone(),
                     })))
                 }
                 items
@@ -335,9 +352,10 @@ impl From<SongLinkOwned> for Player {
             toc: if link.song.not_a_song {
                 vec![]
             } else {
+                let title = title_for_language(&link.song, link.language.as_deref());
                 vec![TocItem {
                     idx: 0,
-                    title: link.song.data.title().to_string(),
+                    title,
                     id: Some(link.song.id.clone()),
                     nr: link.nr.clone().unwrap_or_default(),
                     liked: link.liked,
@@ -378,6 +396,7 @@ mod tests {
             key: None,
             tempo: Some(88),
             liked: false,
+            language: None,
         };
         let player = Player::from(link);
         let (item, _) = player.item();
@@ -394,6 +413,7 @@ mod tests {
             nr: None,
             key: None,
             tempo: None,
+            language: None,
             liked: false,
         };
         let player = Player::from(link);
@@ -405,6 +425,41 @@ mod tests {
     }
 
     #[test]
+    fn song_link_owned_sets_language_override_in_player_item() {
+        let link = SongLinkOwned {
+            song: song_with_tempo(Some(120)),
+            nr: None,
+            key: None,
+            tempo: None,
+            language: Some("de".into()),
+            liked: false,
+        };
+        let player = Player::from(link);
+        let (item, _) = player.item();
+        match item {
+            PlayerItem::Chords(chords) => assert_eq!(chords.language.as_deref(), Some("de")),
+            _ => panic!("expected chords player item"),
+        }
+    }
+
+    #[test]
+    fn song_link_owned_uses_language_title_in_toc() {
+        let mut song = song_with_tempo(Some(120));
+        song.data.languages = vec!["en".into(), "de".into()];
+        song.data.titles = vec!["Anchor".into(), "Anker".into()];
+        let link = SongLinkOwned {
+            song,
+            nr: None,
+            key: None,
+            tempo: None,
+            language: Some("de".into()),
+            liked: false,
+        };
+        let player = Player::from(link);
+        assert_eq!(player.toc()[0].title, "Anker");
+    }
+
+    #[test]
     fn add_keeps_identical_chord_songs_as_separate_items() {
         let song = song_with_tempo(Some(120));
         let link = |song: Song| SongLinkOwned {
@@ -412,6 +467,7 @@ mod tests {
             nr: None,
             key: None,
             tempo: None,
+            language: None,
             liked: false,
         };
         let player = Player::from(link(song.clone())) + Player::from(link(song));
@@ -438,6 +494,7 @@ mod tests {
             nr: None,
             key: None,
             tempo: None,
+            language: None,
             liked: false,
         };
         let player = Player::from(link(song.clone())) + Player::from(link(song));

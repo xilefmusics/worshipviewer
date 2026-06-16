@@ -14,10 +14,13 @@ import {
 import { getChordEngine } from '@/lib/chord-engine'
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
 import { stripChordsFromChordlibHtml } from '@/lib/strip-chords-from-html'
-import { songTitleFromData } from '@/lib/song-import-export'
 import type { ChordSongData } from '@/ports/chord-engine'
 import { expandSongSectionsForPlayer } from '@/lib/player/expand-song-sections'
 import type { PlayerOverflowStyle } from '@/lib/player/effective-scroll-type'
+import {
+  songArtistForLanguage,
+  songTitleForLanguage,
+} from '@/lib/setlist-song-links'
 import { cn } from '@/lib/utils'
 
 import './player-chords.css'
@@ -71,12 +74,18 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
-function songSubtitleLine(songData: ChordSongData): string {
+function songLanguageTagAt(songData: ChordSongData, languageIndex: number | null | undefined): string | null {
+  if (languageIndex == null) return null
+  const languages = songData.languages
+  if (!Array.isArray(languages)) return null
+  const value = languages[languageIndex]
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function songSubtitleLine(songData: ChordSongData, language?: string | null): string {
   const subtitle =
     typeof songData.subtitle === 'string' ? songData.subtitle.trim() : ''
-  const artists = songData.artists
-  const artist =
-    Array.isArray(artists) && typeof artists[0] === 'string' ? artists[0].trim() : ''
+  const artist = songArtistForLanguage(songData as Record<string, unknown>, language)
   if (subtitle && artist) return `${subtitle} | ${artist}`
   return subtitle || artist
 }
@@ -169,10 +178,15 @@ function useMultiColumnSongRender(
   return renderCache.state
 }
 
-function previewHeadingHtml(song: Song, displayKey?: string | null): string {
+function previewHeadingHtml(
+  song: Song,
+  displayKey?: string | null,
+  languageIndex?: number | null,
+): string {
   const songData = song.data as ChordSongData
-  const title = escapeHtml(songTitleFromData(songData))
-  const subtitle = songSubtitleLine(songData)
+  const language = songLanguageTagAt(songData, languageIndex)
+  const title = escapeHtml(songTitleForLanguage(songData as Record<string, unknown>, language))
+  const subtitle = songSubtitleLine(songData, language)
   const meta = songMetaLines(songData, displayKey)
   const metaParts = [meta.keyLine, meta.tempoLine].filter(Boolean)
   const metaLine = metaParts.length > 0 ? escapeHtml(metaParts.join(' · ')) : null
@@ -193,12 +207,13 @@ function buildColumnSections(
   currentSections: string[],
   nextSong: Song | null | undefined,
   nextDisplayKey: string | null | undefined,
+  nextLanguageIndex: number | null | undefined,
   nextSections: string[],
 ): ColumnSection[] {
   const sections: ColumnSection[] = currentSections.map((html) => ({ html, preview: false }))
 
   if (nextSong && nextSections.length > 0) {
-    sections.push({ html: previewHeadingHtml(nextSong, nextDisplayKey), preview: true })
+    sections.push({ html: previewHeadingHtml(nextSong, nextDisplayKey, nextLanguageIndex), preview: true })
     for (const section of nextSections) {
       sections.push({
         html: `<div class="player-chords-three-column__preview-section">${section}</div>`,
@@ -338,8 +353,12 @@ export function ChordsThreeColumnSlide({
   )
   const nextPreviewRenderState = showNextPreview ? nextRenderState : null
 
-  const title = useMemo(() => songTitleFromData(songData), [songData])
-  const subtitle = useMemo(() => songSubtitleLine(songData), [songData])
+  const language = useMemo(() => songLanguageTagAt(songData, languageIndex), [songData, languageIndex])
+  const title = useMemo(
+    () => songTitleForLanguage(songData as Record<string, unknown>, language),
+    [songData, language],
+  )
+  const subtitle = useMemo(() => songSubtitleLine(songData, language), [songData, language])
   const meta = useMemo(() => songMetaLines(songData, displayKey), [songData, displayKey])
 
   const retry = useCallback(() => {
@@ -354,9 +373,10 @@ export function ChordsThreeColumnSlide({
       renderState.sections,
       showNextPreview ? nextSong : undefined,
       nextDisplayKey,
+      nextLanguageIndex,
       nextSections,
     )
-  }, [renderState, showNextPreview, nextSong, nextDisplayKey, nextPreviewRenderState])
+  }, [renderState, showNextPreview, nextSong, nextDisplayKey, nextLanguageIndex, nextPreviewRenderState])
 
   const combinedColumnCss = useMemo(() => {
     if (renderState.status !== 'ready') return ''

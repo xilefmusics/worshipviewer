@@ -3,6 +3,7 @@ import type { components } from '@/api/schema'
 import {
   coerceMusicalKeyString,
   normalizeSongLinkId,
+  normalizeSongLinkLanguage,
   songLinkForSetlistMutation,
   songLinkTempoEditorToWire,
   type EditorSongLink,
@@ -21,6 +22,9 @@ function songsEqual(a: EditorSongLink[], b: EditorSongLink[]): boolean {
     const ta = songLinkTempoEditorToWire(a[i].tempo)
     const tb = songLinkTempoEditorToWire(b[i].tempo)
     if (ta !== tb) return false
+    const la = normalizeSongLinkLanguage(a[i].language)
+    const lb = normalizeSongLinkLanguage(b[i].language)
+    if (la !== lb) return false
   }
   return true
 }

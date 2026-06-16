@@ -1253,6 +1253,8 @@ export interface components {
         };
         /** @description ChordPro-backed song item in a player sequence (`type`: `"chords"`). */
         PlayerChordsItem: {
+            /** @description Language override for this player item; `None` uses the song's default language. */
+            language?: string | null;
             song: components["schemas"]["Song"];
         };
         PlayerItem: (components["schemas"]["PlayerBlobItem"] & {
@@ -1474,6 +1476,8 @@ export interface components {
             /** @description Song record id. */
             id: string;
             key?: null | components["schemas"]["SimpleChord"];
+            /** @description Language override for this slot; `None` inherits the song's default language. */
+            language?: string | null;
             /** @description Optional display position in the parent list (e.g. `1`, `2a`). */
             nr?: string | null;
             /**

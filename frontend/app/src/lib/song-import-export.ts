@@ -3,7 +3,7 @@ import JSZip from 'jszip'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
 import { readHideChordsPreference } from '@/lib/hide-chords-preference'
-import { resolveSongDataKey } from '@/lib/setlist-song-links'
+import { resolveSongDataKey, songTitleForLanguage } from '@/lib/setlist-song-links'
 import { stripChordsFromChordlibHtml } from '@/lib/strip-chords-from-html'
 import { stripChordsFromChordpro } from '@/lib/strip-chords-from-chordpro'
 import { songEditorFormatOptions } from '@/lib/song-editor-state'
@@ -58,10 +58,15 @@ export function sanitizeDownloadBasename(title: string | undefined): string {
   return cleaned || 'Untitled'
 }
 
-export function songTitleFromData(data: ChordSongData): string {
-  const titles = Array.isArray(data.titles) ? data.titles : []
-  const first = titles[0]
-  return typeof first === 'string' && first.trim() ? first.trim() : 'Untitled'
+export function songTitleFromData(data: ChordSongData, language?: number): string {
+  if (language == null) {
+    const titles = Array.isArray(data.titles) ? data.titles : []
+    const first = titles[0]
+    return typeof first === 'string' && first.trim() ? first.trim() : 'Untitled'
+  }
+  const languages = Array.isArray(data.languages) ? data.languages : []
+  const tag = typeof languages[language] === 'string' ? languages[language] : null
+  return songTitleForLanguage(data as Record<string, unknown>, tag)
 }
 
 export async function readTextFiles(files: FileList | File[]): Promise<ReadTextFileResult[]> {
@@ -111,6 +116,7 @@ export function formatSongForExport(
   format: TextExportFormat,
   chordFormat: ChordFormatPreference,
   keyOverride?: string,
+  language?: number,
   hideChords: boolean = readHideChordsPreference(),
 ): string {
   const worshipPro = format === 'worshippro'
@@ -119,18 +125,19 @@ export function formatSongForExport(
   const text = engine.formatChordPro(data, {
     worshipPro,
     key,
+    language,
     representation: chordFormatToRepresentation(chordFormat),
   })
   return hideChords ? stripChordsFromChordpro(text) : text
 }
 
 export function orderedSongZipEntryNames(
-  songs: { data: ChordSongData }[],
+  songs: { data: ChordSongData; language?: number }[],
   format: TextExportFormat,
 ): string[] {
   const ext = format === 'worshippro' ? 'wp' : 'cp'
   return songs.map((song, index) => {
-    const base = sanitizeDownloadBasename(songTitleFromData(song.data))
+    const base = sanitizeDownloadBasename(songTitleFromData(song.data, song.language))
     const num = String(index + 1).padStart(2, '0')
     return `${num} - ${base}.${ext}`
   })
@@ -171,7 +178,7 @@ export function exportSongText(
   const worshipPro = format === 'worshippro'
   const ext = worshipPro ? 'wp' : 'cp'
   const basename = sanitizeDownloadBasename(songTitleFromData(data))
-  const text = formatSongForExport(engine, data, format, chordFormat, undefined, hideChords)
+  const text = formatSongForExport(engine, data, format, chordFormat, undefined, undefined, hideChords)
   downloadTextFile(`${basename}.${ext}`, text)
 }
 
@@ -362,11 +369,13 @@ function renderA4ExportPage(
   engine: ChordEngine,
   data: ChordSongData,
   key: string | undefined,
+  language: number | undefined,
   chordFormat: ChordFormatPreference,
   hideChords: boolean = readHideChordsPreference(),
 ): PdfExportPage {
   const page = engine.renderA4Html(data, {
     key,
+    language,
     representation: chordFormatToRepresentation(chordFormat),
     scale: 1,
   })
@@ -377,6 +386,7 @@ function renderA4ExportPage(
 export type HubExportSong = {
   data: ChordSongData
   key?: string
+  language?: number
 }
 
 /** @deprecated Use {@link HubExportSong}. */
@@ -396,7 +406,15 @@ export async function exportOrderedSongsZip(
   const zip = new JSZip()
   const entryNames = orderedSongZipEntryNames(songs, format)
   songs.forEach((song, index) => {
-    const text = formatSongForExport(engine, song.data, format, chordFormat, song.key, hideChords)
+    const text = formatSongForExport(
+      engine,
+      song.data,
+      format,
+      chordFormat,
+      song.key,
+      song.language,
+      hideChords,
+    )
     zip.file(entryNames[index]!, text)
   })
   const blob = await zip.generateAsync({ type: 'blob' })
@@ -415,7 +433,7 @@ export async function exportSongPdf(
   hideChords: boolean = readHideChordsPreference(),
 ): Promise<void> {
   const key = resolveSongDataKey(data as Record<string, unknown>) ?? undefined
-  const pages = [renderA4ExportPage(engine, data, key, chordFormat, hideChords)]
+  const pages = [renderA4ExportPage(engine, data, key, undefined, chordFormat, hideChords)]
   const title = sanitizeDownloadBasename(songTitleFromData(data))
   await printPdfDocument(pages, title)
 }
@@ -435,7 +453,7 @@ export async function exportSetlistPdf(
     throw new Error('No exportable songs')
   }
   const pages = songs.map((song) =>
-    renderA4ExportPage(engine, song.data, song.key, chordFormat, hideChords),
+    renderA4ExportPage(engine, song.data, song.key, song.language, chordFormat, hideChords),
   )
   const title = sanitizeDownloadBasename(setlistTitle)
   await printPdfDocument(pages, title)

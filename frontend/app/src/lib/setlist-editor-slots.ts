@@ -1,5 +1,6 @@
 import {
   coerceMusicalKeyString,
+  normalizeSongLinkLanguage,
   normalizeSongLinkId,
   normalizeSongLinkNr,
   type EditorSongLink,
@@ -20,6 +21,9 @@ export function makeSlotRow(link: EditorSongLink): SlotRow {
   }
   if (link.tempo !== undefined) {
     row.tempo = link.tempo
+  }
+  if (link.language !== undefined) {
+    row.language = normalizeSongLinkLanguage(link.language)
   }
   return {
     slotId: newSlotId(),

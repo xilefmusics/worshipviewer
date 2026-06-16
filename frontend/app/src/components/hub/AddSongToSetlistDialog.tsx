@@ -17,11 +17,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { buildSetlistPatchBody } from '@/lib/setlist-field-diff'
-import { setlistDetailKey } from '@/lib/setlist-detail-key'
+import { playerQueryKey, setlistDetailKey } from '@/lib/setlist-detail-key'
 import {
   normalizeSongLinkId,
   normalizeSongLinksForEditor,
+  defaultSongLinkLanguage,
   resolveSongDataKey,
+  songLanguageOptions,
+  songTitleForLanguage,
   type EditorSongLink,
 } from '@/lib/setlist-song-links'
 import { hubListKey } from '@/lib/hub-list-keys'
@@ -39,6 +42,13 @@ export function AddSongToSetlistDialog({ open, onOpenChange, song }: AddSongToSe
   const queryClient = useQueryClient()
   const shouldReduceMotion = useReducedMotion()
   const [selectedId, setSelectedId] = useState('')
+  const languageOptions = useMemo(
+    () => songLanguageOptions(song.data as Record<string, unknown>),
+    [song.data],
+  )
+  const defaultLanguage = defaultSongLinkLanguage(song.data as Record<string, unknown>) ?? ''
+  const [selectedLanguageOverride, setSelectedLanguageOverride] = useState<string | null>(null)
+  const selectedLanguage = selectedLanguageOverride ?? defaultLanguage
 
   const {
     data,
@@ -92,6 +102,7 @@ export function AddSongToSetlistDialog({ open, onOpenChange, song }: AddSongToSe
       const link: EditorSongLink = {
         id: song.id,
         key: resolveSongDataKey(song.data as Record<string, unknown>),
+        language: selectedLanguage || defaultSongLinkLanguage(song.data as Record<string, unknown>),
       }
       const nextSongs = [...existing, link]
       const body = buildSetlistPatchBody(
@@ -123,6 +134,9 @@ export function AddSongToSetlistDialog({ open, onOpenChange, song }: AddSongToSe
       if (result.kind === 'noop') return
       if (result.updated) {
         queryClient.setQueryData(setlistDetailKey(result.updated.id), result.updated)
+        void queryClient.invalidateQueries({
+          queryKey: playerQueryKey('setlist', result.updated.id),
+        })
       }
       void queryClient.invalidateQueries({ queryKey: hubListKey('setlists', '') })
       toast.success(t('hub.addToSetlist.success', { title: result.title }))
@@ -144,7 +158,10 @@ export function AddSongToSetlistDialog({ open, onOpenChange, song }: AddSongToSe
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next)
-        if (!next) setSelectedId('')
+        if (!next) {
+          setSelectedId('')
+          setSelectedLanguageOverride(null)
+        }
       }}
     >
       <Dialog.Portal forceMount>
@@ -175,7 +192,11 @@ export function AddSongToSetlistDialog({ open, onOpenChange, song }: AddSongToSe
                     {t('hub.addToSetlist.title')}
                   </Dialog.Title>
                   <p className="mt-1 line-clamp-2 text-sm text-[var(--color-muted-foreground)]">
-                    {song.data.titles?.[0]?.trim() || '—'}
+                    {songTitleForLanguage(
+                      song.data as Record<string, unknown>,
+                      selectedLanguage || null,
+                      '—',
+                    )}
                   </p>
 
                   <div className="mt-4 grid gap-2">
@@ -202,6 +223,29 @@ export function AddSongToSetlistDialog({ open, onOpenChange, song }: AddSongToSe
                         </SelectContent>
                       </Select>
                     </div>
+                    {languageOptions.length > 1 ? (
+                      <div className="grid gap-1.5 text-sm font-medium">
+                        <label htmlFor="hub-add-to-setlist-language">
+                          {t('setlists.editor.languageLabel')}
+                        </label>
+                        <Select value={selectedLanguage} onValueChange={setSelectedLanguageOverride}>
+                          <SelectTrigger
+                            id="hub-add-to-setlist-language"
+                            aria-label={t('setlists.editor.languageSelectAria')}
+                            className="rounded-md bg-[var(--color-bg)]"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {languageOptions.map((language) => (
+                              <SelectItem key={language} value={language}>
+                                {language}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : null}
                     {isPending && setlists.length === 0 ? (
                       <p className="text-xs text-[var(--color-muted-foreground)]">
                         {t('hub.addToSetlist.loadingLists')}

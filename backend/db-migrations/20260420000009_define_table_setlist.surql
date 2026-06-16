@@ -5,6 +5,7 @@ DEFINE FIELD OVERWRITE songs ON setlist TYPE array<object> VALUE $value ?? $befo
 DEFINE FIELD OVERWRITE songs.*.id ON setlist TYPE record<song> ASSERT $value != NONE PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE songs.*.key ON setlist TYPE none | object PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE songs.*.key.level ON setlist TYPE int ASSERT $value >= 0 AND $value < 12 PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE songs.*.language ON setlist TYPE none | string PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE songs.*.nr ON setlist TYPE none | string PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE title ON setlist TYPE string ASSERT string::len(string::trim($value)) > 0 PERMISSIONS FULL;
 

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildPdfPrintCss,
   createSongBodyFromParsed,
+  formatSongForExport,
   importSongsBatch,
   orderedSongZipEntryNames,
   parseImportSource,
@@ -68,6 +69,13 @@ describe('orderedSongZipEntryNames', () => {
       '02 - Beta.wp',
     ])
   })
+
+  it('uses the selected language title when present', () => {
+    const songs = [
+      { data: { titles: ['Anchor', 'Anker'], languages: ['en', 'de'] }, language: 1 },
+    ]
+    expect(orderedSongZipEntryNames(songs, 'chordpro')).toEqual(['01 - Anker.cp'])
+  })
 })
 
 describe('songTitleFromData', () => {
@@ -77,6 +85,29 @@ describe('songTitleFromData', () => {
 
   it('falls back when empty', () => {
     expect(songTitleFromData({ titles: [] })).toBe('Untitled')
+  })
+
+  it('uses selected language index for parallel titles', () => {
+    expect(songTitleFromData({ titles: ['Anchor', 'Anker'], languages: ['en', 'de'] }, 1)).toBe('Anker')
+  })
+})
+
+describe('formatSongForExport', () => {
+  it('passes selected language index to chord engine', () => {
+    const engine = mockEngine()
+    formatSongForExport(
+      engine,
+      { titles: ['Hello'], sections: [] },
+      'chordpro',
+      'letters',
+      'C',
+      1,
+      false,
+    )
+    expect(engine.formatChordPro).toHaveBeenCalledWith(
+      { titles: ['Hello'], sections: [] },
+      expect.objectContaining({ key: 'C', language: 1 }),
+    )
   })
 })
 

@@ -44,9 +44,14 @@ import { makeSlotRow, slotsFromSongLinks, type SlotRow } from '@/lib/setlist-edi
 import type { SetlistPaletteBridge } from '@/lib/setlist-palette-bridge'
 import {
   coerceMusicalKeyString,
+  defaultSongLinkLanguage,
+  normalizeSongLinkLanguage,
   normalizeSongLinksForEditor,
   removeAt,
   resolveSongDataKey,
+  songLanguageOptions,
+  songArtistForLanguage,
+  songTitleForLanguage,
   type EditorSongLink,
 } from '@/lib/setlist-song-links'
 import { setlistDetailKey, songDetailQueryKey } from '@/lib/setlist-detail-key'
@@ -231,10 +236,14 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
     [slotRows],
   )
 
-  const insertSongFromPicker = async (song: { id: string; data?: { key?: unknown } }) => {
+  const insertSongFromPicker = async (
+    song: { id: string; data?: { key?: unknown } },
+    language: string | null,
+  ) => {
     const link: EditorSongLink = {
       id: song.id,
       key: resolveSongDataKey(song.data as Record<string, unknown>),
+      language: language ?? defaultSongLinkLanguage(song.data as Record<string, unknown>),
     }
     setSlotRows((prev) => [...prev, makeSlotRow(link)])
     queueMicrotask(() => notifyDraftEdited())
@@ -579,6 +588,16 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
                     })
                     queueMicrotask(() => notifyDraftEdited())
                   }}
+                  onPatchLanguage={(language) => {
+                    setSlotRows((prev) => {
+                      const next = [...prev]
+                      const cur = next[idx]
+                      if (!cur) return prev
+                      next[idx] = { ...cur, link: { ...cur.link, language } }
+                      return next
+                    })
+                    queueMicrotask(() => notifyDraftEdited())
+                  }}
                   onRemove={() => removeAtIndex(idx)}
                 />
               )
@@ -599,7 +618,7 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
         onOpenChange={setPickerOpen}
         duplicateCountFor={duplicateCountFor}
         blockedAdd={patchInFlight}
-        onPickSong={(s) => void insertSongFromPicker(s)}
+        onPickSong={(s, language) => void insertSongFromPicker(s, language)}
       />
     </div>
   )
@@ -620,6 +639,7 @@ type SortProps = {
   onAnnounce: (s: string) => void
   onPatchKey: (key: string | null) => void
   onPatchTempo: (tempo: number | null) => void
+  onPatchLanguage: (language: string | null) => void
   onRemove: () => void
 }
 
@@ -652,8 +672,19 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
   const dup = draftLinks.reduce((acc, l) => acc + (l.id === row.link.id ? 1 : 0), 0)
   const pinned = coerceMusicalKeyString(row.link.key)
 
-  let titleLabel = hydratedSong?.data.titles?.[0]?.trim() || ''
-  const artistsLine = ((hydratedSong?.data.artists ?? []).filter(Boolean).join(', ') || '').trim()
+  let titleLabel = hydratedSong
+    ? songTitleForLanguage(
+        hydratedSong.data as Record<string, unknown>,
+        row.link.language,
+        '',
+      )
+    : ''
+  const artistsLine = hydratedSong
+    ? songArtistForLanguage(
+        hydratedSong.data as Record<string, unknown>,
+        row.link.language,
+      )
+    : ''
   if (brokenHydration) titleLabel = t('setlists.editor.unavailable')
   if (!titleLabel && !hydrationPending && !brokenHydration) titleLabel = '…'
   const defaultKey = resolveSongDataKey(hydratedSong?.data)
@@ -666,6 +697,10 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
   const pinnedBpm = normalizedTempoBpm(row.link.tempo)
   const displayBpm = pinnedBpm ?? bpm
   const isTempoInherited = pinnedBpm == null
+  const languageOptions = songLanguageOptions(hydratedSong?.data as Record<string, unknown> | undefined)
+  const selectedLanguage = normalizeSongLinkLanguage(row.link.language)
+  const displayLanguage = selectedLanguage ?? languageOptions[0] ?? null
+  const isLanguageInherited = selectedLanguage == null
   const showSongOriginalTempoCaption =
     !hydrationPending && !brokenHydration && Boolean(hydratedSong) && bpm != null
   let songOriginalTempoLine: string | null = null
@@ -706,119 +741,188 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
           if (dx < -72) props.onRemove()
         }}
       >
-        <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
           {hydrationPending && !brokenHydration ? (
-            <div className="col-span-2 h-4 w-2/3 max-w-full animate-pulse rounded bg-[var(--color-muted)]" />
+            <div className="h-4 w-2/3 max-w-full animate-pulse rounded bg-[var(--color-muted)]" />
           ) : (
             <>
-              <p className={cn('min-w-0 line-clamp-2 font-medium leading-snug', brokenHydration && 'text-[var(--color-danger)]')}>
-                {titleLabel || '—'}
-              </p>
-              <div className="inline-flex max-w-[11rem] min-w-0 flex-col justify-self-end gap-1">
-                {!brokenHydration && hydratedSong ? (
-                  <>
-                    <PopoverRoot>
-                      <PopoverTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className={cn(
-                            'h-9 w-full justify-start px-2 text-xs',
-                            isDefaultInherited && 'border-dashed text-[var(--color-muted-foreground)]',
-                          )}
-                          disabled={!canEditUi || blockingAll}
-                        >
-                          {t('setlists.editor.keyChip', { symbol: displayChip ?? '—' })}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-48 p-2" align="end">
-                        <div className="grid max-h-60 grid-cols-3 gap-1 overflow-y-auto p-1">
-                          {MUSICAL_KEYS.map((k) => (
-                            <button
-                              key={k}
-                              type="button"
-                              className="rounded px-2 py-1 text-xs hover:bg-[var(--color-muted)]"
-                              onClick={() => props.onPatchKey(k)}
-                            >
-                              {k}
-                            </button>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </PopoverRoot>
-                    <TempoOverrideChip
-                      displayBpm={displayBpm}
-                      pinnedBpm={pinnedBpm}
-                      isInherited={isTempoInherited}
-                      canEditUi={canEditUi}
-                      blockingAll={blockingAll}
-                      onPatchTempo={props.onPatchTempo}
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                <p className={cn('min-w-0 line-clamp-2 font-medium leading-snug', brokenHydration && 'text-[var(--color-danger)]')}>
+                  {titleLabel || '—'}
+                </p>
+                {canEditUi && !blockingAll ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="-mt-2 hidden shrink-0 sm:flex"
+                    aria-label={t('setlists.editor.removeAria')}
+                    onClick={() => props.onRemove()}
+                    disabled={blockingAll || !canEditUi}
+                  >
+                    <TrashIcon size={18} />
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="grid min-w-0 gap-0.5">
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
+                  {!brokenHydration && artistsLine ? (
+                    <p className="truncate text-xs text-[var(--color-muted-foreground)]">{artistsLine}</p>
+                  ) : (
+                    <span aria-hidden />
+                  )}
+                  {showSongOriginalKeyCaption ? (
+                    <p className="truncate text-right text-xs text-[var(--color-muted-foreground)]">
+                      {t('setlists.editor.songOriginalKey', { symbol: defaultKey ?? '—' })}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
+                  {songOwnerTeamLine === null ? (
+                    <div
+                      className="h-3 w-28 max-w-full animate-pulse rounded bg-[var(--color-muted)]"
+                      aria-hidden
                     />
-                  </>
-                ) : null}
+                  ) : songOwnerTeamLine ? (
+                    <p className="truncate text-xs text-[var(--color-muted-foreground)]">{songOwnerTeamLine}</p>
+                  ) : (
+                    <span aria-hidden />
+                  )}
+                  {songOriginalTempoLine ? (
+                    <p className="truncate text-right text-xs text-[var(--color-muted-foreground)]">
+                      {songOriginalTempoLine}
+                    </p>
+                  ) : meter && !showSongOriginalTempoCaption ? (
+                    <p className="truncate text-right text-xs text-[var(--color-muted-foreground)]">
+                      {t('setlists.editor.songMeterOnly', { meter })}
+                    </p>
+                  ) : null}
+                </div>
               </div>
 
-              <div className="min-w-0">
-                {!brokenHydration && artistsLine ? (
-                  <p className="truncate text-xs text-[var(--color-muted-foreground)]">{artistsLine}</p>
-                ) : null}
-              </div>
-              <div className="inline-flex max-w-[11rem] min-w-0 flex-col justify-self-end gap-1">
-                {showSongOriginalKeyCaption ? (
-                  <p className="w-full truncate text-xs text-[var(--color-muted-foreground)]">
-                    {t('setlists.editor.songOriginalKey', { symbol: defaultKey ?? '—' })}
-                  </p>
-                ) : null}
-                {songOriginalTempoLine ? (
-                  <p className="w-full truncate text-xs text-[var(--color-muted-foreground)]">
-                    {songOriginalTempoLine}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="min-w-0">
-                {songOwnerTeamLine === null ? (
-                  <div
-                    className="h-3 w-28 max-w-full animate-pulse rounded bg-[var(--color-muted)]"
-                    aria-hidden
+              {!brokenHydration && hydratedSong ? (
+                <div className="grid grid-cols-3 gap-1 pt-1">
+                  <PopoverRoot>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          'h-9 w-full min-w-0 justify-start px-2 text-xs',
+                          isDefaultInherited && 'border-dashed text-[var(--color-muted-foreground)]',
+                        )}
+                        disabled={!canEditUi || blockingAll}
+                      >
+                        <span className="truncate">
+                          {t('setlists.editor.keyChip', { symbol: displayChip ?? '—' })}
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-2" align="start">
+                      <div className="grid max-h-60 grid-cols-3 gap-1 overflow-y-auto p-1">
+                        {MUSICAL_KEYS.map((k) => (
+                          <button
+                            key={k}
+                            type="button"
+                            className="rounded px-2 py-1 text-xs hover:bg-[var(--color-muted)]"
+                            onClick={() => props.onPatchKey(k)}
+                          >
+                            {k}
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </PopoverRoot>
+                  <TempoOverrideChip
+                    displayBpm={displayBpm}
+                    pinnedBpm={pinnedBpm}
+                    isInherited={isTempoInherited}
+                    canEditUi={canEditUi}
+                    blockingAll={blockingAll}
+                    onPatchTempo={props.onPatchTempo}
                   />
-                ) : songOwnerTeamLine ? (
-                  <p className="truncate text-xs text-[var(--color-muted-foreground)]">{songOwnerTeamLine}</p>
-                ) : null}
-              </div>
-              <div className="inline-flex max-w-[11rem] min-w-0 flex-col justify-self-end">
-                {meter && !showSongOriginalTempoCaption ? (
-                  <p className="w-full truncate text-xs text-[var(--color-muted-foreground)]">
-                    {t('setlists.editor.songMeterOnly', { meter })}
-                  </p>
-                ) : null}
-              </div>
+                  <LanguageOverrideSelect
+                    displayLanguage={displayLanguage}
+                    selectedLanguage={selectedLanguage}
+                    isInherited={isLanguageInherited}
+                    options={languageOptions}
+                    canEditUi={canEditUi}
+                    blockingAll={blockingAll}
+                    onPatchLanguage={props.onPatchLanguage}
+                  />
+                </div>
+              ) : null}
             </>
           )}
           {dup > 1 ? (
-            <p className="col-span-2 mt-0.5 text-[0.65rem] uppercase text-[var(--color-muted-foreground)]">
+            <p className="mt-0.5 self-end text-right text-[0.65rem] uppercase text-[var(--color-muted-foreground)]">
               {t('common.duplicateBadge', { container: t('common.containerSetlist'), count: dup })}
             </p>
           ) : null}
         </div>
-        {canEditUi && !blockingAll ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="hidden shrink-0 sm:flex"
-            aria-label={t('setlists.editor.removeAria')}
-            onClick={() => props.onRemove()}
-            disabled={blockingAll || !canEditUi}
-          >
-            <TrashIcon size={18} />
-          </Button>
-        ) : null}
       </div>
     </li>
   )
 })
+
+const LANGUAGE_DEFAULT_VALUE = '__song-default__'
+
+type LanguageOverrideSelectProps = {
+  displayLanguage: string | null
+  selectedLanguage: string | null
+  isInherited: boolean
+  options: string[]
+  canEditUi: boolean
+  blockingAll: boolean
+  onPatchLanguage: (language: string | null) => void
+}
+
+function LanguageOverrideSelect({
+  displayLanguage,
+  selectedLanguage,
+  isInherited,
+  options,
+  canEditUi,
+  blockingAll,
+  onPatchLanguage,
+}: LanguageOverrideSelectProps) {
+  const { t } = useTranslation()
+  const value = selectedLanguage ?? LANGUAGE_DEFAULT_VALUE
+
+  return (
+    <Select
+      value={value}
+      onValueChange={(next) => onPatchLanguage(next === LANGUAGE_DEFAULT_VALUE ? null : next)}
+      disabled={!canEditUi || blockingAll || options.length === 0}
+    >
+      <SelectTrigger
+        aria-label={t('setlists.editor.languageSelectAria')}
+        className={cn(
+          'h-9 w-full justify-start px-2 text-xs',
+          isInherited && 'border-dashed text-[var(--color-muted-foreground)]',
+        )}
+      >
+        <SelectValue>
+          {displayLanguage
+            ? t('setlists.editor.languageChip', { language: displayLanguage })
+            : t('setlists.editor.languageChipPlaceholder')}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={LANGUAGE_DEFAULT_VALUE}>
+          {t('setlists.editor.languageUseSongDefault')}
+        </SelectItem>
+        {options.map((language) => (
+          <SelectItem key={language} value={language}>
+            {language}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
 
 function parseTempoDraft(value: string): number | null {
   const trimmed = value.trim()

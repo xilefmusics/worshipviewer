@@ -9,6 +9,7 @@ export type EditorSongLink = {
   id: string
   key: string | null
   tempo?: number | null
+  language?: string | null
   nr?: string | null
 }
 
@@ -93,17 +94,90 @@ export function songLinkKeyEditorToWire(key: unknown): SimpleChord | null {
 }
 
 /** One wire `SongLink` for PATCH/POST `songs`; server expects `key` as `{ level }` or JSON `null`. */
-export function songLinkForSetlistMutation(link: EditorSongLink): Pick<SongLink, 'id' | 'key' | 'tempo'> {
+export function songLinkForSetlistMutation(link: EditorSongLink): Pick<SongLink, 'id' | 'key' | 'tempo' | 'language'> {
   return {
     id: normalizeSongLinkId(link.id),
     key: songLinkKeyEditorToWire(link.key),
     tempo: songLinkTempoEditorToWire(link.tempo),
+    language: normalizeSongLinkLanguage(link.language),
   }
 }
 
 /** Normalize editor tempo to wire BPM or `null` (inherit song default). */
 export function songLinkTempoEditorToWire(tempo: unknown): number | null {
   return normalizedTempoBpm(tempo)
+}
+
+/** Preserve only non-empty language tags from song metadata / setlist slots. */
+export function normalizeSongLinkLanguage(language: unknown): string | null {
+  if (typeof language !== 'string') return null
+  const trimmed = language.trim()
+  return trimmed.length ? trimmed : null
+}
+
+/** Song metadata languages as selectable labels/tags, with empty entries removed. */
+export function songLanguageOptions(data: Record<string, unknown> | undefined | null): string[] {
+  const raw = data?.languages
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const value of raw) {
+    const lang = normalizeSongLinkLanguage(value)
+    if (!lang || seen.has(lang)) continue
+    seen.add(lang)
+    out.push(lang)
+  }
+  return out
+}
+
+/** Default slot language when inserting a song into a setlist. */
+export function defaultSongLinkLanguage(data: Record<string, unknown> | undefined | null): string | null {
+  return songLanguageOptions(data)[0] ?? null
+}
+
+/** Convert a stored setlist language tag into the chord engine's zero-based language index. */
+export function languageIndexForSongLink(
+  data: Record<string, unknown> | undefined | null,
+  language: unknown,
+): number | undefined {
+  const selected = normalizeSongLinkLanguage(language)
+  if (!selected) return undefined
+  const idx = songLanguageOptions(data).indexOf(selected)
+  return idx >= 0 ? idx : undefined
+}
+
+/** Resolve a song title using the setlist slot language when parallel titles are available. */
+export function songTitleForLanguage(
+  data: Record<string, unknown> | undefined | null,
+  language: unknown,
+  fallback = 'Untitled',
+): string {
+  const titles = Array.isArray(data?.titles) ? data.titles : []
+  const titleAt = (index: number): string | null => {
+    const value = titles[index]
+    if (typeof value !== 'string') return null
+    const trimmed = value.trim()
+    return trimmed.length ? trimmed : null
+  }
+  const languageIndex = languageIndexForSongLink(data, language)
+  return (languageIndex != null ? titleAt(languageIndex) : null) ?? titleAt(0) ?? fallback
+}
+
+/** Resolve a song artist using the setlist slot language when parallel artists are available. */
+export function songArtistForLanguage(
+  data: Record<string, unknown> | undefined | null,
+  language: unknown,
+  fallback = '',
+): string {
+  const artists = Array.isArray(data?.artists) ? data.artists : []
+  const artistAt = (index: number): string | null => {
+    const value = artists[index]
+    if (typeof value !== 'string') return null
+    const trimmed = value.trim()
+    return trimmed.length ? trimmed : null
+  }
+  const languageIndex = languageIndexForSongLink(data, language)
+  return (languageIndex != null ? artistAt(languageIndex) : null) ?? artistAt(0) ?? fallback
 }
 
 /** Opaque IDs should be strings on the wire; JSON may deserialize numeric-looking ids locally. */
@@ -297,6 +371,7 @@ export function normalizeSongLinksForEditor(links: SongLink[] | null | undefined
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
     tempo: normalizedTempoBpm(l.tempo),
+    language: normalizeSongLinkLanguage(l.language),
   }))
 }
 

@@ -9,10 +9,14 @@ import {
   type HubExportSong,
   type TextExportFormat,
 } from '@/lib/song-import-export'
-import { coerceMusicalKeyString, resolveSongDataKey } from '@/lib/setlist-song-links'
+import {
+  coerceMusicalKeyString,
+  languageIndexForSongLink,
+  resolveSongDataKey,
+} from '@/lib/setlist-song-links'
 import type { ChordSongData } from '@/ports/chord-engine'
 
-export type HubExportSongLink = { id: string; key?: unknown }
+export type HubExportSongLink = { id: string; key?: unknown; language?: unknown }
 
 export async function hydrateSongLinksForHubExport(
   queryClient: QueryClient,
@@ -27,7 +31,8 @@ export async function hydrateSongLinksForHubExport(
         coerceMusicalKeyString(link.key) ??
         resolveSongDataKey(data as Record<string, unknown>) ??
         undefined
-      const row: HubExportSong = { data, key }
+      const language = languageIndexForSongLink(data as Record<string, unknown>, link.language)
+      const row: HubExportSong = { data, key, language }
       return row
     }),
   )

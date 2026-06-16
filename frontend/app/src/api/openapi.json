@@ -1167,6 +1167,13 @@
       "PlayerChordsItem": {
         "description": "ChordPro-backed song item in a player sequence (`type`: `\"chords\"`).",
         "properties": {
+          "language": {
+            "description": "Language override for this player item; `None` uses the song's default language.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "song": {
             "$ref": "#/components/schemas/Song"
           }
@@ -1669,6 +1676,13 @@
                 "$ref": "#/components/schemas/SimpleChord",
                 "description": "Transposition key for this slot (same `{ \"level\": … }` object as `Song.data.key`)."
               }
+            ]
+          },
+          "language": {
+            "description": "Language override for this slot; `None` inherits the song's default language.",
+            "type": [
+              "string",
+              "null"
             ]
           },
           "nr": {
