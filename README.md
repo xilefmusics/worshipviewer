@@ -83,9 +83,13 @@ rustup update stable
 
 The Docker image is built with **Rust 1.96.0**, **Node.js 20**, **pnpm 10.33.0**, and **wasm-pack** (see the root [`Dockerfile`](Dockerfile)).
 
-### Start the frontend against the local dev backend (recommended)
+### Backend startup options
 
-**Terminal 1 — backend:**
+Choose one of these backend setups.
+
+#### Option 1: Local backend with ephemeral data
+
+Best for quick UI work and smoke testing.
 
 ```bash
 cd backend && \
@@ -96,7 +100,40 @@ cd backend && \
 
 Default listen address is `127.0.0.1:8080`. The initial admin session id is `admin`.
 
-**Terminal 2 — frontend:**
+#### Option 2: Local backend with persistent SurrealDB
+
+Best when you want data to survive backend restarts.
+
+```bash
+# Start the database as a separate process
+docker run --rm -p 8000:8000 surrealdb/surrealdb:v3.0.5 start --log debug --user root --pass root memory
+
+# Create a database user for the backend (run from the repo root)
+token=$(curl -sS -X POST http://127.0.0.1:8000/signin \
+  -H 'Content-Type: application/json' \
+  -d '{"user":"root","pass":"root"}' | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+
+curl -sS -X POST http://127.0.0.1:8000/sql \
+  -H "Authorization: Bearer $token" \
+  --data-binary 'USE NS main DB main; DEFINE USER app ON DATABASE PASSWORD "app" ROLES OWNER;'
+
+# Start the backend connected to that database user
+cd backend && \
+  INITIAL_ADMIN_USER_EMAIL="admin@example.com" \
+  INITIAL_ADMIN_USER_TEST_SESSION=true \
+  DB_ADDRESS="ws://localhost:8000" \
+  DB_USERNAME="app" \
+  DB_PASSWORD="app" \
+  cargo run
+```
+
+### Frontend startup options
+
+Choose one of these frontend setups, then start the backend in a second terminal if you need local API access.
+
+#### Option 1: Frontend against the local backend
+
+Best for normal local development.
 
 ```bash
 pnpm -C frontend dev
@@ -104,15 +141,15 @@ pnpm -C frontend dev
 
 Open the URL Vite prints (default `http://127.0.0.1:5173`). The dev server proxies `/api` and `/auth` to `http://127.0.0.1:8080` by default, so session cookies behave like production.
 
-To override the proxy target, create `frontend/app/.env.development.local`:
+To override the proxy target for a local backend, create `frontend/app/.env.development.local`:
 
 ```bash
 VITE_DEV_PROXY_TARGET=http://127.0.0.1:8080
 ```
 
-### Start the frontend against the production backend
+#### Option 2: Frontend against the production backend
 
-Useful for UI work against live data:
+Useful for UI work against live data.
 
 ```bash
 VITE_DEV_PROXY_TARGET=https://app.worshipviewer.com pnpm -C frontend dev
@@ -121,8 +158,8 @@ VITE_DEV_PROXY_TARGET=https://app.worshipviewer.com pnpm -C frontend dev
 **Caveats:**
 
 - The Vite proxy avoids browser CORS issues (the backend does not emit CORS headers).
-- **Session cookies from production will not authenticate localhost** (they are domain-bound). Use this for read-only UI checks or public endpoints; for full auth flows, use the [local backend](#start-the-frontend-against-the-local-dev-backend-recommended) or log in on [app.worshipviewer.com](https://app.worshipviewer.com) directly.
-- Do **not** set `VITE_API_BASE_URL` for normal dev — reserve it for exceptional cross-origin setups that require explicit backend alignment (CORS, cookies, HTTPS).
+- **Session cookies from production will not authenticate localhost** (they are domain-bound). Use this for read-only UI checks or public endpoints; for full auth flows, use the local backend options above or log in on [app.worshipviewer.com](https://app.worshipviewer.com) directly.
+- Do **not** set `VITE_API_BASE_URL` for normal dev - reserve it for exceptional cross-origin setups that require explicit backend alignment (CORS, cookies, HTTPS).
 
 ### Single-process / production-like local run
 
@@ -195,22 +232,6 @@ pnpm -C frontend --filter app exec playwright show-report   # open last HTML rep
 ```
 
 The hello-world e2e specs **stub `GET /api/v1/users/me` in the browser** (401 = logged out), so no backend is required for those tests. Backend-backed specs expect a server on **`http://127.0.0.1:8788`** unless configured otherwise. If you already have a preview server on port 4173, Playwright reuses it locally (not in CI).
-
-### Persist data across backend restarts
-
-```bash
-# Start the database as a separate process
-docker run --rm -p 8000:8000 surrealdb/surrealdb:v3.0.5 start --log debug --user root --pass root memory
-
-# Start the backend connected to that database
-cd backend && \
-  INITIAL_ADMIN_USER_EMAIL="admin@example.com" \
-  INITIAL_ADMIN_USER_TEST_SESSION=true \
-  DB_ADDRESS="ws://localhost:8000" \
-  DB_USERNAME="app" \
-  DB_PASSWORD="app" \
-  cargo run
-```
 
 ## Backend configuration
 

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import type { User } from '@/api/session'
 import {
+  IconAdminDashboard,
   IconAbout,
   IconInstall,
   IconLogout,
@@ -23,6 +24,7 @@ import { useUserAvatarDisplay } from '@/hooks/useUserAvatarDisplay'
 import { performLogout } from '@/lib/logout-queue'
 import { usePwaInstall } from '@/pwa/pwa-install-context'
 import { Route as RootRoute } from '@/routes/__root'
+import { formatAdminDateInputValue, resolveAdminQuickRange } from '@/lib/admin-dashboard'
 import { cn } from '@/lib/utils'
 
 type ProfileMenuProps = {
@@ -38,7 +40,7 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
   const { canShowInstall, openInstall } = usePwaInstall()
   const { imageSrc, onImageError, initials } = useUserAvatarDisplay(user)
   const [hoveredRow, setHoveredRow] = useState<
-    'settings' | 'sessions' | 'about' | 'install' | 'logout' | null
+    'settings' | 'sessions' | 'admin' | 'about' | 'install' | 'logout' | null
   >(null)
 
   async function onLogout() {
@@ -108,6 +110,26 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
           <IconSessions isHovered={hoveredRow === 'sessions'} />
           {t('hub.profile.sessions')}
         </DropdownMenuItem>
+        {user.role === 'admin' ? (
+          <DropdownMenuItem
+            onSelect={() => {
+              const range = resolveAdminQuickRange('30d')
+              void navigate({
+                to: '/admin',
+                search: {
+                  start: formatAdminDateInputValue(range.start),
+                  end: formatAdminDateInputValue(range.end),
+                },
+                replace: true,
+              })
+            }}
+            onMouseEnter={() => setHoveredRow('admin')}
+            onMouseLeave={() => setHoveredRow(null)}
+          >
+            <IconAdminDashboard isHovered={hoveredRow === 'admin'} />
+            {t('hub.profile.admin')}
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem
           onSelect={() => {
             void navigate({ to: '/about' })

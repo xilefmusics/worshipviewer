@@ -10,10 +10,19 @@ import { api } from '@/api/client'
 import { parseProblemResponse } from '@/api/problem'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CommandPalette } from '@/components/hub/CommandPalette'
 import { SessionLoadingFallback } from '@/components/SessionLoadingFallback'
 import { SessionUnavailableScreen } from '@/components/SessionUnavailableScreen'
 import { SetlistPaletteRegistrarProvider } from '@/context/SetlistPaletteBridgeContext'
+import {
+  formatAdminDateInputValue,
+  parseAdminDateInputValue,
+  resolveAdminDateRange,
+  resolveAdminQuickRange,
+  resolveAdminLatestSelectableDate,
+  type AdminMetricsRangeId,
+} from '@/lib/admin-dashboard'
 import type { SetlistPaletteBridge } from '@/lib/setlist-palette-bridge'
 import {
   HUB_FOOTER_CHROME_MB_CLASS,
@@ -86,6 +95,24 @@ function OfflineBanner() {
 
 function isLibraryListPath(pathname: string): boolean {
   return pathname === '/collections' || pathname === '/songs' || pathname === '/setlists'
+}
+
+const ADMIN_QUICK_RANGES: AdminMetricsRangeId[] = ['7d', '30d', '90d', 'mtd', 'prev-month']
+
+function formatAdminQuickRangeLabel(range: AdminMetricsRangeId, t: (key: string) => string): string {
+  switch (range) {
+    case '7d':
+      return t('adminDashboard.range.7d')
+    case '30d':
+      return t('adminDashboard.range.30d')
+    case '90d':
+      return t('adminDashboard.range.90d')
+    case 'mtd':
+      return t('adminDashboard.range.mtd')
+    case 'prev-month':
+      return t('adminDashboard.range.prevMonth')
+  }
+  throw new Error(`Unsupported admin metrics range: ${range}`)
 }
 
 function HubLibrarySearchField({
@@ -177,6 +204,121 @@ function HubLibrarySearchField({
   )
 }
 
+function AdminDateRangeField({
+  searchAnchorRef,
+  paletteOpen,
+  startDate,
+  endDate,
+  maxDate,
+  onStartDateChange,
+  onEndDateChange,
+  onQuickRangeChange,
+  activeQuickRange,
+  searchIconActive,
+  onSearchMouseEnter,
+  onSearchMouseLeave,
+}: {
+  searchAnchorRef: RefObject<HTMLDivElement | null>
+  paletteOpen: boolean
+  startDate: string
+  endDate: string
+  maxDate: string
+  onStartDateChange: (value: string) => void
+  onEndDateChange: (value: string) => void
+  onQuickRangeChange: (range: AdminMetricsRangeId) => void
+  activeQuickRange: AdminMetricsRangeId | null
+  searchIconActive: boolean
+  onSearchMouseEnter: () => void
+  onSearchMouseLeave: () => void
+}) {
+  const { t } = useTranslation()
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const filterActive = filtersOpen || activeQuickRange != null
+
+  return (
+    <div
+      ref={searchAnchorRef}
+      className="relative my-[0.36rem] min-w-0 flex-1"
+      onMouseEnter={onSearchMouseEnter}
+      onMouseLeave={onSearchMouseLeave}
+    >
+      <div
+        className={cn(
+          'flex h-[3.6rem] w-full min-w-0 items-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2 shadow-[var(--shadow-elevated)] transition-[max-width]',
+          paletteOpen && 'pointer-events-none invisible',
+        )}
+        aria-hidden={paletteOpen}
+      >
+        <SearchIcon
+          aria-hidden
+          className="pointer-events-none ml-[0.65rem] shrink-0 text-[var(--color-muted-foreground)]"
+          isHovered={searchIconActive}
+          size={18}
+        />
+        <div className="mx-2 flex min-w-0 flex-1 items-center gap-2">
+          <Input
+            type="date"
+            value={startDate}
+            max={maxDate}
+            onChange={(e) => onStartDateChange(e.target.value)}
+            aria-label={t('adminDashboard.startDateLabel')}
+            className="h-9 min-w-0 flex-1 rounded-full border-0 bg-transparent px-3 text-base shadow-none focus-visible:outline-none"
+          />
+          <span className="h-6 w-px shrink-0 bg-[var(--color-border)]" aria-hidden />
+          <Input
+            type="date"
+            value={endDate}
+            max={maxDate}
+            onChange={(e) => onEndDateChange(e.target.value)}
+            aria-label={t('adminDashboard.endDateLabel')}
+            className="h-9 min-w-0 flex-1 rounded-full border-0 bg-transparent px-3 text-base shadow-none focus-visible:outline-none"
+          />
+        </div>
+        <button
+          type="button"
+          aria-label={filtersOpen ? t('hub.filters.closeAria') : t('hub.filters.openAria')}
+          aria-pressed={filtersOpen}
+          onClick={() => setFiltersOpen((open) => !open)}
+          className={cn(
+            'mr-1 flex size-10 shrink-0 items-center justify-center rounded-full text-[var(--color-muted-foreground)] outline-none transition-colors',
+            'hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]',
+            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]',
+            filterActive && 'bg-[var(--color-muted)] text-[var(--color-foreground)]',
+          )}
+        >
+          <FilterIcon />
+        </button>
+        {filtersOpen ? (
+          <>
+            <div className="h-8 w-px shrink-0 bg-[var(--color-border)]" aria-hidden />
+            <Select
+              value={activeQuickRange ?? '__custom__'}
+              onValueChange={(value) => {
+                if (value === '__custom__') return
+                onQuickRangeChange(value as AdminMetricsRangeId)
+              }}
+            >
+              <SelectTrigger
+                aria-label={t('adminDashboard.quickFiltersAria')}
+                className="mr-2 h-9 w-[min(12rem,42vw)] border-0 bg-transparent px-2 shadow-none"
+              >
+                <SelectValue placeholder={t('adminDashboard.quickFiltersLabel')} />
+              </SelectTrigger>
+              <SelectContent>
+                {ADMIN_QUICK_RANGES.map((range) => (
+                  <SelectItem key={range} value={range}>
+                    {formatAdminQuickRangeLabel(range, t)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 function HubChrome({
   children,
   searchAnchorRef,
@@ -205,8 +347,20 @@ function HubChrome({
   const isSongDetail = /^\/songs\/[^/]+$/.test(pathname)
   const songEditorId = isSongDetail ? pathname.slice('/songs/'.length) : ''
   const isSettings = pathname === '/settings'
+  const isAdmin = pathname === '/admin'
   const isSessions = pathname === '/sessions'
   const isAbout = pathname === '/about'
+  const adminSearch = locationSearch as Record<string, unknown>
+  const adminStartDate = typeof adminSearch.start === 'string' ? adminSearch.start : ''
+  const adminEndDate = typeof adminSearch.end === 'string' ? adminSearch.end : ''
+  const adminMaxDate = formatAdminDateInputValue(resolveAdminLatestSelectableDate())
+  const activeAdminQuickRange = ADMIN_QUICK_RANGES.find((range) => {
+    const quick = resolveAdminQuickRange(range)
+    return (
+      formatAdminDateInputValue(quick.start) === adminStartDate &&
+      formatAdminDateInputValue(quick.end) === adminEndDate
+    )
+  }) ?? null
   const showLibraryFilters = isLibraryListPath(pathname)
   const songEditorPlayerReturn = isSongDetail
     ? parsePlayerEditorReturnSearch(locationSearch as Record<string, unknown>)
@@ -226,6 +380,7 @@ function HubChrome({
   const hideHubPlus =
     pathname === '/sessions' ||
     pathname === '/settings' ||
+    pathname === '/admin' ||
     pathname === '/about' ||
     isTeamDetail ||
     isSetlistDetail ||
@@ -237,6 +392,7 @@ function HubChrome({
     !isCollectionDetail &&
     !isSongDetail &&
     !isSettings &&
+    !isAdmin &&
     !isSessions &&
     !isAbout
   const reduceMotion = useReducedMotion()
@@ -344,6 +500,52 @@ function HubChrome({
       setDetailTitleDraft(detailTeam.name)
       setIsEditingDetailTitle(false)
     }
+  }
+
+  function navigateAdminSearch(nextStart: string, nextEnd: string) {
+    void navigate({
+      to: '/admin',
+      search: {
+        start: nextStart,
+        end: nextEnd,
+      },
+      replace: true,
+    })
+  }
+
+  function handleAdminStartDateChange(nextStart: string) {
+    const parsedStart = parseAdminDateInputValue(nextStart)
+    const parsedEnd = parseAdminDateInputValue(adminEndDate)
+    if (!parsedStart || !parsedEnd) return
+    const nextRange = resolveAdminDateRange(parsedStart, parsedEnd)
+    const ordered =
+      nextRange.start.getTime() <= nextRange.end.getTime()
+        ? nextRange
+        : { start: nextRange.end, end: nextRange.start }
+    navigateAdminSearch(
+      formatAdminDateInputValue(ordered.start),
+      formatAdminDateInputValue(ordered.end),
+    )
+  }
+
+  function handleAdminEndDateChange(nextEnd: string) {
+    const parsedStart = parseAdminDateInputValue(adminStartDate)
+    const parsedEnd = parseAdminDateInputValue(nextEnd)
+    if (!parsedStart || !parsedEnd) return
+    const nextRange = resolveAdminDateRange(parsedStart, parsedEnd)
+    const ordered =
+      nextRange.start.getTime() <= nextRange.end.getTime()
+        ? nextRange
+        : { start: nextRange.end, end: nextRange.start }
+    navigateAdminSearch(
+      formatAdminDateInputValue(ordered.start),
+      formatAdminDateInputValue(ordered.end),
+    )
+  }
+
+  function handleAdminQuickRangeChange(nextRangeId: AdminMetricsRangeId) {
+    const range = resolveAdminQuickRange(nextRangeId)
+    navigateAdminSearch(formatAdminDateInputValue(range.start), formatAdminDateInputValue(range.end))
   }
 
   return (
@@ -562,6 +764,35 @@ function HubChrome({
                   </p>
                 </div>
               </div>
+            </>
+          ) : isAdmin ? (
+            <>
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={() => {
+                  void navigate({ to: '/collections' })
+                }}
+                className={hubDetailBackButtonClass}
+                aria-label={t('adminDashboard.back')}
+              >
+                <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
+              </Button>
+              <AdminDateRangeField
+                searchAnchorRef={searchAnchorRef}
+                paletteOpen={paletteOpen}
+                startDate={adminStartDate}
+                endDate={adminEndDate}
+                maxDate={adminMaxDate}
+                onStartDateChange={handleAdminStartDateChange}
+                onEndDateChange={handleAdminEndDateChange}
+                onQuickRangeChange={handleAdminQuickRangeChange}
+                activeQuickRange={activeAdminQuickRange}
+                searchIconActive={searchIconActive}
+                onSearchMouseEnter={() => setSearchFieldHovered(true)}
+                onSearchMouseLeave={() => setSearchFieldHovered(false)}
+              />
             </>
           ) : isSessions ? (
             <>
