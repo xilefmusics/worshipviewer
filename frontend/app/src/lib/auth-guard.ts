@@ -49,3 +49,25 @@ export async function requireSession(context: { queryClient: QueryClient }): Pro
     })
   }
 }
+
+/**
+ * Session required and the signed-in user must be a global admin.
+ * Non-admins are redirected away from admin-only dashboards before they render.
+ */
+export async function requireAdminSession(context: { queryClient: QueryClient }): Promise<void> {
+  const pathWithQuery = currentPathWithQuery()
+
+  const user = await resolveSessionUser(context.queryClient)
+
+  if (!user) {
+    await clearAllLocalData(context.queryClient)
+    throw redirect({
+      to: '/login',
+      search: { return_to: pathWithQuery || '/' },
+    })
+  }
+
+  if (user.role !== 'admin') {
+    throw redirect({ to: '/collections' })
+  }
+}

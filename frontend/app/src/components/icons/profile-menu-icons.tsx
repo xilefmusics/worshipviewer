@@ -74,6 +74,31 @@ export function IconAbout({ className, isHovered, ...rest }: ProfileMenuIconProp
   )
 }
 
+export function IconAdminDashboard({ className, isHovered, ...rest }: ProfileMenuIconProps) {
+  return (
+    <div className={cn(iconClass, className)} data-hovered={isHovered ? 'true' : undefined} {...rest}>
+      <svg
+        aria-hidden
+        fill="none"
+        height={PROFILE_MENU_ICON_PX}
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+        viewBox="0 0 24 24"
+        width={PROFILE_MENU_ICON_PX}
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path d="M3 19h18" />
+        <path d="M5 17V9" />
+        <path d="M11 17V5" />
+        <path d="M17 17v-6" />
+        <path d="M5 9l6-4 6 4 4-2" />
+      </svg>
+    </div>
+  )
+}
+
 export function IconLogout({ className, isHovered, ...rest }: ProfileMenuIconProps) {
   return (
     <LogoutIcon

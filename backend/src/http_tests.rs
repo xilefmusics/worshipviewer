@@ -1732,6 +1732,43 @@ mod monitoring_http {
         rows.into_iter().next().map(|row| row.count).unwrap_or(0)
     }
 
+    async fn metrics_summary_count(
+        db: &Arc<Database>,
+        table: &str,
+        date: Option<NaiveDate>,
+    ) -> u64 {
+        #[derive(Deserialize, SurrealValue)]
+        struct CountRow {
+            count: u64,
+        }
+        let mut q = if date.is_some() {
+            db.db.query(format!(
+                "SELECT count() AS count FROM {table} WHERE date = $date GROUP ALL"
+            ))
+        } else {
+            db.db
+                .query(format!("SELECT count() AS count FROM {table} GROUP ALL"))
+        };
+        if let Some(date) = date {
+            q = q.bind(("date", date.format("%Y-%m-%d").to_string()));
+        }
+        let mut r = q.await.expect("count metrics summary");
+        let rows: Vec<CountRow> = r.take(0).expect("take metrics summary count");
+        rows.into_iter().next().map(|row| row.count).unwrap_or(0)
+    }
+
+    async fn delete_metric_audits(db: &Arc<Database>, request_ids: &[&str]) {
+        for request_id in request_ids {
+            let r = db
+                .db
+                .query("DELETE http_request_audit WHERE request_id = $rid")
+                .bind(("rid", (*request_id).to_string()))
+                .await
+                .expect("delete metric audits");
+            r.check().expect("delete metric audits statement ok");
+        }
+    }
+
     async fn seed_cached_metrics_day(db: &Arc<Database>, date: NaiveDate) {
         let window = serde_json::json!({
             "users": {
@@ -2067,7 +2104,6 @@ mod monitoring_http {
         let body = get_metrics_json(db.clone(), &token, day, day).await;
         let row = &body.as_array().expect("metrics array")[0];
         assert_eq!(row["date"], day.format("%Y-%m-%d").to_string());
-
         let daily_users = &row["daily"]["users"];
         assert_eq!(daily_users["active"], 2);
         assert_eq!(daily_users["new"], 1);
@@ -2123,11 +2159,11 @@ mod monitoring_http {
         assert_eq!(metrics_cache_count(&db, Some(day)).await, 1);
     }
 
-    /// GET /monitoring/metrics: partial cache miss fills missing completed days.
+    /// GET /monitoring/metrics: partial cache miss fills only the requested completed days.
     #[actix_web::test]
     async fn monitoring_metrics_partial_cache_miss_fills_missing_days() {
         let db = test_db().await.unwrap();
-        let day = yesterday();
+        let day = yesterday() - ChronoDuration::days(3);
         let previous = day - ChronoDuration::days(1);
         seed_metric_audit(&db, "seed-partial-day", Some("u_partial"), day, 200, 10).await;
         seed_cached_metrics_day(&db, previous).await;
@@ -2142,11 +2178,11 @@ mod monitoring_http {
         assert_eq!(second[1]["date"], day.format("%Y-%m-%d").to_string());
     }
 
-    /// GET /monitoring/metrics: no cached data backfills completed requested day.
+    /// GET /monitoring/metrics: no cached data only backfills the requested completed day.
     #[actix_web::test]
     async fn monitoring_metrics_no_cache_backfills_completed_day() {
         let db = test_db().await.unwrap();
-        let day = yesterday();
+        let day = yesterday() - ChronoDuration::days(3);
         seed_metric_audit(&db, "seed-no-cache", Some("u_no_cache"), day, 200, 10).await;
         let (_, token) = make_admin(&db, "mon-metrics-no-cache@test.local").await;
 
@@ -2154,6 +2190,200 @@ mod monitoring_http {
         let body = get_metrics_json(db.clone(), &token, day, day).await;
         assert_eq!(body.as_array().expect("metrics").len(), 1);
         assert_eq!(metrics_cache_count(&db, Some(day)).await, 1);
+    }
+
+    /// GET /monitoring/metrics: lazy backfill creates reusable internal summaries.
+    #[actix_web::test]
+    async fn monitoring_metrics_lazy_backfill_reuses_internal_summaries() {
+        let db = test_db().await.unwrap();
+        let day = yesterday() - ChronoDuration::days(4);
+        seed_metric_audit(
+            &db,
+            "seed-summary-prev",
+            Some("u_summary_prev"),
+            day - ChronoDuration::days(1),
+            200,
+            5,
+        )
+        .await;
+        seed_metric_audit(&db, "seed-summary-day-1", Some("u_summary_a"), day, 200, 10).await;
+        seed_metric_audit(&db, "seed-summary-day-2", Some("u_summary_a"), day, 404, 30).await;
+        seed_metric_audit(&db, "seed-summary-day-3", None, day, 500, 70).await;
+        let (_, token) = make_admin(&db, "mon-metrics-summary@test.local").await;
+
+        let first = get_metrics_json(db.clone(), &token, day, day).await;
+        assert_eq!(first.as_array().expect("first metrics").len(), 1);
+        assert_eq!(first[0]["daily"]["requests"]["total"], 3);
+        #[derive(Deserialize, SurrealValue)]
+        struct MetricsRequestDaySnapshot {
+            total: i64,
+            #[serde(default)]
+            backfilled: bool,
+        }
+        let mut r = db
+            .db
+            .query("SELECT total, backfilled FROM metrics_request_day WHERE date = $date LIMIT 1")
+            .bind(("date", day.format("%Y-%m-%d").to_string()))
+            .await
+            .expect("read backfilled summary");
+        let row: Option<MetricsRequestDaySnapshot> = r.take(0).expect("take backfilled summary");
+        let row = row.expect("backfilled summary row");
+        assert_eq!(row.total, 3);
+        assert!(row.backfilled);
+        assert_eq!(
+            metrics_summary_count(&db, "metrics_request_day", Some(day)).await,
+            1
+        );
+        assert_eq!(
+            metrics_summary_count(&db, "metrics_user_day", Some(day)).await,
+            1
+        );
+        assert_eq!(
+            metrics_summary_count(&db, "metrics_user_first_seen", None).await,
+            3
+        );
+        assert_eq!(metrics_cache_count(&db, Some(day)).await, 1);
+
+        delete_metric_audits(
+            &db,
+            &[
+                "seed-summary-prev",
+                "seed-summary-day-1",
+                "seed-summary-day-2",
+                "seed-summary-day-3",
+            ],
+        )
+        .await;
+        let r = db
+            .db
+            .query("DELETE metrics WHERE date = $date")
+            .bind(("date", day.format("%Y-%m-%d").to_string()))
+            .await
+            .expect("delete public metrics row");
+        r.check().expect("delete public metrics row statement ok");
+
+        let second = get_metrics_json(db.clone(), &token, day, day).await;
+        assert_eq!(second.as_array().expect("second metrics").len(), 1);
+        assert_eq!(second[0]["daily"]["requests"]["total"], 3);
+        assert_eq!(
+            metrics_summary_count(&db, "metrics_request_day", Some(day)).await,
+            1
+        );
+        assert_eq!(metrics_cache_count(&db, Some(day)).await, 1);
+    }
+
+    /// GET /monitoring/metrics: deployment-day partial summaries are ignored until raw backfill completes.
+    #[actix_web::test]
+    async fn monitoring_metrics_ignores_partial_live_summary_before_coverage() {
+        let db = test_db().await.unwrap();
+        let day = yesterday() - ChronoDuration::days(5);
+        let coverage_start = day + ChronoDuration::days(1);
+
+        seed_metric_audit(&db, "seed-deploy-day-1", Some("u_deploy"), day, 200, 10).await;
+        seed_metric_audit(&db, "seed-deploy-day-2", Some("u_deploy"), day, 404, 20).await;
+        seed_metric_audit(&db, "seed-deploy-day-3", None, day, 500, 30).await;
+
+        let r = db
+            .db
+            .query(
+                "LET $day = type::record('metrics_request_day', $date);
+                 UPSERT $day SET date = $date, total = 1, successful = 1, failed = 0, client_error = 0, server_error = 0, duration_sum = 10, success_duration_sum = 10, success_duration_count = 1, failure_duration_sum = 0, failure_duration_count = 0, complete = true, version = 1, updated_at = time::now();
+                 LET $state = type::record('metrics_summary_state', 'global');
+                 UPSERT $state SET complete_from_date = $coverage_start, version = 1;",
+            )
+            .bind(("date", day.format("%Y-%m-%d").to_string()))
+            .bind(("coverage_start", coverage_start.format("%Y-%m-%d").to_string()))
+            .await
+            .expect("seed partial summary");
+        r.check().expect("seed partial summary statement ok");
+
+        assert_eq!(
+            metrics_summary_count(&db, "metrics_request_day", Some(day)).await,
+            1
+        );
+        #[derive(Deserialize, SurrealValue)]
+        struct CountRow {
+            count: u64,
+        }
+        let mut raw_count = db
+            .db
+            .query(
+                "SELECT count() AS count FROM http_request_audit \
+                 WHERE created_at >= $start AND created_at < $end GROUP ALL",
+            )
+            .bind((
+                "start",
+                Datetime::from(
+                    day.and_hms_opt(0, 0, 0)
+                        .map(|t| chrono::DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
+                        .expect("valid start timestamp"),
+                ),
+            ))
+            .bind((
+                "end",
+                Datetime::from(
+                    (day + ChronoDuration::days(1))
+                        .and_hms_opt(0, 0, 0)
+                        .map(|t| chrono::DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
+                        .expect("valid end timestamp"),
+                ),
+            ))
+            .await
+            .expect("count raw audits");
+        let raw_rows: Vec<CountRow> = raw_count.take(0).expect("take raw audit count");
+        assert_eq!(raw_rows.first().map(|row| row.count).unwrap_or(0), 3);
+
+        let (_, token) = make_admin(&db, "mon-metrics-deploy-day@test.local").await;
+
+        let first = get_metrics_json(db.clone(), &token, day, day).await;
+        assert_eq!(first.as_array().expect("first metrics").len(), 1);
+        #[derive(Deserialize, SurrealValue)]
+        struct MetricsRequestDaySnapshot {
+            total: i64,
+            #[serde(default)]
+            backfilled: bool,
+        }
+        let mut r = db
+            .db
+            .query("SELECT total, backfilled FROM metrics_request_day WHERE date = $date LIMIT 1")
+            .bind(("date", day.format("%Y-%m-%d").to_string()))
+            .await
+            .expect("read backfilled summary");
+        let row: Option<MetricsRequestDaySnapshot> = r.take(0).expect("take backfilled summary");
+        let row = row.expect("backfilled summary row");
+        assert_eq!(row.total, 3);
+        assert!(row.backfilled);
+        assert_eq!(
+            metrics_summary_count(&db, "metrics_request_day", Some(day)).await,
+            1
+        );
+        assert_eq!(metrics_cache_count(&db, Some(day)).await, 1);
+        assert_eq!(first[0]["daily"]["requests"]["total"], 3);
+
+        delete_metric_audits(
+            &db,
+            &[
+                "seed-deploy-day-1",
+                "seed-deploy-day-2",
+                "seed-deploy-day-3",
+            ],
+        )
+        .await;
+        let r = db
+            .db
+            .query("DELETE metrics WHERE date = $date")
+            .bind(("date", day.format("%Y-%m-%d").to_string()))
+            .await
+            .expect("delete deploy metrics cache");
+        r.check().expect("delete deploy metrics cache statement ok");
+
+        let second = get_metrics_json(db.clone(), &token, day, day).await;
+        assert_eq!(second.as_array().expect("second metrics").len(), 1);
+        assert_eq!(second[0]["daily"]["requests"]["total"], 3);
+        assert_eq!(
+            metrics_summary_count(&db, "metrics_request_day", Some(day)).await,
+            1
+        );
     }
 
     /// GET /monitoring/metrics: today is returned dynamically but not cached.
