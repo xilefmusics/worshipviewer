@@ -54,6 +54,8 @@ export type AdminLatencyPoint = {
   p99: number
 }
 
+const ADMIN_METRICS_MAX_WINDOW_DAYS = 90
+
 function toUtcDate(value: Date): Date {
   return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()))
 }
@@ -151,10 +153,12 @@ export function resolveAdminMetricsRange(range: AdminMetricsRangeId, now = new D
 export function resolveAdminDateRange(start: Date, end: Date, now = new Date()): AdminDateRange {
   const latestSelectableDate = resolveAdminLatestSelectableDate(now)
   const latestSelectableEnd = endOfUtcDay(latestSelectableDate)
-  const normalizedStart = startOfUtcDay(start)
-  const normalizedEnd = endOfUtcDay(end)
-  const clampedEnd = normalizedEnd > latestSelectableEnd ? latestSelectableEnd : normalizedEnd
-  const clampedStart = normalizedStart > clampedEnd ? startOfUtcDay(clampedEnd) : normalizedStart
+  const orderedStart = start <= end ? startOfUtcDay(start) : startOfUtcDay(end)
+  const orderedEnd = start <= end ? endOfUtcDay(end) : endOfUtcDay(start)
+  const clampedEnd = orderedEnd > latestSelectableEnd ? latestSelectableEnd : orderedEnd
+  const normalizedStart = orderedStart > clampedEnd ? startOfUtcDay(clampedEnd) : orderedStart
+  const maxWindowStart = addUtcDays(startOfUtcDay(clampedEnd), -(ADMIN_METRICS_MAX_WINDOW_DAYS - 1))
+  const clampedStart = normalizedStart < maxWindowStart ? maxWindowStart : normalizedStart
   return { start: clampedStart, end: clampedEnd }
 }
 

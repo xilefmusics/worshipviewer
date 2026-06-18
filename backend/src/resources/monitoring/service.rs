@@ -60,6 +60,8 @@ struct RequestSummaryRow {
     failure_duration_sum: i64,
     failure_duration_count: i64,
     complete: bool,
+    #[serde(default)]
+    backfilled: bool,
     version: i64,
 }
 
@@ -67,6 +69,8 @@ struct RequestSummaryRow {
 struct RequestSummaryStateRow {
     date: String,
     complete: bool,
+    #[serde(default)]
+    backfilled: bool,
     version: i64,
 }
 
@@ -222,8 +226,16 @@ impl MonitoringMetricsService {
 
         let completed_end = end.min(today - Duration::days(1));
         if start <= completed_end {
-            Self::ensure_completed_support_days(db, start, completed_end).await?;
-            Self::load_completed_support_rows(db, start, completed_end, &mut data).await?;
+            Self::ensure_completed_support_days(db, start, completed_end, summary_state.as_ref())
+                .await?;
+            Self::load_completed_support_rows(
+                db,
+                start,
+                completed_end,
+                summary_state.as_ref(),
+                &mut data,
+            )
+            .await?;
         }
 
         if end >= today {
@@ -248,6 +260,7 @@ impl MonitoringMetricsService {
         db: &Database,
         start: NaiveDate,
         end: NaiveDate,
+        summary_state: Option<&SummaryStateRow>,
     ) -> Result<(), AppError> {
         if start > end {
             return Ok(());
@@ -255,7 +268,7 @@ impl MonitoringMetricsService {
         let mut response = db
             .db
             .query(
-                "SELECT date, complete, version FROM metrics_request_day \
+                "SELECT date, complete, backfilled, version FROM metrics_request_day \
                  WHERE date >= $start AND date <= $end ORDER BY date ASC",
             )
             .bind(("start", format_date(start)))
@@ -266,10 +279,22 @@ impl MonitoringMetricsService {
             .take(0)
             .map_err(|e| surreal_query_err("metrics.summary.scan.take", e))?;
 
+        let summary_coverage_start = summary_state
+            .filter(|state| state.version == METRICS_SUMMARY_VERSION)
+            .and_then(|state| parse_cache_date(&state.complete_from_date).ok());
+
         let present: HashSet<NaiveDate> = rows
             .into_iter()
-            .filter(|row| row.complete && row.version == METRICS_SUMMARY_VERSION)
-            .filter_map(|row| parse_cache_date(&row.date).ok())
+            .filter_map(|row| {
+                let day = parse_cache_date(&row.date).ok()?;
+                let trusted = row.complete
+                    && row.version == METRICS_SUMMARY_VERSION
+                    && (row.backfilled
+                        || summary_coverage_start
+                            .map(|coverage_start| day >= coverage_start)
+                            .unwrap_or(false));
+                trusted.then_some(day)
+            })
             .collect();
 
         let missing = inclusive_days(start, end)
@@ -382,11 +407,6 @@ impl MonitoringMetricsService {
         let mut sql = String::new();
         sql.push_str("BEGIN TRANSACTION;\n");
         sql.push_str(&format!(
-            "DELETE metrics_request_day WHERE date >= {} AND date <= {};\n",
-            sql_string(&format_date(start)),
-            sql_string(&format_date(end))
-        ));
-        sql.push_str(&format!(
             "DELETE metrics_duration_day WHERE date >= {} AND date <= {};\n",
             sql_string(&format_date(start)),
             sql_string(&format_date(end))
@@ -402,7 +422,7 @@ impl MonitoringMetricsService {
             let date = format_date(day);
             let day_thing = record_expr("metrics_request_day", &date);
             sql.push_str(&format!(
-                "UPSERT {day_thing} SET date = {}, total = {}, successful = {}, failed = {}, client_error = {}, server_error = {}, duration_sum = {}, success_duration_sum = {}, success_duration_count = {}, failure_duration_sum = {}, failure_duration_count = {}, complete = true, version = {}, updated_at = time::now();\n",
+                "UPSERT {day_thing} SET date = {}, total = {}, successful = {}, failed = {}, client_error = {}, server_error = {}, duration_sum = {}, success_duration_sum = {}, success_duration_count = {}, failure_duration_sum = {}, failure_duration_count = {}, complete = true, backfilled = true, version = {}, updated_at = time::now();\n",
                 sql_string(&date),
                 support.request.total,
                 support.request.successful,
@@ -447,14 +467,18 @@ impl MonitoringMetricsService {
         db: &Database,
         start: NaiveDate,
         end: NaiveDate,
+        summary_state: Option<&SummaryStateRow>,
         data: &mut SupportData,
     ) -> Result<(), AppError> {
+        let summary_coverage_start = summary_state
+            .filter(|state| state.version == METRICS_SUMMARY_VERSION)
+            .and_then(|state| parse_cache_date(&state.complete_from_date).ok());
         let mut response = db
             .db
             .query(
                 "SELECT date, total, successful, failed, client_error, server_error, \
                  duration_sum, success_duration_sum, success_duration_count, \
-                 failure_duration_sum, failure_duration_count, complete, version \
+                 failure_duration_sum, failure_duration_count, complete, backfilled, version \
                  FROM metrics_request_day WHERE date >= $start AND date <= $end ORDER BY date ASC",
             )
             .bind(("start", format_date(start)))
@@ -464,22 +488,42 @@ impl MonitoringMetricsService {
         let request_rows: Vec<RequestSummaryRow> = response
             .take(0)
             .map_err(|e| surreal_query_err("metrics.summary.request.read.take", e))?;
+        let mut raw_fallback_days: HashSet<NaiveDate> = HashSet::new();
         for row in request_rows {
-            if let Ok(day) = parse_cache_date(&row.date)
-                && let Some(support) = data.days.get_mut(&day)
-            {
-                support.request = RequestTotals {
-                    total: row.total.max(0) as u64,
-                    successful: row.successful.max(0) as u64,
-                    failed: row.failed.max(0) as u64,
-                    client_error: row.client_error.max(0) as u64,
-                    server_error: row.server_error.max(0) as u64,
-                    duration_sum: row.duration_sum,
-                    success_duration_sum: row.success_duration_sum,
-                    success_duration_count: row.success_duration_count.max(0) as u64,
-                    failure_duration_sum: row.failure_duration_sum,
-                    failure_duration_count: row.failure_duration_count.max(0) as u64,
-                };
+            if let Ok(day) = parse_cache_date(&row.date) {
+                let trusted = row.complete
+                    && row.version == METRICS_SUMMARY_VERSION
+                    && (row.backfilled
+                        || summary_coverage_start
+                            .map(|coverage_start| day >= coverage_start)
+                            .unwrap_or(false));
+                if trusted {
+                    if let Some(support) = data.days.get_mut(&day) {
+                        support.request = RequestTotals {
+                            total: row.total.max(0) as u64,
+                            successful: row.successful.max(0) as u64,
+                            failed: row.failed.max(0) as u64,
+                            client_error: row.client_error.max(0) as u64,
+                            server_error: row.server_error.max(0) as u64,
+                            duration_sum: row.duration_sum,
+                            success_duration_sum: row.success_duration_sum,
+                            success_duration_count: row.success_duration_count.max(0) as u64,
+                            failure_duration_sum: row.failure_duration_sum,
+                            failure_duration_count: row.failure_duration_count.max(0) as u64,
+                        };
+                    }
+                } else {
+                    raw_fallback_days.insert(day);
+                }
+            }
+        }
+
+        for day in raw_fallback_days {
+            let rows = Self::audit_rows_for_day(db, day).await?;
+            let support = data.days.entry(day).or_default();
+            *support = SupportDay::default();
+            for row in rows {
+                Self::accumulate_raw_row(support, &row);
             }
         }
 

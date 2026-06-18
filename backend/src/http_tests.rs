@@ -2214,6 +2214,22 @@ mod monitoring_http {
         let first = get_metrics_json(db.clone(), &token, day, day).await;
         assert_eq!(first.as_array().expect("first metrics").len(), 1);
         assert_eq!(first[0]["daily"]["requests"]["total"], 3);
+        #[derive(Deserialize, SurrealValue)]
+        struct MetricsRequestDaySnapshot {
+            total: i64,
+            #[serde(default)]
+            backfilled: bool,
+        }
+        let mut r = db
+            .db
+            .query("SELECT total, backfilled FROM metrics_request_day WHERE date = $date LIMIT 1")
+            .bind(("date", day.format("%Y-%m-%d").to_string()))
+            .await
+            .expect("read backfilled summary");
+        let row: Option<MetricsRequestDaySnapshot> = r.take(0).expect("take backfilled summary");
+        let row = row.expect("backfilled summary row");
+        assert_eq!(row.total, 3);
+        assert!(row.backfilled);
         assert_eq!(
             metrics_summary_count(&db, "metrics_request_day", Some(day)).await,
             1
@@ -2254,6 +2270,120 @@ mod monitoring_http {
             1
         );
         assert_eq!(metrics_cache_count(&db, Some(day)).await, 1);
+    }
+
+    /// GET /monitoring/metrics: deployment-day partial summaries are ignored until raw backfill completes.
+    #[actix_web::test]
+    async fn monitoring_metrics_ignores_partial_live_summary_before_coverage() {
+        let db = test_db().await.unwrap();
+        let day = yesterday() - ChronoDuration::days(5);
+        let coverage_start = day + ChronoDuration::days(1);
+
+        seed_metric_audit(&db, "seed-deploy-day-1", Some("u_deploy"), day, 200, 10).await;
+        seed_metric_audit(&db, "seed-deploy-day-2", Some("u_deploy"), day, 404, 20).await;
+        seed_metric_audit(&db, "seed-deploy-day-3", None, day, 500, 30).await;
+
+        let r = db
+            .db
+            .query(
+                "LET $day = type::record('metrics_request_day', $date);
+                 UPSERT $day SET date = $date, total = 1, successful = 1, failed = 0, client_error = 0, server_error = 0, duration_sum = 10, success_duration_sum = 10, success_duration_count = 1, failure_duration_sum = 0, failure_duration_count = 0, complete = true, version = 1, updated_at = time::now();
+                 LET $state = type::record('metrics_summary_state', 'global');
+                 UPSERT $state SET complete_from_date = $coverage_start, version = 1;",
+            )
+            .bind(("date", day.format("%Y-%m-%d").to_string()))
+            .bind(("coverage_start", coverage_start.format("%Y-%m-%d").to_string()))
+            .await
+            .expect("seed partial summary");
+        r.check().expect("seed partial summary statement ok");
+
+        assert_eq!(
+            metrics_summary_count(&db, "metrics_request_day", Some(day)).await,
+            1
+        );
+        #[derive(Deserialize, SurrealValue)]
+        struct CountRow {
+            count: u64,
+        }
+        let mut raw_count = db
+            .db
+            .query(
+                "SELECT count() AS count FROM http_request_audit \
+                 WHERE created_at >= $start AND created_at < $end GROUP ALL",
+            )
+            .bind((
+                "start",
+                Datetime::from(
+                    day.and_hms_opt(0, 0, 0)
+                        .map(|t| chrono::DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
+                        .expect("valid start timestamp"),
+                ),
+            ))
+            .bind((
+                "end",
+                Datetime::from(
+                    (day + ChronoDuration::days(1))
+                        .and_hms_opt(0, 0, 0)
+                        .map(|t| chrono::DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
+                        .expect("valid end timestamp"),
+                ),
+            ))
+            .await
+            .expect("count raw audits");
+        let raw_rows: Vec<CountRow> = raw_count.take(0).expect("take raw audit count");
+        assert_eq!(raw_rows.first().map(|row| row.count).unwrap_or(0), 3);
+
+        let (_, token) = make_admin(&db, "mon-metrics-deploy-day@test.local").await;
+
+        let first = get_metrics_json(db.clone(), &token, day, day).await;
+        assert_eq!(first.as_array().expect("first metrics").len(), 1);
+        #[derive(Deserialize, SurrealValue)]
+        struct MetricsRequestDaySnapshot {
+            total: i64,
+            #[serde(default)]
+            backfilled: bool,
+        }
+        let mut r = db
+            .db
+            .query("SELECT total, backfilled FROM metrics_request_day WHERE date = $date LIMIT 1")
+            .bind(("date", day.format("%Y-%m-%d").to_string()))
+            .await
+            .expect("read backfilled summary");
+        let row: Option<MetricsRequestDaySnapshot> = r.take(0).expect("take backfilled summary");
+        let row = row.expect("backfilled summary row");
+        assert_eq!(row.total, 3);
+        assert!(row.backfilled);
+        assert_eq!(
+            metrics_summary_count(&db, "metrics_request_day", Some(day)).await,
+            1
+        );
+        assert_eq!(metrics_cache_count(&db, Some(day)).await, 1);
+        assert_eq!(first[0]["daily"]["requests"]["total"], 3);
+
+        delete_metric_audits(
+            &db,
+            &[
+                "seed-deploy-day-1",
+                "seed-deploy-day-2",
+                "seed-deploy-day-3",
+            ],
+        )
+        .await;
+        let r = db
+            .db
+            .query("DELETE metrics WHERE date = $date")
+            .bind(("date", day.format("%Y-%m-%d").to_string()))
+            .await
+            .expect("delete deploy metrics cache");
+        r.check().expect("delete deploy metrics cache statement ok");
+
+        let second = get_metrics_json(db.clone(), &token, day, day).await;
+        assert_eq!(second.as_array().expect("second metrics").len(), 1);
+        assert_eq!(second[0]["daily"]["requests"]["total"], 3);
+        assert_eq!(
+            metrics_summary_count(&db, "metrics_request_day", Some(day)).await,
+            1
+        );
     }
 
     /// GET /monitoring/metrics: today is returned dynamically but not cached.

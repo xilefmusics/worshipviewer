@@ -12,6 +12,7 @@ DEFINE FIELD OVERWRITE success_duration_count ON metrics_request_day TYPE int DE
 DEFINE FIELD OVERWRITE failure_duration_sum ON metrics_request_day TYPE int DEFAULT 0 PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE failure_duration_count ON metrics_request_day TYPE int DEFAULT 0 PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE complete ON metrics_request_day TYPE bool DEFAULT false PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE backfilled ON metrics_request_day TYPE bool DEFAULT false PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE version ON metrics_request_day TYPE int DEFAULT 1 PERMISSIONS FULL;
 DEFINE FIELD OVERWRITE updated_at ON metrics_request_day TYPE datetime VALUE time::now() PERMISSIONS FULL;
 DEFINE INDEX OVERWRITE metrics_request_day_date_unique ON metrics_request_day FIELDS date UNIQUE CONCURRENTLY;

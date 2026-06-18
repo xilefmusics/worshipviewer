@@ -54,6 +54,12 @@ describe('admin date helpers', () => {
     expect(range?.start.toISOString()).toBe('2026-06-15T00:00:00.000Z')
     expect(range?.end.toISOString()).toBe('2026-06-15T23:59:59.999Z')
   })
+
+  it('caps custom ranges at ninety days inclusive', () => {
+    const range = resolveAdminDateRangeFromStrings('2026-01-01', '2026-06-15', now)
+    expect(range?.start.toISOString()).toBe('2026-03-18T00:00:00.000Z')
+    expect(range?.end.toISOString()).toBe('2026-06-15T23:59:59.999Z')
+  })
 })
 
 describe('buildAdminMetricsPoints', () => {
