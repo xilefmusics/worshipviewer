@@ -268,7 +268,7 @@ impl MonitoringMetricsService {
         let mut response = db
             .db
             .query(
-                "SELECT date, complete, backfilled, version FROM metrics_request_day \
+                "SELECT date, complete, (backfilled ?? false) AS backfilled, version FROM metrics_request_day \
                  WHERE date >= $start AND date <= $end ORDER BY date ASC",
             )
             .bind(("start", format_date(start)))
@@ -319,7 +319,15 @@ impl MonitoringMetricsService {
         spans.push((span_start, span_prev));
 
         for (span_start, span_end) in spans {
-            Self::backfill_support_span(db, span_start, span_end).await?;
+            if let Err(err) = Self::backfill_support_span(db, span_start, span_end).await {
+                tracing::warn!(
+                    target = "backend::observability",
+                    error = %err,
+                    start = %format_date(span_start),
+                    end = %format_date(span_end),
+                    "metrics summary backfill failed; continuing with raw audit fallback"
+                );
+            }
         }
 
         Ok(())
@@ -478,7 +486,7 @@ impl MonitoringMetricsService {
             .query(
                 "SELECT date, total, successful, failed, client_error, server_error, \
                  duration_sum, success_duration_sum, success_duration_count, \
-                 failure_duration_sum, failure_duration_count, complete, backfilled, version \
+                 failure_duration_sum, failure_duration_count, complete, (backfilled ?? false) AS backfilled, version \
                  FROM metrics_request_day WHERE date >= $start AND date <= $end ORDER BY date ASC",
             )
             .bind(("start", format_date(start)))
@@ -489,6 +497,7 @@ impl MonitoringMetricsService {
             .take(0)
             .map_err(|e| surreal_query_err("metrics.summary.request.read.take", e))?;
         let mut raw_fallback_days: HashSet<NaiveDate> = HashSet::new();
+        let mut trusted_days: HashSet<NaiveDate> = HashSet::new();
         for row in request_rows {
             if let Ok(day) = parse_cache_date(&row.date) {
                 let trusted = row.complete
@@ -498,6 +507,7 @@ impl MonitoringMetricsService {
                             .map(|coverage_start| day >= coverage_start)
                             .unwrap_or(false));
                 if trusted {
+                    trusted_days.insert(day);
                     if let Some(support) = data.days.get_mut(&day) {
                         support.request = RequestTotals {
                             total: row.total.max(0) as u64,
@@ -515,6 +525,12 @@ impl MonitoringMetricsService {
                 } else {
                     raw_fallback_days.insert(day);
                 }
+            }
+        }
+
+        for day in inclusive_days(start, end) {
+            if !trusted_days.contains(&day) {
+                raw_fallback_days.insert(day);
             }
         }
 
