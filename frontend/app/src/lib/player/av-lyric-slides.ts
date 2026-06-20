@@ -19,6 +19,77 @@ export type AvLyricSlidesResult = {
   outline: AvSectionOutline[]
 }
 
+export type AvLyricLine = {
+  primary: string
+  secondary?: string
+}
+
+export type AvBilingualLyricSlidesResult = AvLyricSlidesResult & {
+  structuredSlides?: AvLyricLine[][]
+}
+
+function maxLanguageCount(sections: Section[]): number {
+  let max = 0
+  for (const section of sections) {
+    for (const line of section.lines) {
+      for (const part of line.parts) {
+        if (part.comment) continue
+        if (Array.isArray(part.languages)) {
+          max = Math.max(max, part.languages.length)
+        }
+      }
+    }
+  }
+  return max
+}
+
+export function songHasUsableLyricsAtIndex(
+  sections: Section[] | undefined | null,
+  languageIndex: number,
+  collapseLyricWhitespace = true,
+): boolean {
+  if (!sections?.length) return false
+  if (languageIndex < 0 || languageIndex >= maxLanguageCount(sections)) return false
+  for (const section of sections) {
+    for (const line of section.lines) {
+      const text = lyricFromLine(line, languageIndex, collapseLyricWhitespace)
+      if (text.trim()) return true
+    }
+  }
+  return false
+}
+
+export function resolveAvEffectivePrimaryLanguageIndex(
+  sections: Section[] | undefined | null,
+  requestedIndex: number,
+  collapseLyricWhitespace = true,
+): number {
+  if (songHasUsableLyricsAtIndex(sections, requestedIndex, collapseLyricWhitespace)) {
+    return requestedIndex
+  }
+  return 0
+}
+
+export function resolveAvSecondaryLanguageIndex(
+  sections: Section[] | undefined | null,
+  primaryIndex: number,
+  collapseLyricWhitespace = true,
+): number | null {
+  if (!sections?.length) return null
+  const languageCount = maxLanguageCount(sections)
+  for (let index = 0; index < languageCount; index += 1) {
+    if (index === primaryIndex) continue
+    if (songHasUsableLyricsAtIndex(sections, index, collapseLyricWhitespace)) {
+      return index
+    }
+  }
+  return null
+}
+
+export function avLyricLinesToSlideText(lines: AvLyricLine[]): string {
+  return lines.map((line) => line.primary).join('\n')
+}
+
 function lyricFromPart(part: Part, languageIndex: number): string {
   if (part.comment) return ''
   const languages = part.languages
@@ -70,6 +141,71 @@ export function distributeSlideLineCounts(
     ]
   }
   return [...Array.from({ length: slideCount - 1 }, () => maxPerSlide), remainder]
+}
+
+function chunkStructuredLines(
+  lines: AvLyricLine[],
+  maxLinesPerSlide: number,
+  balanceSlideLines: boolean,
+): AvLyricLine[][] {
+  const counts = distributeSlideLineCounts(lines.length, maxLinesPerSlide, balanceSlideLines)
+  const slides: AvLyricLine[][] = []
+  let offset = 0
+  for (const count of counts) {
+    slides.push(lines.slice(offset, offset + count))
+    offset += count
+  }
+  return slides
+}
+
+function buildBilingualSlidesFromSections(
+  sections: Section[],
+  maxLinesPerSlide: number,
+  primaryLanguageIndex: number,
+  secondaryLanguageIndex: number,
+  balanceSlideLines: boolean,
+  collapseLyricWhitespace: boolean,
+): {
+  slides: string[]
+  structuredSlides: AvLyricLine[][]
+  sectionMap: Map<string, { textIdx: number; len: number }>
+} {
+  const slides: string[] = []
+  const structuredSlides: AvLyricLine[][] = []
+  const sectionMap = new Map<string, { textIdx: number; len: number }>()
+  let slideIdxCounter = 0
+
+  for (const section of sections) {
+    const currentIdx = slideIdxCounter
+    const sectionLines: AvLyricLine[] = []
+
+    for (const line of section.lines) {
+      const primaryText = lyricFromLine(line, primaryLanguageIndex, collapseLyricWhitespace)
+      if (!primaryText.trim()) continue
+      const secondaryText = lyricFromLine(line, secondaryLanguageIndex, collapseLyricWhitespace)
+      const lyricLine: AvLyricLine = secondaryText.trim()
+        ? { primary: primaryText, secondary: secondaryText }
+        : { primary: primaryText }
+      sectionLines.push(lyricLine)
+    }
+
+    const sectionStructuredSlides = chunkStructuredLines(
+      sectionLines,
+      maxLinesPerSlide,
+      balanceSlideLines,
+    )
+    for (const structuredSlide of sectionStructuredSlides) {
+      structuredSlides.push(structuredSlide)
+      slides.push(avLyricLinesToSlideText(structuredSlide))
+      slideIdxCounter += 1
+    }
+
+    if (sectionStructuredSlides.length > 0 && !sectionMap.has(section.title)) {
+      sectionMap.set(section.title, { textIdx: currentIdx, len: sectionStructuredSlides.length })
+    }
+  }
+
+  return { slides, structuredSlides, sectionMap }
 }
 
 function chunkLines(
@@ -169,6 +305,41 @@ export function buildAvLyricSlides(
   return { slides, outline: buildOutline(sections, sectionMap) }
 }
 
+export function buildAvBilingualLyricSlides(
+  sections: Section[] | undefined | null,
+  maxLinesPerSlide: number,
+  primaryLanguageIndex: number,
+  secondaryLanguageIndex: number | null,
+  balanceSlideLines = true,
+  collapseLyricWhitespace = true,
+): AvBilingualLyricSlidesResult {
+  if (!sections?.length) {
+    return { slides: [], outline: [] }
+  }
+  if (secondaryLanguageIndex == null) {
+    return buildAvLyricSlides(
+      sections,
+      maxLinesPerSlide,
+      primaryLanguageIndex,
+      balanceSlideLines,
+      collapseLyricWhitespace,
+    )
+  }
+  const { slides, structuredSlides, sectionMap } = buildBilingualSlidesFromSections(
+    sections,
+    maxLinesPerSlide,
+    primaryLanguageIndex,
+    secondaryLanguageIndex,
+    balanceSlideLines,
+    collapseLyricWhitespace,
+  )
+  return {
+    slides,
+    structuredSlides,
+    outline: buildOutline(sections, sectionMap),
+  }
+}
+
 export function findAvSectionOutline(
   outline: AvSectionOutline[],
   title: string,
@@ -204,6 +375,21 @@ export function resolveAvOutlineSlideText(
   return slides[donor.textIdx + donorOffset] ?? ''
 }
 
+export function resolveAvOutlineStructuredSlideText(
+  outline: AvSectionOutline[],
+  slides: AvLyricLine[][],
+  row: AvSectionOutline,
+  offset = 0,
+): AvLyricLine[] {
+  if (row.hasText) {
+    return slides[row.textIdx + offset] ?? []
+  }
+  const donor = findAvTextDonor(outline, row.title)
+  if (!donor) return []
+  const donorOffset = Math.min(offset, donor.len - 1)
+  return slides[donor.textIdx + donorOffset] ?? []
+}
+
 /** Full navigable slide list aligned with the outline (includes empty/borrowed slides). */
 export function buildAvPresentationSlides(
   outline: AvSectionOutline[],
@@ -216,6 +402,23 @@ export function buildAvPresentationSlides(
   for (const row of outline) {
     for (let offset = 0; offset < row.len; offset += 1) {
       presentation.push(resolveAvOutlineSlideText(outline, slides, row, offset))
+    }
+  }
+  return presentation
+}
+
+/** Full navigable structured slide list aligned with the outline. */
+export function buildAvPresentationStructuredSlides(
+  outline: AvSectionOutline[],
+  slides: AvLyricLine[][],
+): AvLyricLine[][] {
+  if (outline.length === 0) {
+    return slides
+  }
+  const presentation: AvLyricLine[][] = []
+  for (const row of outline) {
+    for (let offset = 0; offset < row.len; offset += 1) {
+      presentation.push(resolveAvOutlineStructuredSlideText(outline, slides, row, offset))
     }
   }
   return presentation
@@ -269,6 +472,7 @@ export type AvSlideDeckEntry = {
   slideIndex: number
   label: string
   text: string
+  lines?: AvLyricLine[]
   isSubSlide: boolean
   hasText: boolean
 }
@@ -277,6 +481,7 @@ export type AvSlideDeckEntry = {
 export function buildAvSlideDeckEntries(
   outline: AvSectionOutline[],
   sourceSlides: string[],
+  structuredSourceSlides?: AvLyricLine[][],
 ): AvSlideDeckEntry[] {
   const entries: AvSlideDeckEntry[] = []
   let presentationIndex = 0
@@ -287,10 +492,14 @@ export function buildAvSlideDeckEntries(
     }
     for (let offset = 0; offset < row.len; offset += 1) {
       if (row.hasText) {
+        const lines = structuredSourceSlides
+          ? resolveAvOutlineStructuredSlideText(outline, structuredSourceSlides, row, offset)
+          : undefined
         entries.push({
           slideIndex: presentationIndex,
           label: offset === 0 ? row.title : `${row.title} (${offset + 1})`,
           text: resolveAvOutlineSlideText(outline, sourceSlides, row, offset),
+          lines: lines && lines.length > 0 ? lines : undefined,
           isSubSlide: offset > 0,
           hasText: true,
         })
@@ -300,10 +509,12 @@ export function buildAvSlideDeckEntries(
   }
   if (entries.length === 0) {
     for (let slideIndex = 0; slideIndex < sourceSlides.length; slideIndex += 1) {
+      const lines = structuredSourceSlides?.[slideIndex]
       entries.push({
         slideIndex,
         label: `Slide ${slideIndex + 1}`,
         text: sourceSlides[slideIndex] ?? '',
+        lines: lines && lines.length > 0 ? lines : undefined,
         isSubSlide: false,
         hasText: true,
       })

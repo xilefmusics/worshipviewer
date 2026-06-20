@@ -93,6 +93,15 @@
   word-break: break-word;
 }
 
+.av-slide-content__line--secondary {
+  color: var(--color-muted-foreground);
+}
+
+.av-slide-content__line-group {
+  display: flex;
+  flex-direction: column;
+}
+
 .av-slide-content__line--align-left {
   text-align: left;
 }

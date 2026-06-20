@@ -48,8 +48,14 @@ vi.mock('@/hooks/useSetlistEvictionWatch', () => ({
   },
 }))
 
+let bilingualEnabled = false
+
 vi.mock('@/hooks/useTocMultilingualPreference', () => ({
   useTocMultilingualPreference: () => true,
+}))
+
+vi.mock('@/hooks/useAvBilingualPreference', () => ({
+  useAvBilingualPreference: () => bilingualEnabled,
 }))
 
 vi.mock('@/lib/player/av-projection-sync', () => ({
@@ -115,8 +121,22 @@ vi.mock('@/components/player/av/AvSectionShortcuts', () => ({
 }))
 
 vi.mock('@/components/player/av/AvSlideView', () => ({
-  AvSlideView: ({ contentText }: { contentText: string }) => (
-    <div data-testid="preview-text">{contentText}</div>
+  AvSlideView: ({
+    contentText,
+    contentLines,
+  }: {
+    contentText?: string
+    contentLines?: Array<{ primary: string; secondary?: string }>
+  }) => (
+    <div data-testid="preview-text">
+      {contentLines
+        ? contentLines
+            .map((line) =>
+              line.secondary ? `${line.primary}|${line.secondary}` : line.primary,
+            )
+            .join('//')
+        : contentText}
+    </div>
   ),
 }))
 
@@ -206,6 +226,7 @@ const player = {
 } as Player
 
 beforeEach(() => {
+  bilingualEnabled = false
   navigate.mockReset()
   broadcast.mockReset()
   closeSync.mockReset()
@@ -275,5 +296,47 @@ describe('PlayerAv', () => {
         }),
       )
     })
+  })
+
+  it('shows bilingual structured preview content when the preference is enabled', () => {
+    bilingualEnabled = true
+
+    render(
+      <PlayerAv
+        type="setlist"
+        id="setlist-1"
+        player={player}
+        allowNetworkFetch={false}
+      />,
+    )
+
+    expect(screen.getByTestId('preview-text')).toHaveTextContent('Hallo|Hello')
+  })
+
+  it('broadcasts structured contentLines when bilingual AV is enabled', async () => {
+    bilingualEnabled = true
+    const user = userEvent.setup()
+
+    render(
+      <PlayerAv
+        type="setlist"
+        id="setlist-1"
+        player={player}
+        allowNetworkFetch={false}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'English row' }))
+
+    await waitFor(() => {
+      expect(broadcast).toHaveBeenCalled()
+    })
+
+    const lastPayload = broadcast.mock.calls.at(-1)?.[0] as {
+      contentText?: string
+      contentLines?: Array<{ primary: string; secondary?: string }>
+    }
+    expect(lastPayload.contentText).toBe('Hello')
+    expect(lastPayload.contentLines).toEqual([{ primary: 'Hello', secondary: 'Hallo' }])
   })
 })

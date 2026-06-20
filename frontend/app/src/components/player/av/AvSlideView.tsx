@@ -7,6 +7,7 @@ import type {
   AvScreenState,
   AvTransition,
 } from '@/lib/player/av-preferences'
+import type { AvLyricLine } from '@/lib/player/av-lyric-slides'
 import { effectiveAvTransition } from '@/lib/player/av-preferences'
 import { AvBackgroundLayer } from '@/components/player/av/AvBackgroundLayer'
 import { AvSlideContent } from '@/components/player/av/AvSlideContent'
@@ -16,7 +17,8 @@ import { cn } from '@/lib/utils'
 import './player-av.css'
 
 type AvSlideViewProps = {
-  contentText: string
+  contentText?: string
+  contentLines?: AvLyricLine[]
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayerPrefs
   transition: AvTransition
@@ -31,13 +33,19 @@ type AvSlideViewProps = {
 
 function AvSlideCanvas({
   contentText,
+  contentLines,
   contentLayer,
   backgroundLayer,
   compact,
   showBackground,
 }: Pick<
   AvSlideViewProps,
-  'contentText' | 'contentLayer' | 'backgroundLayer' | 'compact' | 'showBackground'
+  | 'contentText'
+  | 'contentLines'
+  | 'contentLayer'
+  | 'backgroundLayer'
+  | 'compact'
+  | 'showBackground'
 >) {
   return (
     <>
@@ -46,7 +54,8 @@ function AvSlideCanvas({
       ) : null}
       <div className="av-slide-view__content">
         <AvSlideContent
-          text={contentText}
+          text={contentLines ? undefined : contentText}
+          lines={contentLines}
           contentLayer={contentLayer}
           compact={compact}
         />
@@ -57,6 +66,7 @@ function AvSlideCanvas({
 
 export function AvSlideView({
   contentText,
+  contentLines,
   contentLayer,
   backgroundLayer,
   transition,
@@ -100,6 +110,7 @@ export function AvSlideView({
   const slideBody = (
     <AvSlideCanvas
       contentText={contentText}
+      contentLines={contentLines}
       contentLayer={contentLayer}
       backgroundLayer={backgroundLayer}
       compact={compact}
@@ -119,7 +130,7 @@ export function AvSlideView({
         ) : (
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              key={contentText}
+              key={contentText ?? contentLines?.map((line) => line.primary).join('\n') ?? ''}
               initial={
                 effectiveTransition.style === 'none'
                   ? false

@@ -107,4 +107,27 @@ describe('SettingsView', () => {
       screen.getByRole('checkbox', { name: 'settings.tocMultilingual.label' }),
     ).toBeChecked()
   })
+
+  it('renders the AV bilingual control in Player AV and restores it from storage', async () => {
+    const user = userEvent.setup()
+
+    const { unmount } = render(<SettingsView activeTab="playerRoles" />)
+    const toggle = screen.getByRole('checkbox', {
+      name: 'settings.avBilingual.label',
+    })
+
+    expect(toggle).not.toBeChecked()
+
+    await user.click(toggle)
+
+    expect(toggle).toBeChecked()
+    expect(window.localStorage.getItem('wv_av_bilingual')).toBe('true')
+
+    unmount()
+
+    render(<SettingsView activeTab="playerRoles" />)
+    expect(
+      screen.getByRole('checkbox', { name: 'settings.avBilingual.label' }),
+    ).toBeChecked()
+  })
 })
