@@ -106,6 +106,31 @@ describe('PlayerTocSidebar', () => {
     expect(onSelect).toHaveBeenCalledWith(0, 1)
   })
 
+  it('renders liked multilingual rows with hearts and no numbers', async () => {
+    tocMultilingualEnabled = true
+    tocMode = 'liked'
+    const onSelect = vi.fn()
+
+    render(
+      <PlayerTocSidebar
+        toc={[{ ...toc[0]!, liked: true }]}
+        items={items}
+        currentSourceIdx={0}
+        currentLanguageIndex={1}
+        onSelect={onSelect}
+      />,
+    )
+
+    const row = screen.getByRole('option', { name: 'Anker' })
+    expect(row).toHaveTextContent('Anker')
+    expect(row).toHaveTextContent('♥')
+    expect(row).not.toHaveTextContent('1.')
+
+    await userEvent.click(row)
+
+    expect(onSelect).toHaveBeenCalledWith(0, 1)
+  })
+
   it('highlights only the exact source and language pair', () => {
     tocMultilingualEnabled = true
     tocMode = 'alphabetical'
@@ -137,9 +162,10 @@ describe('PlayerTocSidebar', () => {
     expect(screen.getByRole('option', { name: 'Anker' })).toHaveAttribute('aria-current', 'true')
   })
 
-  it('does not render numbers on translated alphabetical rows', () => {
+  it('replaces the active language when multilingual TOC is enabled', async () => {
     tocMultilingualEnabled = true
     tocMode = 'alphabetical'
+    activeLanguageIds = new Set(['en'])
 
     render(
       <PlayerTocSidebar
@@ -151,8 +177,27 @@ describe('PlayerTocSidebar', () => {
       />,
     )
 
-    expect(screen.getByRole('option', { name: 'Anchor' })).toHaveTextContent('Anchor')
-    expect(screen.getByRole('option', { name: 'Anker' })).toHaveTextContent('Anker')
-    expect(screen.getByRole('option', { name: 'Anker' })).not.toHaveTextContent('1.')
+    await userEvent.click(screen.getByRole('button', { name: 'de' }))
+    expect(setLanguageIds).toHaveBeenCalledWith(['de'])
+    expect(toggleLanguageId).not.toHaveBeenCalled()
+  })
+
+  it('clears the active language when the selected chip is clicked again', async () => {
+    tocMultilingualEnabled = true
+    tocMode = 'alphabetical'
+    activeLanguageIds = new Set(['de'])
+
+    render(
+      <PlayerTocSidebar
+        toc={toc}
+        items={items}
+        currentSourceIdx={0}
+        currentLanguageIndex={1}
+        onSelect={vi.fn()}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'de' }))
+    expect(setLanguageIds).toHaveBeenCalledWith([])
   })
 })
