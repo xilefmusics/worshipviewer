@@ -35,22 +35,44 @@ function chordPlayerItem(
 
 const toc = [
   { idx: 0, nr: '1', title: 'Anchor', id: 'song-a', liked: false },
-  { idx: 1, nr: '2', title: 'Beta', id: 'song-b', liked: true },
-  { idx: 2, nr: '3', title: 'PDF', liked: false },
-  { idx: 3, nr: '', title: 'Anchor', id: 'song-a', liked: false },
+  { idx: 1, nr: '2', title: 'Boat', id: 'song-b', liked: true },
+  { idx: 2, nr: '3', title: 'Zzz Blob', liked: false },
+  { idx: 3, nr: '4', title: 'Cedar', id: 'song-c', liked: false },
+  { idx: 4, nr: '', title: 'Anchor', id: 'song-a', liked: false },
 ]
 
 const items: PlayerItem[] = [
-  chordPlayerItem('song-a', { languages: ['en', 'de'], titles: ['Anchor', 'Anker'], language: 'en' }),
-  chordPlayerItem('song-b', { languages: ['en'], titles: ['Beta'], language: 'en' }),
+  chordPlayerItem('song-a', {
+    languages: ['en', 'de'],
+    titles: ['Anchor', 'Anker'],
+    language: 'en',
+  }),
+  chordPlayerItem('song-b', {
+    languages: ['en'],
+    titles: ['Boat'],
+    language: 'en',
+  }),
   { type: 'blob', blob_id: 'blob:1' } as PlayerItem,
-  chordPlayerItem('song-a', { languages: ['en', 'de'], titles: ['Anchor', 'Anker'], language: 'de' }),
+  chordPlayerItem('song-c', {
+    languages: ['en', 'de', 'fr'],
+    titles: ['Cedar', 'Cedro', 'Cypress'],
+    language: 'fr',
+  }),
+  chordPlayerItem('song-a', {
+    languages: ['en', 'de'],
+    titles: ['Anchor', 'Anker'],
+    language: 'de',
+  }),
 ]
 
 const metadata = buildTocMetadataBySongId(items)
 
-function displayOrder(multilingualToc: boolean, activeLanguageIds = new Set<string>()) {
-  return displayTocEntries(toc, 'order', {
+function displayEntries(
+  mode: 'order' | 'alphabetical' | 'liked',
+  multilingualToc: boolean,
+  activeLanguageIds = new Set<string>(),
+) {
+  return displayTocEntries(toc, mode, {
     items,
     metadataBySongId: metadata,
     activeLanguageIds,
@@ -61,41 +83,60 @@ function displayOrder(multilingualToc: boolean, activeLanguageIds = new Set<stri
 
 describe('displayTocEntries', () => {
   it('keeps current order behavior when multilingual TOC is off', () => {
-    const entries = displayOrder(false)
-    expect(entries.map((row) => row.title)).toEqual(['Anchor', 'Beta', 'PDF', 'Anchor'])
-    expect(entries.map((row) => row.languageIndex)).toEqual([0, 0, null, 1])
+    const entries = displayEntries('order', false)
+    expect(entries.map((row) => row.title)).toEqual(['Anchor', 'Boat', 'Zzz Blob', 'Cedar', 'Anchor'])
+    expect(entries.map((row) => row.languageIndex)).toEqual([0, 0, null, 2, 1])
     expect(entries.every((row) => row.showNumber)).toBe(true)
     expect(new Set(entries.map((row) => row.key)).size).toBe(entries.length)
   })
 
-  it('keeps one row per source item when multilingual TOC is on without a language filter', () => {
-    const entries = displayOrder(true)
-    expect(entries.map((row) => row.title)).toEqual(['Anchor', 'Beta', 'PDF', 'Anchor'])
-    expect(entries.map((row) => row.languageIndex)).toEqual([0, 0, null, 1])
+  it('keeps one row per source item in alphabetical mode when multilingual TOC is off', () => {
+    const entries = displayEntries('alphabetical', false)
+    expect(entries.map((row) => row.title)).toEqual(['Anchor', 'Anchor', 'Boat', 'Cedar', 'Zzz Blob'])
+    expect(entries.map((row) => row.languageIndex)).toEqual([0, 1, 0, 2, null])
+    expect(entries.every((row) => row.showNumber)).toBe(true)
   })
 
-  it('uses the translated title and language index for an active language filter', () => {
-    const entries = displayOrder(true, new Set(['de']))
-    expect(entries.map((row) => row.title)).toEqual(['Anker', 'PDF', 'Anker'])
-    expect(entries.map((row) => row.languageIndex)).toEqual([1, null, 1])
-    expect(entries.map((row) => tocDisplayNr(toc, row.sourceIdx))).toEqual(['1', '3', '4'])
+  it('expands alphabetical rows to every translated title when multilingual TOC is on', () => {
+    const entries = displayEntries('alphabetical', true)
+    expect(entries.map((row) => row.title)).toEqual([
+      'Anchor',
+      'Anchor',
+      'Anker',
+      'Anker',
+      'Boat',
+      'Cedar',
+      'Cedro',
+      'Cypress',
+      'Zzz Blob',
+    ])
+    expect(entries.map((row) => row.sourceIdx)).toEqual([0, 4, 0, 4, 1, 3, 3, 3, 2])
+    expect(entries.map((row) => row.languageIndex)).toEqual([0, 0, 1, 1, 0, 0, 1, 2, null])
+    expect(entries.every((row) => !row.showNumber)).toBe(true)
+    expect(new Set(entries.map((row) => row.key)).size).toBe(entries.length)
   })
 
-  it('keeps blob rows visible when language filters are active', () => {
-    const entries = displayOrder(true, new Set(['de']))
-    expect(entries.find((row) => row.sourceIdx === 2)).toEqual(
-      expect.objectContaining({
-        title: 'PDF',
-        languageIndex: null,
-      }),
-    )
+  it('keeps translated rows stable for duplicate setlist occurrences', () => {
+    const entries = displayEntries('alphabetical', true)
+    const duplicateAnchors = entries.filter((row) => row.title === 'Anchor')
+    expect(duplicateAnchors.map((row) => row.sourceIdx)).toEqual([0, 4])
+    expect(duplicateAnchors.map((row) => row.languageIndex)).toEqual([0, 0])
+    expect(duplicateAnchors[0]?.key).not.toBe(duplicateAnchors[1]?.key)
   })
 
-  it('keeps keys stable for duplicate source items', () => {
-    const entries = displayOrder(true, new Set(['de']))
-    const keys = entries.map((row) => row.key)
-    expect(new Set(keys).size).toBe(keys.length)
-    expect(keys[0]).not.toBe(keys[2])
+  it('collapses alphabetical expansion to the active language when a language filter is set', () => {
+    const entries = displayEntries('alphabetical', true, new Set(['de']))
+    expect(entries.map((row) => row.title)).toEqual(['Anker', 'Anker', 'Cedro', 'Zzz Blob'])
+    expect(entries.map((row) => row.sourceIdx)).toEqual([0, 4, 3, 2])
+    expect(entries.map((row) => row.languageIndex)).toEqual([1, 1, 1, null])
+    expect(entries.every((row) => !row.showNumber)).toBe(true)
+  })
+
+  it('keeps liked mode one row per source item', () => {
+    const entries = displayEntries('liked', true)
+    expect(entries.map((row) => row.title)).toEqual(['Boat'])
+    expect(entries.map((row) => row.languageIndex)).toEqual([0])
+    expect(entries.every((row) => row.showNumber)).toBe(true)
   })
 })
 
@@ -105,7 +146,7 @@ describe('tocDisplayNr', () => {
   })
 
   it('falls back to 1-based order index when nr is blank', () => {
-    expect(tocDisplayNr(toc, 3)).toBe('4')
+    expect(tocDisplayNr(toc, 4)).toBe('5')
   })
 
   it('keeps collection order number when sorted alphabetically', () => {

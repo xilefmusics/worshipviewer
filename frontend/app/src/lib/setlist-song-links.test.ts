@@ -20,6 +20,7 @@ import {
   songLanguageOptions,
   songArtistForLanguage,
   songTitleForLanguage,
+  songTitleVariantsForDisplay,
   songLinkForCollectionMutation,
   songLinkForSetlistMutation,
   songLinkTempoEditorToWire,
@@ -154,6 +155,21 @@ describe('song link language helpers', () => {
     expect(songTitleForLanguage(data, 'de')).toBe('Anker')
     expect(songTitleForLanguage(data, 'fr')).toBe('Anchor')
     expect(songTitleForLanguage({ titles: [] }, null, '—')).toBe('—')
+  })
+
+  it('returns non-empty title variants in slot order for TOC expansion', () => {
+    expect(
+      songTitleVariantsForDisplay(
+        { titles: ['Anchor', ' ', 'Anker'], languages: ['en', 'de', 'fr'] },
+        'Fallback',
+      ),
+    ).toEqual([
+      { languageIndex: 0, title: 'Anchor' },
+      { languageIndex: 2, title: 'Anker' },
+    ])
+    expect(songTitleVariantsForDisplay({ titles: [], languages: [] }, 'Fallback')).toEqual([
+      { languageIndex: 0, title: 'Fallback' },
+    ])
   })
 
   it('resolves parallel artists from selected language tags', () => {

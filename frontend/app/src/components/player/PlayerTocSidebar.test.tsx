@@ -11,6 +11,7 @@ const toggleLanguageId = vi.fn()
 const toggleTagId = vi.fn()
 
 let tocMultilingualEnabled = false
+let tocMode: 'order' | 'alphabetical' | 'liked' = 'order'
 let activeLanguageIds = new Set<string>()
 let activeTagIds = new Set<string>()
 
@@ -26,7 +27,7 @@ vi.mock('@/hooks/useTocMultilingualPreference', () => ({
 
 vi.mock('@/hooks/usePlayerIndexSearchSync', () => ({
   usePlayerTocSearchSync: () => ({
-    mode: 'order',
+    mode: tocMode,
     setMode,
     setLanguageIds,
     activeLanguageIds,
@@ -66,7 +67,11 @@ function chordPlayerItem(
 
 const toc = [{ idx: 0, nr: '1', title: 'Anchor', id: 'song-a', liked: false }]
 const items: PlayerItem[] = [
-  chordPlayerItem('song-a', { languages: ['en', 'de'], titles: ['Anchor', 'Anker'], language: 'de' }),
+  chordPlayerItem('song-a', {
+    languages: ['en', 'de'],
+    titles: ['Anchor', 'Anker'],
+    language: 'de',
+  }),
 ]
 
 beforeEach(() => {
@@ -75,14 +80,15 @@ beforeEach(() => {
   toggleLanguageId.mockReset()
   toggleTagId.mockReset()
   tocMultilingualEnabled = false
+  tocMode = 'order'
   activeLanguageIds = new Set()
   activeTagIds = new Set()
 })
 
 describe('PlayerTocSidebar', () => {
-  it('passes source index and language index when a TOC row is selected', async () => {
+  it('passes source index and language index when a translated alphabetical row is selected', async () => {
     tocMultilingualEnabled = true
-    activeLanguageIds = new Set(['de'])
+    tocMode = 'alphabetical'
     const onSelect = vi.fn()
 
     render(
@@ -100,9 +106,9 @@ describe('PlayerTocSidebar', () => {
     expect(onSelect).toHaveBeenCalledWith(0, 1)
   })
 
-  it('requires both source index and language index for the active state', () => {
+  it('highlights only the exact source and language pair', () => {
     tocMultilingualEnabled = true
-    activeLanguageIds = new Set(['de'])
+    tocMode = 'alphabetical'
 
     const { rerender } = render(
       <PlayerTocSidebar
@@ -114,6 +120,7 @@ describe('PlayerTocSidebar', () => {
       />,
     )
 
+    expect(screen.getByRole('option', { name: 'Anchor' })).toHaveAttribute('aria-current', 'true')
     expect(screen.getByRole('option', { name: 'Anker' })).not.toHaveAttribute('aria-current')
 
     rerender(
@@ -126,12 +133,13 @@ describe('PlayerTocSidebar', () => {
       />,
     )
 
+    expect(screen.getByRole('option', { name: 'Anchor' })).not.toHaveAttribute('aria-current')
     expect(screen.getByRole('option', { name: 'Anker' })).toHaveAttribute('aria-current', 'true')
   })
 
-  it('replaces the active language when multilingual TOC is enabled', async () => {
+  it('does not render numbers on translated alphabetical rows', () => {
     tocMultilingualEnabled = true
-    activeLanguageIds = new Set(['en'])
+    tocMode = 'alphabetical'
 
     render(
       <PlayerTocSidebar
@@ -143,26 +151,8 @@ describe('PlayerTocSidebar', () => {
       />,
     )
 
-    await userEvent.click(screen.getByRole('button', { name: 'de' }))
-    expect(setLanguageIds).toHaveBeenCalledWith(['de'])
-    expect(toggleLanguageId).not.toHaveBeenCalled()
-  })
-
-  it('clears the active language when the selected chip is clicked again', async () => {
-    tocMultilingualEnabled = true
-    activeLanguageIds = new Set(['de'])
-
-    render(
-      <PlayerTocSidebar
-        toc={toc}
-        items={items}
-        currentSourceIdx={0}
-        currentLanguageIndex={1}
-        onSelect={vi.fn()}
-      />,
-    )
-
-    await userEvent.click(screen.getByRole('button', { name: 'de' }))
-    expect(setLanguageIds).toHaveBeenCalledWith([])
+    expect(screen.getByRole('option', { name: 'Anchor' })).toHaveTextContent('Anchor')
+    expect(screen.getByRole('option', { name: 'Anker' })).toHaveTextContent('Anker')
+    expect(screen.getByRole('option', { name: 'Anker' })).not.toHaveTextContent('1.')
   })
 })

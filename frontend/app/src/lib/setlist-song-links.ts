@@ -163,6 +163,39 @@ export function songTitleForLanguage(
   return (languageIndex != null ? titleAt(languageIndex) : null) ?? titleAt(0) ?? fallback
 }
 
+export type SongTitleVariant = {
+  languageIndex: number
+  title: string
+}
+
+/**
+ * Return the non-empty title variants stored in a song's metadata.
+ *
+ * Titles are kept in language-slot order so the TOC can fan out one row per translated title.
+ * When a song has no titles at all, keep a single fallback row for the caller-provided display
+ * title so single-language songs still render.
+ */
+export function songTitleVariantsForDisplay(
+  data: Record<string, unknown> | undefined | null,
+  fallback = '',
+): SongTitleVariant[] {
+  const titles = Array.isArray(data?.titles) ? data.titles : []
+  const variants: SongTitleVariant[] = []
+
+  for (let index = 0; index < titles.length; index += 1) {
+    const value = titles[index]
+    if (typeof value !== 'string') continue
+    const title = value.trim()
+    if (!title) continue
+    variants.push({ languageIndex: index, title })
+  }
+
+  if (variants.length > 0) return variants
+
+  const fallbackTitle = fallback.trim()
+  return fallbackTitle ? [{ languageIndex: 0, title: fallbackTitle }] : []
+}
+
 /** Resolve a song artist using the setlist slot language when parallel artists are available. */
 export function songArtistForLanguage(
   data: Record<string, unknown> | undefined | null,
