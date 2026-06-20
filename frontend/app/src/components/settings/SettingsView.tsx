@@ -60,6 +60,10 @@ import {
   readSheetImageInvertPreference,
   writeSheetImageInvertPreference,
 } from '@/lib/sheet-image-invert-preference'
+import {
+  readTocMultilingualPreference,
+  writeTocMultilingualPreference,
+} from '@/lib/toc-multilingual-preference'
 import { PlayerLayoutSettingsCard } from '@/components/settings/PlayerLayoutSettingsCard'
 import type { HubViewMode } from '@/lib/hub-view-mode'
 import { clearAllLocalData } from '@/lib/clear-local'
@@ -312,6 +316,7 @@ export function SettingsView({
   const [appearancePreference, setAppearancePreference] = useState(readAppearancePreference)
   const [chordFormatPreference, setChordFormatPreference] = useState(readChordFormatPreference)
   const [hideChords, setHideChordsState] = useState(readHideChordsPreference)
+  const [tocMultilingual, setTocMultilingualState] = useState(readTocMultilingualPreference)
   const [sheetBackgroundPreference, setSheetBackgroundPreference] = useState(readSheetBackgroundPreference)
   const [invertSheetImages, setInvertSheetImagesState] = useState(readSheetImageInvertPreference)
   const [layoutPreferences, setLayoutPreferences] = useState(readPlayerLayoutPreferences)
@@ -551,6 +556,11 @@ export function SettingsView({
   function setHideChords(enabled: boolean) {
     setHideChordsState(enabled)
     writeHideChordsPreference(enabled)
+  }
+
+  function setTocMultilingual(enabled: boolean) {
+    setTocMultilingualState(enabled)
+    writeTocMultilingualPreference(enabled)
   }
 
   function setSheetBackground(next: SheetBackgroundPreference) {
@@ -839,6 +849,26 @@ export function SettingsView({
             value={chordFormatPreference}
             onChange={setChordFormat}
           />
+
+          <Card>
+            <CardContent className="p-4">
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
+                  aria-label={t('settings.tocMultilingual.label')}
+                  checked={tocMultilingual}
+                  onChange={(e) => setTocMultilingual(e.target.checked)}
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span>{t('settings.tocMultilingual.label')}</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
+                    {t('settings.tocMultilingual.description')}
+                  </span>
+                </span>
+              </label>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardContent className="p-4">
