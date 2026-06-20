@@ -1,5 +1,6 @@
 use chrono::{DateTime, Duration, NaiveDate, Utc};
-use serde::{Deserialize, Serialize};
+use serde::de::{Error as DeError, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use surrealdb::types::{Datetime, RecordId, SurrealValue};
 use utoipa::{IntoParams, ToSchema};
 
@@ -11,9 +12,11 @@ pub const METRICS_MAX_WINDOW_DAYS: i64 = 90;
 #[derive(Debug, Clone, serde::Deserialize, IntoParams, ToSchema)]
 #[into_params(parameter_in = Query)]
 pub struct MonitoringMetricsQuery {
-    /// Inclusive lower bound (UTC, RFC 3339).
+    /// Inclusive lower bound (UTC, RFC 3339 or `YYYY-MM-DD`).
+    #[serde(deserialize_with = "deserialize_monitoring_metrics_datetime")]
     pub start: DateTime<Utc>,
-    /// Inclusive upper bound (UTC, RFC 3339).
+    /// Inclusive upper bound (UTC, RFC 3339 or `YYYY-MM-DD`).
+    #[serde(deserialize_with = "deserialize_monitoring_metrics_datetime")]
     pub end: DateTime<Utc>,
 }
 
@@ -38,6 +41,42 @@ impl MonitoringMetricsQuery {
         }
         Ok(self)
     }
+}
+
+fn deserialize_monitoring_metrics_datetime<'de, D>(
+    deserializer: D,
+) -> Result<DateTime<Utc>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_str(MonitoringMetricsDatetimeVisitor)
+}
+
+struct MonitoringMetricsDatetimeVisitor;
+
+impl Visitor<'_> for MonitoringMetricsDatetimeVisitor {
+    type Value = DateTime<Utc>;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("an RFC 3339 timestamp or YYYY-MM-DD date in UTC")
+    }
+
+    fn visit_str<E: DeError>(self, value: &str) -> Result<Self::Value, E> {
+        parse_monitoring_metrics_datetime(value).map_err(E::custom)
+    }
+}
+
+fn parse_monitoring_metrics_datetime(value: &str) -> Result<DateTime<Utc>, String> {
+    if let Ok(dt) = DateTime::parse_from_rfc3339(value) {
+        return Ok(dt.with_timezone(&Utc));
+    }
+
+    let date = NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .map_err(|_| format!("invalid date or RFC 3339 timestamp: {value}"))?;
+    let midnight = date
+        .and_hms_opt(0, 0, 0)
+        .ok_or_else(|| format!("invalid date or RFC 3339 timestamp: {value}"))?;
+    Ok(DateTime::<Utc>::from_naive_utc_and_offset(midnight, Utc))
 }
 
 #[derive(Debug, serde::Deserialize, SurrealValue)]

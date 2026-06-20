@@ -1075,12 +1075,12 @@ export interface components {
         MonitoringMetricsQuery: {
             /**
              * Format: date-time
-             * @description Inclusive upper bound (UTC, RFC 3339).
+             * @description Inclusive upper bound (UTC, RFC 3339 or `YYYY-MM-DD`).
              */
             end: string;
             /**
              * Format: date-time
-             * @description Inclusive lower bound (UTC, RFC 3339).
+             * @description Inclusive lower bound (UTC, RFC 3339 or `YYYY-MM-DD`).
              */
             start: string;
         };
@@ -3393,9 +3393,9 @@ export interface operations {
     get_monitoring_metrics: {
         parameters: {
             query: {
-                /** @description Inclusive lower bound (UTC, RFC 3339). */
+                /** @description Inclusive lower bound (UTC, RFC 3339 or `YYYY-MM-DD`). */
                 start: string;
-                /** @description Inclusive upper bound (UTC, RFC 3339). */
+                /** @description Inclusive upper bound (UTC, RFC 3339 or `YYYY-MM-DD`). */
                 end: string;
             };
             header?: never;
@@ -3404,7 +3404,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps. Rates are 0.0–1.0. */
+            /** @description Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps or YYYY-MM-DD dates. Rates are 0.0–1.0. */
             200: {
                 headers: {
                     [name: string]: unknown;

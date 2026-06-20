@@ -86,7 +86,7 @@ async fn list_http_audit_logs(
     path = "/api/v1/monitoring/metrics",
     params(MonitoringMetricsQuery),
     responses(
-        (status = 200, description = "Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps. Rates are 0.0–1.0.", body = [MonitoringMetricsDay]),
+        (status = 200, description = "Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps or YYYY-MM-DD dates. Rates are 0.0–1.0.", body = [MonitoringMetricsDay]),
         (status = 400, description = "Invalid or disallowed date range", body = Problem, content_type = "application/problem+json"),
         (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
         (status = 403, description = "Admin role required", body = Problem, content_type = "application/problem+json"),

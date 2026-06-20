@@ -624,12 +624,12 @@
       "MonitoringMetricsQuery": {
         "properties": {
           "end": {
-            "description": "Inclusive upper bound (UTC, RFC 3339).",
+            "description": "Inclusive upper bound (UTC, RFC 3339 or `YYYY-MM-DD`).",
             "format": "date-time",
             "type": "string"
           },
           "start": {
-            "description": "Inclusive lower bound (UTC, RFC 3339).",
+            "description": "Inclusive lower bound (UTC, RFC 3339 or `YYYY-MM-DD`).",
             "format": "date-time",
             "type": "string"
           }
@@ -4558,7 +4558,7 @@
         "operationId": "get_monitoring_metrics",
         "parameters": [
           {
-            "description": "Inclusive lower bound (UTC, RFC 3339).",
+            "description": "Inclusive lower bound (UTC, RFC 3339 or `YYYY-MM-DD`).",
             "in": "query",
             "name": "start",
             "required": true,
@@ -4568,7 +4568,7 @@
             }
           },
           {
-            "description": "Inclusive upper bound (UTC, RFC 3339).",
+            "description": "Inclusive upper bound (UTC, RFC 3339 or `YYYY-MM-DD`).",
             "in": "query",
             "name": "end",
             "required": true,
@@ -4590,7 +4590,7 @@
                 }
               }
             },
-            "description": "Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps. Rates are 0.0–1.0."
+            "description": "Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps or YYYY-MM-DD dates. Rates are 0.0–1.0."
           },
           "400": {
             "content": {
