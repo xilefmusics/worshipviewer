@@ -1,33 +1,31 @@
-use shared::api::{ApiClient, ListQuery};
 use shared::move_owner::MoveOwner;
-use shared::net::DefaultHttpClient;
 use shared::song::{CreateSong, UpdateSong};
 
 use crate::commands::SongsCommand;
+use crate::list_output::print_list;
 use crate::output::{self, OutputFormat};
-use crate::validate::validate_resource_id;
+use crate::session::CliSession;
+use crate::validate::{song_list_query_from_args, validate_resource_id};
 
 pub async fn handle_songs(
-    client: &ApiClient<DefaultHttpClient>,
+    session: &CliSession,
     output: OutputFormat,
     dry_run: bool,
-    _effective_base_url: &str,
     cmd: &SongsCommand,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let client = session.api();
     match cmd {
-        SongsCommand::List { page, page_size } => {
-            let mut query = ListQuery::new();
-            if let Some(p) = *page {
-                query = query.with_page(p);
-            }
-            if let Some(ps) = *page_size {
-                query = query.with_page_size(ps);
-            }
-            let songs = client.get_songs(query.into()).await?;
-            match output::effective_output_format(&output) {
-                OutputFormat::Ndjson => output::print_ndjson_list(&songs),
-                _ => output::print_json(&songs, &output),
-            }
+        SongsCommand::List { list } => {
+            let query = song_list_query_from_args(list)?;
+            print_list(
+                session,
+                "api/v1/songs",
+                &query.to_query_string(),
+                list.page.with_meta,
+                &output,
+                || async { client.get_songs(query.clone()).await },
+            )
+            .await
         }
         SongsCommand::Get { id } => {
             validate_resource_id(id)?;

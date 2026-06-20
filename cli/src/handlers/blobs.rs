@@ -1,30 +1,34 @@
 use std::fs;
 use std::io::{self, Write};
 
-use shared::api::ApiClient;
 use shared::blob::{CreateBlob, UpdateBlob};
 use shared::move_owner::MoveOwner;
-use shared::net::DefaultHttpClient;
 
 use crate::commands::BlobsCommand;
 use crate::output::{self, OutputFormat};
-use crate::validate::{list_query_from_opts, validate_resource_id};
+use crate::session::CliSession;
+use crate::validate::{list_query_from_page_args, validate_resource_id};
 
 pub async fn handle_blobs(
-    client: &ApiClient<DefaultHttpClient>,
+    session: &CliSession,
     output: OutputFormat,
     dry_run: bool,
-    effective_base_url: &str,
     cmd: &BlobsCommand,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let client = session.api();
+    let effective_base_url = session.base_url();
     match cmd {
-        BlobsCommand::List { page, page_size } => {
-            let query = list_query_from_opts(*page, *page_size);
-            let blobs = client.list_blobs(query).await?;
-            match output::effective_output_format(&output) {
-                OutputFormat::Ndjson => output::print_ndjson_list(&blobs),
-                _ => output::print_json(&blobs, &output),
-            }
+        BlobsCommand::List { page } => {
+            let query = list_query_from_page_args(page)?;
+            crate::list_output::print_list(
+                session,
+                "api/v1/blobs",
+                &query.to_query_string(),
+                page.with_meta,
+                &output,
+                || async { client.list_blobs(query.clone()).await },
+            )
+            .await
         }
         BlobsCommand::Get { id } => {
             validate_resource_id(id)?;

@@ -1,11 +1,11 @@
 use chrono::{DateTime, Utc};
-use shared::api::{ApiClient, PageQuery};
+use shared::api::ApiClient;
 use shared::monitoring::MonitoringMetricsQuery;
 use shared::net::DefaultHttpClient;
 
 use crate::commands::MonitoringCommand;
 use crate::output::OutputFormat;
-use crate::validate::page_query_from_opts;
+use crate::validate::page_query_from_page_args;
 
 pub async fn handle_monitoring(
     client: &ApiClient<DefaultHttpClient>,
@@ -14,8 +14,8 @@ pub async fn handle_monitoring(
     cmd: &MonitoringCommand,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
-        MonitoringCommand::AuditLogs { page, page_size } => {
-            let query: PageQuery = page_query_from_opts(*page, *page_size);
+        MonitoringCommand::AuditLogs { page } => {
+            let query = page_query_from_page_args(page)?;
             if dry_run {
                 crate::output::print_json(
                     &serde_json::json!({

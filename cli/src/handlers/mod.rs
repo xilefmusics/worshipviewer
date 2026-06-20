@@ -1,7 +1,5 @@
-use shared::api::ApiClient;
-use shared::net::DefaultHttpClient;
-
 use crate::commands::{Cli, Command, SchemaCommand};
+use crate::session::CliSession;
 
 mod about;
 mod auth;
@@ -15,11 +13,8 @@ mod songs;
 mod teams;
 mod users;
 
-pub async fn dispatch(
-    client: &ApiClient<DefaultHttpClient>,
-    cli: &Cli,
-    effective_base_url: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn dispatch(session: &CliSession, cli: &Cli) -> Result<(), Box<dyn std::error::Error>> {
+    let client = session.api();
     match &cli.command {
         Command::About => about::handle_about(client, cli.output.clone()).await,
         Command::Schema(args) => match &args.command {
@@ -34,53 +29,25 @@ pub async fn dispatch(
             auth::handle_auth(client, cli.output.clone(), cli.dry_run, command).await
         }
         Command::Users { command } => {
-            users::handle_users(client, cli.output.clone(), cli.dry_run, command).await
+            users::handle_users(session, cli.output.clone(), cli.dry_run, command).await
         }
         Command::Sessions { command } => {
             sessions::handle_sessions(client, cli.output.clone(), cli.dry_run, command).await
         }
         Command::Songs { command } => {
-            songs::handle_songs(
-                client,
-                cli.output.clone(),
-                cli.dry_run,
-                effective_base_url,
-                command,
-            )
-            .await
+            songs::handle_songs(session, cli.output.clone(), cli.dry_run, command).await
         }
         Command::Collections { command } => {
-            collections::handle_collections(
-                client,
-                cli.output.clone(),
-                cli.dry_run,
-                effective_base_url,
-                command,
-            )
-            .await
+            collections::handle_collections(session, cli.output.clone(), cli.dry_run, command).await
         }
         Command::Setlists { command } => {
-            setlists::handle_setlists(
-                client,
-                cli.output.clone(),
-                cli.dry_run,
-                effective_base_url,
-                command,
-            )
-            .await
+            setlists::handle_setlists(session, cli.output.clone(), cli.dry_run, command).await
         }
         Command::Blobs { command } => {
-            blobs::handle_blobs(
-                client,
-                cli.output.clone(),
-                cli.dry_run,
-                effective_base_url,
-                command,
-            )
-            .await
+            blobs::handle_blobs(session, cli.output.clone(), cli.dry_run, command).await
         }
         Command::Teams { command } => {
-            teams::handle_teams(client, cli.output.clone(), cli.dry_run, command).await
+            teams::handle_teams(session, cli.output.clone(), cli.dry_run, command).await
         }
         Command::Monitoring { command } => {
             monitoring::handle_monitoring(client, cli.output.clone(), cli.dry_run, command).await
