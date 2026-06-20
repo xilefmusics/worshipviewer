@@ -3,17 +3,22 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
+  displayTocEntries,
+  tocDisplayNr,
+  type TocDisplayMode,
+} from '@/lib/player/toc-display'
+import {
   TocSortAlphabeticalIcon,
   TocSortLikedIcon,
   TocSortOrderIcon,
 } from '@/components/icons/toc-sort-icons'
 import { usePlayerTocSearchSync } from '@/hooks/usePlayerIndexSearchSync'
-import { displayTocEntries, tocDisplayNr, type TocDisplayMode } from '@/lib/player/toc-display'
 import {
   buildTocMetadataBySongId,
   collectTocLanguageFilterOptions,
   collectTocTagFilterOptions,
 } from '@/lib/player/toc-filters'
+import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
 import { PLAYER_TOC_WIDTH_CLASS } from '@/lib/player/player-chrome'
 import { cn } from '@/lib/utils'
 
@@ -25,8 +30,9 @@ type PlayerItem = components['schemas']['PlayerItem']
 type PlayerTocSidebarProps = {
   toc: TocItem[]
   items: PlayerItem[]
-  currentIndex: number
-  onSelect: (idx: number) => void
+  currentSourceIdx: number
+  currentLanguageIndex: number | null
+  onSelect: (sourceIdx: number, languageIndex: number | null) => void
 }
 
 const MODES: TocDisplayMode[] = ['order', 'alphabetical', 'liked']
@@ -45,11 +51,19 @@ const TOC_SORT_BUTTON_CLASS =
 const TOC_FILTER_CHIP_CLASS =
   'rounded-md px-[0.72rem] py-[0.36rem] text-sm leading-snug font-medium transition-colors'
 
-export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerTocSidebarProps) {
+export function PlayerTocSidebar({
+  toc,
+  items,
+  currentSourceIdx,
+  currentLanguageIndex,
+  onSelect,
+}: PlayerTocSidebarProps) {
   const { t } = useTranslation()
+  const tocMultilingualEnabled = useTocMultilingualPreference()
   const {
     mode,
     setMode,
+    setLanguageIds,
     activeLanguageIds,
     toggleLanguageId,
     activeTagIds,
@@ -69,8 +83,11 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
 
   const visibleLanguageIds = useMemo(() => {
     const valid = new Set(languageFilters.map((row) => row.id))
-    return new Set([...activeLanguageIds].filter((id) => valid.has(id)))
-  }, [activeLanguageIds, languageFilters])
+    const filtered = [...activeLanguageIds].filter((id) => valid.has(id))
+    if (!tocMultilingualEnabled) return new Set(filtered)
+    const first = filtered[0]
+    return first ? new Set([first]) : new Set<string>()
+  }, [activeLanguageIds, languageFilters, tocMultilingualEnabled])
 
   const visibleTagIds = useMemo(() => {
     const valid = new Set(tagFilters.map((row) => row.id))
@@ -84,8 +101,9 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
         metadataBySongId,
         activeLanguageIds: visibleLanguageIds,
         activeTagIds: visibleTagIds,
+        multilingualToc: tocMultilingualEnabled,
       }),
-    [visibleLanguageIds, visibleTagIds, items, metadataBySongId, mode, toc],
+    [visibleLanguageIds, visibleTagIds, items, metadataBySongId, mode, toc, tocMultilingualEnabled],
   )
 
   const modeLabels: Record<TocDisplayMode, string> = {
@@ -166,7 +184,14 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
                           ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
                           : 'bg-[var(--color-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/80',
                       )}
-                      onClick={() => toggleLanguageId(filter.id)}
+                      onClick={() => {
+                        if (tocMultilingualEnabled) {
+                          if (selected && visibleLanguageIds.size === 1) setLanguageIds([])
+                          else setLanguageIds([filter.id])
+                        } else {
+                          toggleLanguageId(filter.id)
+                        }
+                      }}
                     >
                       {filter.label}
                     </button>
@@ -219,9 +244,10 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
           </li>
         ) : (
           entries.map((row) => {
-            const active = row.idx === currentIndex
+            const active =
+              row.sourceIdx === currentSourceIdx && row.languageIndex === currentLanguageIndex
             return (
-              <li key={`${row.idx}-${row.title}`}>
+              <li key={row.key}>
                 <button
                   type="button"
                   role="option"
@@ -231,9 +257,10 @@ export function PlayerTocSidebar({ toc, items, currentIndex, onSelect }: PlayerT
                     'player-outline-list__item',
                     active && 'player-outline-list__item--selected',
                   )}
-                  onClick={() => onSelect(row.idx)}
+                  onClick={() => onSelect(row.sourceIdx, row.languageIndex)}
                 >
-                  {tocDisplayNr(toc, row)}. {row.title}
+                  {row.showNumber ? `${tocDisplayNr(toc, row.sourceIdx)}. ` : ''}
+                  {row.title}
                   {row.liked ? (
                     <>
                       {' '}

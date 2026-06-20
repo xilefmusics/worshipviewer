@@ -493,6 +493,10 @@
       "nashville": "Nashville",
       "nashvilleDescription": "Zeigt Nashville-Ziffern wie 1, 4 und 6m."
     },
+    "tocMultilingual": {
+      "label": "Mehrsprachige Liedtitel im Inhaltsverzeichnis erweitern",
+      "description": "Zeigt im Inhaltsverzeichnis bei aktivem Sprachfilter den passenden übersetzten Titel. Die Erweiterung für A–Z und Favoriten folgt später."
+    },
     "hideChords": {
       "label": "Akkorde im Player und Export ausblenden",
       "description": "Zeigt im Player und beim Export von PDF- oder Textdateien nur Songtext. Der Song-Editor bleibt unverändert."

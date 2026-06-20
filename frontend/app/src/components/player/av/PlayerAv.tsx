@@ -64,6 +64,7 @@ import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { tocEntryForIndex } from '@/lib/player/player-helpers'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { buildSettingsSearch } from '@/lib/settings-route'
+import { languageIndexForSongLink } from '@/lib/setlist-song-links'
 import { cn } from '@/lib/utils'
 
 import './player-av.css'
@@ -246,6 +247,10 @@ export function PlayerAv({
   )
 
   const rawItem = player.items[session.itemIndex]
+  const currentLanguageIndex =
+    rawItem?.type === 'chords'
+      ? languageIndexForSongLink(rawItem.song.data as Record<string, unknown>, rawItem.language) ?? 0
+      : null
 
   const navigateToSongEditor = useCallback(() => {
     const item = player.items[session.itemIndex]
@@ -582,7 +587,8 @@ export function PlayerAv({
             <PlayerTocSidebar
               toc={player.toc}
               items={player.items}
-              currentIndex={session.itemIndex}
+              currentSourceIdx={session.itemIndex}
+              currentLanguageIndex={currentLanguageIndex}
               onSelect={(idx) => goToItem(idx)}
             />
           </div>

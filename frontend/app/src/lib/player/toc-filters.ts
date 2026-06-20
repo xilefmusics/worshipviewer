@@ -151,6 +151,8 @@ export function applyTocMetadataFilters(
   if (activeLanguageIds.size === 0 && activeTagIds.size === 0) return toc
 
   return toc.filter((row) => {
+    if (items[row.idx]?.type === 'blob') return true
+
     const meta = resolveTocRowMetadata(row, items, metadataBySongId)
     if (!meta) return false
 

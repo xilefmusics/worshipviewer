@@ -23,6 +23,7 @@ import { useIsPhoneWidth, useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerLayoutPreference } from '@/hooks/usePlayerScrollPreference'
 import { useOnline } from '@/hooks/use-online'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
+import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
 import { getChordEngine } from '@/lib/chord-engine'
 import { chordFormatToRepresentation, writeChordFormatPreference } from '@/lib/chord-format'
@@ -199,6 +200,7 @@ export function PlayerBook({
   const lastViewportTapTimeRef = useRef<number | null>(null)
   const [likeBurstKey, setLikeBurstKey] = useState(0)
   const [likeBurstActive, setLikeBurstActive] = useState(false)
+  const tocMultilingualEnabled = useTocMultilingualPreference()
 
   const [viewState, setViewState] = useState<PlayerViewState>(() => readPlayerViewState(type, id))
   const serverLikes = useMemo(() => initialLikedBySongId(player), [player])
@@ -421,12 +423,27 @@ export function PlayerBook({
       ? resolvePlayerItemKey(currentItem, type, slotKey, localTranspose)
       : null
   const currentLanguageOptions =
-    currentItem?.type === 'chords' ? songLanguageOptions(currentItem.song.data as Record<string, unknown>) : []
+    currentItem?.type === 'chords'
+      ? songLanguageOptions(currentItem.song.data as Record<string, unknown>)
+      : []
   const currentLanguageIndex =
-    currentItem?.type === 'chords' ? (selectedLanguageIndexForItem(currentItem, nav.index) ?? 0) : 0
+    currentItem?.type === 'chords'
+      ? selectedLanguageIndexForItem(currentItem, nav.index)
+      : null
   const currentLanguageLabel =
-    currentLanguageOptions[currentLanguageIndex]?.label ?? `L${currentLanguageIndex + 1}`
+    currentLanguageOptions[currentLanguageIndex ?? 0]?.label ??
+    `L${(currentLanguageIndex ?? 0) + 1}`
   const showLanguageSelector = currentItem?.type === 'chords' && currentLanguageOptions.length > 1
+
+  const handleTocSelect = useCallback(
+    (sourceIdx: number, languageIndex: number | null) => {
+      if (tocMultilingualEnabled && languageIndex != null) {
+        setViewState((state) => setLanguageForItem(state, sourceIdx, languageIndex))
+      }
+      dispatch({ type: 'jump', index: sourceIdx })
+    },
+    [dispatch, setViewState, tocMultilingualEnabled],
+  )
 
   const playerReturnContext = useMemo(
     () => ({ playerType: type, playerId: id, playerIndex: nav.index }),
@@ -1029,8 +1046,9 @@ export function PlayerBook({
                 <PlayerTocSidebar
                   toc={displayToc}
                   items={player.items}
-                  currentIndex={nav.index}
-                  onSelect={(idx) => dispatch({ type: 'jump', index: idx })}
+                  currentSourceIdx={nav.index}
+                  currentLanguageIndex={currentLanguageIndex}
+                  onSelect={handleTocSelect}
                 />
               </motion.div>
             ) : null}

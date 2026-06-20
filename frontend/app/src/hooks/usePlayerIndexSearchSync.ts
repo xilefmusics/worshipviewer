@@ -108,6 +108,13 @@ export function usePlayerTocSearchSync() {
     [updateToc],
   )
 
+  const setLanguageIds = useCallback(
+    (languageIds: readonly string[]) => {
+      updateToc({ tocLang: languageIds })
+    },
+    [updateToc],
+  )
+
   const toggleLanguageId = useCallback(
     (languageId: string) => {
       const next = new Set(activeLanguageIds)
@@ -131,6 +138,7 @@ export function usePlayerTocSearchSync() {
   return {
     mode,
     setMode,
+    setLanguageIds,
     activeLanguageIds,
     toggleLanguageId,
     activeTagIds,

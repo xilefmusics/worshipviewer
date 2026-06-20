@@ -493,6 +493,10 @@
       "nashville": "Nashville",
       "nashvilleDescription": "Show Nashville numbers such as 1, 4, and 6m."
     },
+    "tocMultilingual": {
+      "label": "Expand multilingual song titles in the TOC",
+      "description": "Use the matching translated title in the table of contents when a language filter is active. Alphabetical and liked expansion will come later."
+    },
     "hideChords": {
       "label": "Hide chords in player and exports",
       "description": "Show only song lyrics in the player and when exporting PDF or text files. The song editor is not affected."
