@@ -141,6 +141,7 @@ function HubLibrarySearchField({
   const { t } = useTranslation()
   const { selectedTeamId } = useHubSearch()
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filterHovered, setFilterHovered] = useState(false)
   const filterActive = filtersOpen || selectedTeamId != null
 
   return (
@@ -180,6 +181,8 @@ function HubLibrarySearchField({
           aria-label={filtersOpen ? t('hub.filters.closeAria') : t('hub.filters.openAria')}
           aria-pressed={filtersOpen}
           onClick={() => setFiltersOpen((open) => !open)}
+          onMouseEnter={() => setFilterHovered(true)}
+          onMouseLeave={() => setFilterHovered(false)}
           className={cn(
             'mr-1 flex size-10 shrink-0 items-center justify-center rounded-full text-[var(--color-muted-foreground)] outline-none transition-colors',
             'hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]',
@@ -187,7 +190,7 @@ function HubLibrarySearchField({
             filterActive && 'bg-[var(--color-muted)] text-[var(--color-foreground)]',
           )}
         >
-          <FilterIcon />
+          <FilterIcon isHovered={filterHovered} size={18} />
         </button>
         {filtersOpen ? (
           <>
@@ -233,6 +236,7 @@ function AdminDateRangeField({
 }) {
   const { t } = useTranslation()
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filterHovered, setFilterHovered] = useState(false)
   const filterActive = filtersOpen || activeQuickRange != null
 
   return (
@@ -279,6 +283,8 @@ function AdminDateRangeField({
           aria-label={filtersOpen ? t('hub.filters.closeAria') : t('hub.filters.openAria')}
           aria-pressed={filtersOpen}
           onClick={() => setFiltersOpen((open) => !open)}
+          onMouseEnter={() => setFilterHovered(true)}
+          onMouseLeave={() => setFilterHovered(false)}
           className={cn(
             'mr-1 flex size-10 shrink-0 items-center justify-center rounded-full text-[var(--color-muted-foreground)] outline-none transition-colors',
             'hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]',
@@ -286,7 +292,7 @@ function AdminDateRangeField({
             filterActive && 'bg-[var(--color-muted)] text-[var(--color-foreground)]',
           )}
         >
-          <FilterIcon />
+          <FilterIcon isHovered={filterHovered} size={18} />
         </button>
         {filtersOpen ? (
           <>

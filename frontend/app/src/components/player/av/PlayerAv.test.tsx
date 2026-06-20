@@ -104,6 +104,12 @@ vi.mock('@/lib/player/player-view-state', () => ({
       languageByItem: { ...(next?.languageByItem ?? {}), [itemIndex]: languageIndex },
     }
   },
+  clearLanguageForItem: (state: unknown, itemIndex: number) => {
+    const next = state as { languageByItem?: Record<number, number> }
+    const languageByItem = { ...(next?.languageByItem ?? {}) }
+    delete languageByItem[itemIndex]
+    return { ...(next ?? {}), languageByItem }
+  },
 }))
 
 vi.mock('@/components/player/PlayerEditMenu', () => ({
@@ -144,13 +150,24 @@ vi.mock('@/components/player/av/AvSlidesPanel', () => ({
   AvSlidesPanel: ({
     entries,
     currentSlideIndex,
+    onSelectSlide,
   }: {
     entries: Array<{ text: string; slideIndex: number }>
     currentSlideIndex: number | null
+    onSelectSlide: (slideIndex: number) => void
   }) => (
     <div>
       <div data-testid="slide-entry-texts">{entries.map((entry) => entry.text).join('|')}</div>
       <div data-testid="selected-slide-index">{String(currentSlideIndex)}</div>
+      {entries.map((entry) => (
+        <button
+          key={entry.slideIndex}
+          type="button"
+          onClick={() => onSelectSlide(entry.slideIndex)}
+        >
+          Select slide {entry.slideIndex}
+        </button>
+      ))}
     </div>
   ),
 }))
@@ -225,6 +242,53 @@ const player = {
   ] as Player['items'],
 } as Player
 
+const secondSongItem = {
+  type: 'chords',
+  language: 'en',
+  song: {
+    id: 'song-2',
+    blobs: [],
+    not_a_song: false,
+    owner: 'user:test',
+    user_specific_addons: { liked: false },
+    data: {
+      sections: [
+        {
+          title: 'Verse 1',
+          lines: [
+            {
+              parts: [{ comment: false, languages: ['Second song line'] }],
+            },
+          ],
+        },
+      ],
+      languages: ['en'],
+      titles: ['Second Song'],
+    },
+  },
+} as Player['items'][number]
+
+const twoItemPlayer = {
+  index: 0,
+  toc: [
+    {
+      idx: 0,
+      nr: '1',
+      title: 'Anchor',
+      id: 'song-1',
+      liked: false,
+    },
+    {
+      idx: 1,
+      nr: '2',
+      title: 'Second Song',
+      id: 'song-2',
+      liked: false,
+    },
+  ],
+  items: [...player.items, secondSongItem],
+} as Player
+
 beforeEach(() => {
   bilingualEnabled = false
   navigate.mockReset()
@@ -263,6 +327,41 @@ beforeEach(() => {
 })
 
 describe('PlayerAv', () => {
+  it('shows the header language switcher and updates AV content from it', async () => {
+    viewState = { transposeByItem: {}, languageByItem: { 0: 0 } }
+    readViewState.mockReturnValue(viewState)
+    const user = userEvent.setup()
+
+    render(
+      <PlayerAv
+        type="setlist"
+        id="setlist-1"
+        player={player}
+        allowNetworkFetch={false}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'player.language.current' })).toHaveTextContent('en')
+    expect(screen.getByTestId('preview-text')).toHaveTextContent('Hello')
+
+    await user.click(screen.getByRole('button', { name: 'player.language.current' }))
+    await user.click(screen.getByRole('button', { name: 'de' }))
+
+    expect(screen.getByRole('button', { name: 'player.language.current' })).toHaveTextContent('de')
+    expect(screen.getByText('Anker')).toBeInTheDocument()
+    expect(screen.getByTestId('preview-text')).toHaveTextContent('Hallo')
+
+    await waitFor(() => {
+      expect(writeViewState).toHaveBeenCalledWith(
+        'setlist',
+        'setlist-1',
+        expect.objectContaining({
+          languageByItem: { 0: 1 },
+        }),
+      )
+    })
+  })
+
   it('reads the stored per-item language and updates AV content from the TOC selection', async () => {
     const user = userEvent.setup()
 
@@ -338,5 +437,49 @@ describe('PlayerAv', () => {
     }
     expect(lastPayload.contentText).toBe('Hello')
     expect(lastPayload.contentLines).toEqual([{ primary: 'Hello', secondary: 'Hallo' }])
+  })
+
+  it('keeps the projected output on the last selected slide when switching songs', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <PlayerAv
+        type="setlist"
+        id="setlist-1"
+        player={twoItemPlayer}
+        allowNetworkFetch={false}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Select slide 1' }))
+
+    await waitFor(() => {
+      expect(broadcast).toHaveBeenCalled()
+    })
+
+    const projectedPayload = broadcast.mock.calls.at(-1)?.[0] as { contentText?: string }
+    expect(projectedPayload.contentText).toBe('Tschuess')
+
+    broadcast.mockClear()
+
+    await user.keyboard('n')
+
+    expect(screen.getByText('Second Song')).toBeInTheDocument()
+    expect(screen.getByTestId('preview-text')).toHaveTextContent('Tschuess')
+
+    for (const call of broadcast.mock.calls) {
+      const payload = call[0] as { contentText?: string }
+      expect(payload.contentText).not.toBe('Second song line')
+    }
+
+    await user.click(screen.getByRole('button', { name: 'Select slide 0' }))
+
+    await waitFor(() => {
+      expect(broadcast).toHaveBeenCalled()
+    })
+
+    expect(screen.getByTestId('preview-text')).toHaveTextContent('Second song line')
+    const nextPayload = broadcast.mock.calls.at(-1)?.[0] as { contentText?: string }
+    expect(nextPayload.contentText).toBe('Second song line')
   })
 })
