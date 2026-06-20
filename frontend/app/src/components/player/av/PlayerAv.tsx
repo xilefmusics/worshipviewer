@@ -13,6 +13,7 @@ import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left
 import { OutputIcon } from '@/components/icons/lucide-animated/output-icon'
 import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
 import { Button } from '@/components/ui/button'
+import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
@@ -58,6 +59,7 @@ import {
   type AvSessionState,
 } from '@/lib/player/av-session-state'
 import {
+  clearLanguageForItem,
   readPlayerViewState,
   setLanguageForItem,
   writePlayerViewState,
@@ -72,6 +74,7 @@ import {
 import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { tocEntryForIndex } from '@/lib/player/player-helpers'
 import type { PlayerEntityType } from '@/lib/player-route'
+import { songLanguageOptions } from '@/lib/player/song-language'
 import { buildSettingsSearch } from '@/lib/settings-route'
 import { cn } from '@/lib/utils'
 
@@ -149,6 +152,7 @@ export function PlayerAv({
     return { ...saved, itemIndex: startItem, slideIndex: startSlide }
   })
   const [tocVisible] = useState(true)
+  const [languagePopoverOpen, setLanguagePopoverOpen] = useState(false)
   const resolveLanguageIndexForItem = useCallback(
     (itemIndex: number) => viewState.languageByItem?.[itemIndex],
     [viewState.languageByItem],
@@ -257,11 +261,6 @@ export function PlayerAv({
     return currentItem.slides[session.slideIndex] ?? currentItem.slides[0] ?? ''
   }, [currentItem.slides, session.screenState, session.slideIndex])
 
-  const currentLines = useMemo(() => {
-    if (session.screenState !== 'live') return undefined
-    return currentItem.structuredSlides?.[session.slideIndex] ?? currentItem.structuredSlides?.[0]
-  }, [currentItem.structuredSlides, session.screenState, session.slideIndex])
-
   const projectedSlideCount = projectedItem.slides.length
   const projectedText = useMemo(() => {
     if (projected.screenState !== 'live') return ''
@@ -299,6 +298,14 @@ export function PlayerAv({
     rawItem?.type === 'chords'
       ? resolveAvItemLanguageIndex(rawItem, session.itemIndex, resolveLanguageIndexForItem)
       : null
+  const currentLanguageOptions =
+    rawItem?.type === 'chords'
+      ? songLanguageOptions(rawItem.song.data as Record<string, unknown>)
+      : []
+  const currentLanguageLabel =
+    currentLanguageOptions[currentLanguageIndex ?? 0]?.label ??
+    `L${(currentLanguageIndex ?? 0) + 1}`
+  const showLanguageSelector = rawItem?.type === 'chords' && currentLanguageOptions.length > 1
 
   const navigateToSongEditor = useCallback(() => {
     const item = player.items[session.itemIndex]
@@ -407,11 +414,12 @@ export function PlayerAv({
   )
 
   const goToItem = useCallback((itemIndex: number) => {
-    setSession((state) => {
-      const next: AvSessionState = { ...state, itemIndex, slideIndex: 0, screenState: 'live' }
-      setProjected(next)
-      return next
-    })
+    setSession((state) => ({
+      ...state,
+      itemIndex,
+      slideIndex: 0,
+      screenState: 'live',
+    }))
   }, [])
 
   const toggleBlank = useCallback(() => {
@@ -503,7 +511,11 @@ export function PlayerAv({
       }
       if (action === 'escape') {
         e.preventDefault()
-        void navigate({ to: backTo })
+        if (languagePopoverOpen) {
+          setLanguagePopoverOpen(false)
+        } else {
+          void navigate({ to: backTo })
+        }
         return
       }
       if (action === 'toggleBlank') {
@@ -547,6 +559,7 @@ export function PlayerAv({
     toggleBlank,
     toggleBlackout,
     tocVisible,
+    languagePopoverOpen,
   ])
 
   if (itemsLen === 0 || slideCount === 0) {
@@ -596,6 +609,49 @@ export function PlayerAv({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {showLanguageSelector ? (
+            <PopoverRoot open={languagePopoverOpen} onOpenChange={setLanguagePopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className={playerHeaderIconButtonClass}
+                  aria-label={t('player.language.current', {
+                    language: currentLanguageLabel,
+                  })}
+                >
+                  <span className={cn(playerHeaderIconClass, 'text-xs font-semibold leading-none')}>
+                    {currentLanguageLabel}
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-48 p-2">
+                <div className="grid gap-1">
+                  {currentLanguageOptions.map((option) => (
+                    <Button
+                      key={option.index}
+                      type="button"
+                      size="sm"
+                      variant={currentLanguageIndex === option.index ? 'default' : 'outline'}
+                      onClick={() => {
+                        setViewState((state) =>
+                          option.index === 0
+                            ? clearLanguageForItem(state, session.itemIndex)
+                            : setLanguageForItem(state, session.itemIndex, option.index),
+                        )
+                        setLanguagePopoverOpen(false)
+                      }}
+                    >
+                      {option.index === 0
+                        ? t('player.language.defaultOption', { language: option.label })
+                        : option.label}
+                    </Button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </PopoverRoot>
+          ) : null}
           <Button
             type="button"
             variant="outline"
@@ -676,12 +732,12 @@ export function PlayerAv({
           <div className="player-av__preview">
             <AvSlideView
               preview
-              contentText={currentLines ? undefined : currentText}
-              contentLines={currentLines}
+              contentText={projectedLines ? undefined : projectedText}
+              contentLines={projectedLines}
               contentLayer={prefs.contentLayer}
               backgroundLayer={prefs.backgroundLayer}
               transition={prefs.transition}
-              screenState={session.screenState}
+              screenState={projected.screenState}
             />
           </div>
 

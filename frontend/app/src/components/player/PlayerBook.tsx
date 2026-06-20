@@ -197,7 +197,8 @@ export function PlayerBook({
   const touchMovedRef = useRef(false)
   const suppressClickRef = useRef(false)
   const chromeToggleHandledRef = useRef(false)
-  const lastViewportTapTimeRef = useRef<number | null>(null)
+  const lastMiddleViewportTapTimeRef = useRef<number | null>(null)
+  const pendingChromeOpenRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [likeBurstKey, setLikeBurstKey] = useState(0)
   const [likeBurstActive, setLikeBurstActive] = useState(false)
   const tocMultilingualEnabled = useTocMultilingualPreference()
@@ -335,6 +336,15 @@ export function PlayerBook({
       toast.error(t('player.loadFailed'))
     })
   }, [allowNetworkFetch, currentItem, likedBySongId, online, player, queryClient, t, triggerLikeBurst])
+
+  const cancelPendingChromeOpen = useCallback(() => {
+    if (pendingChromeOpenRef.current != null) {
+      clearTimeout(pendingChromeOpenRef.current)
+      pendingChromeOpenRef.current = null
+    }
+  }, [])
+
+  useEffect(() => () => cancelPendingChromeOpen(), [cancelPendingChromeOpen])
 
   useEffect(() => {
     if (deletedReconciled) {
@@ -515,6 +525,7 @@ export function PlayerBook({
       }
       if (action === 'toggleChrome') {
         e.preventDefault()
+        cancelPendingChromeOpen()
         setKeyPopoverOpen(false)
         setLanguagePopoverOpen(false)
         setChromeVisible((visible) => !visible)
@@ -598,6 +609,7 @@ export function PlayerBook({
     chromeVisible,
     layoutPreferences,
     sheetOrientation,
+    cancelPendingChromeOpen,
     toggleCurrentSongLike,
     type,
     id,
@@ -716,41 +728,62 @@ export function PlayerBook({
     (clientX: number, target: EventTarget | null, rect: DOMRect) => {
       if (isInteractiveTarget(target)) return false
 
+      const zone = viewportPointerZone(clientX, rect)
       const now = performance.now()
       const doubleTap =
-        lastViewportTapTimeRef.current != null &&
-        now - lastViewportTapTimeRef.current < VIEWPORT_DOUBLE_TAP_MS
-      lastViewportTapTimeRef.current = now
+        zone === 'middle' &&
+        lastMiddleViewportTapTimeRef.current != null &&
+        now - lastMiddleViewportTapTimeRef.current < VIEWPORT_DOUBLE_TAP_MS
 
-      const zone = viewportPointerZone(clientX, rect)
+      if (zone === 'middle') {
+        lastMiddleViewportTapTimeRef.current = now
+      }
 
       if (chromeVisible) {
         setKeyPopoverOpen(false)
         setLanguagePopoverOpen(false)
         if (zone !== 'middle') {
+          cancelPendingChromeOpen()
           setChromeVisible(false)
           return true
         }
+        if (doubleTap) {
+          cancelPendingChromeOpen()
+          toggleCurrentSongLike()
+          return true
+        }
+        cancelPendingChromeOpen()
         setChromeVisible(false)
-        if (doubleTap) toggleCurrentSongLike()
         return true
       }
 
       if (zone === 'left') {
+        cancelPendingChromeOpen()
         if (!navBlocked) dispatch({ type: 'prev' })
         return true
       }
       if (zone === 'right') {
+        cancelPendingChromeOpen()
         if (!navBlocked) dispatch({ type: 'next' })
         return true
       }
-      setKeyPopoverOpen(false)
-      setLanguagePopoverOpen(false)
-      setChromeVisible(true)
-      if (doubleTap) toggleCurrentSongLike()
+
+      if (doubleTap) {
+        cancelPendingChromeOpen()
+        toggleCurrentSongLike()
+        return true
+      }
+
+      cancelPendingChromeOpen()
+      pendingChromeOpenRef.current = setTimeout(() => {
+        pendingChromeOpenRef.current = null
+        setKeyPopoverOpen(false)
+        setLanguagePopoverOpen(false)
+        setChromeVisible(true)
+      }, VIEWPORT_DOUBLE_TAP_MS)
       return true
     },
-    [chromeVisible, dispatch, navBlocked, toggleCurrentSongLike],
+    [cancelPendingChromeOpen, chromeVisible, dispatch, navBlocked, toggleCurrentSongLike],
   )
 
   function onTouchEnd(e: React.TouchEvent) {
