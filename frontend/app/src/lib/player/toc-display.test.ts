@@ -34,11 +34,11 @@ function chordPlayerItem(
 }
 
 const toc = [
-  { idx: 0, nr: '1', title: 'Anchor', id: 'song-a', liked: false },
-  { idx: 1, nr: '2', title: 'Boat', id: 'song-b', liked: true },
-  { idx: 2, nr: '3', title: 'Zzz Blob', liked: false },
-  { idx: 3, nr: '4', title: 'Cedar', id: 'song-c', liked: false },
-  { idx: 4, nr: '', title: 'Anchor', id: 'song-a', liked: false },
+  { idx: 0, nr: '1', title: 'Anchor', id: 'song-a', liked: true },
+  { idx: 1, nr: '2', title: 'Boat', id: 'song-b', liked: false },
+  { idx: 2, nr: '3', title: 'PDF', liked: false },
+  { idx: 3, nr: '4', title: 'Cedar', id: 'song-c', liked: true },
+  { idx: 4, nr: '', title: 'Anchor', id: 'song-a', liked: true },
 ]
 
 const items: PlayerItem[] = [
@@ -55,7 +55,7 @@ const items: PlayerItem[] = [
   { type: 'blob', blob_id: 'blob:1' } as PlayerItem,
   chordPlayerItem('song-c', {
     languages: ['en', 'de', 'fr'],
-    titles: ['Cedar', 'Cedro', 'Cypress'],
+    titles: ['Cedar', ' ', 'Cypress'],
     language: 'fr',
   }),
   chordPlayerItem('song-a', {
@@ -84,20 +84,21 @@ function displayEntries(
 describe('displayTocEntries', () => {
   it('keeps current order behavior when multilingual TOC is off', () => {
     const entries = displayEntries('order', false)
-    expect(entries.map((row) => row.title)).toEqual(['Anchor', 'Boat', 'Zzz Blob', 'Cedar', 'Anchor'])
+    expect(entries.map((row) => row.title)).toEqual(['Anchor', 'Boat', 'PDF', 'Cedar', 'Anchor'])
     expect(entries.map((row) => row.languageIndex)).toEqual([0, 0, null, 2, 1])
     expect(entries.every((row) => row.showNumber)).toBe(true)
     expect(new Set(entries.map((row) => row.key)).size).toBe(entries.length)
   })
 
-  it('keeps one row per source item in alphabetical mode when multilingual TOC is off', () => {
-    const entries = displayEntries('alphabetical', false)
-    expect(entries.map((row) => row.title)).toEqual(['Anchor', 'Anchor', 'Boat', 'Cedar', 'Zzz Blob'])
-    expect(entries.map((row) => row.languageIndex)).toEqual([0, 1, 0, 2, null])
+  it('keeps current liked behavior when multilingual TOC is off', () => {
+    const entries = displayEntries('liked', false)
+    expect(entries.map((row) => row.title)).toEqual(['Anchor', 'Cedar', 'Anchor'])
+    expect(entries.map((row) => row.sourceIdx)).toEqual([0, 3, 4])
+    expect(entries.map((row) => row.languageIndex)).toEqual([0, 2, 1])
     expect(entries.every((row) => row.showNumber)).toBe(true)
   })
 
-  it('expands alphabetical rows to every translated title when multilingual TOC is on', () => {
+  it('expands alphabetical rows to every non-empty translated title and skips blanks', () => {
     const entries = displayEntries('alphabetical', true)
     expect(entries.map((row) => row.title)).toEqual([
       'Anchor',
@@ -106,37 +107,41 @@ describe('displayTocEntries', () => {
       'Anker',
       'Boat',
       'Cedar',
-      'Cedro',
       'Cypress',
-      'Zzz Blob',
+      'PDF',
     ])
-    expect(entries.map((row) => row.sourceIdx)).toEqual([0, 4, 0, 4, 1, 3, 3, 3, 2])
-    expect(entries.map((row) => row.languageIndex)).toEqual([0, 0, 1, 1, 0, 0, 1, 2, null])
+    expect(entries.map((row) => row.sourceIdx)).toEqual([0, 4, 0, 4, 1, 3, 3, 2])
+    expect(entries.map((row) => row.languageIndex)).toEqual([0, 0, 1, 1, 0, 0, 2, null])
     expect(entries.every((row) => !row.showNumber)).toBe(true)
     expect(new Set(entries.map((row) => row.key)).size).toBe(entries.length)
   })
 
-  it('keeps translated rows stable for duplicate setlist occurrences', () => {
-    const entries = displayEntries('alphabetical', true)
-    const duplicateAnchors = entries.filter((row) => row.title === 'Anchor')
-    expect(duplicateAnchors.map((row) => row.sourceIdx)).toEqual([0, 4])
-    expect(duplicateAnchors.map((row) => row.languageIndex)).toEqual([0, 0])
-    expect(duplicateAnchors[0]?.key).not.toBe(duplicateAnchors[1]?.key)
-  })
-
-  it('collapses alphabetical expansion to the active language when a language filter is set', () => {
-    const entries = displayEntries('alphabetical', true, new Set(['de']))
-    expect(entries.map((row) => row.title)).toEqual(['Anker', 'Anker', 'Cedro', 'Zzz Blob'])
-    expect(entries.map((row) => row.sourceIdx)).toEqual([0, 4, 3, 2])
-    expect(entries.map((row) => row.languageIndex)).toEqual([1, 1, 1, null])
-    expect(entries.every((row) => !row.showNumber)).toBe(true)
-  })
-
-  it('keeps liked mode one row per source item', () => {
+  it('keeps liked fan-out in source order and preserves hearts', () => {
     const entries = displayEntries('liked', true)
-    expect(entries.map((row) => row.title)).toEqual(['Boat'])
-    expect(entries.map((row) => row.languageIndex)).toEqual([0])
+    expect(entries.map((row) => row.title)).toEqual(['Anchor', 'Anker', 'Cedar', 'Cypress', 'Anchor', 'Anker'])
+    expect(entries.map((row) => row.sourceIdx)).toEqual([0, 0, 3, 3, 4, 4])
+    expect(entries.map((row) => row.languageIndex)).toEqual([0, 1, 0, 2, 0, 1])
+    expect(entries.every((row) => row.liked)).toBe(true)
+    expect(entries.every((row) => !row.showNumber)).toBe(true)
+    expect(new Set(entries.map((row) => row.key)).size).toBe(entries.length)
+    expect(entries[0]?.key).not.toBe(entries[4]?.key)
+  })
+
+  it('uses the filtered language in order mode and omits missing translated titles', () => {
+    const entries = displayEntries('order', true, new Set(['de']))
+    expect(entries.map((row) => row.title)).toEqual(['Anker', 'PDF', 'Anker'])
+    expect(entries.map((row) => row.sourceIdx)).toEqual([0, 2, 4])
+    expect(entries.map((row) => row.languageIndex)).toEqual([1, null, 1])
     expect(entries.every((row) => row.showNumber)).toBe(true)
+  })
+
+  it('collapses liked mode to the filtered language and omits missing translated titles', () => {
+    const entries = displayEntries('liked', true, new Set(['de']))
+    expect(entries.map((row) => row.title)).toEqual(['Anker', 'Anker'])
+    expect(entries.map((row) => row.sourceIdx)).toEqual([0, 4])
+    expect(entries.map((row) => row.languageIndex)).toEqual([1, 1])
+    expect(entries.every((row) => row.liked)).toBe(true)
+    expect(entries.every((row) => !row.showNumber)).toBe(true)
   })
 })
 

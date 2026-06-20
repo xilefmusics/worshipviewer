@@ -1,11 +1,7 @@
 import type { components } from '@/api/schema'
 
 import { applyTocMetadataFilters, type TocSongMetadata } from '@/lib/player/toc-filters'
-import {
-  languageIndexForSongLink,
-  songTitleForLanguage,
-  songTitleVariantsForDisplay,
-} from '@/lib/setlist-song-links'
+import { languageIndexForSongLink, songTitleVariantsForDisplay } from '@/lib/setlist-song-links'
 
 type PlayerItem = components['schemas']['PlayerItem']
 type TocItem = components['schemas']['TocItem']
@@ -59,57 +55,55 @@ function resolveDisplayLanguageId(filters: TocDisplayFilters): string | undefine
   return firstLanguageId(filters.activeLanguageIds)
 }
 
-function displayEntryForRow(
-  row: TocItem,
-  items: PlayerItem[],
-  multilingualToc: boolean,
-  languageId: string | undefined,
-  override?: {
-    title: string
-    languageIndex: number | null
-    showNumber?: boolean
-  },
-): TocDisplayEntry {
+function titleAtLanguageIndex(
+  data: Record<string, unknown> | undefined | null,
+  languageIndex: number,
+): string | null {
+  const titles = Array.isArray(data?.titles) ? data.titles : []
+  const value = titles[languageIndex]
+  if (typeof value !== 'string') return null
+  const title = value.trim()
+  return title.length > 0 ? title : null
+}
+
+function displayEntryForRow(row: TocItem, items: PlayerItem[], showNumber: boolean): TocDisplayEntry {
   const item = items[row.idx]
-  const sourceIdx = row.idx
-  const liked = row.liked
-  const showNumber = override?.showNumber ?? true
-
-  if (override) {
-    return {
-      key: displayEntryKey(sourceIdx, override.languageIndex, row.id ?? undefined),
-      sourceIdx,
-      title: override.title,
-      languageIndex: override.languageIndex,
-      liked,
-      showNumber,
-    }
-  }
-
-  if (multilingualToc && item?.type === 'chords' && languageId) {
-    const languageIndex = languageIndexForSongLink(item.song.data as Record<string, unknown>, languageId)
-    return {
-      key: displayEntryKey(sourceIdx, languageIndex ?? null, row.id ?? undefined),
-      sourceIdx,
-      title: songTitleForLanguage(item.song.data as Record<string, unknown>, languageId, row.title),
-      languageIndex: languageIndex ?? 0,
-      liked,
-      showNumber,
-    }
-  }
-
   const languageIndex =
     item?.type === 'chords'
       ? languageIndexForSongLink(item.song.data as Record<string, unknown>, item.language) ?? 0
       : null
 
   return {
-    key: displayEntryKey(sourceIdx, languageIndex, row.id ?? undefined),
-    sourceIdx,
+    key: displayEntryKey(row.idx, languageIndex, row.id ?? undefined),
+    sourceIdx: row.idx,
     title: row.title,
     languageIndex,
-    liked,
+    liked: row.liked,
     showNumber,
+  }
+}
+
+function strictEntryForLanguageId(
+  row: TocItem,
+  items: PlayerItem[],
+  languageId: string,
+): TocDisplayEntry | null {
+  const item = items[row.idx]
+  if (item?.type !== 'chords') return null
+
+  const languageIndex = languageIndexForSongLink(item.song.data as Record<string, unknown>, languageId)
+  if (languageIndex == null) return null
+
+  const title = titleAtLanguageIndex(item.song.data as Record<string, unknown>, languageIndex)
+  if (!title) return null
+
+  return {
+    key: displayEntryKey(row.idx, languageIndex, row.id ?? undefined),
+    sourceIdx: row.idx,
+    title,
+    languageIndex,
+    liked: row.liked,
+    showNumber: true,
   }
 }
 
@@ -131,37 +125,30 @@ function displayEntriesForRow(
   mode: TocDisplayMode,
 ): TocDisplayEntry[] {
   const item = items[row.idx]
-  if (mode === 'alphabetical' && multilingualToc && !languageId && item?.type === 'chords') {
+  const showNumber = mode === 'order' || !multilingualToc
+
+  if (item?.type === 'blob') {
+    return [displayEntryForRow(row, items, showNumber)]
+  }
+
+  if (multilingualToc && languageId) {
+    const strictEntry = strictEntryForLanguageId(row, items, languageId)
+    return strictEntry ? [{ ...strictEntry, showNumber: mode === 'order' }] : []
+  }
+
+  if (multilingualToc && item?.type === 'chords' && mode !== 'order') {
     const variants = songTitleVariantsForDisplay(item.song.data as Record<string, unknown>, row.title)
-    if (variants.length > 1) {
-      return variants.map((variant) =>
-        displayEntryForRow(row, items, multilingualToc, languageId, {
-          title: variant.title,
-          languageIndex: variant.languageIndex,
-          showNumber: false,
-        }),
-      )
-    }
-    const variant = variants[0]
-    return [
-      displayEntryForRow(row, items, multilingualToc, languageId, {
-        title: variant?.title ?? row.title,
-        languageIndex: variant?.languageIndex ?? 0,
-        showNumber: false,
-      }),
-    ]
+    return variants.map((variant) => ({
+      key: displayEntryKey(row.idx, variant.languageIndex, row.id ?? undefined),
+      sourceIdx: row.idx,
+      title: variant.title,
+      languageIndex: variant.languageIndex,
+      liked: row.liked,
+      showNumber: false,
+    }))
   }
-  if (mode === 'alphabetical' && multilingualToc && item?.type === 'chords') {
-    const baseEntry = displayEntryForRow(row, items, multilingualToc, languageId)
-    return [
-      displayEntryForRow(row, items, multilingualToc, languageId, {
-        title: baseEntry.title,
-        languageIndex: baseEntry.languageIndex,
-        showNumber: false,
-      }),
-    ]
-  }
-  return [displayEntryForRow(row, items, multilingualToc, languageId)]
+
+  return [displayEntryForRow(row, items, showNumber)]
 }
 
 export function displayTocEntries(
@@ -197,13 +184,6 @@ export function displayTocEntries(
   if (mode === 'liked') {
     return rows
       .filter((row) => row.liked)
-      .map((row) =>
-        displayEntryForRow(row, metadataFilters.items, metadataFilters.multilingualToc, languageId),
-      )
-  }
-
-  if (mode === 'alphabetical') {
-    const entries = rows
       .flatMap((row) =>
         displayEntriesForRow(
           row,
@@ -213,13 +193,35 @@ export function displayTocEntries(
           mode,
         ),
       )
-      .sort(compareDisplayEntries)
+      .map((entry) => ({
+        ...entry,
+        showNumber: metadataFilters.multilingualToc ? false : entry.showNumber,
+      }))
+  }
+
+  if (mode === 'alphabetical') {
+    const entries = rows.flatMap((row) =>
+      displayEntriesForRow(
+        row,
+        metadataFilters.items,
+        metadataFilters.multilingualToc,
+        languageId,
+        mode,
+      ),
+    )
+    entries.sort(compareDisplayEntries)
     return metadataFilters.multilingualToc
       ? entries.map((entry) => ({ ...entry, showNumber: false }))
       : entries
   }
 
-  return rows.map((row) =>
-    displayEntryForRow(row, metadataFilters.items, metadataFilters.multilingualToc, languageId),
+  return rows.flatMap((row) =>
+    displayEntriesForRow(
+      row,
+      metadataFilters.items,
+      metadataFilters.multilingualToc,
+      languageId,
+      mode,
+    ),
   )
 }
