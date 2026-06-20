@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { api } from '@/api/client'
 import type { components } from '@/api/schema'
 import { fetchCollectionsPage } from '@/api/list-fetch'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -98,7 +98,7 @@ export function MoveSongToCollectionDialog({
       const key = songLinkKeyEditorToWire(songLink.key)
       const nr = normalizeSongLinkNr(songLink.nr)
 
-      const { data: result, response } = await api.POST(
+      const { data: result, error, response } = await api.POST(
         '/api/v1/collections/{id}/songs/{song_id}/transfer',
         {
           params: { path: { id: sourceCollectionId, song_id: songId } },
@@ -111,14 +111,15 @@ export function MoveSongToCollectionDialog({
       )
 
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
         if (response.status === 404) {
           throw new Error('not_in_collection')
         }
         if (response.status === 409) {
           throw new Error('already_in_target')
         }
-        throw new Error(problem?.title ?? t('collections.editor.moveToCollection.failed'))
+        throw new Error(
+          problemMessageFromBody(error, t('collections.editor.moveToCollection.failed')),
+        )
       }
 
       if (!result) {

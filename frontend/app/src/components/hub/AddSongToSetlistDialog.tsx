@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 
 import { api } from '@/api/client'
 import { fetchSetlistsPage, type Song } from '@/api/list-fetch'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -85,12 +85,11 @@ export function AddSongToSetlistDialog({ open, onOpenChange, song }: AddSongToSe
       if (song.not_a_song) {
         throw new Error('excluded')
       }
-      const { data: detail, response } = await api.GET('/api/v1/setlists/{id}', {
+      const { data: detail, error, response } = await api.GET('/api/v1/setlists/{id}', {
         params: { path: { id: setlistId } },
       })
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('hub.addToSetlist.failed'))
+        throw new Error(problemMessageFromBody(error, t('hub.addToSetlist.failed')))
       }
       if (!detail) {
         throw new Error(t('hub.addToSetlist.failed'))
@@ -116,13 +115,12 @@ export function AddSongToSetlistDialog({ open, onOpenChange, song }: AddSongToSe
       if (!body) {
         return { kind: 'noop' as const }
       }
-      const { response: patchRes, data: updated } = await api.PATCH('/api/v1/setlists/{id}', {
+      const { response: patchRes, data: updated, error: patchError } = await api.PATCH('/api/v1/setlists/{id}', {
         params: { path: { id: setlistId } },
         body,
       })
       if (!patchRes.ok) {
-        const problem = await parseProblemResponse(patchRes.clone())
-        throw new Error(problem?.title ?? t('hub.addToSetlist.failed'))
+        throw new Error(problemMessageFromBody(patchError, t('hub.addToSetlist.failed')))
       }
       return { kind: 'ok' as const, title: detail.title, updated }
     },

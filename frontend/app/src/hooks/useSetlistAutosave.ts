@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/api/client'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import type { components } from '@/api/schema'
 
 import { hubListRootKey } from '@/lib/hub-list-keys'
@@ -124,15 +124,7 @@ export function useSetlistAutosave({
           body,
         })
         if (!response.ok) {
-          let msg =
-            typeof error === 'object' && error && 'title' in error
-              ? String((error as { title?: string }).title)
-              : ''
-          if (!msg) {
-            const problem = await parseProblemResponse(response.clone())
-            msg = problem?.title ?? ''
-          }
-          msg = msg || `Save failed (${response.status})`
+          const msg = problemMessageFromBody(error, `Save failed (${response.status})`)
 
           let retryUntil: number | null = null
           if (response.status === 429) {

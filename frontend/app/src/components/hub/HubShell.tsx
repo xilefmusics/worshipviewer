@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { api } from '@/api/client'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -419,13 +419,12 @@ function HubChrome({
 
   const patchTeamName = useMutation({
     mutationFn: async (name: string) => {
-      const { response } = await api.PATCH('/api/v1/teams/{id}', {
+      const { error, response } = await api.PATCH('/api/v1/teams/{id}', {
         params: { path: { id: teamDetailId } },
         body: { name },
       })
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('teams.saveFailed'))
+        throw new Error(problemMessageFromBody(error, t('teams.saveFailed')))
       }
     },
     onSuccess: () => {

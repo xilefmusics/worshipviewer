@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '@/api/client'
 import type { components } from '@/api/schema'
 import { fetchCollectionsPage } from '@/api/list-fetch'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
 import { hubListKey } from '@/lib/hub-list-keys'
 import { getNextPageIndex } from '@/lib/list-pagination'
@@ -104,7 +104,7 @@ export function useEnsureTargetCollection({
       if (!personalTeam) {
         throw new Error('no_personal_team')
       }
-      const { data, response } = await api.POST('/api/v1/collections', {
+      const { data, error, response } = await api.POST('/api/v1/collections', {
         body: {
           title,
           cover: 'mysongs',
@@ -113,8 +113,7 @@ export function useEnsureTargetCollection({
         },
       })
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? 'create_collection_failed')
+        throw new Error(problemMessageFromBody(error, 'create_collection_failed'))
       }
       return data as Collection
     },

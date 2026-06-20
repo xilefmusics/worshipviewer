@@ -1,7 +1,7 @@
 import type { components } from '@/api/schema'
 
 import { api } from '@/api/client'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import {
   appDb,
   playerMirrorId,
@@ -170,8 +170,7 @@ export async function fetchSetlistPlayerFromNetwork(
     signal,
   })
   if (!response.ok || error) {
-    const problem = await parseProblemResponse(response.clone())
-    return { error: problem?.title ?? 'Request failed', status: response.status }
+    return { error: problemMessageFromBody(error, 'Request failed'), status: response.status }
   }
   if (!data) {
     return { error: 'Empty response', status: 500 }
@@ -194,8 +193,7 @@ export async function fetchPlayerFromNetwork(
       signal,
     })
     if (!response.ok || error) {
-      const problem = await parseProblemResponse(response.clone())
-      return { error: problem?.title ?? 'Request failed', status: response.status }
+      return { error: problemMessageFromBody(error, 'Request failed'), status: response.status }
     }
     if (!data) return { error: 'Empty response', status: 500 }
     return { player: data }
@@ -206,8 +204,7 @@ export async function fetchPlayerFromNetwork(
     signal,
   })
   if (!response.ok || error) {
-    const problem = await parseProblemResponse(response.clone())
-    return { error: problem?.title ?? 'Request failed', status: response.status }
+    return { error: problemMessageFromBody(error, 'Request failed'), status: response.status }
   }
   if (!data) return { error: 'Empty response', status: 500 }
   return { player: data }

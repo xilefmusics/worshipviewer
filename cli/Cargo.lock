@@ -218,9 +218,9 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "chordlib"
-version = "0.12.0"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d036a8a466b3f7fae71b7fee16e4fb6b40a00ff88fad1ae9fcfa07e50d45ea5"
+checksum = "9f1f648f7337c25d7f8c0d85c76983127a6e92a1fa1385cff7196e9c3dd2f202"
 dependencies = [
  "askama",
  "lazy_static",

@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import * as Dialog from '@radix-ui/react-dialog'
 
 import { api } from '@/api/client'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import { putTeamCover } from '@/api/team-cover-upload'
 import type { TeamMember, TeamRole } from '@/api/teams-sessions-fetch'
 import {
@@ -130,13 +130,12 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
 
   const clearCover = useMutation({
     mutationFn: async () => {
-      const { data, response } = await api.PATCH('/api/v1/teams/{id}', {
+      const { data, error, response } = await api.PATCH('/api/v1/teams/{id}', {
         params: { path: { id: teamId } },
         body: { cover: '' },
       })
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('teams.coverRemoveFailed'))
+        throw new Error(problemMessageFromBody(error, t('teams.coverRemoveFailed')))
       }
       return data
     },
@@ -184,12 +183,11 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
 
   const createInvite = useMutation({
     mutationFn: async () => {
-      const { data, response } = await api.POST('/api/v1/teams/{team_id}/invitations', {
+      const { data, error, response } = await api.POST('/api/v1/teams/{team_id}/invitations', {
         params: { path: { team_id: teamId } },
       })
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('teams.inviteFailed'))
+        throw new Error(problemMessageFromBody(error, t('teams.inviteFailed')))
       }
       const inv = data as { id?: string } | undefined
       if (!inv?.id) {
@@ -216,12 +214,11 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
 
   const deleteInvite = useMutation({
     mutationFn: async (invitationId: string) => {
-      const { response } = await api.DELETE('/api/v1/teams/{team_id}/invitations/{invitation_id}', {
+      const { error, response } = await api.DELETE('/api/v1/teams/{team_id}/invitations/{invitation_id}', {
         params: { path: { team_id: teamId, invitation_id: invitationId } },
       })
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('teams.deleteInviteFailed'))
+        throw new Error(problemMessageFromBody(error, t('teams.deleteInviteFailed')))
       }
     },
     onSuccess: () => {
@@ -241,15 +238,14 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
       if (!isPersonalTeam && !next.some((m) => m.role === 'admin')) {
         throw new Error(t('teams.needOneAdmin'))
       }
-      const { response } = await api.PATCH('/api/v1/teams/{id}', {
+      const { error, response } = await api.PATCH('/api/v1/teams/{id}', {
         params: { path: { id: teamId } },
         body: {
           members: next.map((m) => ({ user: { id: m.user.id }, role: m.role })),
         },
       })
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('teams.saveMembersFailed'))
+        throw new Error(problemMessageFromBody(error, t('teams.saveMembersFailed')))
       }
     },
     onSuccess: () => {
@@ -265,12 +261,11 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
 
   const deleteTeam = useMutation({
     mutationFn: async () => {
-      const { response } = await api.DELETE('/api/v1/teams/{id}', {
+      const { error, response } = await api.DELETE('/api/v1/teams/{id}', {
         params: { path: { id: teamId } },
       })
       if (!response.ok && response.status !== 204) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('teams.deleteFailed'))
+        throw new Error(problemMessageFromBody(error, t('teams.deleteFailed')))
       }
     },
     onSuccess: () => {
