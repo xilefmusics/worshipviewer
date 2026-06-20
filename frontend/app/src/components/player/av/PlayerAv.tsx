@@ -15,6 +15,7 @@ import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
 import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
+import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
 import {
   avItemTitle,
@@ -22,6 +23,7 @@ import {
   avNextSlideInItem,
   avPrevItemIndex,
   avPrevSlideInItem,
+  resolveAvItemLanguageIndex,
   avSlidesForPlayerItem,
 } from '@/lib/player/av-nav'
 import {
@@ -55,6 +57,12 @@ import {
   type AvSessionState,
 } from '@/lib/player/av-session-state'
 import {
+  readPlayerViewState,
+  setLanguageForItem,
+  writePlayerViewState,
+  type PlayerViewState,
+} from '@/lib/player/player-view-state'
+import {
   PLAYER_HEADER_ICON_SIZE,
   PLAYER_TOC_WIDTH_CLASS,
   playerHeaderIconButtonClass,
@@ -64,7 +72,6 @@ import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { tocEntryForIndex } from '@/lib/player/player-helpers'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { buildSettingsSearch } from '@/lib/settings-route'
-import { languageIndexForSongLink } from '@/lib/setlist-song-links'
 import { cn } from '@/lib/utils'
 
 import './player-av.css'
@@ -123,7 +130,9 @@ export function PlayerAv({
   const { t } = useTranslation()
   const navigate = useNavigate()
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
+  const tocMultilingualEnabled = useTocMultilingualPreference()
   const [prefs, setPrefs] = useState<AvPreferences>(() => readAvPreferences())
+  const [viewState, setViewState] = useState<PlayerViewState>(() => readPlayerViewState(type, id))
   const [session, setSession] = useState<AvSessionState>(() => {
     const saved = readAvSessionState(type, id)
     const startItem = initialIndex ?? saved.itemIndex ?? player.index
@@ -138,6 +147,10 @@ export function PlayerAv({
     return { ...saved, itemIndex: startItem, slideIndex: startSlide }
   })
   const [tocVisible] = useState(true)
+  const resolveLanguageIndexForItem = useCallback(
+    (itemIndex: number) => viewState.languageByItem?.[itemIndex],
+    [viewState.languageByItem],
+  )
 
   const sessionIdRef = useRef(getAvProjectionSessionId())
   const syncRef = useRef<AvProjectionSync | null>(null)
@@ -146,13 +159,22 @@ export function PlayerAv({
 
   const itemsLen = player.items.length
   const tocRow = tocEntryForIndex(player.toc, session.itemIndex)
-  const title = resourceTitle || tocRow?.title || avItemTitle(player.items, session.itemIndex, tocRow?.title)
+  const title = avItemTitle(
+    player.items,
+    session.itemIndex,
+    resourceTitle || tocRow?.title,
+    resolveLanguageIndexForItem,
+  )
   const showToc = player.toc.length > 0
   const evicted = useSetlistEvictionWatch(type === 'setlist' ? id : undefined, type === 'setlist')
   const navBlocked = evicted
   const backTo = hubPathForPlayerType(type)
 
   usePlayerIndexSearchSync(type, id, session.itemIndex, 'av')
+
+  useEffect(() => {
+    writePlayerViewState(type, id, viewState)
+  }, [type, id, viewState])
 
   const collapseLyricWhitespace = readLyricCollapseWhitespacePreference()
 
@@ -162,12 +184,13 @@ export function PlayerAv({
         maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
         balanceSlideLines: prefs.contentLayer.balanceSlideLines,
         collapseLyricWhitespace,
-      }),
+      }, resolveLanguageIndexForItem),
     [
       player.items,
       prefs.contentLayer.maxLinesPerSlide,
       prefs.contentLayer.balanceSlideLines,
       collapseLyricWhitespace,
+      resolveLanguageIndexForItem,
       session.itemIndex,
     ],
   )
@@ -178,21 +201,24 @@ export function PlayerAv({
         maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
         balanceSlideLines: prefs.contentLayer.balanceSlideLines,
         collapseLyricWhitespace,
-      }),
+      }, resolveLanguageIndexForItem),
     [
       player.items,
       prefs.contentLayer.maxLinesPerSlide,
       prefs.contentLayer.balanceSlideLines,
       collapseLyricWhitespace,
+      resolveLanguageIndexForItem,
       projected.itemIndex,
     ],
   )
 
   const projectedTocRow = tocEntryForIndex(player.toc, projected.itemIndex)
-  const projectedTitle =
-    resourceTitle ||
-    projectedTocRow?.title ||
-    avItemTitle(player.items, projected.itemIndex, projectedTocRow?.title)
+  const projectedTitle = avItemTitle(
+    player.items,
+    projected.itemIndex,
+    resourceTitle || projectedTocRow?.title,
+    resolveLanguageIndexForItem,
+  )
 
   const slideCount = currentItem.slides.length
   const announcement = useMemo(() => {
@@ -249,7 +275,7 @@ export function PlayerAv({
   const rawItem = player.items[session.itemIndex]
   const currentLanguageIndex =
     rawItem?.type === 'chords'
-      ? languageIndexForSongLink(rawItem.song.data as Record<string, unknown>, rawItem.language) ?? 0
+      ? resolveAvItemLanguageIndex(rawItem, session.itemIndex, resolveLanguageIndexForItem)
       : null
 
   const navigateToSongEditor = useCallback(() => {
@@ -589,7 +615,12 @@ export function PlayerAv({
               items={player.items}
               currentSourceIdx={session.itemIndex}
               currentLanguageIndex={currentLanguageIndex}
-              onSelect={(idx) => goToItem(idx)}
+              onSelect={(idx, languageIndex) => {
+                if (tocMultilingualEnabled && languageIndex != null) {
+                  setViewState((state) => setLanguageForItem(state, idx, languageIndex))
+                }
+                goToItem(idx)
+              }}
             />
           </div>
         ) : null}
