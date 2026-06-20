@@ -1,27 +1,34 @@
 use std::fs;
 
-use shared::api::ApiClient;
-use shared::net::DefaultHttpClient;
 use shared::user::CreateUser;
 
 use crate::commands::UsersCommand;
+use crate::list_output::print_list;
 use crate::output::{self, OutputFormat};
-use crate::validate::{image_content_type_for_path, list_query_from_opts, validate_resource_id};
+use crate::session::CliSession;
+use crate::validate::{
+    image_content_type_for_path, list_query_from_page_args, validate_resource_id,
+};
 
 pub async fn handle_users(
-    client: &ApiClient<DefaultHttpClient>,
+    session: &CliSession,
     output: OutputFormat,
     dry_run: bool,
     cmd: &UsersCommand,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let client = session.api();
     match cmd {
-        UsersCommand::List { page, page_size } => {
-            let query = list_query_from_opts(*page, *page_size);
-            let users = client.list_users(query).await?;
-            match output::effective_output_format(&output) {
-                OutputFormat::Ndjson => output::print_ndjson_list(&users),
-                _ => output::print_json(&users, &output),
-            }
+        UsersCommand::List { page } => {
+            let query = list_query_from_page_args(page)?;
+            print_list(
+                session,
+                "api/v1/users",
+                &query.to_query_string(),
+                page.with_meta,
+                &output,
+                || async { client.list_users(query.clone()).await },
+            )
+            .await
         }
         UsersCommand::Get { id } => {
             validate_resource_id(id)?;

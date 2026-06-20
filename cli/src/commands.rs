@@ -8,30 +8,63 @@ use crate::output::OutputFormat;
 #[command(
     name = "worshipviewer",
     version,
-    about = "CLI for the Worship Viewer REST API"
+    about = "AI-friendly CLI for the Worship Viewer REST API",
+    long_about = "Talk to Worship Viewer from the terminal. Output is JSON by default when \
+                  piped; use --output pretty for human-readable output on a TTY.\n\n\
+                  Authenticate with --sso-session, --bearer-token, or `auth otp-verify`. \
+                  Configure defaults in ~/.worshipviewer/config.toml.\n\n\
+                  Examples:\n  \
+                  worshipviewer songs list --q grace --sort relevance\n  \
+                  worshipviewer collections transfer-song COL_ID SONG_ID --json '{\"target\":\"OTHER_COL\"}'\n  \
+                  worshipviewer setlists player SETLIST_ID --output pretty"
 )]
 pub struct Cli {
-    #[arg(long, global = true)]
+    #[arg(
+        long,
+        global = true,
+        env = "WORSHIPVIEWER_BASE_URL",
+        help = "API base URL (default http://127.0.0.1:8080 or config file)"
+    )]
     pub base_url: Option<String>,
 
-    #[arg(long, global = true)]
+    #[arg(
+        long,
+        global = true,
+        env = "WORSHIPVIEWER_SSO_SESSION",
+        help = "Session cookie value for sso_session"
+    )]
     pub sso_session: Option<String>,
 
-    #[arg(long, env = "WORSHIPVIEWER_BEARER_TOKEN", global = true)]
+    #[arg(
+        long,
+        env = "WORSHIPVIEWER_BEARER_TOKEN",
+        global = true,
+        help = "Bearer token (session id) for Authorization header"
+    )]
     pub bearer_token: Option<String>,
 
     #[arg(
         long,
         env = "WORSHIPVIEWER_OUTPUT",
         default_value = "auto",
-        global = true
+        global = true,
+        help = "Output format: auto, json, pretty, ndjson (one JSON object per line for lists)"
     )]
     pub output: OutputFormat,
 
-    #[arg(long, global = true)]
+    #[arg(
+        long,
+        global = true,
+        help = "Print planned HTTP request without sending (mutations only)"
+    )]
     pub dry_run: bool,
 
-    #[arg(long, env = "WORSHIPVIEWER_TIMEOUT_SECS", global = true)]
+    #[arg(
+        long,
+        env = "WORSHIPVIEWER_TIMEOUT_SECS",
+        global = true,
+        help = "HTTP timeout in seconds"
+    )]
     pub timeout_secs: Option<u64>,
 
     #[command(subcommand)]
@@ -42,7 +75,9 @@ pub struct Cli {
 pub enum Command {
     /// Public server metadata (no auth).
     About,
+    /// Fetch or inspect the live OpenAPI schema.
     Schema(SchemaArgs),
+    /// OTP login and logout.
     Auth {
         #[command(subcommand)]
         command: AuthCommand,
@@ -81,28 +116,93 @@ pub enum Command {
     },
 }
 
+/// Pagination flags shared by list commands.
+#[derive(Debug, Args, Clone, Default)]
+pub struct PageArgs {
+    #[arg(long, help = "Zero-based page index")]
+    pub page: Option<u32>,
+
+    #[arg(long, help = "Items per page (default 50, max 500)")]
+    pub page_size: Option<u32>,
+
+    #[arg(
+        long,
+        help = "Include X-Total-Count and Link headers in a pagination wrapper (json/pretty only)"
+    )]
+    pub with_meta: bool,
+}
+
+/// Search and team filter for hub list routes.
+#[derive(Debug, Args, Clone, Default)]
+pub struct HubFilterArgs {
+    #[arg(
+        long,
+        help = "Search query (title, name, or lyrics depending on resource)"
+    )]
+    pub q: Option<String>,
+
+    #[arg(long, help = "Filter by owning team id")]
+    pub team: Option<String>,
+}
+
+/// List flags for collections, setlists, and teams.
+#[derive(Debug, Args, Clone, Default)]
+pub struct HubListArgs {
+    #[command(flatten)]
+    pub page: PageArgs,
+
+    #[command(flatten)]
+    pub filter: HubFilterArgs,
+}
+
+/// List flags for songs (includes sort, language, and tag filters).
+#[derive(Debug, Args, Clone, Default)]
+pub struct SongListArgs {
+    #[command(flatten)]
+    pub page: PageArgs,
+
+    #[command(flatten)]
+    pub filter: HubFilterArgs,
+
+    #[arg(
+        long,
+        help = "Sort order: -id (default), title, -title, relevance (requires --q), id"
+    )]
+    pub sort: Option<String>,
+
+    #[arg(
+        long,
+        help = "Filter songs whose metadata includes this BCP 47 language tag"
+    )]
+    pub lang: Option<String>,
+
+    #[arg(long, help = "Filter by tag substring")]
+    pub tag: Option<String>,
+}
+
 #[derive(Debug, Args)]
 pub struct SchemaArgs {
     #[command(subcommand)]
     pub command: Option<SchemaCommand>,
 
-    #[arg(long)]
+    #[arg(long, help = "Only include OpenAPI paths starting with this prefix")]
     pub path_prefix: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum SchemaCommand {
+    /// Resolve a CLI domain/action pair to request/response schemas.
     Inspect { domain: String, action: String },
 }
 
 #[derive(Debug, Subcommand)]
 pub enum AuthCommand {
     OtpRequest {
-        #[arg(long)]
+        #[arg(long, help = "JSON body, e.g. {\"email\":\"you@example.com\"}")]
         json: String,
     },
     OtpVerify {
-        #[arg(long)]
+        #[arg(long, help = "JSON body with email and code")]
         json: String,
     },
     Logout,
@@ -110,12 +210,10 @@ pub enum AuthCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum UsersCommand {
-    /// List all users.
+    /// List all users (admin).
     List {
-        #[arg(long)]
-        page: Option<u32>,
-        #[arg(long)]
-        page_size: Option<u32>,
+        #[command(flatten)]
+        page: PageArgs,
     },
     /// Get a single user by id.
     Get {
@@ -132,7 +230,7 @@ pub enum UsersCommand {
     /// Upload profile picture from a file (`PUT .../profile-picture`).
     ProfilePicturePut {
         file: PathBuf,
-        #[arg(long)]
+        #[arg(long, help = "MIME type (inferred from extension when omitted)")]
         content_type: Option<String>,
     },
     /// Remove profile picture.
@@ -149,10 +247,8 @@ pub enum UsersCommand {
 #[derive(Debug, Subcommand)]
 pub enum SessionsCommand {
     ListMine {
-        #[arg(long)]
-        page: Option<u32>,
-        #[arg(long)]
-        page_size: Option<u32>,
+        #[command(flatten)]
+        page: PageArgs,
     },
     GetMine {
         id: String,
@@ -173,10 +269,8 @@ pub enum SessionsCommand {
     },
     ListForUser {
         user_id: String,
-        #[arg(long)]
-        page: Option<u32>,
-        #[arg(long)]
-        page_size: Option<u32>,
+        #[command(flatten)]
+        page: PageArgs,
     },
     GetForUser {
         user_id: String,
@@ -195,22 +289,21 @@ pub enum SessionsCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum SongsCommand {
-    /// List all songs.
+    /// List songs with optional search and filters.
     List {
-        #[arg(long)]
-        page: Option<u32>,
-        #[arg(long)]
-        page_size: Option<u32>,
+        #[command(flatten)]
+        list: SongListArgs,
     },
     /// Get a song by id.
     Get {
         id: String,
     },
+    /// Player payload for a single song.
     Player {
         id: String,
     },
     Create {
-        #[arg(long)]
+        #[arg(long, help = "JSON CreateSong body")]
         json: String,
     },
     Update {
@@ -225,7 +318,7 @@ pub enum SongsCommand {
     },
     Move {
         id: String,
-        #[arg(long)]
+        #[arg(long, help = "JSON MoveOwner body, e.g. {\"owner\":\"team_id\"}")]
         json: String,
     },
     Delete {
@@ -242,24 +335,22 @@ pub enum SongsCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum CollectionsCommand {
-    /// List all collections.
+    /// List collections with optional search and team filter.
     List {
-        #[arg(long)]
-        page: Option<u32>,
-        #[arg(long)]
-        page_size: Option<u32>,
+        #[command(flatten)]
+        list: HubListArgs,
     },
     /// Get a collection by id.
     Get {
         id: String,
     },
+    /// Resolved songs for collection slots.
     Songs {
         id: String,
-        #[arg(long)]
-        page: Option<u32>,
-        #[arg(long)]
-        page_size: Option<u32>,
+        #[command(flatten)]
+        page: PageArgs,
     },
+    /// Aggregated player payload (items + toc).
     Player {
         id: String,
     },
@@ -285,33 +376,51 @@ pub enum CollectionsCommand {
     Delete {
         id: String,
     },
+    /// Move a song link to another collection atomically.
+    TransferSong {
+        id: String,
+        song_id: String,
+        #[arg(
+            long,
+            help = "JSON TransferCollectionSong body, e.g. {\"target\":\"col_id\",\"language\":\"de\"}"
+        )]
+        json: String,
+    },
+    /// Upload a cover image (JPEG or PNG).
+    CoverPut {
+        id: String,
+        file: PathBuf,
+        #[arg(long, help = "MIME type (inferred from extension when omitted)")]
+        content_type: Option<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
 pub enum SetlistsCommand {
-    /// List all setlists.
+    /// List setlists with optional search and team filter.
     List {
-        #[arg(long)]
-        page: Option<u32>,
-        #[arg(long)]
-        page_size: Option<u32>,
+        #[command(flatten)]
+        list: HubListArgs,
     },
     /// Get a setlist by id.
     Get {
         id: String,
     },
+    /// Resolved songs for setlist slots.
     Songs {
         id: String,
-        #[arg(long)]
-        page: Option<u32>,
-        #[arg(long)]
-        page_size: Option<u32>,
+        #[command(flatten)]
+        page: PageArgs,
     },
+    /// Aggregated player payload (items + toc).
     Player {
         id: String,
     },
     Create {
-        #[arg(long)]
+        #[arg(
+            long,
+            help = "JSON CreateSetlist body; slots support key, tempo, and language overrides"
+        )]
         json: String,
     },
     Update {
@@ -338,10 +447,8 @@ pub enum SetlistsCommand {
 pub enum TeamsCommand {
     /// List teams visible to the current user.
     List {
-        #[arg(long)]
-        page: Option<u32>,
-        #[arg(long)]
-        page_size: Option<u32>,
+        #[command(flatten)]
+        list: HubListArgs,
     },
     /// Get a team by id.
     Get {
@@ -368,16 +475,21 @@ pub enum TeamsCommand {
     Delete {
         id: String,
     },
+    /// Upload a team cover image (JPEG or PNG).
+    CoverPut {
+        id: String,
+        file: PathBuf,
+        #[arg(long)]
+        content_type: Option<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
 pub enum TeamInvitationsCommand {
     List {
         team_id: String,
-        #[arg(long)]
-        page: Option<u32>,
-        #[arg(long)]
-        page_size: Option<u32>,
+        #[command(flatten)]
+        page: PageArgs,
     },
     Create {
         team_id: String,
@@ -404,10 +516,8 @@ pub enum TeamInvitationsCommand {
 pub enum BlobsCommand {
     /// List all blobs.
     List {
-        #[arg(long)]
-        page: Option<u32>,
-        #[arg(long)]
-        page_size: Option<u32>,
+        #[command(flatten)]
+        page: PageArgs,
     },
     /// Get a blob by id.
     Get {
@@ -435,13 +545,14 @@ pub enum BlobsCommand {
     Delete {
         id: String,
     },
+    /// Absolute download URL for blob data.
     DownloadUrl {
         id: String,
     },
     /// Download raw bytes (`GET /api/v1/blobs/{id}/data`).
     DownloadData {
         id: String,
-        #[arg(long)]
+        #[arg(long, help = "Write to file instead of stdout")]
         output: Option<PathBuf>,
     },
     /// Upload raw bytes (`PUT /api/v1/blobs/{id}/data`).
@@ -457,16 +568,14 @@ pub enum BlobsCommand {
 pub enum MonitoringCommand {
     /// Admin: paginated HTTP audit log.
     AuditLogs {
-        #[arg(long)]
-        page: Option<u32>,
-        #[arg(long)]
-        page_size: Option<u32>,
+        #[command(flatten)]
+        page: PageArgs,
     },
     /// Admin: daily metrics for inclusive UTC RFC 3339 timestamps.
     Metrics {
-        #[arg(long)]
+        #[arg(long, help = "Start timestamp (RFC 3339 UTC)")]
         start: String,
-        #[arg(long)]
+        #[arg(long, help = "End timestamp (RFC 3339 UTC)")]
         end: String,
     },
 }

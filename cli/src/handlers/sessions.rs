@@ -3,7 +3,7 @@ use shared::net::DefaultHttpClient;
 
 use crate::commands::SessionsCommand;
 use crate::output::{self, OutputFormat};
-use crate::validate::{list_query_from_opts, validate_resource_id};
+use crate::validate::{list_query_from_page_args, validate_resource_id};
 
 pub async fn handle_sessions(
     client: &ApiClient<DefaultHttpClient>,
@@ -12,8 +12,8 @@ pub async fn handle_sessions(
     cmd: &SessionsCommand,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
-        SessionsCommand::ListMine { page, page_size } => {
-            let query = list_query_from_opts(*page, *page_size);
+        SessionsCommand::ListMine { page } => {
+            let query = list_query_from_page_args(page)?;
             let sessions = client.list_my_sessions(query).await?;
             match output::effective_output_format(&output) {
                 OutputFormat::Ndjson => output::print_ndjson_list(&sessions),
@@ -65,13 +65,9 @@ pub async fn handle_sessions(
             let session = client.create_session_for_user(user_id).await?;
             output::print_json(&session, &output)
         }
-        SessionsCommand::ListForUser {
-            user_id,
-            page,
-            page_size,
-        } => {
+        SessionsCommand::ListForUser { user_id, page } => {
             validate_resource_id(user_id)?;
-            let query = list_query_from_opts(*page, *page_size);
+            let query = list_query_from_page_args(page)?;
             let sessions = client.list_sessions_for_user(user_id, query).await?;
             match output::effective_output_format(&output) {
                 OutputFormat::Ndjson => output::print_ndjson_list(&sessions),

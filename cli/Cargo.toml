@@ -17,4 +17,5 @@ serde_json = "1.0.149"
 toml = "1.1.2"
 dirs = "6.0.0"
 shared = { path = "../shared", features = ["cli"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 

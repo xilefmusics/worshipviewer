@@ -100,6 +100,7 @@ fn map_cli_command_to_openapi_operation(
         ("teams", "update") => ("put", "/api/v1/teams/{id}"),
         ("teams", "patch") => ("patch", "/api/v1/teams/{id}"),
         ("teams", "delete") => ("delete", "/api/v1/teams/{id}"),
+        ("teams", "cover-put") => ("put", "/api/v1/teams/{id}/cover"),
         ("team-invitations", "list") => ("get", "/api/v1/teams/{team_id}/invitations"),
         ("team-invitations", "create") => ("post", "/api/v1/teams/{team_id}/invitations"),
         ("team-invitations", "get") => {
@@ -140,6 +141,10 @@ fn map_cli_command_to_openapi_operation(
         ("collections", "patch") => ("patch", "/api/v1/collections/{id}"),
         ("collections", "move") => ("post", "/api/v1/collections/{id}/move"),
         ("collections", "delete") => ("delete", "/api/v1/collections/{id}"),
+        ("collections", "transfer-song") | ("collections", "transfer") => {
+            ("post", "/api/v1/collections/{id}/songs/{song_id}/transfer")
+        }
+        ("collections", "cover-put") => ("put", "/api/v1/collections/{id}/cover"),
         ("setlists", "list") => ("get", "/api/v1/setlists"),
         ("setlists", "get") => ("get", "/api/v1/setlists/{id}"),
         ("setlists", "songs") => ("get", "/api/v1/setlists/{id}/songs"),

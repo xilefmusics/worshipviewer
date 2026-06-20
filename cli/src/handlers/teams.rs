@@ -1,25 +1,36 @@
-use shared::api::ApiClient;
-use shared::net::DefaultHttpClient;
+use std::fs;
+
 use shared::team::{CreateTeam, UpdateTeam};
 
 use crate::commands::{TeamInvitationsCommand, TeamsCommand};
+use crate::http_extra::upload_team_cover;
+use crate::list_output::print_list;
 use crate::output::{self, OutputFormat};
-use crate::validate::{list_query_from_opts, page_query_from_opts, validate_resource_id};
+use crate::session::CliSession;
+use crate::validate::{
+    image_content_type_for_path, list_query_from_hub_args, page_query_from_page_args,
+    validate_resource_id,
+};
 
 pub async fn handle_teams(
-    client: &ApiClient<DefaultHttpClient>,
+    session: &CliSession,
     output: OutputFormat,
     dry_run: bool,
     cmd: &TeamsCommand,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let client = session.api();
     match cmd {
-        TeamsCommand::List { page, page_size } => {
-            let query = list_query_from_opts(*page, *page_size);
-            let teams = client.list_teams(query).await?;
-            match output::effective_output_format(&output) {
-                OutputFormat::Ndjson => output::print_ndjson_list(&teams),
-                _ => output::print_json(&teams, &output),
-            }
+        TeamsCommand::List { list } => {
+            let query = list_query_from_hub_args(list)?;
+            print_list(
+                session,
+                "api/v1/teams",
+                &query.to_query_string(),
+                list.page.with_meta,
+                &output,
+                || async { client.list_teams(query.clone()).await },
+            )
+            .await
         }
         TeamsCommand::Invitations { command } => {
             handle_team_invitations(client, output.clone(), dry_run, command).await
@@ -86,23 +97,40 @@ pub async fn handle_teams(
             client.delete_team(id).await?;
             output::print_json(&serde_json::json!({"deleted": true}), &output)
         }
+        TeamsCommand::CoverPut {
+            id,
+            file,
+            content_type,
+        } => {
+            validate_resource_id(id)?;
+            let ct = image_content_type_for_path(file, content_type.as_deref())?;
+            let body = fs::read(file)?;
+            if dry_run {
+                let planned = serde_json::json!({
+                    "method": "PUT",
+                    "path": format!("api/v1/teams/{id}/cover"),
+                    "content_type": ct,
+                    "body_len": body.len(),
+                });
+                output::print_json(&planned, &output)?;
+                return Ok(());
+            }
+            let team = upload_team_cover(session.http(), id, &ct, &body).await?;
+            output::print_json(&team, &output)
+        }
     }
 }
 
 async fn handle_team_invitations(
-    client: &ApiClient<DefaultHttpClient>,
+    client: &shared::api::ApiClient<shared::net::DefaultHttpClient>,
     output: OutputFormat,
     dry_run: bool,
     cmd: &TeamInvitationsCommand,
 ) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
-        TeamInvitationsCommand::List {
-            team_id,
-            page,
-            page_size,
-        } => {
+        TeamInvitationsCommand::List { team_id, page } => {
             validate_resource_id(team_id)?;
-            let query = page_query_from_opts(*page, *page_size);
+            let query = page_query_from_page_args(page)?;
             if dry_run {
                 output::print_json(
                     &serde_json::json!({
@@ -118,7 +146,7 @@ async fn handle_team_invitations(
             }
             let items = client.list_team_invitations(team_id, query).await?;
             match output::effective_output_format(&output) {
-                OutputFormat::Ndjson => output::print_ndjson_list(&items),
+                output::OutputFormat::Ndjson => output::print_ndjson_list(&items),
                 _ => output::print_json(&items, &output),
             }
         }
