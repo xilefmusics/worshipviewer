@@ -59,12 +59,7 @@ pub fn format_chord_pro(
     let key_ref = parse_key(key)?;
     let rep_ref = parse_representation(representation)?;
     let lang = language.map(|l| l as usize);
-    Ok((&song).format_chord_pro(
-        key_ref.as_ref(),
-        rep_ref.as_ref(),
-        lang,
-        worship_pro,
-    ))
+    Ok((&song).format_chord_pro(key_ref.as_ref(), rep_ref.as_ref(), lang, worship_pro))
 }
 
 /// DIN-A4 HTML preview (body fragment + CSS) for a structured song.
@@ -135,7 +130,8 @@ pub fn render_a4_section_htmls(
     let key_ref = parse_key(key)?;
     let rep_ref = parse_representation(representation)?;
     let lang = language.map(|l| l as usize);
-    let (sections, css) = (&song).format_html_sections(key_ref.as_ref(), rep_ref.as_ref(), lang, scale);
+    let (sections, css) =
+        (&song).format_html_sections(key_ref.as_ref(), rep_ref.as_ref(), lang, scale);
     Ok(SectionHtmlPage { sections, css })
 }
 
