@@ -38,6 +38,56 @@ describe('av-projection-sync', () => {
     expect(readAvProjectionSnapshot('session-1', storage)).toEqual(payload)
   })
 
+  it('round-trips structured contentLines through snapshot storage', () => {
+    const map = new Map<string, string>()
+    const storage = {
+      getItem: (key: string) => map.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        map.set(key, value)
+      },
+    }
+    const payload: AvProjectionPayload = {
+      contentText: 'Hello',
+      contentLines: [
+        { primary: 'Hello', secondary: 'Hallo' },
+        { primary: 'World' },
+      ],
+      contentLayer: DEFAULT_AV_PREFERENCES.contentLayer,
+      backgroundLayer: DEFAULT_AV_PREFERENCES.backgroundLayer,
+      transition: DEFAULT_AV_PREFERENCES.transition,
+      screenState: 'live',
+      itemTitle: 'Song',
+      nextPreview: null,
+    }
+
+    writeAvProjectionSnapshot('session-bilingual', payload, storage)
+    expect(readAvProjectionSnapshot('session-bilingual', storage)).toEqual(payload)
+  })
+
+  it('broadcast persists structured contentLines in latest snapshot', () => {
+    const map = new Map<string, string>()
+    const storage = {
+      getItem: (key: string) => map.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        map.set(key, value)
+      },
+    }
+    const sync = createAvProjectionSync('session-bilingual-broadcast', storage)
+    const payload: AvProjectionPayload = {
+      contentText: 'Hallo',
+      contentLines: [{ primary: 'Hallo', secondary: 'Hello' }],
+      contentLayer: DEFAULT_AV_PREFERENCES.contentLayer,
+      backgroundLayer: DEFAULT_AV_PREFERENCES.backgroundLayer,
+      transition: DEFAULT_AV_PREFERENCES.transition,
+      screenState: 'live',
+      itemTitle: 'Anker',
+      nextPreview: 'Tschuess',
+    }
+    sync.broadcast(payload)
+    sync.close()
+    expect(readAvProjectionSnapshot('session-bilingual-broadcast', storage)).toEqual(payload)
+  })
+
   it('broadcast persists latest snapshot', () => {
     const map = new Map<string, string>()
     const storage = {

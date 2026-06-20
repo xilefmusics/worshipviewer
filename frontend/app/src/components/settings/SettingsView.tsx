@@ -61,6 +61,10 @@ import {
   writeSheetImageInvertPreference,
 } from '@/lib/sheet-image-invert-preference'
 import {
+  readAvBilingualPreference,
+  writeAvBilingualPreference,
+} from '@/lib/av-bilingual-preference'
+import {
   readTocMultilingualPreference,
   writeTocMultilingualPreference,
 } from '@/lib/toc-multilingual-preference'
@@ -317,6 +321,7 @@ export function SettingsView({
   const [chordFormatPreference, setChordFormatPreference] = useState(readChordFormatPreference)
   const [hideChords, setHideChordsState] = useState(readHideChordsPreference)
   const [tocMultilingual, setTocMultilingualState] = useState(readTocMultilingualPreference)
+  const [avBilingual, setAvBilingualState] = useState(readAvBilingualPreference)
   const [sheetBackgroundPreference, setSheetBackgroundPreference] = useState(readSheetBackgroundPreference)
   const [invertSheetImages, setInvertSheetImagesState] = useState(readSheetImageInvertPreference)
   const [layoutPreferences, setLayoutPreferences] = useState(readPlayerLayoutPreferences)
@@ -561,6 +566,11 @@ export function SettingsView({
   function setTocMultilingual(enabled: boolean) {
     setTocMultilingualState(enabled)
     writeTocMultilingualPreference(enabled)
+  }
+
+  function setAvBilingual(enabled: boolean) {
+    setAvBilingualState(enabled)
+    writeAvBilingualPreference(enabled)
   }
 
   function setSheetBackground(next: SheetBackgroundPreference) {
@@ -1012,6 +1022,21 @@ export function SettingsView({
                   <span>{t('settings.playerRoles.content.balanceSlideLines')}</span>
                   <span className="text-xs text-[var(--color-muted-foreground)]">
                     {t('settings.playerRoles.content.balanceSlideLinesDescription')}
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
+                  aria-label={t('settings.avBilingual.label')}
+                  checked={avBilingual}
+                  onChange={(e) => setAvBilingual(e.target.checked)}
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span>{t('settings.avBilingual.label')}</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
+                    {t('settings.avBilingual.description')}
                   </span>
                 </span>
               </label>

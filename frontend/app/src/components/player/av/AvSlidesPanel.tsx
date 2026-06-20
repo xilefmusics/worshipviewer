@@ -23,6 +23,19 @@ function firstSlideLine(text: string): string {
   return line || text.trim()
 }
 
+function previewContent(entry: AvSlideDeckEntry, multiColumn: boolean): {
+  contentText?: string
+  contentLines?: AvSlideDeckEntry['lines']
+} {
+  if (entry.lines?.length) {
+    return {
+      contentLines: multiColumn ? entry.lines : entry.lines.slice(0, 1),
+    }
+  }
+  const text = multiColumn ? entry.text : firstSlideLine(entry.text)
+  return { contentText: text }
+}
+
 function slidePanelColumnCount(width: number): number {
   return Math.floor((width + SLIDE_COL_GAP_PX) / (SLIDE_COL_MIN_PX + SLIDE_COL_GAP_PX))
 }
@@ -108,7 +121,7 @@ export function AvSlidesPanel({
       >
       {entries.map((entry) => {
         const selected = entry.slideIndex === currentSlideIndex
-        const previewText = multiColumn ? entry.text : firstSlideLine(entry.text)
+        const preview = previewContent(entry, multiColumn)
         return (
           <button
             key={entry.slideIndex}
@@ -137,7 +150,8 @@ export function AvSlidesPanel({
               )}
             >
               <AvSlideView
-                contentText={previewText}
+                contentText={preview.contentText}
+                contentLines={preview.contentLines}
                 contentLayer={contentLayer}
                 backgroundLayer={backgroundLayer}
                 transition={transition}

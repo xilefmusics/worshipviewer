@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
+import { useAvBilingualPreference } from '@/hooks/useAvBilingualPreference'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
 import {
   avItemTitle,
@@ -131,6 +132,7 @@ export function PlayerAv({
   const navigate = useNavigate()
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const tocMultilingualEnabled = useTocMultilingualPreference()
+  const bilingualEnabled = useAvBilingualPreference()
   const [prefs, setPrefs] = useState<AvPreferences>(() => readAvPreferences())
   const [viewState, setViewState] = useState<PlayerViewState>(() => readPlayerViewState(type, id))
   const [session, setSession] = useState<AvSessionState>(() => {
@@ -184,7 +186,7 @@ export function PlayerAv({
         maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
         balanceSlideLines: prefs.contentLayer.balanceSlideLines,
         collapseLyricWhitespace,
-      }, resolveLanguageIndexForItem),
+      }, resolveLanguageIndexForItem, bilingualEnabled),
     [
       player.items,
       prefs.contentLayer.maxLinesPerSlide,
@@ -192,6 +194,7 @@ export function PlayerAv({
       collapseLyricWhitespace,
       resolveLanguageIndexForItem,
       session.itemIndex,
+      bilingualEnabled,
     ],
   )
 
@@ -201,7 +204,7 @@ export function PlayerAv({
         maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
         balanceSlideLines: prefs.contentLayer.balanceSlideLines,
         collapseLyricWhitespace,
-      }, resolveLanguageIndexForItem),
+      }, resolveLanguageIndexForItem, bilingualEnabled),
     [
       player.items,
       prefs.contentLayer.maxLinesPerSlide,
@@ -209,6 +212,7 @@ export function PlayerAv({
       collapseLyricWhitespace,
       resolveLanguageIndexForItem,
       projected.itemIndex,
+      bilingualEnabled,
     ],
   )
 
@@ -231,8 +235,13 @@ export function PlayerAv({
     })
   }, [session.screenState, session.slideIndex, slideCount, t, title])
   const slideDeckEntries = useMemo(
-    () => buildAvSlideDeckEntries(currentItem.outline, currentItem.sourceSlides),
-    [currentItem.outline, currentItem.sourceSlides],
+    () =>
+      buildAvSlideDeckEntries(
+        currentItem.outline,
+        currentItem.sourceSlides,
+        currentItem.structuredSourceSlides,
+      ),
+    [currentItem.outline, currentItem.sourceSlides, currentItem.structuredSourceSlides],
   )
   const outlineRows = useMemo(
     () => buildAvOutlineRows(currentItem.outline, session.slideIndex),
@@ -248,6 +257,11 @@ export function PlayerAv({
     return currentItem.slides[session.slideIndex] ?? currentItem.slides[0] ?? ''
   }, [currentItem.slides, session.screenState, session.slideIndex])
 
+  const currentLines = useMemo(() => {
+    if (session.screenState !== 'live') return undefined
+    return currentItem.structuredSlides?.[session.slideIndex] ?? currentItem.structuredSlides?.[0]
+  }, [currentItem.structuredSlides, session.screenState, session.slideIndex])
+
   const projectedSlideCount = projectedItem.slides.length
   const projectedText = useMemo(() => {
     if (projected.screenState !== 'live') return ''
@@ -261,6 +275,14 @@ export function PlayerAv({
     if (nextIndex == null) return null
     return projectedItem.slides[nextIndex] ?? null
   }, [projected.slideIndex, projectedItem.slides, projectedSlideCount])
+
+  const projectedLines = useMemo(() => {
+    if (projected.screenState !== 'live') return undefined
+    return (
+      projectedItem.structuredSlides?.[projected.slideIndex]
+      ?? projectedItem.structuredSlides?.[0]
+    )
+  }, [projected.screenState, projected.slideIndex, projectedItem.structuredSlides])
 
   const playerReturnContext = useMemo(
     () => ({
@@ -339,6 +361,7 @@ export function PlayerAv({
     }
     const payload = buildAvProjectionPayload({
       contentText: projectedText,
+      contentLines: projectedLines,
       contentLayer: prefs.contentLayer,
       backgroundLayer: prefs.backgroundLayer,
       transition: prefs.transition,
@@ -350,6 +373,7 @@ export function PlayerAv({
     syncRef.current?.broadcast(payload)
   }, [
     projectedText,
+    projectedLines,
     projectedNextText,
     projected.screenState,
     projectedTitle,
@@ -652,7 +676,8 @@ export function PlayerAv({
           <div className="player-av__preview">
             <AvSlideView
               preview
-              contentText={currentText}
+              contentText={currentLines ? undefined : currentText}
+              contentLines={currentLines}
               contentLayer={prefs.contentLayer}
               backgroundLayer={prefs.backgroundLayer}
               transition={prefs.transition}

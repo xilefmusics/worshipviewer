@@ -130,3 +130,40 @@ describe('av flat slides', () => {
     expect(buildAvOutlineRows(german.outline, 0).map((row) => row.slideIndex)).toEqual([0, 1])
   })
 })
+
+describe('avSlidesForItem bilingual mode', () => {
+  it('produces structured lines while keeping primary-only string slides', () => {
+    const item = chordItem('de')
+    const bilingual = avSlidesForItem(item, 0, split, 'Setlist title', () => 0, true)
+
+    expect(bilingual.slides).toEqual(['Hello', 'Goodbye'])
+    expect(bilingual.structuredSlides).toEqual([
+      [{ primary: 'Hello', secondary: 'Hallo' }],
+      [{ primary: 'Goodbye', secondary: 'Tschuess' }],
+    ])
+  })
+
+  it('swaps tracks when the primary override changes', () => {
+    const item = chordItem('de')
+    const english = avSlidesForItem(item, 0, split, 'Setlist title', () => 0, true)
+    const german = avSlidesForItem(item, 0, split, 'Setlist title', () => 1, true)
+
+    expect(english.structuredSlides?.[0]?.[0]).toEqual({
+      primary: 'Hello',
+      secondary: 'Hallo',
+    })
+    expect(german.structuredSlides?.[0]?.[0]).toEqual({
+      primary: 'Hallo',
+      secondary: 'Hello',
+    })
+  })
+
+  it('matches monolingual slide counts when bilingual is disabled', () => {
+    const item = chordItem('de')
+    const mono = avSlidesForItem(item, 0, split, 'Setlist title', () => 0, false)
+    const bilingual = avSlidesForItem(item, 0, split, 'Setlist title', () => 0, true)
+
+    expect(bilingual.slides).toEqual(mono.slides)
+    expect(bilingual.slides.length).toBe(mono.slides.length)
+  })
+})

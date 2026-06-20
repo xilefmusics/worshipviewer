@@ -1,10 +1,16 @@
 import type { components } from '@/api/schema'
 
 import {
+  type AvLyricLine,
+  type AvBilingualLyricSlidesResult,
   type AvSectionOutline,
   blobItemSlideText,
+  buildAvBilingualLyricSlides,
   buildAvLyricSlides,
   buildAvPresentationSlides,
+  buildAvPresentationStructuredSlides,
+  resolveAvEffectivePrimaryLanguageIndex,
+  resolveAvSecondaryLanguageIndex,
 } from '@/lib/player/av-lyric-slides'
 import type { AvLyricSplitPrefs } from '@/lib/player/av-preferences'
 import { itemTypeAt, tocEntryForIndex } from '@/lib/player/player-helpers'
@@ -18,6 +24,8 @@ export type AvLanguageIndexResolver = (itemIndex: number) => number | undefined
 export type AvItemSlides = {
   slides: string[]
   sourceSlides: string[]
+  structuredSlides?: AvLyricLine[][]
+  structuredSourceSlides?: AvLyricLine[][]
   outline: AvSectionOutline[]
   kind: 'lyrics' | 'blob'
 }
@@ -68,6 +76,7 @@ export function avSlidesForItem(
   split: AvLyricSplitPrefs,
   fallbackTitle?: string,
   resolveLanguageIndex?: AvLanguageIndexResolver,
+  bilingualEnabled = false,
 ): AvItemSlides {
   if (!item) return { slides: [''], sourceSlides: [''], outline: [], kind: 'blob' }
   if (item.type === 'blob') {
@@ -80,33 +89,60 @@ export function avSlidesForItem(
     }
   }
   const songData = item.song.data
-  const languageIndex = resolveAvItemLanguageIndex(item, itemIndex, resolveLanguageIndex)
-  const lyricData = buildAvLyricSlides(
-    songData.sections,
-    split.maxLinesPerSlide,
-    languageIndex,
-    split.balanceSlideLines,
-    split.collapseLyricWhitespace,
-  )
+  const requestedPrimary = resolveAvItemLanguageIndex(item, itemIndex, resolveLanguageIndex)
+  const effectivePrimary = bilingualEnabled
+    ? resolveAvEffectivePrimaryLanguageIndex(
+        songData.sections,
+        requestedPrimary,
+        split.collapseLyricWhitespace,
+      )
+    : requestedPrimary
+  const lyricData: AvBilingualLyricSlidesResult = bilingualEnabled
+    ? buildAvBilingualLyricSlides(
+        songData.sections,
+        split.maxLinesPerSlide,
+        effectivePrimary,
+        resolveAvSecondaryLanguageIndex(
+          songData.sections,
+          effectivePrimary,
+          split.collapseLyricWhitespace,
+        ),
+        split.balanceSlideLines,
+        split.collapseLyricWhitespace,
+      )
+    : buildAvLyricSlides(
+        songData.sections,
+        split.maxLinesPerSlide,
+        requestedPrimary,
+        split.balanceSlideLines,
+        split.collapseLyricWhitespace,
+      )
   if (lyricData.outline.length === 0 && lyricData.slides.length === 0) {
     const title = songTitleAtLanguageIndex(
       songData as Record<string, unknown>,
-      languageIndex,
+      requestedPrimary,
       fallbackTitle,
     )
     return { slides: [title], sourceSlides: [title], outline: [], kind: 'lyrics' }
   }
   const slides = buildAvPresentationSlides(lyricData.outline, lyricData.slides)
+  const structuredSourceSlides = lyricData.structuredSlides
+  const structuredSlides =
+    structuredSourceSlides && lyricData.outline.length > 0
+      ? buildAvPresentationStructuredSlides(lyricData.outline, structuredSourceSlides)
+      : structuredSourceSlides
   if (slides.length === 0) {
     return {
       slides: [
         songTitleAtLanguageIndex(
           songData as Record<string, unknown>,
-          languageIndex,
+          requestedPrimary,
           fallbackTitle,
         ),
       ],
       sourceSlides: lyricData.slides,
+      structuredSlides,
+      structuredSourceSlides,
       outline: lyricData.outline,
       kind: 'lyrics',
     }
@@ -114,6 +150,8 @@ export function avSlidesForItem(
   return {
     slides,
     sourceSlides: lyricData.slides,
+    structuredSlides,
+    structuredSourceSlides,
     outline: lyricData.outline,
     kind: 'lyrics',
   }
@@ -124,6 +162,7 @@ export function avSlidesForPlayerItem(
   itemIndex: number,
   split: AvLyricSplitPrefs,
   resolveLanguageIndex?: AvLanguageIndexResolver,
+  bilingualEnabled = false,
 ): AvItemSlides {
   return avSlidesForItem(
     items[itemIndex],
@@ -131,6 +170,7 @@ export function avSlidesForPlayerItem(
     split,
     undefined,
     resolveLanguageIndex,
+    bilingualEnabled,
   )
 }
 
@@ -145,6 +185,7 @@ export function buildAvFlatSlides(
   split: AvLyricSplitPrefs,
   toc: Player['toc'] = [],
   resolveLanguageIndex?: AvLanguageIndexResolver,
+  bilingualEnabled = false,
 ): AvFlatSlide[] {
   const flat: AvFlatSlide[] = []
   for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
@@ -155,6 +196,7 @@ export function buildAvFlatSlides(
       split,
       tocTitle,
       resolveLanguageIndex,
+      bilingualEnabled,
     )
     for (let slideIndex = 0; slideIndex < slides.length; slideIndex += 1) {
       flat.push({ itemIndex, slideIndex, text: slides[slideIndex] ?? '' })
@@ -264,8 +306,15 @@ export type AvPlayerContext = {
   player: Player
   split: AvLyricSplitPrefs
   resolveLanguageIndex?: AvLanguageIndexResolver
+  bilingualEnabled?: boolean
 }
 
 export function rebuildAvFlat(ctx: AvPlayerContext): AvFlatSlide[] {
-  return buildAvFlatSlides(ctx.player.items, ctx.split, ctx.player.toc, ctx.resolveLanguageIndex)
+  return buildAvFlatSlides(
+    ctx.player.items,
+    ctx.split,
+    ctx.player.toc,
+    ctx.resolveLanguageIndex,
+    ctx.bilingualEnabled,
+  )
 }

@@ -1,3 +1,4 @@
+import type { AvLyricLine } from '@/lib/player/av-lyric-slides'
 import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
 import type { PlayerMode } from '@/lib/player/player-mode'
 
@@ -186,6 +187,7 @@ export function effectiveAvTransition(
 
 export type AvProjectionPayload = {
   contentText: string
+  contentLines?: AvLyricLine[]
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
   transition: AvTransition
@@ -196,6 +198,7 @@ export type AvProjectionPayload = {
 
 export function buildAvProjectionPayload(input: {
   contentText: string
+  contentLines?: AvLyricLine[]
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
   transition: AvTransition
@@ -208,8 +211,13 @@ export function buildAvProjectionPayload(input: {
 }): AvProjectionPayload {
   const screenState =
     input.screenState ?? (input.blackout ? 'blackout' : 'live')
+  const contentLines =
+    screenState === 'live' && input.contentLines && input.contentLines.length > 0
+      ? input.contentLines
+      : undefined
   return {
     contentText: input.contentText,
+    ...(contentLines ? { contentLines } : {}),
     contentLayer: input.contentLayer,
     backgroundLayer: input.backgroundLayer,
     transition: effectiveAvTransition(

@@ -49,7 +49,8 @@ export function AvOutputPage({
       aria-label={t('player.av.outputAria')}
     >
       <AvSlideView
-        contentText={viewPayload.contentText}
+        contentText={viewPayload.contentLines?.length ? undefined : viewPayload.contentText}
+        contentLines={viewPayload.contentLines}
         contentLayer={viewPayload.contentLayer}
         backgroundLayer={viewPayload.backgroundLayer}
         transition={viewPayload.transition}

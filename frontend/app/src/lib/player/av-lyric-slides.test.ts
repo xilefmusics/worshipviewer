@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  avLyricLinesToSlideText,
   avSlideDeckEntrySlideIndex,
+  buildAvBilingualLyricSlides,
   buildAvLyricSlides,
   buildAvOutlineRows,
   buildAvPresentationSlides,
+  buildAvPresentationStructuredSlides,
   buildAvSlideDeckEntries,
   distributeSlideLineCounts,
+  resolveAvEffectivePrimaryLanguageIndex,
   resolveAvOutlineSlideText,
+  resolveAvSecondaryLanguageIndex,
+  songHasUsableLyricsAtIndex,
 } from '@/lib/player/av-lyric-slides'
 
 describe('distributeSlideLineCounts', () => {
@@ -397,5 +403,162 @@ describe('buildAvPresentationSlides', () => {
     ]
 
     expect(buildAvPresentationSlides(outline, [])).toEqual([''])
+  })
+})
+
+const bilingualSections = [
+  {
+    title: 'Verse 1',
+    lines: [
+      { parts: [{ comment: false, languages: ['Hello', 'Hallo', 'Bonjour'] }] },
+      { parts: [{ comment: false, languages: ['World', 'Welt', ''] }] },
+    ],
+  },
+  {
+    title: 'Chorus',
+    lines: [
+      { parts: [{ comment: false, languages: ['Sing', 'Singt', 'Chante'] }] },
+    ],
+  },
+]
+
+describe('bilingual track selection', () => {
+  it('detects usable lyrics per language index', () => {
+    expect(songHasUsableLyricsAtIndex(bilingualSections, 0)).toBe(true)
+    expect(songHasUsableLyricsAtIndex(bilingualSections, 2)).toBe(true)
+    expect(songHasUsableLyricsAtIndex(bilingualSections, 99)).toBe(false)
+  })
+
+  it('falls back to track 0 when the requested primary has no lyrics', () => {
+    const sparsePrimary = [
+      {
+        title: 'Verse 1',
+        lines: [{ parts: [{ comment: false, languages: ['Hello', '', 'Bonjour'] }] }],
+      },
+    ]
+
+    expect(resolveAvEffectivePrimaryLanguageIndex(sparsePrimary, 1)).toBe(0)
+    expect(resolveAvEffectivePrimaryLanguageIndex(sparsePrimary, 0)).toBe(0)
+  })
+
+  it('picks the first other language track for secondary in two-language songs', () => {
+    const twoLang = [
+      {
+        title: 'Verse 1',
+        lines: [{ parts: [{ comment: false, languages: ['Hello', 'Hallo'] }] }],
+      },
+    ]
+
+    expect(resolveAvSecondaryLanguageIndex(twoLang, 0)).toBe(1)
+    expect(resolveAvSecondaryLanguageIndex(twoLang, 1)).toBe(0)
+  })
+
+  it('picks the first other usable track for three or more languages', () => {
+    expect(resolveAvSecondaryLanguageIndex(bilingualSections, 1)).toBe(0)
+    expect(resolveAvSecondaryLanguageIndex(bilingualSections, 0)).toBe(1)
+    expect(resolveAvSecondaryLanguageIndex(bilingualSections, 2)).toBe(0)
+  })
+
+  it('returns null when no secondary track has lyrics', () => {
+    const singleLang = [
+      {
+        title: 'Verse 1',
+        lines: [{ parts: [{ comment: false, languages: ['Hello'] }] }],
+      },
+    ]
+
+    expect(resolveAvSecondaryLanguageIndex(singleLang, 0)).toBeNull()
+  })
+})
+
+describe('buildAvBilingualLyricSlides', () => {
+  it('pairs primary and secondary lines and omits empty secondary rows', () => {
+    const result = buildAvBilingualLyricSlides(bilingualSections, 2, 0, 1)
+
+    expect(result.slides).toEqual(['Hello\nWorld', 'Sing'])
+    expect(result.structuredSlides).toEqual([
+      [
+        { primary: 'Hello', secondary: 'Hallo' },
+        { primary: 'World', secondary: 'Welt' },
+      ],
+      [{ primary: 'Sing', secondary: 'Singt' }],
+    ])
+    expect(avLyricLinesToSlideText(result.structuredSlides![0]!)).toBe('Hello\nWorld')
+  })
+
+  it('keeps the same slide count as single-language mode', () => {
+    const mono = buildAvLyricSlides(bilingualSections, 2, 0, true, true)
+    const bilingual = buildAvBilingualLyricSlides(bilingualSections, 2, 0, 1, true, true)
+
+    expect(bilingual.slides).toEqual(mono.slides)
+    expect(bilingual.slides.length).toBe(mono.slides.length)
+    expect(bilingual.outline).toEqual(mono.outline)
+  })
+
+  it('falls back to single-language output when no secondary track exists', () => {
+    const singleLang = [
+      {
+        title: 'Verse 1',
+        lines: [{ parts: [{ comment: false, languages: ['Hello'] }] }],
+      },
+    ]
+    const mono = buildAvLyricSlides(singleLang, 2, 0)
+    const bilingual = buildAvBilingualLyricSlides(singleLang, 2, 0, null)
+
+    expect(bilingual).toEqual(mono)
+    expect(bilingual.structuredSlides).toBeUndefined()
+  })
+
+  it('preserves balancing and whitespace behavior in structured slides', () => {
+    const sections = [
+      {
+        title: 'Verse 1',
+        lines: [
+          { parts: [{ comment: false, languages: ['Line one', 'Zeile eins'] }] },
+          { parts: [{ comment: false, languages: ['Line two', 'Zeile zwei'] }] },
+          { parts: [{ comment: false, languages: ['Line three', 'Zeile drei'] }] },
+          { parts: [{ comment: false, languages: ['Line four', 'Zeile vier'] }] },
+          { parts: [{ comment: false, languages: ['Line five', 'Zeile fuenf'] }] },
+        ],
+      },
+    ]
+
+    const mono = buildAvLyricSlides(sections, 2, 0, true, true)
+    const bilingual = buildAvBilingualLyricSlides(sections, 2, 0, 1, true, true)
+
+    expect(bilingual.slides).toEqual(mono.slides)
+    expect(bilingual.structuredSlides?.map((slide) => slide.length)).toEqual(
+      mono.slides.map((slide) => slide.split('\n').length),
+    )
+  })
+
+  it('builds structured deck entries and repeated-section donors', () => {
+    const repeated = [
+      {
+        title: 'Chorus',
+        lines: [{ parts: [{ comment: false, languages: ['Sing', 'Singt'] }] }],
+      },
+      {
+        title: 'Verse 1',
+        lines: [{ parts: [{ comment: false, languages: ['Verse', 'Strophe'] }] }],
+      },
+      {
+        title: 'Chorus',
+        lines: [],
+      },
+    ]
+    const result = buildAvBilingualLyricSlides(repeated, 2, 0, 1)
+    const entries = buildAvSlideDeckEntries(
+      result.outline,
+      result.slides,
+      result.structuredSlides,
+    )
+
+    expect(entries).toHaveLength(2)
+    expect(entries[0]?.lines).toEqual([{ primary: 'Sing', secondary: 'Singt' }])
+    expect(entries[1]?.lines).toEqual([{ primary: 'Verse', secondary: 'Strophe' }])
+    expect(
+      buildAvPresentationStructuredSlides(result.outline, result.structuredSlides!),
+    ).toHaveLength(buildAvPresentationSlides(result.outline, result.slides).length)
   })
 })

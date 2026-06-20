@@ -497,6 +497,10 @@
       "label": "Expand multilingual song titles in the TOC",
       "description": "Use the matching translated title in the table of contents when a language filter is active. Alphabetical and liked expansion will come later."
     },
+    "avBilingual": {
+      "label": "Bilingual AV lyrics",
+      "description": "Show a smaller translation beneath each primary lyric line in AV mode. The external output window stays primary-only until projection support is enabled separately."
+    },
     "hideChords": {
       "label": "Hide chords in player and exports",
       "description": "Show only song lyrics in the player and when exporting PDF or text files. The song editor is not affected."
