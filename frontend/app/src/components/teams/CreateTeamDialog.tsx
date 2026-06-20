@@ -6,7 +6,7 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/api/client'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import type { Team } from '@/api/teams-sessions-fetch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,12 +35,11 @@ export function CreateTeamDialog({ open, onOpenChange, onCreated }: CreateTeamDi
       if (!trimmed) {
         throw new Error(t('teams.createNameRequired'))
       }
-      const { data, response } = await api.POST('/api/v1/teams', {
+      const { data, error, response } = await api.POST('/api/v1/teams', {
         body: { name: trimmed, members: [] },
       })
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('teams.createFailed'))
+        throw new Error(problemMessageFromBody(error, t('teams.createFailed')))
       }
       return data as Team
     },

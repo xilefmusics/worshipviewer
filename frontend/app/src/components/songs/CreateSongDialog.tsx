@@ -5,7 +5,7 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/api/client'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import type { Song } from '@/api/songs-detail'
 import { fetchTeamsPage } from '@/api/teams-sessions-fetch'
 import { Button } from '@/components/ui/button'
@@ -86,10 +86,9 @@ export function CreateSongDialog({ open, onOpenChange, onCreated }: CreateSongDi
         blobs: [] as [],
         not_a_song: false as const,
       }
-      const { data, response } = await api.POST('/api/v1/songs', { body })
+      const { data, error, response } = await api.POST('/api/v1/songs', { body })
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('songs.create.failed'))
+        throw new Error(problemMessageFromBody(error, t('songs.create.failed')))
       }
       return data as Song
     },

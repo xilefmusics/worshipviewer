@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 
 import { api } from '@/api/client'
 import type { Collection } from '@/api/collections-detail'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import type { Team } from '@/api/teams-sessions-fetch'
 import { fetchTeamsPage } from '@/api/teams-sessions-fetch'
 import { Button } from '@/components/ui/button'
@@ -101,10 +101,9 @@ export function CreateCollectionDialog({ open, onOpenChange, onCreated }: Create
         songs: [],
       }
       if (showOwnerPicker && ownerId) body.owner = ownerId
-      const { data, response } = await api.POST('/api/v1/collections', { body })
+      const { data, error, response } = await api.POST('/api/v1/collections', { body })
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('collections.create.failed'))
+        throw new Error(problemMessageFromBody(error, t('collections.create.failed')))
       }
       return data as Collection
     },

@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/api/client'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import type { Setlist } from '@/api/setlists-detail'
 import type { Team } from '@/api/teams-sessions-fetch'
 import { fetchTeamsPage } from '@/api/teams-sessions-fetch'
@@ -100,10 +100,9 @@ export function CreateSetlistDialog({ open, onOpenChange, onCreated }: CreateSet
         songs: [],
       }
       if (showOwnerPicker && ownerId) body.owner = ownerId
-      const { data, response } = await api.POST('/api/v1/setlists', { body })
+      const { data, error, response } = await api.POST('/api/v1/setlists', { body })
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('setlists.create.failed'))
+        throw new Error(problemMessageFromBody(error, t('setlists.create.failed')))
       }
       return data as Setlist
     },

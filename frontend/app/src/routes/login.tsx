@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/api/client'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import { fetchSessionUser, SESSION_QUERY_KEY, SESSION_STALE_TIME_MS } from '@/api/session'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -92,11 +92,9 @@ function LoginPage() {
 
   const requestOtp = useMutation({
     mutationFn: async (addr: string) => {
-      const { response } = await api.POST('/auth/otp/request', { body: { email: addr } })
+      const { error, response } = await api.POST('/auth/otp/request', { body: { email: addr } })
       if (response.status === 204) return
-      const problem = await parseProblemResponse(response.clone())
-      const msg = [problem?.detail, problem?.title].filter(Boolean).join(' — ') || t('login.errors.otpGeneric')
-      throw new Error(msg)
+      throw new Error(problemMessageFromBody(error, t('login.errors.otpGeneric')))
     },
     onSuccess: () => {
       setOtpError(null)
@@ -107,13 +105,11 @@ function LoginPage() {
 
   const verifyOtp = useMutation({
     mutationFn: async (payload: { email: string; code: string }) => {
-      const { response } = await api.POST('/auth/otp/verify', {
+      const { error, response } = await api.POST('/auth/otp/verify', {
         body: { email: payload.email, code: payload.code },
       })
       if (response.ok) return
-      const problem = await parseProblemResponse(response.clone())
-      const msg = [problem?.detail, problem?.title].filter(Boolean).join(' — ') || t('login.errors.otpGeneric')
-      throw new Error(msg)
+      throw new Error(problemMessageFromBody(error, t('login.errors.otpGeneric')))
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY })

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/api/client'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import { Button } from '@/components/ui/button'
 import { requireSession } from '@/lib/auth-guard'
 import { teamDetailKey, teamInvitationsKey, teamsListRootKey } from '@/lib/teams-sessions-keys'
@@ -30,12 +30,11 @@ function JoinTeamPage() {
 
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
-      const { response } = await api.POST('/api/v1/teams/{team_id}/invitations/{invitation_id}/accept', {
+      const { error, response } = await api.POST('/api/v1/teams/{team_id}/invitations/{invitation_id}/accept', {
         params: { path: { team_id: teamId, invitation_id: invitationId } },
       })
       if (!response.ok) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('joinTeam.failed'))
+        throw new Error(problemMessageFromBody(error, t('joinTeam.failed')))
       }
     },
     onSuccess: async () => {

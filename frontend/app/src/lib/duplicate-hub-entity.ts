@@ -2,7 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 
 import { api } from '@/api/client'
 import { fetchCollectionDetail } from '@/api/collections-detail'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import type { components } from '@/api/schema'
 import { fetchSetlistDetail } from '@/api/setlists-detail'
 import { redirectToLoginAfterUnauthorized } from '@/lib/api-unauthorized'
@@ -44,14 +44,13 @@ async function postSetlist(
   queryClient: QueryClient,
   body: CreateSetlistBody,
 ): Promise<{ id: string; title: string }> {
-  const { data, response } = await api.POST('/api/v1/setlists', { body })
+  const { data, error, response } = await api.POST('/api/v1/setlists', { body })
   if (response.status === 401) {
     await redirectToLoginAfterUnauthorized(queryClient)
     throw new Error('Unauthorized')
   }
   if (!response.ok) {
-    const problem = await parseProblemResponse(response.clone())
-    throw new Error(problem?.title ?? `Duplicate failed (${response.status})`)
+    throw new Error(problemMessageFromBody(error, `Duplicate failed (${response.status})`))
   }
   if (!data?.id) throw new Error('Empty response')
   return { id: data.id, title: data.title }
@@ -61,14 +60,13 @@ async function postCollection(
   queryClient: QueryClient,
   body: CreateCollectionBody,
 ): Promise<{ id: string; title: string }> {
-  const { data, response } = await api.POST('/api/v1/collections', { body })
+  const { data, error, response } = await api.POST('/api/v1/collections', { body })
   if (response.status === 401) {
     await redirectToLoginAfterUnauthorized(queryClient)
     throw new Error('Unauthorized')
   }
   if (!response.ok) {
-    const problem = await parseProblemResponse(response.clone())
-    throw new Error(problem?.title ?? `Duplicate failed (${response.status})`)
+    throw new Error(problemMessageFromBody(error, `Duplicate failed (${response.status})`))
   }
   if (!data?.id) throw new Error('Empty response')
   return { id: data.id, title: data.title }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/api/client'
-import { parseProblemResponse } from '@/api/problem'
+import { problemMessageFromBody } from '@/api/problem'
 import type { SessionBody } from '@/api/teams-sessions-fetch'
 import {
   AlertDialog,
@@ -71,12 +71,11 @@ export function SessionsListView() {
 
   const deleteSession = useMutation({
     mutationFn: async (id: string) => {
-      const { response } = await api.DELETE('/api/v1/users/me/sessions/{id}', {
+      const { error, response } = await api.DELETE('/api/v1/users/me/sessions/{id}', {
         params: { path: { id } },
       })
       if (!response.ok && response.status !== 204) {
-        const problem = await parseProblemResponse(response.clone())
-        throw new Error(problem?.title ?? t('sessions.revokeFailed'))
+        throw new Error(problemMessageFromBody(error, t('sessions.revokeFailed')))
       }
     },
     onSuccess: (_data, revokedId) => {
