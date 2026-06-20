@@ -4,6 +4,7 @@ import { applyTocMetadataFilters, type TocSongMetadata } from '@/lib/player/toc-
 import {
   languageIndexForSongLink,
   songTitleForLanguage,
+  songTitleVariantsForDisplay,
 } from '@/lib/setlist-song-links'
 
 type PlayerItem = components['schemas']['PlayerItem']
@@ -63,11 +64,27 @@ function displayEntryForRow(
   items: PlayerItem[],
   multilingualToc: boolean,
   languageId: string | undefined,
+  override?: {
+    title: string
+    languageIndex: number | null
+    showNumber?: boolean
+  },
 ): TocDisplayEntry {
   const item = items[row.idx]
   const sourceIdx = row.idx
   const liked = row.liked
-  const showNumber = true
+  const showNumber = override?.showNumber ?? true
+
+  if (override) {
+    return {
+      key: displayEntryKey(sourceIdx, override.languageIndex, row.id ?? undefined),
+      sourceIdx,
+      title: override.title,
+      languageIndex: override.languageIndex,
+      liked,
+      showNumber,
+    }
+  }
 
   if (multilingualToc && item?.type === 'chords' && languageId) {
     const languageIndex = languageIndexForSongLink(item.song.data as Record<string, unknown>, languageId)
@@ -94,6 +111,57 @@ function displayEntryForRow(
     liked,
     showNumber,
   }
+}
+
+function compareDisplayEntries(a: TocDisplayEntry, b: TocDisplayEntry): number {
+  const titleCompare = a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })
+  if (titleCompare !== 0) return titleCompare
+  if (a.sourceIdx !== b.sourceIdx) return a.sourceIdx - b.sourceIdx
+  const aLanguageIndex = a.languageIndex ?? -1
+  const bLanguageIndex = b.languageIndex ?? -1
+  if (aLanguageIndex !== bLanguageIndex) return aLanguageIndex - bLanguageIndex
+  return a.key.localeCompare(b.key)
+}
+
+function displayEntriesForRow(
+  row: TocItem,
+  items: PlayerItem[],
+  multilingualToc: boolean,
+  languageId: string | undefined,
+  mode: TocDisplayMode,
+): TocDisplayEntry[] {
+  const item = items[row.idx]
+  if (mode === 'alphabetical' && multilingualToc && !languageId && item?.type === 'chords') {
+    const variants = songTitleVariantsForDisplay(item.song.data as Record<string, unknown>, row.title)
+    if (variants.length > 1) {
+      return variants.map((variant) =>
+        displayEntryForRow(row, items, multilingualToc, languageId, {
+          title: variant.title,
+          languageIndex: variant.languageIndex,
+          showNumber: false,
+        }),
+      )
+    }
+    const variant = variants[0]
+    return [
+      displayEntryForRow(row, items, multilingualToc, languageId, {
+        title: variant?.title ?? row.title,
+        languageIndex: variant?.languageIndex ?? 0,
+        showNumber: false,
+      }),
+    ]
+  }
+  if (mode === 'alphabetical' && multilingualToc && item?.type === 'chords') {
+    const baseEntry = displayEntryForRow(row, items, multilingualToc, languageId)
+    return [
+      displayEntryForRow(row, items, multilingualToc, languageId, {
+        title: baseEntry.title,
+        languageIndex: baseEntry.languageIndex,
+        showNumber: false,
+      }),
+    ]
+  }
+  return [displayEntryForRow(row, items, multilingualToc, languageId)]
 }
 
 export function displayTocEntries(
@@ -135,11 +203,20 @@ export function displayTocEntries(
   }
 
   if (mode === 'alphabetical') {
-    return [...rows]
-      .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
-      .map((row) =>
-        displayEntryForRow(row, metadataFilters.items, metadataFilters.multilingualToc, languageId),
+    const entries = rows
+      .flatMap((row) =>
+        displayEntriesForRow(
+          row,
+          metadataFilters.items,
+          metadataFilters.multilingualToc,
+          languageId,
+          mode,
+        ),
       )
+      .sort(compareDisplayEntries)
+    return metadataFilters.multilingualToc
+      ? entries.map((entry) => ({ ...entry, showNumber: false }))
+      : entries
   }
 
   return rows.map((row) =>
