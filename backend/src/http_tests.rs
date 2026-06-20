@@ -2047,6 +2047,27 @@ mod monitoring_http {
         assert_eq!(call_status!(app, req), StatusCode::BAD_REQUEST);
     }
 
+    /// GET /monitoring/metrics: plain YYYY-MM-DD dates are accepted for both bounds.
+    #[actix_web::test]
+    async fn monitoring_metrics_date_only_query_works() {
+        let db = test_db().await.unwrap();
+        let day = yesterday();
+        seed_metric_audit(&db, "seed-met-date-only", Some("u_date_only"), day, 200, 7).await;
+        let (_, token) = make_admin(&db, "mon-metrics-date-only@test.local").await;
+        let app = test::init_service(build_app(db)).await;
+        let day = day.format("%Y-%m-%d").to_string();
+        let req = test::TestRequest::get()
+            .uri(&format!("/api/v1/monitoring/metrics?start={day}&end={day}"))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body: serde_json::Value = test::read_body_json(resp).await;
+        let rows = body.as_array().expect("metrics array");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["date"], day);
+    }
+
     /// GET /monitoring/metrics: rolling windows and request aggregates use seeded audit rows.
     #[actix_web::test]
     async fn monitoring_metrics_daily_weekly_monthly_seeded_audit() {
