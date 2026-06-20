@@ -8,10 +8,12 @@ import {
 } from '@/lib/player/av-lyric-slides'
 import type { AvLyricSplitPrefs } from '@/lib/player/av-preferences'
 import { itemTypeAt, tocEntryForIndex } from '@/lib/player/player-helpers'
-import { languageIndexForSongLink, songTitleForLanguage } from '@/lib/setlist-song-links'
+import { languageIndexForSongLink, songLanguageOptions } from '@/lib/setlist-song-links'
 
 type Player = components['schemas']['Player']
 type PlayerItem = components['schemas']['PlayerItem']
+
+export type AvLanguageIndexResolver = (itemIndex: number) => number | undefined
 
 export type AvItemSlides = {
   slides: string[]
@@ -20,10 +22,52 @@ export type AvItemSlides = {
   kind: 'lyrics' | 'blob'
 }
 
+function songTitleAtLanguageIndex(
+  data: Record<string, unknown> | undefined | null,
+  languageIndex: number,
+  fallback = '',
+): string {
+  const titles = Array.isArray(data?.titles) ? data.titles : []
+  const value = titles[languageIndex]
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed.length > 0) return trimmed
+  }
+  const fallbackTitle = fallback.trim()
+  return fallbackTitle.length > 0 ? fallbackTitle : 'Untitled'
+}
+
+export function resolveAvItemLanguageIndex(
+  item: PlayerItem | undefined,
+  itemIndex: number,
+  resolveLanguageIndex?: AvLanguageIndexResolver,
+): number {
+  if (!item || item.type !== 'chords') return 0
+
+  const options = songLanguageOptions(item.song.data as Record<string, unknown>)
+  const slotLanguageIndex = languageIndexForSongLink(
+    item.song.data as Record<string, unknown>,
+    item.language,
+  )
+  const overrideLanguageIndex = resolveLanguageIndex?.(itemIndex)
+
+  const isValidIndex = (value: number | undefined): value is number =>
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value < options.length
+
+  if (isValidIndex(overrideLanguageIndex)) return overrideLanguageIndex
+  if (isValidIndex(slotLanguageIndex)) return slotLanguageIndex
+  return 0
+}
+
 export function avSlidesForItem(
   item: PlayerItem | undefined,
+  itemIndex: number,
   split: AvLyricSplitPrefs,
   fallbackTitle?: string,
+  resolveLanguageIndex?: AvLanguageIndexResolver,
 ): AvItemSlides {
   if (!item) return { slides: [''], sourceSlides: [''], outline: [], kind: 'blob' }
   if (item.type === 'blob') {
@@ -36,8 +80,7 @@ export function avSlidesForItem(
     }
   }
   const songData = item.song.data
-  const title = songTitleForLanguage(songData as Record<string, unknown>, item.language)
-  const languageIndex = languageIndexForSongLink(songData as Record<string, unknown>, item.language) ?? 0
+  const languageIndex = resolveAvItemLanguageIndex(item, itemIndex, resolveLanguageIndex)
   const lyricData = buildAvLyricSlides(
     songData.sections,
     split.maxLinesPerSlide,
@@ -46,12 +89,23 @@ export function avSlidesForItem(
     split.collapseLyricWhitespace,
   )
   if (lyricData.outline.length === 0 && lyricData.slides.length === 0) {
+    const title = songTitleAtLanguageIndex(
+      songData as Record<string, unknown>,
+      languageIndex,
+      fallbackTitle,
+    )
     return { slides: [title], sourceSlides: [title], outline: [], kind: 'lyrics' }
   }
   const slides = buildAvPresentationSlides(lyricData.outline, lyricData.slides)
   if (slides.length === 0) {
     return {
-      slides: [title],
+      slides: [
+        songTitleAtLanguageIndex(
+          songData as Record<string, unknown>,
+          languageIndex,
+          fallbackTitle,
+        ),
+      ],
       sourceSlides: lyricData.slides,
       outline: lyricData.outline,
       kind: 'lyrics',
@@ -69,8 +123,15 @@ export function avSlidesForPlayerItem(
   items: PlayerItem[],
   itemIndex: number,
   split: AvLyricSplitPrefs,
+  resolveLanguageIndex?: AvLanguageIndexResolver,
 ): AvItemSlides {
-  return avSlidesForItem(items[itemIndex], split)
+  return avSlidesForItem(
+    items[itemIndex],
+    itemIndex,
+    split,
+    undefined,
+    resolveLanguageIndex,
+  )
 }
 
 export type AvFlatSlide = {
@@ -83,11 +144,18 @@ export function buildAvFlatSlides(
   items: PlayerItem[],
   split: AvLyricSplitPrefs,
   toc: Player['toc'] = [],
+  resolveLanguageIndex?: AvLanguageIndexResolver,
 ): AvFlatSlide[] {
   const flat: AvFlatSlide[] = []
   for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
     const tocTitle = tocEntryForIndex(toc, itemIndex)?.title
-    const { slides } = avSlidesForItem(items[itemIndex], split, tocTitle)
+    const { slides } = avSlidesForItem(
+      items[itemIndex],
+      itemIndex,
+      split,
+      tocTitle,
+      resolveLanguageIndex,
+    )
     for (let slideIndex = 0; slideIndex < slides.length; slideIndex += 1) {
       flat.push({ itemIndex, slideIndex, text: slides[slideIndex] ?? '' })
     }
@@ -164,13 +232,19 @@ export function avItemTitle(
   items: PlayerItem[],
   itemIndex: number,
   tocTitle?: string,
+  resolveLanguageIndex?: AvLanguageIndexResolver,
 ): string {
   const item = items[itemIndex]
-  if (tocTitle?.trim()) return tocTitle.trim()
   if (!item) return ''
   if (item.type === 'chords') {
-    return songTitleForLanguage(item.song.data as Record<string, unknown>, item.language, '')
+    const languageIndex = resolveAvItemLanguageIndex(item, itemIndex, resolveLanguageIndex)
+    return songTitleAtLanguageIndex(
+      item.song.data as Record<string, unknown>,
+      languageIndex,
+      tocTitle,
+    )
   }
+  if (tocTitle?.trim()) return tocTitle.trim()
   return ''
 }
 
@@ -178,15 +252,20 @@ export function avItemHasLyrics(items: PlayerItem[], itemIndex: number): boolean
   return itemTypeAt(items, itemIndex) === 'chords'
 }
 
-export function avTotalSlides(items: PlayerItem[], split: AvLyricSplitPrefs): number {
-  return buildAvFlatSlides(items, split).length
+export function avTotalSlides(
+  items: PlayerItem[],
+  split: AvLyricSplitPrefs,
+  resolveLanguageIndex?: AvLanguageIndexResolver,
+): number {
+  return buildAvFlatSlides(items, split, [], resolveLanguageIndex).length
 }
 
 export type AvPlayerContext = {
   player: Player
   split: AvLyricSplitPrefs
+  resolveLanguageIndex?: AvLanguageIndexResolver
 }
 
 export function rebuildAvFlat(ctx: AvPlayerContext): AvFlatSlide[] {
-  return buildAvFlatSlides(ctx.player.items, ctx.split, ctx.player.toc)
+  return buildAvFlatSlides(ctx.player.items, ctx.split, ctx.player.toc, ctx.resolveLanguageIndex)
 }
