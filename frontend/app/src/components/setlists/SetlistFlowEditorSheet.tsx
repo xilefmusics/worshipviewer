@@ -24,6 +24,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { getChordEngine } from '@/lib/chord-engine'
+import { isSongFlowValid } from '@/lib/player/resolve-song-flow'
 import type { SongFlowItem } from '@/ports/chord-engine'
 import type { components } from '@/api/schema'
 import { Button } from '@/components/ui/button'
@@ -69,6 +70,13 @@ function flowRowsToItems(rows: FlowRow[]): SongFlowItem[] {
   return rows.map((row) => cloneFlowItem(row.item))
 }
 
+function flowItemInPool(item: SongFlowItem, pool: SongFlowItem[]): boolean {
+  return pool.some(
+    (candidate) =>
+      candidate.title === item.title && candidate.occurrence_index === item.occurrence_index,
+  )
+}
+
 function flowRowsFromItems(items: SongFlowItem[]): FlowRow[] {
   return items.map((item) => newFlowRow(item))
 }
@@ -109,6 +117,8 @@ function FlowSortableRow({
 
   const selectedKey = flowItemKey(row.item)
   const selectedLabel = flowRowLabel(row)
+  const rowInPool = flowItemInPool(row.item, pool)
+  const rowLabel = rowInPool ? selectedLabel : t('setlists.editor.flowStaleRowMissing', { section: selectedLabel })
 
   return (
     <li
@@ -131,36 +141,45 @@ function FlowSortableRow({
 
       <div className="grid min-w-0 flex-1 gap-2 px-3 py-3">
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-          <Select
-            value={selectedKey}
-            onValueChange={(value) => {
-              const [title, occurrence] = JSON.parse(value) as [string, number]
-              const source = pool.find(
-                (item) => item.title === title && item.occurrence_index === occurrence,
-              )
-              if (!source) return
-              onChangeItem(source)
-            }}
-            disabled={!canEdit}
-          >
-            <SelectTrigger className="min-w-0 font-normal shadow-sm">
-              <SelectValue placeholder={selectedLabel} />
-            </SelectTrigger>
-            <SelectContent>
-              {pool.map((item) => {
-                const label = flowItemLabel(item)
-                const key = flowItemKey(item)
-                return (
-                  <SelectItem key={key} value={key}>
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate">{label.title}</span>
-                      {label.suffix ? <span className="text-xs text-[var(--color-muted-foreground)]">{label.suffix}</span> : null}
-                    </span>
-                  </SelectItem>
+          {rowInPool ? (
+            <Select
+              value={selectedKey}
+              onValueChange={(value) => {
+                const [title, occurrence] = JSON.parse(value) as [string, number]
+                const source = pool.find(
+                  (item) => item.title === title && item.occurrence_index === occurrence,
                 )
-              })}
-            </SelectContent>
-          </Select>
+                if (!source) return
+                onChangeItem(source)
+              }}
+              disabled={!canEdit}
+            >
+              <SelectTrigger className="min-w-0 font-normal shadow-sm">
+                <SelectValue placeholder={selectedLabel} />
+              </SelectTrigger>
+              <SelectContent>
+                {pool.map((item) => {
+                  const label = flowItemLabel(item)
+                  const key = flowItemKey(item)
+                  return (
+                    <SelectItem key={key} value={key}>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate">{label.title}</span>
+                        {label.suffix ? <span className="text-xs text-[var(--color-muted-foreground)]">{label.suffix}</span> : null}
+                      </span>
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div
+              className="flex h-9 min-w-0 items-center rounded-md border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-3 text-sm text-[var(--color-danger)]"
+              title={rowLabel}
+            >
+              <span className="truncate">{rowLabel}</span>
+            </div>
+          )}
 
           <Button
             type="button"
@@ -212,6 +231,7 @@ export function SetlistFlowEditorSheet({
   onOpenChange,
   song,
   flow,
+  isStale = false,
   canEdit,
   blockingAll,
   onSave,
@@ -221,6 +241,7 @@ export function SetlistFlowEditorSheet({
   onOpenChange: (open: boolean) => void
   song: Song | null
   flow: SongFlowItem[] | null | undefined
+  isStale?: boolean
   canEdit: boolean
   blockingAll: boolean
   onSave: (flow: SongFlowItem[]) => void
@@ -232,6 +253,7 @@ export function SetlistFlowEditorSheet({
   const [draftRows, setDraftRows] = useState<FlowRow[]>([])
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const pointerStartY = useRef<number | null>(null)
@@ -243,6 +265,7 @@ export function SetlistFlowEditorSheet({
         setDraftRows([])
         setLoading(false)
         setLoadError(null)
+        setSaveError(null)
       })
       return
     }
@@ -252,6 +275,7 @@ export function SetlistFlowEditorSheet({
       if (cancelled) return
       setLoading(true)
       setLoadError(null)
+      setSaveError(null)
     })
     void (async () => {
       try {
@@ -361,6 +385,16 @@ export function SetlistFlowEditorSheet({
         ) : null}
         {!loading && !loadError ? (
           <>
+            {isStale ? (
+              <div className="mb-3 rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-3 py-2 text-sm">
+                <p className="font-medium text-[var(--color-danger)]">
+                  {t('setlists.editor.flowStaleWarning')}
+                </p>
+                <p className="mt-1 text-[var(--color-muted-foreground)]">
+                  {t('setlists.editor.flowStalePlaybackNote')}
+                </p>
+              </div>
+            ) : null}
             <p className="text-sm text-[var(--color-muted-foreground)]">
               {sourceMissing
                 ? t('setlists.editor.flowUnsupported')
@@ -371,6 +405,10 @@ export function SetlistFlowEditorSheet({
               <p className="mt-3 text-sm text-[var(--color-danger)]">
                 {t('setlists.editor.flowEmptyWarning')}
               </p>
+            ) : null}
+
+            {saveError ? (
+              <p className="mt-3 text-sm text-[var(--color-danger)]">{saveError}</p>
             ) : null}
 
             {draftRows.length > 0 ? (
@@ -465,8 +503,22 @@ export function SetlistFlowEditorSheet({
             type="button"
             disabled={!canSave}
             onClick={() => {
-              onSave(flowRowsToItems(draftRows))
-              closeDrawer()
+              void (async () => {
+                if (!song) return
+                try {
+                  const engine = await getChordEngine()
+                  const items = flowRowsToItems(draftRows)
+                  if (!isSongFlowValid(engine, song.data as Record<string, unknown>, items)) {
+                    setSaveError(t('setlists.editor.flowStaleSaveBlocked'))
+                    return
+                  }
+                  setSaveError(null)
+                  onSave(items)
+                  closeDrawer()
+                } catch (error) {
+                  setSaveError(error instanceof Error ? error.message : String(error))
+                }
+              })()
             }}
           >
             {t('setlists.editor.flowSave')}

@@ -26,6 +26,7 @@ import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
 import { getChordEngine } from '@/lib/chord-engine'
+import { resolveSongDataWithFlow } from '@/lib/player/resolve-song-flow'
 import { chordFormatToRepresentation, writeChordFormatPreference } from '@/lib/chord-format'
 import {
   effectiveScrollType,
@@ -87,7 +88,7 @@ import { languageIndexForSongLink, resolveSongDataKey } from '@/lib/setlist-song
 import { cn } from '@/lib/utils'
 import type { ChordFormatPreference } from '@/lib/chord-format'
 import type { PlayerOverflowStyle } from '@/lib/player/effective-scroll-type'
-import type { SongFlowItem } from '@/ports/chord-engine'
+import type { ChordSongData, SongFlowItem } from '@/ports/chord-engine'
 
 type Player = components['schemas']['Player']
 type Song = components['schemas']['Song']
@@ -153,14 +154,6 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   )
 }
 
-function cloneSongForFlow(song: Song): Song {
-  return structuredClone(song) as Song
-}
-
-function cloneFlowItems(flow: SongFlowItem[]): SongFlowItem[] {
-  return flow.map((item) => ({ ...item }))
-}
-
 function useResolvedBookSong(song: Song, flow: SongFlowItem[] | null | undefined): Song {
   const [resolvedSong, setResolvedSong] = useState(song)
 
@@ -179,11 +172,9 @@ function useResolvedBookSong(song: Song, flow: SongFlowItem[] | null | undefined
     void (async () => {
       try {
         const engine = await getChordEngine()
-        const clonedSong = cloneSongForFlow(song)
-        const applied = engine.applyFlow(clonedSong.data, cloneFlowItems(flow))
-        clonedSong.data = applied as Song['data']
+        const applied = resolveSongDataWithFlow(engine, song.data as ChordSongData, flow)
         if (!cancelled) {
-          setResolvedSong(clonedSong)
+          setResolvedSong({ ...song, data: applied as Song['data'] })
         }
       } catch {
         if (!cancelled) {

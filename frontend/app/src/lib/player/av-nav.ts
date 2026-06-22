@@ -18,6 +18,9 @@ import { languageIndexForSongLink, songLanguageOptions } from '@/lib/setlist-son
 
 type Player = components['schemas']['Player']
 type PlayerItem = components['schemas']['PlayerItem']
+type Section = components['schemas']['Section']
+
+export type AvResolvedSections = ReadonlyMap<number, readonly Section[]>
 
 export type AvLanguageIndexResolver = (itemIndex: number) => number | undefined
 
@@ -70,6 +73,18 @@ export function resolveAvItemLanguageIndex(
   return 0
 }
 
+export function sectionsForAvItem(
+  item: PlayerItem | undefined,
+  itemIndex: number,
+  resolvedSections?: AvResolvedSections,
+): Section[] {
+  if (!item || item.type !== 'chords') return []
+  const override = resolvedSections?.get(itemIndex)
+  if (override) return [...override]
+  const sections = item.song.data.sections
+  return Array.isArray(sections) ? sections : []
+}
+
 export function avSlidesForItem(
   item: PlayerItem | undefined,
   itemIndex: number,
@@ -77,6 +92,7 @@ export function avSlidesForItem(
   fallbackTitle?: string,
   resolveLanguageIndex?: AvLanguageIndexResolver,
   bilingualEnabled = false,
+  resolvedSections?: AvResolvedSections,
 ): AvItemSlides {
   if (!item) return { slides: [''], sourceSlides: [''], outline: [], kind: 'blob' }
   if (item.type === 'blob') {
@@ -89,21 +105,22 @@ export function avSlidesForItem(
     }
   }
   const songData = item.song.data
+  const sections = sectionsForAvItem(item, itemIndex, resolvedSections)
   const requestedPrimary = resolveAvItemLanguageIndex(item, itemIndex, resolveLanguageIndex)
   const effectivePrimary = bilingualEnabled
     ? resolveAvEffectivePrimaryLanguageIndex(
-        songData.sections,
+        sections,
         requestedPrimary,
         split.collapseLyricWhitespace,
       )
     : requestedPrimary
   const lyricData: AvBilingualLyricSlidesResult = bilingualEnabled
     ? buildAvBilingualLyricSlides(
-        songData.sections,
+        sections,
         split.maxLinesPerSlide,
         effectivePrimary,
         resolveAvSecondaryLanguageIndex(
-          songData.sections,
+          sections,
           effectivePrimary,
           split.collapseLyricWhitespace,
         ),
@@ -111,7 +128,7 @@ export function avSlidesForItem(
         split.collapseLyricWhitespace,
       )
     : buildAvLyricSlides(
-        songData.sections,
+        sections,
         split.maxLinesPerSlide,
         requestedPrimary,
         split.balanceSlideLines,
@@ -163,6 +180,7 @@ export function avSlidesForPlayerItem(
   split: AvLyricSplitPrefs,
   resolveLanguageIndex?: AvLanguageIndexResolver,
   bilingualEnabled = false,
+  resolvedSections?: AvResolvedSections,
 ): AvItemSlides {
   return avSlidesForItem(
     items[itemIndex],
@@ -171,6 +189,7 @@ export function avSlidesForPlayerItem(
     undefined,
     resolveLanguageIndex,
     bilingualEnabled,
+    resolvedSections,
   )
 }
 
@@ -186,6 +205,7 @@ export function buildAvFlatSlides(
   toc: Player['toc'] = [],
   resolveLanguageIndex?: AvLanguageIndexResolver,
   bilingualEnabled = false,
+  resolvedSections?: AvResolvedSections,
 ): AvFlatSlide[] {
   const flat: AvFlatSlide[] = []
   for (let itemIndex = 0; itemIndex < items.length; itemIndex += 1) {
@@ -197,6 +217,7 @@ export function buildAvFlatSlides(
       tocTitle,
       resolveLanguageIndex,
       bilingualEnabled,
+      resolvedSections,
     )
     for (let slideIndex = 0; slideIndex < slides.length; slideIndex += 1) {
       flat.push({ itemIndex, slideIndex, text: slides[slideIndex] ?? '' })
@@ -298,8 +319,9 @@ export function avTotalSlides(
   items: PlayerItem[],
   split: AvLyricSplitPrefs,
   resolveLanguageIndex?: AvLanguageIndexResolver,
+  resolvedSections?: AvResolvedSections,
 ): number {
-  return buildAvFlatSlides(items, split, [], resolveLanguageIndex).length
+  return buildAvFlatSlides(items, split, [], resolveLanguageIndex, false, resolvedSections).length
 }
 
 export type AvPlayerContext = {
@@ -307,6 +329,7 @@ export type AvPlayerContext = {
   split: AvLyricSplitPrefs
   resolveLanguageIndex?: AvLanguageIndexResolver
   bilingualEnabled?: boolean
+  resolvedSections?: AvResolvedSections
 }
 
 export function rebuildAvFlat(ctx: AvPlayerContext): AvFlatSlide[] {
@@ -316,5 +339,6 @@ export function rebuildAvFlat(ctx: AvPlayerContext): AvFlatSlide[] {
     ctx.player.toc,
     ctx.resolveLanguageIndex,
     ctx.bilingualEnabled,
+    ctx.resolvedSections,
   )
 }

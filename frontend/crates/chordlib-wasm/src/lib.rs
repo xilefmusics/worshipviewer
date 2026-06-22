@@ -231,6 +231,19 @@ mod tests {
     }
 
     #[test]
+    fn song_flow_items_omits_marker_only_repeat_section() {
+        let source =
+            "{title: Test}\n{key: C}\n{section: Verse}\nLine one\n{section: Chorus}\n{repeat: 2}\n";
+        let json = parse_chord_pro(source).expect("parse");
+
+        let items: Vec<SongFlowItem> =
+            serde_json::from_str(&song_flow_items(&json).expect("flow items")).expect("json");
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].title, "Verse");
+        assert_eq!(items[1].title, "Chorus");
+    }
+
+    #[test]
     fn apply_song_flow_reorders_sections() {
         let source =
             "{title: Test}\n{key: C}\n{section: Verse}\nFirst\n{section: Chorus}\nSecond\n";

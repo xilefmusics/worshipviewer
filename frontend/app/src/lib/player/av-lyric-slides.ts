@@ -9,7 +9,10 @@ export type AvSectionOutline = {
   title: string
   textIdx: number
   outlineIdx: number
+  /** Navigable presentation slide count (includes repeat_count). */
   len: number
+  /** Source lyric slide count before repeat_count expansion. */
+  sourceLen?: number
   duplicate: boolean
   hasText: boolean
 }
@@ -257,6 +260,14 @@ function buildSlidesFromSections(
   return { slides, sectionMap }
 }
 
+function sectionRepeatCount(section: Section): number {
+  const count = section.repeat_count
+  if (typeof count === 'number' && Number.isInteger(count) && count >= 1) {
+    return count
+  }
+  return 1
+}
+
 function buildOutline(
   sections: Section[],
   sectionMap: Map<string, { textIdx: number; len: number }>,
@@ -267,19 +278,21 @@ function buildOutline(
 
   for (const section of sections) {
     const entry = sectionMap.get(section.title)
-    const len = entry?.len ?? 0
+    const baseLen = entry?.len ?? 0
+    const len = (baseLen || 1) * sectionRepeatCount(section)
     const textIdx = entry?.textIdx ?? Number.MAX_SAFE_INTEGER
 
     outline.push({
       title: section.title,
       textIdx,
       outlineIdx,
-      len: len || 1,
+      len,
+      sourceLen: baseLen || 1,
       duplicate: seen.has(section.title),
       hasText: textIdx !== Number.MAX_SAFE_INTEGER,
     })
     seen.add(section.title)
-    outlineIdx += len || 1
+    outlineIdx += len
   }
 
   return outline
@@ -367,7 +380,9 @@ export function resolveAvOutlineSlideText(
   offset = 0,
 ): string {
   if (row.hasText) {
-    return slides[row.textIdx + offset] ?? ''
+    const sourceLen = row.sourceLen ?? row.len
+    const sourceOffset = Math.min(offset, Math.max(sourceLen - 1, 0))
+    return slides[row.textIdx + sourceOffset] ?? ''
   }
   const donor = findAvTextDonor(outline, row.title)
   if (!donor) return ''
@@ -382,7 +397,9 @@ export function resolveAvOutlineStructuredSlideText(
   offset = 0,
 ): AvLyricLine[] {
   if (row.hasText) {
-    return slides[row.textIdx + offset] ?? []
+    const sourceLen = row.sourceLen ?? row.len
+    const sourceOffset = Math.min(offset, Math.max(sourceLen - 1, 0))
+    return slides[row.textIdx + sourceOffset] ?? []
   }
   const donor = findAvTextDonor(outline, row.title)
   if (!donor) return []

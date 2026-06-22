@@ -64,6 +64,33 @@ describe('runSetlistExport', () => {
     )
   })
 
+  it('forwards setlist slot custom flow to ordered export links', async () => {
+    const customFlow = [{ title: 'Chorus', occurrence_index: 0, repeats: 2 }]
+    fetchSetlistDetail.mockResolvedValue({
+      title: 'Sunday',
+      songs: [
+        {
+          id: 'song-1',
+          nr: '1',
+          key: null,
+          tempo: null,
+          language: null,
+          flow: customFlow,
+        },
+      ],
+    })
+
+    await runSetlistExport(queryClient, 'sl-1', 'pdf', 'letters')
+
+    expect(runOrderedSongsPdfExport).toHaveBeenCalledWith(
+      queryClient,
+      'Sunday',
+      [{ id: 'song-1', nr: '1', key: null, tempo: null, language: null, flow: customFlow }],
+      'letters',
+      undefined,
+    )
+  })
+
   it('forwards hide chords preference', async () => {
     await runSetlistExport(queryClient, 'sl-1', 'pdf', 'letters', true)
     expect(runOrderedSongsPdfExport).toHaveBeenCalledWith(

@@ -18,6 +18,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
 import { useAvBilingualPreference } from '@/hooks/useAvBilingualPreference'
+import { useResolvedAvItemSections } from '@/hooks/useResolvedAvItemSections'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
 import {
   avItemTitle,
@@ -183,6 +184,7 @@ export function PlayerAv({
   }, [type, id, viewState])
 
   const collapseLyricWhitespace = readLyricCollapseWhitespacePreference()
+  const resolvedSections = useResolvedAvItemSections(player.items)
 
   const currentItem = useMemo(
     () =>
@@ -190,7 +192,7 @@ export function PlayerAv({
         maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
         balanceSlideLines: prefs.contentLayer.balanceSlideLines,
         collapseLyricWhitespace,
-      }, resolveLanguageIndexForItem, bilingualEnabled),
+      }, resolveLanguageIndexForItem, bilingualEnabled, resolvedSections),
     [
       player.items,
       prefs.contentLayer.maxLinesPerSlide,
@@ -199,6 +201,7 @@ export function PlayerAv({
       resolveLanguageIndexForItem,
       session.itemIndex,
       bilingualEnabled,
+      resolvedSections,
     ],
   )
 
@@ -208,7 +211,7 @@ export function PlayerAv({
         maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
         balanceSlideLines: prefs.contentLayer.balanceSlideLines,
         collapseLyricWhitespace,
-      }, resolveLanguageIndexForItem, bilingualEnabled),
+      }, resolveLanguageIndexForItem, bilingualEnabled, resolvedSections),
     [
       player.items,
       prefs.contentLayer.maxLinesPerSlide,
@@ -217,6 +220,7 @@ export function PlayerAv({
       resolveLanguageIndexForItem,
       projected.itemIndex,
       bilingualEnabled,
+      resolvedSections,
     ],
   )
 

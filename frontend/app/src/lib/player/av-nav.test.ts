@@ -9,9 +9,11 @@ import {
   resolveAvItemLanguageIndex,
 } from '@/lib/player/av-nav'
 import {
+  avPresentationIndexForSectionTitle,
   buildAvOutlineRows,
   buildAvPresentationSlides,
 } from '@/lib/player/av-lyric-slides'
+import { avAvailableSectionJumpShortcuts } from '@/lib/player/av-keyboard'
 
 type PlayerItem = components['schemas']['PlayerItem']
 
@@ -165,5 +167,96 @@ describe('avSlidesForItem bilingual mode', () => {
 
     expect(bilingual.slides).toEqual(mono.slides)
     expect(bilingual.slides.length).toBe(mono.slides.length)
+  })
+})
+
+describe('avSlidesForItem custom flow sections', () => {
+  it('uses resolved sections when provided', () => {
+    const item = chordItem('de')
+    const resolvedSections = new Map([
+      [
+        0,
+        [
+          {
+            title: 'Chorus',
+            lines: [{ parts: [{ comment: false, languages: ['Goodbye', 'Tschuess'] }] }],
+          },
+          {
+            title: 'Verse 1',
+            lines: [{ parts: [{ comment: false, languages: ['Hello', 'Hallo'] }] }],
+          },
+        ],
+      ],
+    ])
+
+    const slides = avSlidesForItem(item, 0, split, 'Setlist title', () => 0, false, resolvedSections)
+
+    expect(slides.slides).toEqual(['Goodbye', 'Hello'])
+    expect(slides.outline.map((row) => row.title)).toEqual(['Chorus', 'Verse 1'])
+  })
+
+  it('keeps default behavior without resolved sections', () => {
+    const item = chordItem('de')
+    const slides = avSlidesForItem(item, 0, split, 'Setlist title', () => 0)
+
+    expect(slides.slides).toEqual(['Hello', 'Goodbye'])
+    expect(slides.outline.map((row) => row.title)).toEqual(['Verse 1', 'Chorus'])
+  })
+
+  it('keeps two occurrences independent with different resolved flows', () => {
+    const items: PlayerItem[] = [chordItem('de'), chordItem('de')]
+    const resolvedSections = new Map([
+      [
+        0,
+        [
+          {
+            title: 'Chorus',
+            lines: [{ parts: [{ comment: false, languages: ['Goodbye'] }] }],
+          },
+        ],
+      ],
+      [
+        1,
+        [
+          {
+            title: 'Verse 1',
+            lines: [{ parts: [{ comment: false, languages: ['Hello'] }] }],
+          },
+        ],
+      ],
+    ])
+
+    const first = avSlidesForPlayerItem(items, 0, split, undefined, false, resolvedSections)
+    const second = avSlidesForPlayerItem(items, 1, split, undefined, false, resolvedSections)
+
+    expect(first.slides).toEqual(['Goodbye'])
+    expect(second.slides).toEqual(['Hello'])
+  })
+
+  it('keeps section shortcuts aligned with custom flow order', () => {
+    const item = chordItem('de')
+    const resolvedSections = new Map([
+      [
+        0,
+        [
+          {
+            title: 'Chorus',
+            lines: [{ parts: [{ comment: false, languages: ['Goodbye'] }] }],
+          },
+          {
+            title: 'Verse 1',
+            lines: [{ parts: [{ comment: false, languages: ['Hello'] }] }],
+          },
+        ],
+      ],
+    ])
+
+    const slides = avSlidesForItem(item, 0, split, undefined, undefined, false, resolvedSections)
+    const shortcuts = avAvailableSectionJumpShortcuts(slides.outline)
+
+    expect(shortcuts.map((row) => row.sectionTitle)).toEqual(['Chorus', 'Verse 1'])
+    expect(avPresentationIndexForSectionTitle(slides.outline, 'Chorus')).toBe(0)
+    expect(avPresentationIndexForSectionTitle(slides.outline, 'Verse 1')).toBe(1)
+    expect(buildAvPresentationSlides(slides.outline, slides.sourceSlides)).toEqual(slides.slides)
   })
 })

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   avLyricLinesToSlideText,
+  avPresentationIndexForSectionTitle,
   avSlideDeckEntrySlideIndex,
   buildAvBilingualLyricSlides,
   buildAvLyricSlides,
@@ -560,5 +561,30 @@ describe('buildAvBilingualLyricSlides', () => {
     expect(
       buildAvPresentationStructuredSlides(result.outline, result.structuredSlides!),
     ).toHaveLength(buildAvPresentationSlides(result.outline, result.slides).length)
+  })
+})
+
+describe('buildAvLyricSlides repeat_count', () => {
+  it('multiplies outline length and presentation slides for repeat_count', () => {
+    const sections = [
+      {
+        title: 'Chorus',
+        repeat_count: 2,
+        lines: [{ parts: [{ comment: false, languages: ['Sing it again'] }] }],
+      },
+      {
+        title: 'Verse 1',
+        lines: [{ parts: [{ comment: false, languages: ['Once'] }] }],
+      },
+    ]
+
+    const result = buildAvLyricSlides(sections, 2, 0)
+    const presentation = buildAvPresentationSlides(result.outline, result.slides)
+
+    expect(result.outline.map((row) => row.title)).toEqual(['Chorus', 'Verse 1'])
+    expect(result.outline.map((row) => row.len)).toEqual([2, 1])
+    expect(presentation).toEqual(['Sing it again', 'Sing it again', 'Once'])
+    expect(avPresentationIndexForSectionTitle(result.outline, 'Chorus', 1)).toBe(1)
+    expect(avPresentationIndexForSectionTitle(result.outline, 'Verse 1')).toBe(2)
   })
 })

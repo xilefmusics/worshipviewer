@@ -39,6 +39,7 @@ import { useRegisterSetlistPaletteBridge } from '@/context/SetlistPaletteBridgeC
 import { useOnline } from '@/hooks/use-online'
 import { useSetlistAutosave } from '@/hooks/useSetlistAutosave'
 import { useSetlistDetailQuery } from '@/hooks/useSetlistDetailQuery'
+import { useSetlistFlowValidity } from '@/hooks/useSetlistFlowValidity'
 import { brokenSlotGate, type SongHydrationOutcome } from '@/lib/setlist-broken-rows'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
 import { makeSlotRow, slotsFromSongLinks, type SlotRow } from '@/lib/setlist-editor-slots'
@@ -190,6 +191,14 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
     : -1
   const flowEditorSong =
     flowEditorSongIndex >= 0 ? hydrationQueries[flowEditorSongIndex]?.data ?? null : null
+
+  const hydratedSongs = useMemo(
+    () => hydrationQueries.map((q) => q.data ?? null),
+    [hydrationQueries],
+  )
+  const staleFlowBySlotId = useSetlistFlowValidity(slotRows, hydratedSongs)
+  const flowEditorIsStale =
+    flowEditorRow != null && staleFlowBySlotId.get(flowEditorRow.slotId) === true
 
   useEffect(() => {
     if (flowEditorSlotId && !flowEditorRow) {
@@ -560,6 +569,8 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
               const brokenHydration =
                 hydrationOutcomes[idx]?.kind === 'broken' ||
                 (hydrationOutcomes[idx]?.kind === 'ok' && hydrationOutcomes[idx].notASong)
+              const notASong =
+                hydrationOutcomes[idx]?.kind === 'ok' && hydrationOutcomes[idx].notASong
 
               let songOwnerTeamLine: string | null | undefined
               if (hydrated?.owner && !brokenHydration && !hydrationPendingRow) {
@@ -581,6 +592,8 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
                   hydratedSong={hydrated ?? undefined}
                   hydrationPending={hydrationPendingRow}
                   brokenHydration={brokenHydration}
+                  notASong={notASong}
+                  flowIsStale={staleFlowBySlotId.get(row.slotId) === true}
                   songOwnerTeamLine={songOwnerTeamLine}
                   canEditUi={canEdit && !blockingAll && !offlineFrozen && !resumePrompt}
                   blockingAll={blockingAll || !canEdit}
@@ -647,6 +660,7 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
         }}
         song={flowEditorSong}
         flow={flowEditorRow?.link.flow ?? null}
+        isStale={flowEditorIsStale}
         canEdit={canEdit}
         blockingAll={blockingAll}
         onSave={(flow) => {
@@ -683,6 +697,8 @@ type SortProps = {
   hydratedSong?: import('@/api/setlists-detail').Song
   hydrationPending: boolean
   brokenHydration: boolean
+  notASong: boolean
+  flowIsStale: boolean
   /** Resolved label for `Song.owner`; `null` while team detail loads; omit when hidden. */
   songOwnerTeamLine?: string | null
   canEditUi: boolean
@@ -703,6 +719,8 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
     hydratedSong,
     hydrationPending,
     brokenHydration,
+    notASong,
+    flowIsStale,
     songOwnerTeamLine,
     canEditUi,
     blockingAll,
@@ -908,6 +926,20 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
                   />
                   <FlowOverrideChip
                     hasCustomFlow={hasCustomFlow}
+                    isStale={flowIsStale}
+                    isBlob={notASong}
+                    canEditUi={canEditUi}
+                    blockingAll={blockingAll}
+                    onEditFlow={props.onEditFlow}
+                  />
+                </div>
+              ) : null}
+              {notASong && hydratedSong ? (
+                <div className="grid grid-cols-4 gap-1 pt-1">
+                  <FlowOverrideChip
+                    hasCustomFlow={false}
+                    isStale={false}
+                    isBlob={true}
                     canEditUi={canEditUi}
                     blockingAll={blockingAll}
                     onEditFlow={props.onEditFlow}
@@ -1095,6 +1127,8 @@ function TempoOverrideChip({
 
 type FlowOverrideChipProps = {
   hasCustomFlow: boolean
+  isStale: boolean
+  isBlob: boolean
   canEditUi: boolean
   blockingAll: boolean
   onEditFlow: () => void
@@ -1102,11 +1136,19 @@ type FlowOverrideChipProps = {
 
 function FlowOverrideChip({
   hasCustomFlow,
+  isStale,
+  isBlob,
   canEditUi,
   blockingAll,
   onEditFlow,
 }: FlowOverrideChipProps) {
   const { t } = useTranslation()
+
+  let label = t('setlists.editor.flowChipPlaceholder')
+  if (isBlob) label = t('setlists.editor.flowChipDisabledBlob')
+  else if (isStale) label = t('setlists.editor.flowChipStale')
+  else if (hasCustomFlow) label = t('setlists.editor.flowChipCustom')
+
   return (
     <Button
       type="button"
@@ -1114,16 +1156,17 @@ function FlowOverrideChip({
       size="sm"
       className={cn(
         'h-9 w-full min-w-0 justify-start px-2 text-xs',
-        !hasCustomFlow && 'border-dashed text-[var(--color-muted-foreground)]',
+        !hasCustomFlow && !isStale && !isBlob && 'border-dashed text-[var(--color-muted-foreground)]',
+        isStale && 'border-[var(--color-danger)] text-[var(--color-danger)]',
       )}
-      disabled={!canEditUi || blockingAll}
-      onClick={onEditFlow}
+      disabled={!canEditUi || blockingAll || isBlob}
+      title={isBlob ? t('setlists.editor.flowDisabledBlobHint') : undefined}
+      onClick={() => {
+        if (isBlob) return
+        onEditFlow()
+      }}
     >
-      <span className="truncate">
-        {hasCustomFlow
-          ? t('setlists.editor.flowChipCustom')
-          : t('setlists.editor.flowChipPlaceholder')}
-      </span>
+      <span className="truncate">{label}</span>
     </Button>
   )
 }
