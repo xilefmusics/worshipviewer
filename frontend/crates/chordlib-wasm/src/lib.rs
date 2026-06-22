@@ -94,7 +94,9 @@ pub fn render_a4_html(
     let key_ref = parse_key(key)?;
     let rep_ref = parse_representation(representation)?;
     let lang = language.map(|l| l as usize);
-    let (html, css) = (&song).format_html_page(key_ref.as_ref(), rep_ref.as_ref(), lang, scale);
+    let (html, css) = (&song)
+        .format_html_page(key_ref.as_ref(), rep_ref.as_ref(), lang, scale, None)
+        .map_err(|e| e.to_string())?;
     Ok(HtmlPage { html, css })
 }
 
@@ -130,8 +132,9 @@ pub fn render_a4_section_htmls(
     let key_ref = parse_key(key)?;
     let rep_ref = parse_representation(representation)?;
     let lang = language.map(|l| l as usize);
-    let (sections, css) =
-        (&song).format_html_sections(key_ref.as_ref(), rep_ref.as_ref(), lang, scale);
+    let (sections, css) = (&song)
+        .format_html_sections(key_ref.as_ref(), rep_ref.as_ref(), lang, scale, None)
+        .map_err(|e| e.to_string())?;
     Ok(SectionHtmlPage { sections, css })
 }
 

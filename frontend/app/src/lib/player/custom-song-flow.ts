@@ -1,5 +1,6 @@
 import type { components } from '@/api/schema'
 
+import { baseSectionTitle } from '@/lib/player/av-lyric-slides'
 import { expandSongSectionsForPlayer } from '@/lib/player/expand-song-sections'
 import { normalizeSongFlow, type FlowSlot, type SongFlow } from '@/lib/setlist-song-links'
 import type { ChordSongData } from '@/ports/chord-engine'
@@ -36,7 +37,7 @@ function sectionHasContent(section: Section): boolean {
 }
 
 function labelForOccurrence(title: string, occurrenceIndex: number): string {
-  return occurrenceIndex === 0 ? title : `${title} (${occurrenceIndex + 1})`
+  return occurrenceIndex === 0 ? title : `${title} [${occurrenceIndex + 1}]`
 }
 
 export function buildFlowSourcePool(songData: SongData | undefined | null): FlowSourceSection[] {
@@ -46,7 +47,8 @@ export function buildFlowSourcePool(songData: SongData | undefined | null): Flow
 
   for (const section of sections) {
     const title = normalizeSectionTitle(section.title)
-    if (!title || !sectionHasContent(section)) continue
+    if (!title) continue
+    if (!sectionHasContent(section)) continue
     const occurrenceIndex = counts.get(title) ?? 0
     counts.set(title, occurrenceIndex + 1)
     pool.push({
@@ -61,15 +63,83 @@ export function buildFlowSourcePool(songData: SongData | undefined | null): Flow
   return pool
 }
 
+export function buildDefaultFlowSlots(songData: SongData | undefined | null): FlowSlot[] {
+  const sections = Array.isArray(songData?.sections) ? (songData.sections as Section[]) : []
+  const counts = new Map<string, number>()
+  const flow: FlowSlot[] = []
+
+  for (const section of sections) {
+    const title = normalizeSectionTitle(section.title)
+    if (!title) continue
+    const occurrenceIndex = counts.get(title) ?? 0
+    counts.set(title, occurrenceIndex + 1)
+    flow.push({
+      section_title: title,
+      occurrence_index: occurrenceIndex,
+      repeat_count: section.repeat_count && section.repeat_count > 0 ? section.repeat_count : 1,
+    })
+  }
+
+  return flow
+}
+
 function resolveSectionsByTitle(songData: SongData | undefined | null): Map<string, Section[]> {
-  const pool = buildFlowSourcePool(songData)
+  const sections = Array.isArray(songData?.sections) ? (songData.sections as Section[]) : []
   const byTitle = new Map<string, Section[]>()
-  for (const entry of pool) {
-    const list = byTitle.get(entry.section_title) ?? []
-    list.push(entry.section)
-    byTitle.set(entry.section_title, list)
+  for (const section of sections) {
+    const title = normalizeSectionTitle(section.title)
+    if (!title) continue
+    const list = byTitle.get(title) ?? []
+    list.push(section)
+    byTitle.set(title, list)
   }
   return byTitle
+}
+
+function resolveSectionByExactOccurrence(
+  title: string,
+  occurrenceIndex: number,
+  sectionsByTitle: Map<string, Section[]>,
+): Section | null {
+  const candidates = sectionsByTitle.get(title)
+  if (!candidates) return null
+  return candidates[occurrenceIndex] ?? null
+}
+
+function slotTitle(slot: FlowSlot): string {
+  return normalizeSectionTitle(slot.section_title)
+}
+
+function slotRepeatCount(slot: FlowSlot): number {
+  return slot.repeat_count < 1 ? 1 : slot.repeat_count
+}
+
+function slotOccurrenceIndex(slot: FlowSlot): number {
+  return slot.occurrence_index
+}
+
+function blankRepeatedSongSections(songData: SongData): SongData {
+  const sections = Array.isArray(songData.sections) ? (songData.sections as Section[]) : []
+  if (sections.length === 0) return songData
+
+  const seen = new Set<string>()
+  const collapsedSections = sections.map((section) => {
+    const title = normalizeSectionTitle(section.title)
+    const key = baseSectionTitle(title)
+    if (!key) return section
+    if (seen.has(key)) {
+      const cloned = structuredClone(section)
+      cloned.lines = []
+      return cloned
+    }
+    seen.add(key)
+    return section
+  })
+
+  return {
+    ...songData,
+    sections: collapsedSections,
+  }
 }
 
 export function resolveSongDataForCustomFlow(
@@ -84,14 +154,12 @@ export function resolveSongDataForCustomFlow(
 
   const resolvedSections: Section[] = []
   for (const slot of slots) {
-    const title = normalizeSectionTitle(slot.section_title)
+    const title = slotTitle(slot)
     if (!title) return songData
-    const candidates = sectionsByTitle.get(title)
-    if (!candidates) return songData
-    const source = candidates[slot.occurrence_index]
+    const source = resolveSectionByExactOccurrence(title, slotOccurrenceIndex(slot), sectionsByTitle)
     if (!source) return songData
     const cloned = structuredClone(source)
-    cloned.repeat_count = slot.repeat_count
+    cloned.repeat_count = slotRepeatCount(slot)
     resolvedSections.push(cloned)
   }
 
@@ -108,7 +176,11 @@ export function resolveSongForBookRendering(
 ): Song {
   const data = resolveSongDataForCustomFlow(song.data as SongData, flow)
   const renderedData = (
-    expandSections ? expandSongSectionsForPlayer(data as ChordSongData) : data
+    expandSections
+      ? expandSongSectionsForPlayer(data as ChordSongData)
+      : flow
+        ? blankRepeatedSongSections(data)
+        : data
   ) as Song['data']
   if (renderedData === song.data) return song
   return {

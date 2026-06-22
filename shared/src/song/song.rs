@@ -2,7 +2,7 @@ use crate::blob::BlobLink;
 use crate::patch::Patch;
 use chordlib::inputs::chord_pro;
 use chordlib::outputs::{FormatChordPro, FormatHTML};
-use chordlib::types::{ChordRepresentation, Section, SimpleChord, Song as ChordSong};
+use chordlib::types::{ChordRepresentation, Section, SimpleChord, Song as ChordSong, SongFlowItem};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
@@ -213,8 +213,17 @@ impl CreateSong {
         representation: Option<&ChordRepresentation>,
         language: Option<usize>,
         scale: Option<f32>,
-    ) -> (String, String) {
-        (&self.data).format_html_page(key, representation, language, scale)
+        flow: Option<&[SongFlowItem]>,
+    ) -> Result<(String, String), chordlib::Error> {
+        (&self.data).format_html_page(key, representation, language, scale, flow)
+    }
+
+    pub fn distinct_section_names(&self) -> Vec<String> {
+        self.data.distinct_section_names()
+    }
+
+    pub fn section_flow_names(&self) -> Vec<SongFlowItem> {
+        self.data.section_flow_names()
     }
 
     /// Reject oversized blob reference lists before hitting the service layer.
@@ -249,8 +258,17 @@ impl Song {
         representation: Option<&ChordRepresentation>,
         language: Option<usize>,
         scale: Option<f32>,
-    ) -> (String, String) {
-        (&self.data).format_html_page(key, representation, language, scale)
+        flow: Option<&[SongFlowItem]>,
+    ) -> Result<(String, String), chordlib::Error> {
+        (&self.data).format_html_page(key, representation, language, scale, flow)
+    }
+
+    pub fn distinct_section_names(&self) -> Vec<String> {
+        self.data.distinct_section_names()
+    }
+
+    pub fn section_flow_names(&self) -> Vec<SongFlowItem> {
+        self.data.section_flow_names()
     }
 }
 

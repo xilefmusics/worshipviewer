@@ -25,7 +25,11 @@ import { useTranslation } from 'react-i18next'
 
 import type { components } from '@/api/schema'
 import { Button } from '@/components/ui/button'
-import { buildFlowSourcePool, type FlowSourceSection } from '@/lib/player/custom-song-flow'
+import {
+  buildDefaultFlowSlots,
+  buildFlowSourcePool,
+  type FlowSourceSection,
+} from '@/lib/player/custom-song-flow'
 import { type FlowSlot, type SongFlow } from '@/lib/setlist-song-links'
 import { cn } from '@/lib/utils'
 
@@ -58,17 +62,11 @@ function makeDraftRow(slot: FlowSlot): DraftRow {
   }
 }
 
-function draftFromValue(pool: FlowSourceSection[], value: SongFlow): DraftRow[] {
+function draftFromValue(defaultFlow: FlowSlot[], value: SongFlow): DraftRow[] {
   if (Array.isArray(value) && value.length > 0) {
     return value.map((slot) => makeDraftRow(slot))
   }
-  return pool.map((source) =>
-    makeDraftRow({
-      section_title: source.section_title,
-      occurrence_index: source.occurrence_index,
-      repeat_count: 1,
-    }),
-  )
+  return defaultFlow.map((slot) => makeDraftRow(slot))
 }
 
 function sourceLabelForSlot(pool: FlowSourceSection[], slot: FlowSlot): string {
@@ -94,7 +92,8 @@ export function SetlistFlowSheet({
   const { t } = useTranslation()
   const shouldReduceMotion = useReducedMotion()
   const pool = useMemo(() => buildFlowSourcePool(song?.data), [song?.data])
-  const [draftRows, setDraftRows] = useState<DraftRow[]>(() => draftFromValue(pool, value))
+  const defaultFlow = useMemo(() => buildDefaultFlowSlots(song?.data), [song?.data])
+  const [draftRows, setDraftRows] = useState<DraftRow[]>(() => draftFromValue(defaultFlow, value))
   const [dragOffset, setDragOffset] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const pointerStartY = useRef<number | null>(null)

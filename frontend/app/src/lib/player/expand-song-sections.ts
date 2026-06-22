@@ -30,6 +30,9 @@ function cloneLines(lines: Line[]): Line[] {
 
 function mergeLineLyricsFromDonor(line: Line, donorLine: Line | undefined): Line {
   if (!donorLine || sectionLineHasLyrics(line)) return line
+  if (line.parts.length === 0) {
+    return structuredClone(donorLine)
+  }
   return {
     parts: line.parts.map((part, partIndex) => {
       if (partHasLyrics(part) || part.comment) return part
