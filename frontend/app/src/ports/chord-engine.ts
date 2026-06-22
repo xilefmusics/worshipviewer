@@ -21,6 +21,13 @@ export type RenderA4HtmlOptions = {
 /** Structured song payload (`Song.data` / chordlib wire JSON). */
 export type ChordSongData = Record<string, unknown>
 
+/** One entry in a song section flow (`chordlib::types::SongFlowItem`). */
+export type SongFlowItem = {
+  title: string
+  occurrence_index?: number
+  repeats?: number
+}
+
 /**
  * Port for ChordPro parse/format and DIN-A4 HTML preview.
  * Web implementation loads `@worshipviewer/chordlib-wasm` lazily.
@@ -35,6 +42,14 @@ export interface ChordEngine {
     options?: RenderA4HtmlOptions,
   ): { sections: string[]; css: string }
   transpose(song: ChordSongData, key: string): ChordSongData
+  /** Copy lyric bodies into empty repeat/reference sections (`Song::fill_section_references`). */
+  fillSectionReferences(song: ChordSongData): ChordSongData
+  /** Distinct section items in first-seen order (`Song::flow_items`). */
+  flowItems(song: ChordSongData): SongFlowItem[]
+  /** Default section flow including repeats (`Song::custom_flow`). */
+  customFlow(song: ChordSongData): SongFlowItem[]
+  /** Reorder and repeat sections to match a custom flow (`Song::apply_flow`). */
+  applyFlow(song: ChordSongData, flow: SongFlowItem[]): ChordSongData
 }
 
 export class ChordEngineError extends Error {

@@ -3,7 +3,7 @@
 use chordlib::inputs::chord_pro;
 use chordlib::inputs::ultimate_guitar;
 use chordlib::outputs::{FormatChordPro, FormatHTML};
-use chordlib::types::{ChordRepresentation, SimpleChord, Song};
+use chordlib::types::{ChordRepresentation, SimpleChord, Song, SongFlowItem};
 use wasm_bindgen::prelude::*;
 
 fn parse_song_json(json: &str) -> Result<Song, String> {
@@ -94,7 +94,9 @@ pub fn render_a4_html(
     let key_ref = parse_key(key)?;
     let rep_ref = parse_representation(representation)?;
     let lang = language.map(|l| l as usize);
-    let (html, css) = (&song).format_html_page(key_ref.as_ref(), rep_ref.as_ref(), lang, scale);
+    let (html, css) = (&song)
+        .format_html_page(key_ref.as_ref(), rep_ref.as_ref(), lang, scale)
+        .map_err(|e| e.to_string())?;
     Ok(HtmlPage { html, css })
 }
 
@@ -130,8 +132,9 @@ pub fn render_a4_section_htmls(
     let key_ref = parse_key(key)?;
     let rep_ref = parse_representation(representation)?;
     let lang = language.map(|l| l as usize);
-    let (sections, css) =
-        (&song).format_html_sections(key_ref.as_ref(), rep_ref.as_ref(), lang, scale);
+    let (sections, css) = (&song)
+        .format_html_sections(key_ref.as_ref(), rep_ref.as_ref(), lang, scale)
+        .map_err(|e| e.to_string())?;
     Ok(SectionHtmlPage { sections, css })
 }
 
@@ -140,7 +143,38 @@ pub fn render_a4_section_htmls(
 pub fn transpose_song(song_json: &str, key: &str) -> Result<String, String> {
     let mut song = parse_song_json(song_json)?;
     let target = SimpleChord::try_from(key).map_err(|e| e.to_string())?;
-    song.transpose(target);
+    song.apply_key(target);
+    serde_json::to_string(&song).map_err(|e| e.to_string())
+}
+
+/// Copy lyric bodies from earlier sections into empty reference sections.
+#[wasm_bindgen(js_name = fillSectionReferences)]
+pub fn fill_section_references(song_json: &str) -> Result<String, String> {
+    let mut song = parse_song_json(song_json)?;
+    song.fill_section_references();
+    serde_json::to_string(&song).map_err(|e| e.to_string())
+}
+
+/// Distinct section items in first-seen order (`Song::flow_items`).
+#[wasm_bindgen(js_name = songFlowItems)]
+pub fn song_flow_items(song_json: &str) -> Result<String, String> {
+    let song = parse_song_json(song_json)?;
+    serde_json::to_string(&song.flow_items()).map_err(|e| e.to_string())
+}
+
+/// Default section flow including repeats (`Song::custom_flow`).
+#[wasm_bindgen(js_name = songCustomFlow)]
+pub fn song_custom_flow(song_json: &str) -> Result<String, String> {
+    let song = parse_song_json(song_json)?;
+    serde_json::to_string(&song.custom_flow()).map_err(|e| e.to_string())
+}
+
+/// Reorder and repeat sections to match a custom flow (`Song::apply_flow`).
+#[wasm_bindgen(js_name = applySongFlow)]
+pub fn apply_song_flow(song_json: &str, flow_json: &str) -> Result<String, String> {
+    let mut song = parse_song_json(song_json)?;
+    let flow: Vec<SongFlowItem> = serde_json::from_str(flow_json).map_err(|e| e.to_string())?;
+    song.apply_flow(flow).map_err(|e| e.to_string())?;
     serde_json::to_string(&song).map_err(|e| e.to_string())
 }
 
@@ -175,6 +209,64 @@ mod tests {
         assert!(page.sections()[0].contains("Verse"));
         assert!(page.sections()[1].contains("Chorus"));
         assert!(!page.css().is_empty());
+    }
+
+    #[test]
+    fn song_flow_items_and_custom_flow_match_section_order() {
+        let source = "{title: Test}\n{key: C}\n{section: Verse}\nLine one\n{section: Chorus}\nLine two\n{section: Verse}\nLine one\n";
+        let json = parse_chord_pro(source).expect("parse");
+
+        let items: Vec<SongFlowItem> =
+            serde_json::from_str(&song_flow_items(&json).expect("flow items")).expect("json");
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].title, "Verse");
+        assert_eq!(items[1].title, "Chorus");
+
+        let flow: Vec<SongFlowItem> =
+            serde_json::from_str(&song_custom_flow(&json).expect("custom flow")).expect("json");
+        assert_eq!(flow.len(), 3);
+        assert_eq!(flow[0].title, "Verse");
+        assert_eq!(flow[1].title, "Chorus");
+        assert_eq!(flow[2].title, "Verse");
+    }
+
+    #[test]
+    fn apply_song_flow_reorders_sections() {
+        let source =
+            "{title: Test}\n{key: C}\n{section: Verse}\nFirst\n{section: Chorus}\nSecond\n";
+        let json = parse_chord_pro(source).expect("parse");
+        let flow = serde_json::to_string(&[
+            SongFlowItem {
+                title: "Chorus".into(),
+                occurrence_index: 0,
+                repeats: 1,
+            },
+            SongFlowItem {
+                title: "Verse".into(),
+                occurrence_index: 0,
+                repeats: 2,
+            },
+        ])
+        .expect("flow json");
+
+        let applied = apply_song_flow(&json, &flow).expect("apply flow");
+        let song: Song = serde_json::from_str(&applied).expect("json");
+        assert_eq!(song.sections.len(), 2);
+        assert_eq!(song.sections[0].title, "Chorus");
+        assert_eq!(song.sections[1].title, "Verse");
+        assert_eq!(song.sections[1].repeat_count, 2);
+    }
+
+    #[test]
+    fn fill_section_references_copies_empty_repeat_sections() {
+        let source = "{title: Test}\n{key: C}\n{section: Chorus}\nLine one\n{section: Verse}\nVerse text\n{section: Chorus}\n";
+        let json = parse_chord_pro(source).expect("parse");
+        let filled = fill_section_references(&json).expect("fill");
+        let song: Song = serde_json::from_str(&filled).expect("json");
+        assert_eq!(song.sections.len(), 3);
+        assert!(!song.sections[0].lines.is_empty());
+        assert!(!song.sections[1].lines.is_empty());
+        assert_eq!(song.sections[2].lines, song.sections[0].lines);
     }
 
     #[test]
