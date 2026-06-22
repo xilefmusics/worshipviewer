@@ -35,7 +35,7 @@ export type PatchSongData = components['schemas']['PatchSongData']
 /** Time signatures offered in the song editor meta strip. */
 export const SONG_EDITOR_TIME_SIGNATURES = ['4/4', '6/8'] as const
 
-/** Pause after typing before autosave runs or parse errors are shown in source mode. */
+/** Pause after typing before parse errors are shown in source mode. */
 export const SONG_EDITOR_TYPING_DEBOUNCE_MS = 3000
 
 export type SongEditorTimeSignature = (typeof SONG_EDITOR_TIME_SIGNATURES)[number]
@@ -151,6 +151,12 @@ function parseTimeSignature(value: string): number[] | null {
   if (value === '4/4') return [4, 4]
   if (value === '6/8') return [6, 8]
   return null
+}
+
+/** Beats per bar for editor time signatures; `null` when unset or unsupported. */
+export function beatsPerMeasureFromTimeSignature(timeSignature: string): number | null {
+  const parsed = parseTimeSignature(timeSignature.trim())
+  return parsed ? parsed[0]! : null
 }
 
 /** Parallel `titles`, `artists`, and `languages` slots grouped by index. */

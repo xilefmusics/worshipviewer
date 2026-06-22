@@ -30,16 +30,14 @@ function createWrapper() {
 describe('useSongAutosave', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.useFakeTimers()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }))
   })
 
   afterEach(() => {
-    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
-  it('debounces a successful PATCH', async () => {
+  it('marks draft dirty without PATCH until flushNow', async () => {
     patchMock.mockResolvedValue({
       response: { ok: true, status: 200 },
       data: { id: 'song-1', data: { ...songData, titles: ['Updated'] } },
@@ -59,12 +57,13 @@ describe('useSongAutosave', () => {
     )
 
     act(() => {
-      result.current.notifyDraftEdited()
+      result.current.markDraftDirty()
     })
     expect(result.current.saveIcon).toBe('pending')
+    expect(patchMock).not.toHaveBeenCalled()
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000)
+      await result.current.flushNow()
     })
 
     expect(patchMock).toHaveBeenCalledOnce()
@@ -79,23 +78,24 @@ describe('useSongAutosave', () => {
       error: { title: 'Server error' },
     })
 
-    const draft = { ...songData, titles: ['Fail'] }
-    const { result, unmount } = renderHook(
-      () =>
+    const { result, rerender, unmount } = renderHook(
+      ({ draft }: { draft: PatchSongData }) =>
         useSongAutosave({
           songId: 'song-1',
           baseline: songData,
           draft,
           canAutosavePatch: true,
         }),
-      { wrapper: createWrapper() },
+      {
+        wrapper: createWrapper(),
+        initialProps: { draft: songData },
+      },
     )
 
-    act(() => {
-      result.current.notifyDraftEdited()
-    })
+    rerender({ draft: { ...songData, titles: ['Fail'] } })
+
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000)
+      await result.current.flushNow()
     })
 
     expect(result.current.saveIcon).toBe('error')
@@ -127,11 +127,8 @@ describe('useSongAutosave', () => {
       { wrapper: createWrapper() },
     )
 
-    act(() => {
-      result.current.notifyDraftEdited()
-    })
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000)
+      await result.current.flushNow()
     })
 
     expect(result.current.saveFailure?.retryAfterUntil).not.toBeNull()

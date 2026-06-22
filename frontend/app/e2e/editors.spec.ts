@@ -2,22 +2,19 @@ import { expect, secondUserTest, test, uniqueToken } from './fixtures/auth'
 import { gotoEn, setOffline } from './helpers'
 
 // Flow: G1
-test('G1: edit a song (Meta / Source / Preview)', async ({ page, seed }) => {
+test('G1: edit a song (Simple / Advanced)', async ({ page, seed }) => {
   const token = uniqueToken('g1')
   const coll = await seed.createCollection({ title: `${token}-c` })
   const song = await seed.createSong({ collection: coll.id, title: `${token}-edit` })
   await gotoEn(page, `/songs/${song.id}`)
 
-  // Meta tab fields
-  await page.getByRole('tab', { name: 'Meta' }).click()
+  // Simple tab fields
+  await page.getByRole('tab', { name: 'Simple' }).click()
   await page.getByLabel(/title/i).first().fill(`${token}-meta`)
 
-  // Source tab
-  await page.getByRole('tab', { name: 'Source' }).click()
+  // Advanced tab
+  await page.getByRole('tab', { name: 'Advanced' }).click()
   await expect(page.locator('.cm-editor, [class*="codemirror"]')).toBeVisible()
-
-  // Preview tab
-  await page.getByRole('tab', { name: 'Preview' }).click()
 
   // not_a_song read-only
   const nas = await seed.createSong({ collection: coll.id, title: `${token}-nas`, not_a_song: true })
@@ -56,9 +53,9 @@ test('G2: editor offline / save-failure recovery', async ({ page, seed, context 
     }
     return route.continue()
   })
-  await page.getByRole('tab', { name: 'Meta' }).click()
+  await page.getByRole('tab', { name: 'Simple' }).click()
   await page.getByLabel(/title/i).first().fill(`${token}-fail`)
-  await page.getByLabel(/title/i).first().blur()
+  await page.getByRole('tab', { name: 'Advanced' }).click()
   await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible({ timeout: 10_000 })
   await page.getByRole('button', { name: 'Discard' }).click()
 

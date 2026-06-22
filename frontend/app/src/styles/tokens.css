@@ -5,6 +5,8 @@
 :root {
   --color-primary: oklch(0.55 0.21 27);
   --color-primary-foreground: oklch(0.99 0 0);
+  /** Same hue as primary, lower chroma — marked lyric letters under chords in the compose editor. */
+  --color-compose-chord: color-mix(in oklch, var(--color-primary) 58%, var(--color-foreground));
 
   --color-bg: oklch(0.99 0 0);
   --color-surface: oklch(1 0 0);

@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useSongEditorNavigationBridge } from '@/context/SongEditorNavigationBridgeContext'
 import { useUserAvatarDisplay } from '@/hooks/useUserAvatarDisplay'
 import { performLogout } from '@/lib/logout-queue'
 import { usePwaInstall } from '@/pwa/pwa-install-context'
@@ -38,10 +39,16 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
   const navigate = useNavigate()
   const { queryClient } = RootRoute.useRouteContext()
   const { canShowInstall, openInstall } = usePwaInstall()
+  const songEditorNavigationBridge = useSongEditorNavigationBridge()
   const { imageSrc, onImageError, initials } = useUserAvatarDisplay(user)
   const [hoveredRow, setHoveredRow] = useState<
     'settings' | 'sessions' | 'admin' | 'about' | 'install' | 'logout' | null
   >(null)
+
+  async function leaveSongEditorIfNeeded(): Promise<boolean> {
+    const ok = (await songEditorNavigationBridge?.flushBeforeLeave()) ?? true
+    return ok !== false
+  }
 
   async function onLogout() {
     await performLogout(queryClient)
@@ -92,7 +99,10 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => {
-            void navigate({ to: '/settings' })
+            void (async () => {
+              if (!(await leaveSongEditorIfNeeded())) return
+              void navigate({ to: '/settings' })
+            })()
           }}
           onMouseEnter={() => setHoveredRow('settings')}
           onMouseLeave={() => setHoveredRow(null)}
@@ -102,7 +112,10 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => {
-            void navigate({ to: '/sessions' })
+            void (async () => {
+              if (!(await leaveSongEditorIfNeeded())) return
+              void navigate({ to: '/sessions' })
+            })()
           }}
           onMouseEnter={() => setHoveredRow('sessions')}
           onMouseLeave={() => setHoveredRow(null)}
@@ -113,15 +126,18 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
         {user.role === 'admin' ? (
           <DropdownMenuItem
             onSelect={() => {
-              const range = resolveAdminQuickRange('30d')
-              void navigate({
-                to: '/admin',
-                search: {
-                  start: formatAdminDateInputValue(range.start),
-                  end: formatAdminDateInputValue(range.end),
-                },
-                replace: true,
-              })
+              void (async () => {
+                if (!(await leaveSongEditorIfNeeded())) return
+                const range = resolveAdminQuickRange('30d')
+                void navigate({
+                  to: '/admin',
+                  search: {
+                    start: formatAdminDateInputValue(range.start),
+                    end: formatAdminDateInputValue(range.end),
+                  },
+                  replace: true,
+                })
+              })()
             }}
             onMouseEnter={() => setHoveredRow('admin')}
             onMouseLeave={() => setHoveredRow(null)}
@@ -132,7 +148,10 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
         ) : null}
         <DropdownMenuItem
           onSelect={() => {
-            void navigate({ to: '/about' })
+            void (async () => {
+              if (!(await leaveSongEditorIfNeeded())) return
+              void navigate({ to: '/about' })
+            })()
           }}
           onMouseEnter={() => setHoveredRow('about')}
           onMouseLeave={() => setHoveredRow(null)}
@@ -155,7 +174,10 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => {
-            void onLogout()
+            void (async () => {
+              if (!(await leaveSongEditorIfNeeded())) return
+              await onLogout()
+            })()
           }}
           onMouseEnter={() => setHoveredRow('logout')}
           onMouseLeave={() => setHoveredRow(null)}

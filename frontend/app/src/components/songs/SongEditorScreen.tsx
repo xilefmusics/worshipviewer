@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { SongEditorPreview } from '@/components/songs/SongEditorPreview'
+import { SongEditorCompose } from '@/components/songs/SongEditorCompose'
 import { SongEditorSource } from '@/components/songs/SongEditorSource'
 import { PlusIcon } from '@/components/icons/lucide-animated/plus-icon'
 import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useRegisterSongEditorNavigationBridge } from '@/context/SongEditorNavigationBridgeContext'
 import { useCanEditSong } from '@/hooks/useCanEditSong'
 import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
 import { useOnline } from '@/hooks/use-online'
@@ -43,6 +44,7 @@ import {
   parseSourceWithEngine,
   patchSongDataFromParsed,
   patchSongDataFromSongData,
+  type PatchSongData,
   SONG_EDITOR_TIME_SIGNATURES,
   SONG_EDITOR_TYPING_DEBOUNCE_MS,
   shouldPromptKeyChangeChords,
@@ -50,16 +52,21 @@ import {
   type SongMetadataStrip,
 } from '@/lib/song-editor-state'
 import {
+  composeSectionsFromSongData,
+  mergeSongDataWithComposeSections,
+  type ComposeSection,
+} from '@/lib/song-editor-compose'
+import {
   importUltimateGuitarHtml,
   isUltimateGuitarUrl,
   shouldAttemptUgImport,
 } from '@/lib/ultimate-guitar-import'
-import type { ChordEngine } from '@/ports/chord-engine'
+import type { ChordEngine, ChordSongData } from '@/ports/chord-engine'
 import { cn } from '@/lib/utils'
 
-type EditorTab = 'meta' | 'source' | 'preview'
+type EditorTab = 'simple' | 'advanced'
 
-const editorTabs: EditorTab[] = ['meta', 'source', 'preview']
+const editorTabs: EditorTab[] = ['simple', 'advanced']
 
 type EngineState =
   | { status: 'loading' }
@@ -102,7 +109,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   })
   const [parseError, setParseError] = useState<string | null>(null)
   const [ugImportUi, setUgImportUi] = useState<UgImportUiState>({ kind: 'idle' })
-  const [activeTab, setActiveTab] = useState<EditorTab>('source')
+  const [activeTab, setActiveTab] = useState<EditorTab>('simple')
   const lastLoadedSongRef = useRef('')
   const [resumePrompt, setResumePrompt] = useState(false)
   const [keyChangePrompt, setKeyChangePrompt] = useState<{
@@ -110,6 +117,11 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     pendingStrip: SongMetadataStrip
   } | null>(null)
   const wentOfflineEditing = useRef(false)
+  const skipComposeResyncRef = useRef(false)
+  /** Canonical song data after compose edits; avoids lossy ChordPro round-trip on save/load. */
+  const composeSongDataRef = useRef<Record<string, unknown> | null>(null)
+  const [composeDraftRevision, setComposeDraftRevision] = useState(0)
+  const [composeSections, setComposeSections] = useState<ComposeSection[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -145,11 +157,19 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     if (!detail || detail.id !== songId || !engine) return
     if (lastLoadedSongRef.current === songId) return
     lastLoadedSongRef.current = songId
-    const source = formatSourceFromSongData(engine, detail.data as Record<string, unknown>, chordFormat)
+    const songData = detail.data as Record<string, unknown>
+    composeSongDataRef.current = songData
+    const strip = metadataStripFromSongData(songData)
+    const source = formatSourceFromSongData(engine, songData, chordFormat)
     setSourceText(source)
-    setMetadataStrip(metadataStripFromSongData(detail.data as Record<string, unknown>))
+    setMetadataStrip(strip)
     setParseError(null)
     setUgImportUi({ kind: 'idle' })
+    skipComposeResyncRef.current = true
+    setComposeSections(
+      composeSectionsFromSongData(songData, engine, strip.key || null, chordFormat),
+    )
+    setComposeDraftRevision((revision) => revision + 1)
   }, [detail, songId, engine, chordFormat])
 
   const parseResult = useMemo(() => {
@@ -161,7 +181,6 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     parseResultRef.current = parseResult
   }, [parseResult])
 
-  const previewData = parseResult?.ok ? parseResult.data : null
   const parseErrors = useMemo(
     () => (parseResult ? parseErrorsFromResult(parseResult) : []),
     [parseResult],
@@ -192,10 +211,20 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     [detail],
   )
 
-  const draftPatchData = useMemo(() => {
-    if (!parseResult?.ok) return null
-    return patchSongDataFromParsed(parseResult.data, metadataStrip)
-  }, [metadataStrip, parseResult])
+  const draftPatchData = useMemo((): PatchSongData | null => {
+    if (!engine || !parseResult?.ok) return null
+    // Ref holds the latest compose merge; composeDraftRevision forces recompute after edits.
+    // eslint-disable-next-line react-hooks/refs -- intentional out-of-band compose snapshot
+    const data = (composeSongDataRef.current ?? parseResult.data) as ChordSongData
+    return patchSongDataFromParsed(data, metadataStrip)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- composeDraftRevision busts memo when ref updates
+  }, [composeDraftRevision, engine, metadataStrip, parseResult])
+
+  const resolveDraftPatchData = useCallback((): PatchSongData | null => {
+    if (!engine || !parseResult?.ok) return null
+    const data = (composeSongDataRef.current ?? parseResult.data) as ChordSongData
+    return patchSongDataFromParsed(data, metadataStrip)
+  }, [engine, metadataStrip, parseResult])
 
   const canAutosavePatch = Boolean(
     editable &&
@@ -209,7 +238,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   )
 
   const {
-    notifyDraftEdited,
+    markDraftDirty,
     flushNow,
     patchInFlight,
     saveIcon,
@@ -221,15 +250,68 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     songId,
     baseline,
     draft: draftPatchData,
+    getDraft: resolveDraftPatchData,
     canAutosavePatch,
   })
 
   useEffect(() => {
+    markDraftDirty()
+  }, [draftPatchData, markDraftDirty])
+
+  const navigationBridge = useMemo(
+    () =>
+      editable && !resumePrompt
+        ? {
+            flushBeforeLeave: async () => {
+              if (!canAutosavePatch) return true
+              return flushNow()
+            },
+          }
+        : null,
+    [canAutosavePatch, editable, flushNow, resumePrompt],
+  )
+  useRegisterSongEditorNavigationBridge(navigationBridge)
+
+  const switchEditorTab = useCallback(
+    async (tab: EditorTab) => {
+      if (tab === activeTab) return
+      if (canAutosavePatch) {
+        const ok = await flushNow()
+        if (ok === false) return
+      }
+      setActiveTab(tab)
+    },
+    [activeTab, canAutosavePatch, flushNow],
+  )
+
+  useEffect(() => {
+    if (skipComposeResyncRef.current) {
+      skipComposeResyncRef.current = false
+      return
+    }
+    if (!engine || !parseResult?.ok) {
+      queueMicrotask(() => setComposeSections([]))
+      return
+    }
+    queueMicrotask(() => {
+      setComposeSections(
+        composeSectionsFromSongData(
+          parseResult.data,
+          engine,
+          metadataStrip.key || null,
+          chordFormat,
+        ),
+      )
+    })
+  }, [chordFormat, engine, metadataStrip.key, parseResult, songId])
+
+  useEffect(() => {
     if (!engine) return
     const current = parseResultRef.current
-    if (!current?.ok) return
+    const data = composeSongDataRef.current ?? (current?.ok ? current.data : null)
+    if (!data) return
     queueMicrotask(() => {
-      setSourceText(formatSourceFromSongData(engine, current.data, chordFormat))
+      setSourceText(formatSourceFromSongData(engine, data, chordFormat))
     })
   }, [chordFormat, engine])
 
@@ -237,8 +319,15 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     if (!engine || !detail || saveRevision === 0) return
     queueMicrotask(() => {
       const data = detail.data as Record<string, unknown>
+      const strip = metadataStripFromSongData(data)
+      composeSongDataRef.current = data
+      skipComposeResyncRef.current = true
+      setComposeSections(
+        composeSectionsFromSongData(data, engine, strip.key || null, chordFormat),
+      )
+      setComposeDraftRevision((revision) => revision + 1)
       setSourceText(formatSourceFromSongData(engine, data, chordFormat))
-      setMetadataStrip(metadataStripFromSongData(data))
+      setMetadataStrip(strip)
       setParseError(null)
     })
   }, [saveRevision, engine, detail, chordFormat])
@@ -279,14 +368,13 @@ export function SongEditorScreen({ songId }: { songId: string }) {
         setSourceText(result.source)
         setMetadataStrip(metadataStripFromSongData(result.data))
         setParseError(null)
-        queueMicrotask(() => notifyDraftEdited())
         return
       }
       setUgImportUi({ kind: 'error', message: result.error })
     }, SONG_EDITOR_TYPING_DEBOUNCE_MS)
 
     return () => clearTimeout(timer)
-  }, [sourceText, engine, editable, sourceBlocked, chordFormat, notifyDraftEdited, parseResult?.ok])
+  }, [sourceText, engine, editable, sourceBlocked, chordFormat, parseResult?.ok])
 
   const retryAfterUntil = saveFailure?.retryAfterUntil
   const [retrySec, setRetrySec] = useState(0)
@@ -304,6 +392,8 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   const onSourceChange = useCallback(
     (next: string) => {
       if (sourceBlocked) return
+      composeSongDataRef.current = null
+      setComposeDraftRevision((revision) => revision + 1)
       setSourceText(next)
       if (!engine) return
       const parsed = parseSourceWithEngine(engine, next)
@@ -313,29 +403,31 @@ export function SongEditorScreen({ songId }: { songId: string }) {
       } else {
         setParseError(parsed.error)
       }
-      queueMicrotask(() => notifyDraftEdited())
     },
-    [engine, notifyDraftEdited, sourceBlocked],
+    [engine, sourceBlocked],
   )
 
   const commitMetadataStrip = useCallback(
     (stripOverride?: SongMetadataStrip) => {
-      if (!engine || !parseResult?.ok || sourceBlocked) return
+      if (!engine || sourceBlocked) return
+      const base = composeSongDataRef.current ?? (parseResult?.ok ? parseResult.data : null)
+      if (!base) return
       const strip = stripOverride ?? metadataStrip
-      const nextSource = applyMetadataStripToSource(engine, parseResult.data, strip, chordFormat)
+      const nextSource = applyMetadataStripToSource(engine, base, strip, chordFormat)
       setSourceText(nextSource)
       setParseError(null)
-      queueMicrotask(() => notifyDraftEdited())
     },
-    [engine, metadataStrip, notifyDraftEdited, parseResult, sourceBlocked, chordFormat],
+    [engine, metadataStrip, parseResult, sourceBlocked, chordFormat],
   )
 
   const commitKeyChange = useCallback(
     (strip: SongMetadataStrip, mode: KeyChangeChordMode, previousKey: string) => {
-      if (!engine || !parseResult?.ok || sourceBlocked) return
+      if (!engine || sourceBlocked) return
+      const base = composeSongDataRef.current ?? (parseResult?.ok ? parseResult.data : null)
+      if (!base) return
       const nextSource = applyKeyChangeToSource(
         engine,
-        parseResult.data,
+        base,
         strip,
         mode,
         previousKey,
@@ -347,9 +439,8 @@ export function SongEditorScreen({ songId }: { songId: string }) {
         setMetadataStrip(metadataStripFromSongData(reparsed.data))
         setParseError(null)
       }
-      queueMicrotask(() => notifyDraftEdited())
     },
-    [chordFormat, engine, notifyDraftEdited, parseResult, sourceBlocked],
+    [chordFormat, engine, parseResult, sourceBlocked],
   )
 
   const onKeySelectChange = useCallback(
@@ -379,6 +470,38 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   const onMetadataFieldBlur = useCallback(() => {
     queueMicrotask(() => commitMetadataStrip())
   }, [commitMetadataStrip])
+
+  const onComposeChange = useCallback(
+    (sections: ComposeSection[]) => {
+      if (!engine || !parseResult?.ok || sourceBlocked) return
+      setComposeSections(sections)
+      skipComposeResyncRef.current = true
+      const base = composeSongDataRef.current ?? parseResult.data
+      const merged = mergeSongDataWithComposeSections(
+        base,
+        sections,
+        engine,
+        metadataStrip.key || null,
+        metadataStrip.timeSignature,
+        Math.max(1, metadataStrip.languageEntries.length),
+        chordFormat,
+      )
+      composeSongDataRef.current = merged
+      setComposeDraftRevision((revision) => revision + 1)
+      const nextSource = formatSourceFromSongData(engine, merged, chordFormat)
+      setSourceText(nextSource)
+      setParseError(null)
+    },
+    [
+      chordFormat,
+      engine,
+      metadataStrip.key,
+      metadataStrip.timeSignature,
+      metadataStrip.languageEntries.length,
+      parseResult,
+      sourceBlocked,
+    ],
+  )
 
   const updateMetaTag = useCallback((id: string, field: 'key' | 'value', value: string) => {
     setMetadataStrip((strip) => ({
@@ -504,9 +627,9 @@ export function SongEditorScreen({ songId }: { songId: string }) {
                   aria-selected={selected}
                   aria-controls={`song-editor-panel-${tab}-${songId}`}
                   tabIndex={selected ? 0 : -1}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => void switchEditorTab(tab)}
                   className={cn(
-                    'min-w-0 flex-1 rounded-full px-2 py-2.5 text-sm font-medium transition-colors',
+                    'min-w-0 flex-1 rounded-full px-1.5 py-2.5 text-xs font-medium transition-colors sm:px-2 sm:text-sm',
                     selected
                       ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
                       : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',
@@ -608,13 +731,14 @@ export function SongEditorScreen({ songId }: { songId: string }) {
       ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col gap-4">
-      {activeTab === 'meta' ? (
+      {activeTab === 'simple' ? (
         <div
           role="tabpanel"
-          id={`song-editor-panel-meta-${songId}`}
-          aria-labelledby={`song-editor-tab-meta-${songId}`}
-          className="grid gap-3"
+          id={`song-editor-panel-simple-${songId}`}
+          aria-labelledby={`song-editor-tab-simple-${songId}`}
+          className="grid gap-4"
         >
+          <div className="grid gap-3">
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="grid gap-2 sm:col-span-2">
               {metadataStrip.languageEntries.length === 0 ? (
@@ -808,14 +932,34 @@ export function SongEditorScreen({ songId }: { songId: string }) {
               )}
             </div>
           </div>
+          </div>
+          <div className="grid min-h-0 gap-3">
+            {effectiveParseError ? (
+              <p className="text-sm text-[var(--color-muted-foreground)]">
+                {t('songs.editor.compose.blocked')}
+              </p>
+            ) : (
+              <SongEditorCompose
+                sections={composeSections}
+                songKey={metadataStrip.key || null}
+                timeSignature={metadataStrip.timeSignature}
+                chordFormat={chordFormat}
+                readOnly={sourceBlocked}
+                translationLanguages={metadataStrip.languageEntries
+                  .slice(1)
+                  .map((entry) => entry.language.trim())}
+                onChange={onComposeChange}
+              />
+            )}
+          </div>
         </div>
       ) : null}
 
-      {activeTab === 'source' ? (
+      {activeTab === 'advanced' ? (
         <div
           role="tabpanel"
-          id={`song-editor-panel-source-${songId}`}
-          aria-labelledby={`song-editor-tab-source-${songId}`}
+          id={`song-editor-panel-advanced-${songId}`}
+          aria-labelledby={`song-editor-tab-advanced-${songId}`}
           className="grid min-h-0 gap-1.5"
         >
           <label htmlFor={`song-editor-source-${songId}`} className="sr-only">
@@ -826,22 +970,6 @@ export function SongEditorScreen({ songId }: { songId: string }) {
             value={sourceText}
             readOnly={sourceBlocked}
             onChange={onSourceChange}
-          />
-        </div>
-      ) : null}
-
-      {activeTab === 'preview' && engine ? (
-        <div
-          role="tabpanel"
-          id={`song-editor-panel-preview-${songId}`}
-          aria-labelledby={`song-editor-tab-preview-${songId}`}
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          <SongEditorPreview
-            engine={engine}
-            songData={previewData}
-            parseError={effectiveParseError}
-            hideHeading
           />
         </div>
       ) : null}

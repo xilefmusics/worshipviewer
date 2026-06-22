@@ -10,22 +10,21 @@ import { hubListRootKey } from '@/lib/hub-list-keys'
 import { parseRetryAfterSeconds } from '@/lib/http-retry-after'
 import { buildSongPatchBody } from '@/lib/song-patch-body'
 import { playerQueriesRootKey, songDetailQueryKey } from '@/lib/setlist-detail-key'
-import {
-  patchSongDataFromSongData,
-  SONG_EDITOR_TYPING_DEBOUNCE_MS,
-  type PatchSongData,
-} from '@/lib/song-editor-state'
+import { patchSongDataFromSongData, type PatchSongData } from '@/lib/song-editor-state'
 import type { ChordSongData } from '@/ports/chord-engine'
 
 type Song = components['schemas']['Song']
 
-const DEBOUNCE_MS = SONG_EDITOR_TYPING_DEBOUNCE_MS
-
 export type SaveIconState = 'idle' | 'pending' | 'saving' | 'error'
 
+/** Best-effort flush when unloading (small PATCH body). */
 function keepalivePatchSong(id: string, body: Record<string, unknown>) {
-  const base = import.meta.env.VITE_API_BASE_URL ?? ''
-  const url = `${base}/api/v1/songs/${encodeURIComponent(id)}`
+  const configuredBase = import.meta.env.VITE_API_BASE_URL ?? ''
+  const origin =
+    typeof globalThis.location?.origin === 'string' && globalThis.location.origin.length > 0
+      ? globalThis.location.origin
+      : 'http://localhost'
+  const url = `${configuredBase || origin}/api/v1/songs/${encodeURIComponent(id)}`
   try {
     void fetch(url, {
       method: 'PATCH',
@@ -43,11 +42,14 @@ export function useSongAutosave({
   songId,
   baseline,
   draft,
+  getDraft,
   canAutosavePatch,
 }: {
   songId: string
   baseline: PatchSongData | null
   draft: PatchSongData | null
+  /** Latest draft resolver; used on flush so in-flight compose edits are not missed. */
+  getDraft?: () => PatchSongData | null
   /** false when read-only, offline, parse invalid, or missing baseline */
   canAutosavePatch: boolean
 }) {
@@ -62,10 +64,10 @@ export function useSongAutosave({
   } | null>(null)
   const [saveRevision, setSaveRevision] = useState(0)
 
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const needFollowUpPatch = useRef(false)
   const baselineRef = useRef(baseline)
   const draftRef = useRef(draft)
+  const getDraftRef = useRef(getDraft)
   const patchInFlightRef = useRef(false)
 
   useEffect(() => {
@@ -76,11 +78,12 @@ export function useSongAutosave({
     draftRef.current = draft
   }, [draft])
 
-  const clearDebounceTimer = useCallback(() => {
-    if (debounceTimer.current != null) {
-      clearTimeout(debounceTimer.current)
-      debounceTimer.current = null
-    }
+  useEffect(() => {
+    getDraftRef.current = getDraft
+  }, [getDraft])
+
+  const resolveDraft = useCallback((): PatchSongData | null => {
+    return getDraftRef.current?.() ?? draftRef.current
   }, [])
 
   const invalidateHubPassive = useCallback(() => {
@@ -152,9 +155,8 @@ export function useSongAutosave({
   )
 
   const flush = useCallback(async (): Promise<boolean> => {
-    clearDebounceTimer()
     const base = baselineRef.current
-    const currentDraft = draftRef.current
+    const currentDraft = resolveDraft()
     if (!canAutosavePatch || !base || !currentDraft || saveFailure) return false
 
     const body = buildSongPatchBody(base, currentDraft)
@@ -173,7 +175,7 @@ export function useSongAutosave({
     if (needFollowUpPatch.current) {
       needFollowUpPatch.current = false
       const b = baselineRef.current
-      const d = draftRef.current
+      const d = resolveDraft()
       if (b && d) {
         const nextBody = buildSongPatchBody(b, d)
         if (nextBody) {
@@ -182,48 +184,32 @@ export function useSongAutosave({
       }
     }
     return ok
-  }, [canAutosavePatch, clearDebounceTimer, saveFailure, sendPatchInner])
+  }, [canAutosavePatch, resolveDraft, saveFailure, sendPatchInner])
 
-  const notifyDraftEdited = useCallback(() => {
-    clearDebounceTimer()
-    const base = baselineRef.current
-    const currentDraft = draftRef.current
-    if (!canAutosavePatch || !base || !currentDraft || saveFailure) {
+  const markDraftDirty = useCallback(() => {
+    if (saveFailure) return
+    const currentDraft = resolveDraft()
+    if (!canAutosavePatch || !baselineRef.current || !currentDraft) {
       setSaveIcon('idle')
       return
     }
 
-    const body = buildSongPatchBody(base, currentDraft)
+    const body = buildSongPatchBody(baselineRef.current, currentDraft)
     if (!body) {
       setSaveIcon('idle')
       return
     }
 
     setSaveIcon('pending')
-    debounceTimer.current = setTimeout(() => {
-      debounceTimer.current = null
-      void flush()
-    }, DEBOUNCE_MS)
-  }, [canAutosavePatch, clearDebounceTimer, flush, saveFailure])
+  }, [canAutosavePatch, resolveDraft, saveFailure])
 
   const flushSyncForUnload = useCallback(() => {
-    clearDebounceTimer()
     const base = baselineRef.current
-    const currentDraft = draftRef.current
+    const currentDraft = resolveDraft()
     if (!base || !currentDraft || saveFailure || !canAutosavePatch) return
     const body = buildSongPatchBody(base, currentDraft)
     if (body) keepalivePatchSong(songId, body)
-  }, [canAutosavePatch, clearDebounceTimer, saveFailure, songId])
-
-  useEffect(() => {
-    const onVis = () => {
-      if (document.visibilityState === 'hidden') {
-        void flush()
-      }
-    }
-    document.addEventListener('visibilitychange', onVis)
-    return () => document.removeEventListener('visibilitychange', onVis)
-  }, [flush])
+  }, [canAutosavePatch, resolveDraft, saveFailure, songId])
 
   useEffect(() => {
     const onPageHide = () => flushSyncForUnload()
@@ -245,12 +231,6 @@ export function useSongAutosave({
     }
   }, [flushSyncForUnload, songId])
 
-  useEffect(() => {
-    if (!canAutosavePatch) {
-      clearDebounceTimer()
-    }
-  }, [canAutosavePatch, clearDebounceTimer])
-
   const retrySave = useCallback(async () => {
     if (!saveFailure) return
     const body = saveFailure.failedBody
@@ -267,7 +247,7 @@ export function useSongAutosave({
   }, [saveFailure])
 
   return {
-    notifyDraftEdited,
+    markDraftDirty,
     flushNow: flush,
     patchInFlight,
     saveIcon,
