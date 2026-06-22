@@ -1,5 +1,6 @@
 use super::Song;
 use chordlib::types::SimpleChord;
+use chordlib::types::SongFlowItem;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "backend")]
@@ -30,5 +31,6 @@ pub struct LinkOwned {
     pub key: Option<SimpleChord>,
     pub tempo: Option<u32>,
     pub language: Option<String>,
+    pub flow: Option<Vec<SongFlowItem>>,
     pub liked: bool,
 }

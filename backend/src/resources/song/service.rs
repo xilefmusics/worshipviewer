@@ -145,6 +145,7 @@ impl<R: SongRepository, L: LikedSongIds, C: CollectionRepository> SongService<R,
             key: None,
             tempo: None,
             language: None,
+            flow: None,
             liked: self
                 .repo
                 .get_song_like(&read_teams, &ctx.user.id, id)

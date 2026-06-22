@@ -11,5 +11,5 @@ pub use song::{CreateSong, PatchSong, PatchSongData, Song, SongUserSpecificAddon
 #[cfg(feature = "backend")]
 pub use song_data_schema::{
     ChordKindSchema, ChordSchema, LineSchema, PartSchema, RootSpellingHintSchema, SectionSchema,
-    SimpleChordSchema, SongDataSchema,
+    SimpleChordSchema, SongDataSchema, SongFlowItemSchema,
 };

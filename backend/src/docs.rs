@@ -29,9 +29,10 @@ use shared::like::LikeStatus;
 use shared::player::{
     Orientation, Player, PlayerBlobItem, PlayerChordsItem, PlayerItem, ScrollType, TocItem,
 };
+use shared::setlist::SongLink as SetlistSongLink;
 use shared::song::{
     ChordKindSchema, ChordSchema, LineSchema, Link as SongLink, PartSchema, RootSpellingHintSchema,
-    SectionSchema, SimpleChordSchema, SongDataSchema, SongUserSpecificAddons,
+    SectionSchema, SimpleChordSchema, SongDataSchema, SongFlowItemSchema, SongUserSpecificAddons,
 };
 use shared::team::{
     CreateTeam, PatchTeam, Team, TeamInvitation, TeamMember, TeamMemberInput, TeamRole, TeamUser,
@@ -218,6 +219,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
             PatchSong,
             PatchSongData,
             SongDataSchema,
+            SongFlowItemSchema,
             SimpleChordSchema,
             ChordKindSchema,
             RootSpellingHintSchema,
@@ -236,6 +238,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
             CreateSetlist,
             UpdateSetlist,
             PatchSetlist,
+            SetlistSongLink,
             Blob,
             BlobLink,
             CreateBlob,

@@ -1,6 +1,8 @@
-use crate::song::Link as SongLink;
+use chordlib::types::SongFlowItem;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "backend")]
+use crate::song::SongFlowItemSchema;
 #[cfg(feature = "backend")]
 #[allow(unused_imports)]
 use serde_json::json;
@@ -15,7 +17,7 @@ use utoipa::ToSchema;
         "id": "set_example",
         "owner": "usr_example",
         "title": "Easter Sunday",
-        "songs": [{ "id": "song_example", "nr": "1", "key": null }]
+        "songs": [{ "id": "song_example", "nr": "1", "key": null, "flow": null }]
     }))
 )]
 pub struct Setlist {
@@ -26,13 +28,33 @@ pub struct Setlist {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[cfg_attr(feature = "backend", schema(as = SetlistSongLink))]
+pub struct SongLink {
+    /// Song record id.
+    pub id: String,
+    /// Optional display position in the parent list (e.g. `1`, `2a`).
+    pub nr: Option<String>,
+    /// Transposition key for this slot (same `{ "level": … }` object as `Song.data.key`).
+    #[cfg_attr(feature = "backend", schema(value_type = Option<crate::song::SimpleChordSchema>))]
+    pub key: Option<chordlib::types::SimpleChord>,
+    /// Tempo override in BPM for this slot; `None` inherits the song's `data.tempo`.
+    pub tempo: Option<u32>,
+    /// Language override for this slot; `None` inherits the song's default language.
+    pub language: Option<String>,
+    /// Custom section order and repeats for this setlist slot.
+    #[cfg_attr(feature = "backend", schema(value_type = Option<Vec<SongFlowItemSchema>>))]
+    pub flow: Option<Vec<SongFlowItem>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 #[cfg_attr(
     feature = "backend",
     schema(example = json!({
         "title": "Easter Sunday",
-        "songs": [{ "id": "song_example", "nr": "1", "key": null }],
+        "songs": [{ "id": "song_example", "nr": "1", "key": null, "flow": null }],
         "owner": "team_example_id"
     }))
 )]

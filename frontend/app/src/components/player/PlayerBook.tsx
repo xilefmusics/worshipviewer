@@ -85,8 +85,13 @@ import { buildSettingsSearch } from '@/lib/settings-route'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
 import { languageIndexForSongLink, resolveSongDataKey } from '@/lib/setlist-song-links'
 import { cn } from '@/lib/utils'
+import type { ChordFormatPreference } from '@/lib/chord-format'
+import type { PlayerOverflowStyle } from '@/lib/player/effective-scroll-type'
+import type { SongFlowItem } from '@/ports/chord-engine'
 
 type Player = components['schemas']['Player']
+type Song = components['schemas']['Song']
+type Orientation = components['schemas']['Orientation']
 type PlayerItem = Player['items'][number]
 type TocItem = Player['toc'][number]
 
@@ -145,6 +150,119 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   return Boolean(
     target instanceof Element &&
       target.closest('button, a, input, textarea, select, [role="button"], [role="link"]'),
+  )
+}
+
+function cloneSongForFlow(song: Song): Song {
+  return structuredClone(song) as Song
+}
+
+function cloneFlowItems(flow: SongFlowItem[]): SongFlowItem[] {
+  return flow.map((item) => ({ ...item }))
+}
+
+function useResolvedBookSong(song: Song, flow: SongFlowItem[] | null | undefined): Song {
+  const [resolvedSong, setResolvedSong] = useState(song)
+
+  useEffect(() => {
+    let cancelled = false
+    queueMicrotask(() => {
+      if (!cancelled) setResolvedSong(song)
+    })
+
+    if (flow == null || flow.length === 0) {
+      return () => {
+        cancelled = true
+      }
+    }
+
+    void (async () => {
+      try {
+        const engine = await getChordEngine()
+        const clonedSong = cloneSongForFlow(song)
+        const applied = engine.applyFlow(clonedSong.data, cloneFlowItems(flow))
+        clonedSong.data = applied as Song['data']
+        if (!cancelled) {
+          setResolvedSong(clonedSong)
+        }
+      } catch {
+        if (!cancelled) {
+          setResolvedSong(song)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [flow, song])
+
+  return resolvedSong
+}
+
+type ResolvedBookChordsProps = {
+  song: Song
+  flow: SongFlowItem[] | null | undefined
+  displayKey: string | null
+  languageIndex: number | null
+  chordFormat: ChordFormatPreference
+  sheetOrientation: Orientation
+  fillParent?: boolean
+  nextSong?: Song | null
+  nextFlow?: SongFlowItem[] | null
+  nextDisplayKey?: string | null
+  nextLanguageIndex?: number | null
+  freeColumnCount: 1 | 2 | 3 | null
+  overflowStyle?: PlayerOverflowStyle
+  expandSections?: boolean
+}
+
+export function ResolvedBookChords({
+  song,
+  flow,
+  displayKey,
+  languageIndex,
+  chordFormat,
+  sheetOrientation,
+  fillParent = false,
+  nextSong,
+  nextFlow,
+  nextDisplayKey,
+  nextLanguageIndex,
+  freeColumnCount,
+  overflowStyle,
+  expandSections,
+}: ResolvedBookChordsProps) {
+  const resolvedSong = useResolvedBookSong(song, flow)
+  const resolvedNextSong = useResolvedBookSong(nextSong ?? song, nextFlow)
+
+  if (freeColumnCount != null) {
+    return (
+      <ChordsThreeColumnSlide
+        song={resolvedSong}
+        displayKey={displayKey}
+        languageIndex={languageIndex}
+        nextSong={nextSong ? resolvedNextSong : undefined}
+        nextDisplayKey={nextDisplayKey}
+        nextLanguageIndex={nextLanguageIndex}
+        chordFormat={chordFormat}
+        columnCount={freeColumnCount}
+        overflowStyle={overflowStyle}
+        expandSections={expandSections}
+        fillParent={fillParent}
+      />
+    )
+  }
+
+  return (
+    <ChordsSlide
+      song={resolvedSong}
+      displayKey={displayKey}
+      languageIndex={languageIndex}
+      chordFormat={chordFormat}
+      orientation={sheetOrientation}
+      fillParent={fillParent}
+    />
   )
 }
 
@@ -655,44 +773,31 @@ export function PlayerBook({
       )
     }
 
-    if (freeColumnCount != null) {
-      const showNextPreview =
-        layoutPreference.nextSongPreview || isMultiColumnWithNextPreviewMode(effectiveScroll)
-      const nextItem = showNextPreview ? player.items[itemIndex + 1] : undefined
-      const nextSong = nextItem?.type === 'chords' ? nextItem.song : undefined
-      return (
-        <ChordsThreeColumnSlide
-          song={item.song}
-          displayKey={displayKeyForItem(item, itemIndex)}
-          languageIndex={renderLanguageIndexForItem(item, itemIndex)}
-          nextSong={nextSong}
-          nextDisplayKey={
-            nextItem?.type === 'chords'
-              ? displayKeyForItem(nextItem, itemIndex + 1)
-              : undefined
-          }
-          nextLanguageIndex={
-            nextItem?.type === 'chords'
-              ? renderLanguageIndexForItem(nextItem, itemIndex + 1)
-              : undefined
-          }
-          chordFormat={chordFormat}
-          columnCount={freeColumnCount}
-          overflowStyle={layoutPreference.overflowStyle}
-          expandSections={layoutPreference.expandSections}
-          fillParent={fillParent}
-        />
-      )
-    }
-
+    const showNextPreview =
+      layoutPreference.nextSongPreview || isMultiColumnWithNextPreviewMode(effectiveScroll)
+    const nextItem = showNextPreview ? player.items[itemIndex + 1] : undefined
+    const nextSong = nextItem?.type === 'chords' ? nextItem.song : undefined
+    const nextFlow = nextItem?.type === 'chords' ? nextItem.flow : undefined
     return (
-      <ChordsSlide
+      <ResolvedBookChords
         song={item.song}
+        flow={item.flow}
         displayKey={displayKeyForItem(item, itemIndex)}
         languageIndex={renderLanguageIndexForItem(item, itemIndex)}
         chordFormat={chordFormat}
-        orientation={sheetOrientation}
+        sheetOrientation={sheetOrientation}
         fillParent={fillParent}
+        nextSong={nextSong}
+        nextFlow={nextFlow}
+        nextDisplayKey={
+          nextItem?.type === 'chords' ? displayKeyForItem(nextItem, itemIndex + 1) : undefined
+        }
+        nextLanguageIndex={
+          nextItem?.type === 'chords' ? renderLanguageIndexForItem(nextItem, itemIndex + 1) : undefined
+        }
+        freeColumnCount={freeColumnCount}
+        overflowStyle={layoutPreference.overflowStyle}
+        expandSections={layoutPreference.expandSections}
       />
     )
   }

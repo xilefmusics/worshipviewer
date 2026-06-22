@@ -1,8 +1,10 @@
 import type { components } from '@/api/schema'
+import type { SongFlowItem } from '@/ports/chord-engine'
 
 import { normalizedTempoBpm } from '@/lib/song-display-meta'
 
-export type SongLink = components['schemas']['SongLink']
+export type CollectionSongLink = components['schemas']['SongLink']
+export type SetlistSongLink = components['schemas']['SetlistSongLink']
 
 /** Editor slot with a coerced chord symbol; wire `SongLink.key` is `{ level }`. */
 export type EditorSongLink = {
@@ -11,6 +13,7 @@ export type EditorSongLink = {
   tempo?: number | null
   language?: string | null
   nr?: string | null
+  flow?: SongFlowItem[] | null
 }
 
 export type SimpleChord = components['schemas']['SimpleChord']
@@ -94,12 +97,14 @@ export function songLinkKeyEditorToWire(key: unknown): SimpleChord | null {
 }
 
 /** One wire `SongLink` for PATCH/POST `songs`; server expects `key` as `{ level }` or JSON `null`. */
-export function songLinkForSetlistMutation(link: EditorSongLink): Pick<SongLink, 'id' | 'key' | 'tempo' | 'language'> {
+export function songLinkForSetlistMutation(link: EditorSongLink): SetlistSongLink {
   return {
     id: normalizeSongLinkId(link.id),
+    nr: normalizeSongLinkNr(link.nr),
     key: songLinkKeyEditorToWire(link.key),
     tempo: songLinkTempoEditorToWire(link.tempo),
     language: normalizeSongLinkLanguage(link.language),
+    flow: link.flow ?? null,
   }
 }
 
@@ -398,13 +403,15 @@ function keyFromSongSections(sections: unknown): string | null {
   return null
 }
 
-/** Strip `nr` for setlist UX + PATCH payloads (order = array index). */
-export function normalizeSongLinksForEditor(links: SongLink[] | null | undefined): EditorSongLink[] {
+/** Setlist editor slots: coerce `key`, preserve `nr`, and carry custom `flow` through the editor. */
+export function normalizeSongLinksForEditor(links: SetlistSongLink[] | null | undefined): EditorSongLink[] {
   return (links ?? []).map((l) => ({
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
+    nr: normalizeSongLinkNr(l.nr),
     tempo: normalizedTempoBpm(l.tempo),
     language: normalizeSongLinkLanguage(l.language),
+    flow: l.flow ?? null,
   }))
 }
 
@@ -419,7 +426,9 @@ export function normalizeSongLinkNr(nr: unknown): string | null {
 }
 
 /** Collection editor slots: coerce `key`, preserve **`nr`** (empty → `null`). */
-export function normalizeSongLinksForCollectionEditor(links: SongLink[] | null | undefined): EditorSongLink[] {
+export function normalizeSongLinksForCollectionEditor(
+  links: CollectionSongLink[] | null | undefined,
+): EditorSongLink[] {
   return (links ?? []).map((l) => ({
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
@@ -428,12 +437,25 @@ export function normalizeSongLinksForCollectionEditor(links: SongLink[] | null |
 }
 
 /** One wire `SongLink` for collection PATCH bodies (`key` wire + `nr`). */
-export function songLinkForCollectionMutation(link: EditorSongLink): SongLink {
+export function songLinkForCollectionMutation(link: EditorSongLink): CollectionSongLink {
   return {
     id: normalizeSongLinkId(link.id),
     key: songLinkKeyEditorToWire(link.key),
     nr: normalizeSongLinkNr(link.nr),
   }
+}
+
+function songFlowItemIdentity(item: SongFlowItem): string {
+  return JSON.stringify([item.title, item.occurrence_index, item.repeats])
+}
+
+export function songFlowEqual(a: SongFlowItem[] | null | undefined, b: SongFlowItem[] | null | undefined): boolean {
+  if (a == null || b == null) return a == null && b == null
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i += 1) {
+    if (songFlowItemIdentity(a[i]) !== songFlowItemIdentity(b[i])) return false
+  }
+  return true
 }
 
 export function moveIndex<T>(arr: T[], from: number, to: number): T[] {

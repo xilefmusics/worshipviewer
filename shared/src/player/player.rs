@@ -345,6 +345,7 @@ impl From<SongLinkOwned> for Player {
                     items.push(PlayerItem::Chords(Box::new(super::PlayerChordsItem {
                         song,
                         language: link.language.clone(),
+                        flow: link.flow.clone(),
                     })))
                 }
                 items
@@ -395,6 +396,7 @@ mod tests {
             nr: None,
             key: None,
             tempo: Some(88),
+            flow: None,
             liked: false,
             language: None,
         };
@@ -413,6 +415,7 @@ mod tests {
             nr: None,
             key: None,
             tempo: None,
+            flow: None,
             language: None,
             liked: false,
         };
@@ -431,6 +434,7 @@ mod tests {
             nr: None,
             key: None,
             tempo: None,
+            flow: None,
             language: Some("de".into()),
             liked: false,
         };
@@ -452,6 +456,7 @@ mod tests {
             nr: None,
             key: None,
             tempo: None,
+            flow: None,
             language: Some("de".into()),
             liked: false,
         };
@@ -467,6 +472,7 @@ mod tests {
             nr: None,
             key: None,
             tempo: None,
+            flow: None,
             language: None,
             liked: false,
         };
@@ -494,6 +500,7 @@ mod tests {
             nr: None,
             key: None,
             tempo: None,
+            flow: None,
             language: None,
             liked: false,
         };

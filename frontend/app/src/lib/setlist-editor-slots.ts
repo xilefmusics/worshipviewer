@@ -25,6 +25,9 @@ export function makeSlotRow(link: EditorSongLink): SlotRow {
   if (link.language !== undefined) {
     row.language = normalizeSongLinkLanguage(link.language)
   }
+  if (link.flow !== undefined) {
+    row.flow = link.flow
+  }
   return {
     slotId: newSlotId(),
     link: row,
