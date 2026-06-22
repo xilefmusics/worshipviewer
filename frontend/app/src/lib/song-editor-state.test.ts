@@ -56,6 +56,18 @@ function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
     transpose(song: ChordSongData, key: string) {
       return { ...song, key: { level: 0 }, transposed: key }
     },
+    fillSectionReferences(song: ChordSongData) {
+      return song
+    },
+    flowItems() {
+      return []
+    },
+    customFlow() {
+      return []
+    },
+    applyFlow(song: ChordSongData) {
+      return song
+    },
     ...overrides,
   }
 }

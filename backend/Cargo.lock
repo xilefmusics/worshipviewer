@@ -983,9 +983,9 @@ dependencies = [
 
 [[package]]
 name = "chordlib"
-version = "0.12.4"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f1f648f7337c25d7f8c0d85c76983127a6e92a1fa1385cff7196e9c3dd2f202"
+checksum = "30576abb1fbbd5dc6967c3d301be1ed50c61d243e2b2c9c6185163efbd40ac8d"
 dependencies = [
  "askama",
  "lazy_static",
@@ -5744,7 +5744,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.2",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",

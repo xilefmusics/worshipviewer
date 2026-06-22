@@ -15,7 +15,6 @@ import { getChordEngine } from '@/lib/chord-engine'
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
 import { stripChordsFromChordlibHtml } from '@/lib/strip-chords-from-html'
 import type { ChordSongData } from '@/ports/chord-engine'
-import { expandSongSectionsForPlayer } from '@/lib/player/expand-song-sections'
 import type { PlayerOverflowStyle } from '@/lib/player/effective-scroll-type'
 import {
   songArtistForLanguage,
@@ -130,6 +129,7 @@ function useMultiColumnSongRender(
   languageIndex: number | null | undefined,
   chordFormat: ChordFormatPreference,
   hideChords: boolean,
+  expandSections: boolean,
   renderPass: number,
 ): RenderState {
   const [renderCache, setRenderCache] = useState<{ key: string; state: RenderState }>({
@@ -138,7 +138,7 @@ function useMultiColumnSongRender(
   })
   const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
   const renderKey = song
-    ? `${song.id}:${displayKey ?? ''}:${languageIndex ?? ''}:${renderPass}:${representation}:${hideChords ? 'hidden' : 'shown'}`
+    ? `${song.id}:${displayKey ?? ''}:${languageIndex ?? ''}:${renderPass}:${representation}:${hideChords ? 'hidden' : 'shown'}:${expandSections ? 'expanded' : 'raw'}`
     : ''
 
   useEffect(() => {
@@ -148,7 +148,8 @@ function useMultiColumnSongRender(
     void (async () => {
       try {
         const engine = await getChordEngine()
-        const page = engine.renderA4SectionHtmls(songData, {
+        const renderData = expandSections ? engine.fillSectionReferences(songData) : songData
+        const page = engine.renderA4SectionHtmls(renderData, {
           key: displayKey ?? undefined,
           language: languageIndex ?? undefined,
           representation,
@@ -170,7 +171,7 @@ function useMultiColumnSongRender(
     return () => {
       cancelled = true
     }
-  }, [song, songData, displayKey, languageIndex, renderKey, representation, hideChords])
+  }, [song, songData, displayKey, languageIndex, renderKey, representation, hideChords, expandSections])
 
   if (!song || !songData || renderCache.key !== renderKey) {
     return LOADING_RENDER_STATE
@@ -323,32 +324,25 @@ export function ChordsThreeColumnSlide({
 
   const showNextPreview = nextSong != null
   const songData = song.data as ChordSongData
-  const renderSongData = useMemo(
-    () => (expandSections ? expandSongSectionsForPlayer(songData) : songData),
-    [songData, expandSections],
-  )
   const renderState = useMultiColumnSongRender(
     song,
-    renderSongData,
+    songData,
     displayKey,
     languageIndex,
     chordFormat,
     hideChords,
+    expandSections,
     renderPass,
   )
   const nextSongData = nextSong?.data as ChordSongData | undefined
-  const nextRenderSongData = useMemo(
-    () =>
-      nextSongData && expandSections ? expandSongSectionsForPlayer(nextSongData) : nextSongData,
-    [nextSongData, expandSections],
-  )
   const nextRenderState = useMultiColumnSongRender(
     nextSong,
-    nextRenderSongData,
+    nextSongData,
     nextDisplayKey,
     nextLanguageIndex,
     chordFormat,
     hideChords,
+    expandSections,
     0,
   )
   const nextPreviewRenderState = showNextPreview ? nextRenderState : null

@@ -283,7 +283,7 @@ function remapWireChord(chord: WireChord, oldKeyPc: number, newKeyPc: number): W
   return next
 }
 
-/** Preserve absolute chord roots when only the song key metadata changes (chordlib `transpose` does not do this). */
+/** Preserve absolute chord roots when only the song key metadata changes (chordlib `apply_key` does not do this). */
 export function remapSongChordLevelsForAbsolutePitch(
   data: ChordSongData,
   previousKey: string,

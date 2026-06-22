@@ -27,6 +27,18 @@ const mockEngine: ChordEngine = {
   transpose(song: ChordSongData) {
     return song
   },
+  fillSectionReferences(song: ChordSongData) {
+    return song
+  },
+  flowItems() {
+    return []
+  },
+  customFlow() {
+    return []
+  },
+  applyFlow(song: ChordSongData) {
+    return song
+  },
 }
 
 describe('isUltimateGuitarUrl', () => {

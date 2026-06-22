@@ -41,6 +41,15 @@ describe('@worshipviewer/chordlib-wasm pkg', () => {
       const sectionsPage = wasm.renderA4SectionHtmls(json, undefined, undefined, undefined, 1)
       expect(sectionsPage.sections.length).toBeGreaterThan(0)
       expect(sectionsPage.css.length).toBeGreaterThan(0)
+
+      const filled = wasm.fillSectionReferences(json)
+      expect(JSON.parse(filled)).toBeTruthy()
+
+      const flowItems = JSON.parse(wasm.songFlowItems(json)) as unknown[]
+      expect(Array.isArray(flowItems)).toBe(true)
+
+      const customFlow = JSON.parse(wasm.songCustomFlow(json)) as unknown[]
+      expect(Array.isArray(customFlow)).toBe(true)
     },
   )
 })

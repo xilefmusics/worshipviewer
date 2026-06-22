@@ -337,7 +337,7 @@ impl From<SongLinkOwned> for Player {
                 if !link.song.data.sections.is_empty() || items.is_empty() {
                     let mut song = link.song.clone();
                     if let Some(key) = link.key {
-                        song.data.transpose(key);
+                        song.data.apply_key(key);
                     }
                     if let Some(tempo) = link.tempo {
                         song.data.tempo = Some(tempo);

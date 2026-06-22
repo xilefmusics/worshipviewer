@@ -213,7 +213,7 @@ impl CreateSong {
         representation: Option<&ChordRepresentation>,
         language: Option<usize>,
         scale: Option<f32>,
-    ) -> (String, String) {
+    ) -> Result<(String, String), chordlib::Error> {
         (&self.data).format_html_page(key, representation, language, scale)
     }
 
@@ -249,7 +249,7 @@ impl Song {
         representation: Option<&ChordRepresentation>,
         language: Option<usize>,
         scale: Option<f32>,
-    ) -> (String, String) {
+    ) -> Result<(String, String), chordlib::Error> {
         (&self.data).format_html_page(key, representation, language, scale)
     }
 }

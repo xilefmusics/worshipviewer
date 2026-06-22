@@ -4,6 +4,7 @@ import {
   type ChordSongData,
   type FormatChordProOptions,
   type RenderA4HtmlOptions,
+  type SongFlowItem,
 } from '@/ports/chord-engine'
 
 type WasmModule = typeof import('@worshipviewer/chordlib-wasm')
@@ -93,6 +94,27 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
     transpose(song: ChordSongData, key: string) {
       const json = JSON.stringify(song)
       return wrapWasmError(() => parseSongJson(wasm.transposeSong(json, key)))
+    },
+
+    fillSectionReferences(song: ChordSongData) {
+      const json = JSON.stringify(song)
+      return wrapWasmError(() => parseSongJson(wasm.fillSectionReferences(json)))
+    },
+
+    flowItems(song: ChordSongData): SongFlowItem[] {
+      const json = JSON.stringify(song)
+      return wrapWasmError(() => JSON.parse(wasm.songFlowItems(json)) as SongFlowItem[])
+    },
+
+    customFlow(song: ChordSongData): SongFlowItem[] {
+      const json = JSON.stringify(song)
+      return wrapWasmError(() => JSON.parse(wasm.songCustomFlow(json)) as SongFlowItem[])
+    },
+
+    applyFlow(song: ChordSongData, flow: SongFlowItem[]) {
+      const json = JSON.stringify(song)
+      const flowJson = JSON.stringify(flow)
+      return wrapWasmError(() => parseSongJson(wasm.applySongFlow(json, flowJson)))
     },
   }
 }

@@ -20,6 +20,10 @@ function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
     renderA4Html: vi.fn(() => ({ html: '<div></div>', css: '' })),
     renderA4SectionHtmls: vi.fn(() => ({ sections: ['<p></p>'], css: '' })),
     transpose: vi.fn(),
+    fillSectionReferences: vi.fn((song) => song),
+    flowItems: vi.fn(() => []),
+    customFlow: vi.fn(() => []),
+    applyFlow: vi.fn((song) => song),
     ...overrides,
   }
 }
