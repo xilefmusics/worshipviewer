@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { fetchSongForHubSlot } from '@/api/setlists-detail'
 import { getChordEngine } from '@/lib/chord-engine'
 import type { ChordFormatPreference } from '@/lib/chord-format'
+import { applyFlowToSongDataAsync } from '@/lib/player/apply-song-flow'
 import {
   exportOrderedSongsZip,
   exportSetlistPdf,
@@ -14,9 +15,14 @@ import {
   languageIndexForSongLink,
   resolveSongDataKey,
 } from '@/lib/setlist-song-links'
-import type { ChordSongData } from '@/ports/chord-engine'
+import type { ChordSongData, SongFlowItem } from '@/ports/chord-engine'
 
-export type HubExportSongLink = { id: string; key?: unknown; language?: unknown }
+export type HubExportSongLink = {
+  id: string
+  key?: unknown
+  language?: unknown
+  flow?: SongFlowItem[] | null
+}
 
 export async function hydrateSongLinksForHubExport(
   queryClient: QueryClient,
@@ -26,7 +32,8 @@ export async function hydrateSongLinksForHubExport(
     links.map(async (link) => {
       const song = await fetchSongForHubSlot(queryClient, { id: link.id })
       if (!song || song.not_a_song) return null
-      const data = song.data as ChordSongData
+      const rawData = song.data as ChordSongData
+      const data = await applyFlowToSongDataAsync(rawData, link.flow)
       const key =
         coerceMusicalKeyString(link.key) ??
         resolveSongDataKey(data as Record<string, unknown>) ??
