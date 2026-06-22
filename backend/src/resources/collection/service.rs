@@ -18,6 +18,7 @@ use crate::error::AppError;
 use crate::resources::blob::service::BlobServiceHandle;
 use crate::resources::common::{
     player_from_song_links, read_teams_for_query, resolve_owner_team, song_thing,
+    validate_song_links,
 };
 use crate::resources::song::LikedSongIds;
 use crate::resources::team::{parse_owner_record_id, thing_record_key};
@@ -144,6 +145,7 @@ impl<R: CollectionRepository, L: LikedSongIds> CollectionService<R, L> {
         ctx: &AuthorizationContext,
         mut collection: CreateCollection,
     ) -> Result<Collection, AppError> {
+        validate_song_links(&collection.songs)?;
         let owner = match collection.owner.take() {
             None => ctx.personal_team()?,
             Some(ref s) => {
@@ -163,6 +165,7 @@ impl<R: CollectionRepository, L: LikedSongIds> CollectionService<R, L> {
         collection: CreateCollection,
         owner: Option<String>,
     ) -> Result<Collection, AppError> {
+        validate_song_links(&collection.songs)?;
         let write_teams = ctx.write_teams();
         let current = self.repo.get_collection(&write_teams, id).await?;
         ensure_no_song_removals(&current.songs, &collection.songs)?;
@@ -237,6 +240,7 @@ impl<R: CollectionRepository, L: LikedSongIds> CollectionService<R, L> {
             nr: payload.nr.or_else(|| from_source.nr.clone()),
             tempo: None,
             language: None,
+            flow: None,
         };
 
         let (source, target) = self
@@ -407,6 +411,7 @@ mod tests {
                         key: None,
                         tempo: None,
                         language: None,
+                        flow: None,
                     }],
                 },
             )
@@ -439,6 +444,7 @@ mod tests {
                         key: None,
                         tempo: None,
                         language: None,
+                        flow: None,
                     }],
                 },
                 None,
@@ -615,6 +621,7 @@ mod tests {
                         key: None,
                         tempo: None,
                         language: None,
+                        flow: None,
                     }],
                 },
             )
@@ -648,6 +655,7 @@ mod tests {
                         key: None,
                         tempo: None,
                         language: None,
+                        flow: None,
                     }],
                 },
             )
@@ -754,6 +762,7 @@ mod tests {
                         key: None,
                         tempo: None,
                         language: None,
+                        flow: None,
                     }],
                 },
             )
@@ -870,6 +879,7 @@ mod tests {
                         key: None,
                         tempo: None,
                         language: None,
+                        flow: None,
                     }],
                 },
             )
@@ -1035,6 +1045,7 @@ mod tests {
                         key: None,
                         tempo: None,
                         language: None,
+                        flow: None,
                     }],
                 },
             )
@@ -1129,6 +1140,7 @@ mod tests {
                             key: None,
                             tempo: None,
                             language: None,
+                            flow: None,
                         },
                         shared::song::Link {
                             id: s2.id.clone(),
@@ -1136,6 +1148,7 @@ mod tests {
                             key: None,
                             tempo: None,
                             language: None,
+                            flow: None,
                         },
                     ],
                 },
@@ -1157,6 +1170,7 @@ mod tests {
                         key: None,
                         tempo: None,
                         language: None,
+                        flow: None,
                     }],
                 },
                 None,
@@ -1194,6 +1208,7 @@ mod tests {
                         key: Some(SimpleChord::new(3)),
                         tempo: None,
                         language: None,
+                        flow: None,
                     }],
                 },
             )
@@ -1271,6 +1286,7 @@ mod tests {
                         key: None,
                         tempo: None,
                         language: None,
+                        flow: None,
                     }],
                 },
             )
@@ -1300,6 +1316,7 @@ mod tests {
                     key: None,
                     tempo: None,
                     language: None,
+                    flow: None,
                 }]),
                 owner: None,
             },
@@ -1350,6 +1367,7 @@ mod tests {
                         key: None,
                         tempo: None,
                         language: None,
+                        flow: None,
                     }],
                 },
             )
@@ -1396,6 +1414,7 @@ mod tests {
                         key: None,
                         tempo: None,
                         language: None,
+                        flow: None,
                     }],
                 },
             )
@@ -1417,6 +1436,7 @@ mod tests {
                             key: None,
                             tempo: None,
                             language: None,
+                            flow: None,
                         },
                         shared::song::Link {
                             id: s1.id.clone(),
@@ -1424,6 +1444,7 @@ mod tests {
                             key: None,
                             tempo: None,
                             language: None,
+                            flow: None,
                         },
                     ],
                 },
@@ -1486,6 +1507,7 @@ mod tests {
                             key: None,
                             tempo: None,
                             language: None,
+                            flow: None,
                         }],
                     },
                 )
@@ -1505,6 +1527,7 @@ mod tests {
                     key: None,
                     tempo: None,
                     language: None,
+                    flow: None,
                 }]),
                 owner: None,
             };

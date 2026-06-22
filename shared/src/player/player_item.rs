@@ -1,3 +1,4 @@
+use crate::song::FlowSlot;
 use crate::song::Song;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "backend")]
@@ -25,6 +26,8 @@ pub struct PlayerChordsItem {
     pub song: Song,
     /// Language override for this player item; `None` uses the song's default language.
     pub language: Option<String>,
+    /// Optional custom flow override carried from setlist slots.
+    pub flow: Option<Vec<FlowSlot>>,
 }
 
 impl Default for PlayerItem {

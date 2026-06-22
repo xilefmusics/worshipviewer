@@ -345,6 +345,7 @@ impl From<SongLinkOwned> for Player {
                     items.push(PlayerItem::Chords(Box::new(super::PlayerChordsItem {
                         song,
                         language: link.language.clone(),
+                        flow: link.flow.clone(),
                     })))
                 }
                 items
@@ -397,6 +398,7 @@ mod tests {
             tempo: Some(88),
             liked: false,
             language: None,
+            flow: None,
         };
         let player = Player::from(link);
         let (item, _) = player.item();
@@ -415,6 +417,7 @@ mod tests {
             tempo: None,
             language: None,
             liked: false,
+            flow: None,
         };
         let player = Player::from(link);
         let (item, _) = player.item();
@@ -433,6 +436,7 @@ mod tests {
             tempo: None,
             language: Some("de".into()),
             liked: false,
+            flow: None,
         };
         let player = Player::from(link);
         let (item, _) = player.item();
@@ -454,6 +458,7 @@ mod tests {
             tempo: None,
             language: Some("de".into()),
             liked: false,
+            flow: None,
         };
         let player = Player::from(link);
         assert_eq!(player.toc()[0].title, "Anker");
@@ -469,6 +474,7 @@ mod tests {
             tempo: None,
             language: None,
             liked: false,
+            flow: None,
         };
         let player = Player::from(link(song.clone())) + Player::from(link(song));
 
@@ -496,6 +502,7 @@ mod tests {
             tempo: None,
             language: None,
             liked: false,
+            flow: None,
         };
         let player = Player::from(link(song.clone())) + Player::from(link(song));
 

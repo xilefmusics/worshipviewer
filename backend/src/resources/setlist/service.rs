@@ -9,7 +9,7 @@ use tracing::instrument;
 
 use crate::auth::AuthorizationContext;
 use crate::error::AppError;
-use crate::resources::common::{read_teams_for_query, resolve_owner_team};
+use crate::resources::common::{read_teams_for_query, resolve_owner_team, validate_song_links};
 use crate::resources::song::LikedSongIds;
 use crate::resources::team::{parse_owner_record_id, thing_record_key};
 
@@ -107,6 +107,7 @@ impl<R: SetlistRepository, L: LikedSongIds> SetlistService<R, L> {
         ctx: &AuthorizationContext,
         mut setlist: CreateSetlist,
     ) -> Result<Setlist, AppError> {
+        validate_song_links(&setlist.songs)?;
         let owner = match setlist.owner.take() {
             None => ctx.personal_team()?,
             Some(ref s) => {
@@ -126,6 +127,7 @@ impl<R: SetlistRepository, L: LikedSongIds> SetlistService<R, L> {
         setlist: CreateSetlist,
         owner: Option<String>,
     ) -> Result<Setlist, AppError> {
+        validate_song_links(&setlist.songs)?;
         let write_teams = ctx.write_teams();
         let owner = resolve_owner_team(&write_teams, owner)?;
         self.repo
@@ -852,6 +854,192 @@ mod tests {
         assert!(matches!(pl_nf, Err(AppError::NotFound(_))));
     }
 
+    #[tokio::test]
+    async fn flow_round_trip_and_clear_on_setlist() {
+        use shared::song::{FlowSlot, Link as SongLink};
+
+        let (db, owner, _read_u, _write_u, _noperm, _team_id) = four_user_setlist_fixture().await;
+        let sl = setlist_service(&db);
+        let song = create_song_with_title(&db, &owner, "Flow Song")
+            .await
+            .expect("song");
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+
+        let created = sl
+            .create_setlist_for_user(
+                &owner_p,
+                CreateSetlist {
+                    owner: None,
+                    title: "Flow Set".into(),
+                    songs: vec![SongLink {
+                        id: song.id.clone(),
+                        nr: Some("1".into()),
+                        key: None,
+                        tempo: None,
+                        language: None,
+                        flow: Some(vec![FlowSlot {
+                            section_title: "Verse".into(),
+                            occurrence_index: 0,
+                            repeat_count: 2,
+                        }]),
+                    }],
+                },
+            )
+            .await
+            .expect("create");
+
+        let fetched = sl
+            .get_setlist_for_user(&owner_p, &created.id)
+            .await
+            .expect("fetch");
+        assert_eq!(fetched.songs[0].flow.as_ref().map(|f| f.len()), Some(1));
+        assert_eq!(
+            fetched.songs[0]
+                .flow
+                .as_ref()
+                .and_then(|f| f.first())
+                .map(|slot| slot.repeat_count),
+            Some(2)
+        );
+
+        let cleared = sl
+            .patch_setlist_for_user(
+                &owner_p,
+                &created.id,
+                shared::setlist::PatchSetlist {
+                    title: None,
+                    songs: Some(vec![SongLink {
+                        id: song.id.clone(),
+                        nr: Some("1".into()),
+                        key: None,
+                        tempo: None,
+                        language: None,
+                        flow: None,
+                    }]),
+                    owner: None,
+                },
+            )
+            .await
+            .expect("clear");
+
+        assert!(cleared.songs[0].flow.is_none());
+    }
+
+    #[tokio::test]
+    async fn duplicate_setlist_slots_keep_independent_flows_in_player() {
+        use shared::song::{FlowSlot, Link as SongLink};
+
+        let (db, owner, _read_u, _write_u, _noperm, _team_id) = four_user_setlist_fixture().await;
+        let sl = setlist_service(&db);
+        let song = create_song_with_title(&db, &owner, "Flow Song")
+            .await
+            .expect("song");
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+
+        let created = sl
+            .create_setlist_for_user(
+                &owner_p,
+                CreateSetlist {
+                    owner: None,
+                    title: "Dup Flow Set".into(),
+                    songs: vec![
+                        SongLink {
+                            id: song.id.clone(),
+                            nr: Some("1".into()),
+                            key: None,
+                            tempo: None,
+                            language: None,
+                            flow: Some(vec![FlowSlot {
+                                section_title: "Verse".into(),
+                                occurrence_index: 0,
+                                repeat_count: 1,
+                            }]),
+                        },
+                        SongLink {
+                            id: song.id.clone(),
+                            nr: Some("2".into()),
+                            key: None,
+                            tempo: None,
+                            language: None,
+                            flow: Some(vec![FlowSlot {
+                                section_title: "Chorus".into(),
+                                occurrence_index: 0,
+                                repeat_count: 2,
+                            }]),
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("create");
+
+        let player = sl
+            .setlist_player_for_user(&owner_p, &created.id)
+            .await
+            .expect("player");
+
+        let (first_item, _) = player.item();
+        let player_second = player.next();
+        let (second_item, _) = player_second.item();
+        let first = match first_item {
+            shared::player::PlayerItem::Chords(item) => item,
+            _ => panic!("expected chords player item"),
+        };
+        let second = match second_item {
+            shared::player::PlayerItem::Chords(item) => item,
+            _ => panic!("expected chords player item"),
+        };
+        assert_eq!(
+            first
+                .flow
+                .as_ref()
+                .and_then(|f| f.first())
+                .map(|slot| slot.section_title.as_str()),
+            Some("Verse")
+        );
+        assert_eq!(
+            second
+                .flow
+                .as_ref()
+                .and_then(|f| f.first())
+                .map(|slot| slot.section_title.as_str()),
+            Some("Chorus")
+        );
+    }
+
+    #[tokio::test]
+    async fn flow_validation_rejects_empty_arrays() {
+        use shared::song::Link as SongLink;
+
+        let (db, owner, _read_u, _write_u, _noperm, _team_id) = four_user_setlist_fixture().await;
+        let sl = setlist_service(&db);
+        let song = create_song_with_title(&db, &owner, "Flow Song")
+            .await
+            .expect("song");
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+
+        let err = sl
+            .create_setlist_for_user(
+                &owner_p,
+                CreateSetlist {
+                    owner: None,
+                    title: "Invalid Flow".into(),
+                    songs: vec![SongLink {
+                        id: song.id.clone(),
+                        nr: None,
+                        key: None,
+                        tempo: None,
+                        language: None,
+                        flow: Some(vec![]),
+                    }],
+                },
+            )
+            .await
+            .expect_err("empty flow must be rejected");
+
+        assert!(matches!(err, AppError::InvalidRequest(_)));
+    }
+
     /// BLC-SETL-009i: update succeeds for owner (title changes) and for write user;
     /// writer's change is visible to owner on subsequent get; read user and noperm user
     /// are rejected; wrong-table id returns InvalidRequest; non-existent id returns
@@ -1088,6 +1276,7 @@ mod tests {
                             key: None,
                             tempo: None,
                             language: None,
+                            flow: None,
                         }]),
                         owner: None,
                     },

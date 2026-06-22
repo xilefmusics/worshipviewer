@@ -64,6 +64,7 @@ mod tests {
                     key: None,
                     tempo: None,
                     language: Some("de".into()),
+                    flow: None,
                 }],
             },
         );

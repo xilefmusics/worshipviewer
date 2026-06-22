@@ -3,6 +3,8 @@ import type { components } from '@/api/schema'
 import { normalizedTempoBpm } from '@/lib/song-display-meta'
 
 export type SongLink = components['schemas']['SongLink']
+export type FlowSlot = components['schemas']['FlowSlot']
+export type SongFlow = FlowSlot[] | null
 
 /** Editor slot with a coerced chord symbol; wire `SongLink.key` is `{ level }`. */
 export type EditorSongLink = {
@@ -11,6 +13,7 @@ export type EditorSongLink = {
   tempo?: number | null
   language?: string | null
   nr?: string | null
+  flow?: SongFlow
 }
 
 export type SimpleChord = components['schemas']['SimpleChord']
@@ -94,18 +97,55 @@ export function songLinkKeyEditorToWire(key: unknown): SimpleChord | null {
 }
 
 /** One wire `SongLink` for PATCH/POST `songs`; server expects `key` as `{ level }` or JSON `null`. */
-export function songLinkForSetlistMutation(link: EditorSongLink): Pick<SongLink, 'id' | 'key' | 'tempo' | 'language'> {
+export function songLinkForSetlistMutation(
+  link: EditorSongLink,
+): Pick<SongLink, 'id' | 'key' | 'tempo' | 'language' | 'flow'> {
   return {
     id: normalizeSongLinkId(link.id),
     key: songLinkKeyEditorToWire(link.key),
     tempo: songLinkTempoEditorToWire(link.tempo),
     language: normalizeSongLinkLanguage(link.language),
+    flow: normalizeSongFlow(link.flow),
   }
 }
 
 /** Normalize editor tempo to wire BPM or `null` (inherit song default). */
 export function songLinkTempoEditorToWire(tempo: unknown): number | null {
   return normalizedTempoBpm(tempo)
+}
+
+/** Normalize custom flow payloads; invalid or empty flows collapse to `null` (default flow). */
+export function normalizeSongFlow(flow: unknown): SongFlow {
+  if (!Array.isArray(flow)) return null
+  const slots: FlowSlot[] = []
+  for (const raw of flow) {
+    const slot = normalizeFlowSlot(raw)
+    if (!slot) return null
+    slots.push(slot)
+  }
+  return slots.length > 0 ? slots : null
+}
+
+function normalizeFlowSlot(raw: unknown): FlowSlot | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const value = raw as Record<string, unknown>
+  const sectionTitle =
+    typeof value.section_title === 'string' ? value.section_title.trim() : ''
+  if (!sectionTitle) return null
+  const occurrenceIndex = normalizeFlowIndex(value.occurrence_index)
+  const repeatCount = normalizeFlowIndex(value.repeat_count)
+  if (occurrenceIndex == null || repeatCount == null || repeatCount < 1) return null
+  return {
+    section_title: sectionTitle,
+    occurrence_index: occurrenceIndex,
+    repeat_count: repeatCount,
+  }
+}
+
+function normalizeFlowIndex(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  const n = Math.trunc(value)
+  return n >= 0 && n === value ? n : null
 }
 
 /** Preserve only non-empty language tags from song metadata / setlist slots. */
@@ -405,6 +445,7 @@ export function normalizeSongLinksForEditor(links: SongLink[] | null | undefined
     key: coerceMusicalKeyString(l.key),
     tempo: normalizedTempoBpm(l.tempo),
     language: normalizeSongLinkLanguage(l.language),
+    flow: normalizeSongFlow(l.flow),
   }))
 }
 
@@ -424,6 +465,7 @@ export function normalizeSongLinksForCollectionEditor(links: SongLink[] | null |
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
     nr: normalizeSongLinkNr(l.nr),
+    flow: normalizeSongFlow(l.flow),
   }))
 }
 
@@ -433,6 +475,7 @@ export function songLinkForCollectionMutation(link: EditorSongLink): SongLink {
     id: normalizeSongLinkId(link.id),
     key: songLinkKeyEditorToWire(link.key),
     nr: normalizeSongLinkNr(link.nr),
+    flow: normalizeSongFlow(link.flow),
   }
 }
 

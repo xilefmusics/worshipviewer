@@ -4,6 +4,7 @@ import {
   coerceMusicalKeyString,
   normalizeSongLinkId,
   normalizeSongLinkNr,
+  normalizeSongFlow,
   songLinkForCollectionMutation,
   type EditorSongLink,
 } from '@/lib/setlist-song-links'
@@ -19,6 +20,25 @@ function collectionSongsEqual(a: EditorSongLink[], b: EditorSongLink[]): boolean
     const kb = coerceMusicalKeyString(b[i].key)
     if (ka !== kb) return false
     if (normalizeSongLinkNr(a[i].nr) !== normalizeSongLinkNr(b[i].nr)) return false
+    if (!songFlowEqual(normalizeSongFlow(a[i].flow), normalizeSongFlow(b[i].flow))) return false
+  }
+  return true
+}
+
+function songFlowEqual(
+  a: ReturnType<typeof normalizeSongFlow>,
+  b: ReturnType<typeof normalizeSongFlow>,
+): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i += 1) {
+    const sa = a[i]
+    const sb = b[i]
+    if (!sa || !sb) return false
+    if (sa.section_title !== sb.section_title) return false
+    if (sa.occurrence_index !== sb.occurrence_index) return false
+    if (sa.repeat_count !== sb.repeat_count) return false
   }
   return true
 }

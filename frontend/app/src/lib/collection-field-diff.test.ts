@@ -63,7 +63,7 @@ describe('buildCollectionPatchBody', () => {
         songs: [{ id: 'x', key: 'C', nr: '2' }],
       }),
     ).toEqual({
-      songs: [{ id: 'x', key: { level: 3 }, nr: '2' }],
+      songs: [{ id: 'x', key: { level: 3 }, nr: '2', flow: null }],
     })
   })
 
@@ -76,7 +76,7 @@ describe('buildCollectionPatchBody', () => {
         songs: [{ id: 'x', key: 'C', nr: null }],
       }),
     ).toEqual({
-      songs: [{ id: 'x', key: { level: 3 }, nr: null }],
+      songs: [{ id: 'x', key: { level: 3 }, nr: null, flow: null }],
     })
   })
 
@@ -93,8 +93,8 @@ describe('buildCollectionPatchBody', () => {
       }),
     ).toEqual({
       songs: [
-        { id: 'y', key: null, nr: null },
-        { id: 'x', key: { level: 3 }, nr: '1' },
+        { id: 'y', key: null, nr: null, flow: null },
+        { id: 'x', key: { level: 3 }, nr: '1', flow: null },
       ],
     })
   })

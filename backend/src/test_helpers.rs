@@ -325,6 +325,7 @@ pub fn setlist_with_songs(title: &str, song_ids: &[(&str, Option<&str>)]) -> Cre
                 key: None,
                 tempo: None,
                 language: None,
+                flow: None,
             })
             .collect(),
     }

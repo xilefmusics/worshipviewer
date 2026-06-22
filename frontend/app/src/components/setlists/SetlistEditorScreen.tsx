@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
+import { SetlistFlowSheet } from '@/components/setlists/SetlistFlowSheet'
 import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
 import { SetlistSongPickerSheet } from '@/components/setlists/SetlistSongPickerSheet'
 import { useCanEditSetlist } from '@/hooks/useCanEditSetlist'
@@ -68,6 +69,7 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
   const queryClient = useQueryClient()
   const online = useOnline()
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [flowEditorRowIndex, setFlowEditorRowIndex] = useState<number | null>(null)
 
   const { data: detail, isPending, error, refetch } = useSetlistDetailQuery(setlistId)
   const { canEdit, team: owningTeamDetail } = useCanEditSetlist(detail?.owner)
@@ -220,6 +222,15 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
   const blockingAll = patchInFlight || !!saveFailure || offlineFrozen || !canEdit || resumePrompt
   const dndBlocked = blockingAll || !canEdit
   const announcingRef = useRef<HTMLParagraphElement>(null)
+  const flowEditorSong =
+    flowEditorRowIndex != null ? hydrationQueries[flowEditorRowIndex]?.data ?? undefined : undefined
+  const flowEditorValue = flowEditorRowIndex != null ? draftLinks[flowEditorRowIndex]?.flow ?? null : null
+  const flowEditorKey = [
+    setlistId,
+    flowEditorRowIndex ?? 'none',
+    flowEditorSong?.id ?? 'none',
+    JSON.stringify(flowEditorValue ?? null),
+  ].join(':')
 
   async function flushBeforePicker() {
     await flushNow()
@@ -598,6 +609,17 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
                     })
                     queueMicrotask(() => notifyDraftEdited())
                   }}
+                  onPatchFlow={(flow) => {
+                    setSlotRows((prev) => {
+                      const next = [...prev]
+                      const cur = next[idx]
+                      if (!cur) return prev
+                      next[idx] = { ...cur, link: { ...cur.link, flow } }
+                      return next
+                    })
+                    queueMicrotask(() => notifyDraftEdited())
+                  }}
+                  onOpenFlowEditor={() => setFlowEditorRowIndex(idx)}
                   onRemove={() => removeAtIndex(idx)}
                 />
               )
@@ -620,6 +642,39 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
         blockedAdd={patchInFlight}
         onPickSong={(s, language) => void insertSongFromPicker(s, language)}
       />
+      <SetlistFlowSheet
+        key={flowEditorKey}
+        open={flowEditorRowIndex != null}
+        onOpenChange={(next) => {
+          if (!next) setFlowEditorRowIndex(null)
+        }}
+        song={flowEditorSong}
+        value={flowEditorValue}
+        canEditUi={canEdit && !blockingAll && !offlineFrozen && !resumePrompt}
+        blockingAll={blockingAll || !canEdit}
+        onApply={(flow) => {
+          if (flowEditorRowIndex == null) return
+          setSlotRows((prev) => {
+            const next = [...prev]
+            const cur = next[flowEditorRowIndex]
+            if (!cur) return prev
+            next[flowEditorRowIndex] = { ...cur, link: { ...cur.link, flow } }
+            return next
+          })
+          queueMicrotask(() => notifyDraftEdited())
+        }}
+        onReset={() => {
+          if (flowEditorRowIndex == null) return
+          setSlotRows((prev) => {
+            const next = [...prev]
+            const cur = next[flowEditorRowIndex]
+            if (!cur) return prev
+            next[flowEditorRowIndex] = { ...cur, link: { ...cur.link, flow: null } }
+            return next
+          })
+          queueMicrotask(() => notifyDraftEdited())
+          }}
+        />
     </div>
   )
 }
@@ -640,6 +695,8 @@ type SortProps = {
   onPatchKey: (key: string | null) => void
   onPatchTempo: (tempo: number | null) => void
   onPatchLanguage: (language: string | null) => void
+  onPatchFlow: (flow: import('@/lib/setlist-song-links').SongFlow) => void
+  onOpenFlowEditor: () => void
   onRemove: () => void
 }
 
@@ -802,7 +859,7 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
               </div>
 
               {!brokenHydration && hydratedSong ? (
-                <div className="grid grid-cols-3 gap-1 pt-1">
+                <div className="grid grid-cols-4 gap-1 pt-1">
                   <PopoverRoot>
                     <PopoverTrigger asChild>
                       <Button
@@ -852,6 +909,24 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
                     blockingAll={blockingAll}
                     onPatchLanguage={props.onPatchLanguage}
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      'h-9 w-full min-w-0 justify-start px-2 text-xs',
+                      row.link.flow != null && 'border-[var(--color-primary)] text-[var(--color-primary)]',
+                      row.link.flow == null && 'border-dashed text-[var(--color-muted-foreground)]',
+                    )}
+                    disabled={!canEditUi || blockingAll}
+                    onClick={props.onOpenFlowEditor}
+                  >
+                    <span className="truncate">
+                      {row.link.flow != null
+                        ? t('setlists.editor.flowChipActive')
+                        : t('setlists.editor.flowChip')}
+                    </span>
+                  </Button>
                 </div>
               ) : null}
             </>

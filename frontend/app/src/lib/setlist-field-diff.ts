@@ -4,6 +4,7 @@ import {
   coerceMusicalKeyString,
   normalizeSongLinkId,
   normalizeSongLinkLanguage,
+  normalizeSongFlow,
   songLinkForSetlistMutation,
   songLinkTempoEditorToWire,
   type EditorSongLink,
@@ -25,6 +26,24 @@ function songsEqual(a: EditorSongLink[], b: EditorSongLink[]): boolean {
     const la = normalizeSongLinkLanguage(a[i].language)
     const lb = normalizeSongLinkLanguage(b[i].language)
     if (la !== lb) return false
+    const fa = normalizeSongFlow(a[i].flow)
+    const fb = normalizeSongFlow(b[i].flow)
+    if (!songFlowEqual(fa, fb)) return false
+  }
+  return true
+}
+
+function songFlowEqual(a: ReturnType<typeof normalizeSongFlow>, b: ReturnType<typeof normalizeSongFlow>): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i += 1) {
+    const sa = a[i]
+    const sb = b[i]
+    if (!sa || !sb) return false
+    if (sa.section_title !== sb.section_title) return false
+    if (sa.occurrence_index !== sb.occurrence_index) return false
+    if (sa.repeat_count !== sb.repeat_count) return false
   }
   return true
 }

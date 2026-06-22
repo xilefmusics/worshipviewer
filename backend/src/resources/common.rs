@@ -7,7 +7,7 @@ use surrealdb::engine::any::Any;
 use surrealdb::types::{Kind, RecordId, SurrealValue, Value, kind};
 
 use shared::player::Player;
-use shared::song::{Link as SongLink, LinkOwned as SongLinkOwned};
+use shared::song::{FlowSlot, Link as SongLink, LinkOwned as SongLinkOwned};
 
 use crate::database::record_id_string;
 use crate::error::AppError;
@@ -133,11 +133,20 @@ pub fn player_from_song_links(
                 key: link.key,
                 tempo: link.tempo,
                 language: link.language,
+                flow: link.flow,
             })
         })
         .try_fold(Player::default(), |acc, player| {
             Ok::<Player, AppError>(acc + player)
         })
+}
+
+/// Validate custom flow overrides on shared song links before persisting them.
+pub fn validate_song_links(links: &[SongLink]) -> Result<(), AppError> {
+    for link in links {
+        link.validate().map_err(AppError::invalid_request)?;
+    }
+    Ok(())
 }
 
 /// Owner + embedded song link rows (collection / setlist `songs` field).
@@ -196,6 +205,9 @@ fn song_link_records_to_owned(
             key: link.key.map(|k| k.0),
             tempo: link.tempo,
             language: link.language,
+            flow: link
+                .flow
+                .map(|slots| slots.into_iter().map(FlowSlot::from).collect()),
             liked: false,
         });
     }
@@ -214,6 +226,15 @@ pub struct SongLinkRecord {
     tempo: Option<u32>,
     #[serde(default)]
     language: Option<String>,
+    #[serde(default)]
+    flow: Option<Vec<FlowSlotRecord>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
+struct FlowSlotRecord {
+    section_title: String,
+    occurrence_index: u32,
+    repeat_count: u32,
 }
 
 impl From<SongLinkRecord> for SongLink {
@@ -224,6 +245,9 @@ impl From<SongLinkRecord> for SongLink {
             key: record.key.map(|k| k.0),
             tempo: record.tempo,
             language: record.language,
+            flow: record
+                .flow
+                .map(|slots| slots.into_iter().map(FlowSlot::from).collect()),
         }
     }
 }
@@ -236,6 +260,29 @@ impl From<SongLink> for SongLinkRecord {
             key: link.key.map(SimpleChordField),
             tempo: link.tempo,
             language: link.language,
+            flow: link
+                .flow
+                .map(|slots| slots.into_iter().map(FlowSlotRecord::from).collect()),
+        }
+    }
+}
+
+impl From<FlowSlotRecord> for FlowSlot {
+    fn from(record: FlowSlotRecord) -> Self {
+        Self {
+            section_title: record.section_title,
+            occurrence_index: record.occurrence_index,
+            repeat_count: record.repeat_count,
+        }
+    }
+}
+
+impl From<FlowSlot> for FlowSlotRecord {
+    fn from(slot: FlowSlot) -> Self {
+        Self {
+            section_title: slot.section_title,
+            occurrence_index: slot.occurrence_index,
+            repeat_count: slot.repeat_count,
         }
     }
 }
@@ -325,6 +372,7 @@ mod tests {
                 key: None,
                 tempo: None,
                 language: None,
+                flow: None,
                 liked: false,
             },
             SongLinkOwned {
@@ -333,6 +381,7 @@ mod tests {
                 key: None,
                 tempo: None,
                 language: None,
+                flow: None,
                 liked: false,
             },
         ];
@@ -354,6 +403,7 @@ mod tests {
                 key: None,
                 tempo: None,
                 language: None,
+                flow: None,
             },
             SongLinkRecord {
                 id: RecordId::new("song", "dup"),
@@ -361,6 +411,7 @@ mod tests {
                 key: None,
                 tempo: None,
                 language: None,
+                flow: None,
             },
         ];
         let records = vec![SongRecord::from_payload(

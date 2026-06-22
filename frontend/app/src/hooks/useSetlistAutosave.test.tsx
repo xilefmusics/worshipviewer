@@ -88,7 +88,7 @@ describe('useSetlistAutosave', () => {
       data: {
         id: 'sl-1',
         title: 'Setlist',
-        songs: [{ id: 'song-1', key: null, tempo: 88, language: null }],
+        songs: [{ id: 'song-1', key: null, tempo: 88, language: null, flow: null }],
         owner: 'team-1',
       },
       error: undefined,
@@ -102,10 +102,10 @@ describe('useSetlistAutosave', () => {
           setlistId: 'sl-1',
           baseline: {
             ...baseline,
-            songs: [{ id: 'song-1', key: null, tempo: null, language: null }],
+            songs: [{ id: 'song-1', key: null, tempo: null, language: null, flow: null }],
           },
           draftTitle: 'Setlist',
-          draftSongs: [{ id: 'song-1', key: null, tempo: 88, language: null }],
+          draftSongs: [{ id: 'song-1', key: null, tempo: 88, language: null, flow: null }],
           draftOwner: 'team-1',
           canAutosavePatch: true,
         }),
@@ -121,7 +121,7 @@ describe('useSetlistAutosave', () => {
 
     expect(patchMock).toHaveBeenCalledWith('/api/v1/setlists/{id}', {
       params: { path: { id: 'sl-1' } },
-      body: { songs: [{ id: 'song-1', key: null, tempo: 88, language: null }] },
+      body: { songs: [{ id: 'song-1', key: null, tempo: 88, language: null, flow: null }] },
     })
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['player', 'setlist', 'sl-1'] })
     unmount()

@@ -43,8 +43,8 @@ describe('buildSetlistPatchBody', () => {
       }),
     ).toEqual({
       songs: [
-        { id: 'y', key: null, tempo: null, language: null },
-        { id: 'x', key: { level: 3 }, tempo: null, language: null },
+        { id: 'y', key: null, tempo: null, language: null, flow: null },
+        { id: 'x', key: { level: 3 }, tempo: null, language: null, flow: null },
       ],
     })
   })
@@ -69,7 +69,7 @@ describe('buildSetlistPatchBody', () => {
         owner: ownerA,
         songs: [{ id: 'x', key: null }],
       }),
-    ).toEqual({ songs: [{ id: 'x', key: null, tempo: null, language: null }] })
+    ).toEqual({ songs: [{ id: 'x', key: null, tempo: null, language: null, flow: null }] })
   })
 
   it('treats matching baseline and draft keys as unchanged', () => {
@@ -92,7 +92,7 @@ describe('buildSetlistPatchBody', () => {
         owner: ownerA,
         songs: [{ id: 'x', key: 'F' }],
       }),
-    ).toEqual({ songs: [{ id: 'x', key: { level: 8 }, tempo: null, language: null }] })
+    ).toEqual({ songs: [{ id: 'x', key: { level: 8 }, tempo: null, language: null, flow: null }] })
   })
 
   it('stringifies numeric song ids for PATCH bodies', () => {
@@ -107,7 +107,7 @@ describe('buildSetlistPatchBody', () => {
         owner: ownerA,
         songs: [{ id: '7', key: 'C' }],
       }),
-    ).toEqual({ songs: [{ id: '7', key: { level: 3 }, tempo: null, language: null }] })
+    ).toEqual({ songs: [{ id: '7', key: { level: 3 }, tempo: null, language: null, flow: null }] })
   })
 
   it('sends owner when changed', () => {
@@ -137,7 +137,7 @@ describe('buildSetlistPatchBody', () => {
         owner: ownerA,
         songs: [{ id: 'x', key: 'C', tempo: 88 }],
       }),
-    ).toEqual({ songs: [{ id: 'x', key: { level: 3 }, tempo: 88, language: null }] })
+    ).toEqual({ songs: [{ id: 'x', key: { level: 3 }, tempo: 88, language: null, flow: null }] })
   })
 
   it('treats matching tempo overrides as unchanged', () => {
@@ -160,7 +160,7 @@ describe('buildSetlistPatchBody', () => {
         owner: ownerA,
         songs: [{ id: 'x', key: 'C', language: 'de' }],
       }),
-    ).toEqual({ songs: [{ id: 'x', key: { level: 3 }, tempo: null, language: 'de' }] })
+    ).toEqual({ songs: [{ id: 'x', key: { level: 3 }, tempo: null, language: 'de', flow: null }] })
   })
 
   it('treats matching language overrides as unchanged', () => {

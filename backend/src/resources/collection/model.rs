@@ -73,6 +73,7 @@ mod tests {
                     key: None,
                     tempo: None,
                     language: None,
+                    flow: None,
                 }],
             },
         );

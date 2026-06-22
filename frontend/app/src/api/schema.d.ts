@@ -1003,6 +1003,20 @@ export interface components {
          * @enum {string}
          */
         FileType: "PNG" | "JPEG" | "SVG";
+        FlowSlot: {
+            /**
+             * Format: int32
+             * @description Zero-based occurrence among content-bearing sections with the same title.
+             */
+            occurrence_index: number;
+            /**
+             * Format: int32
+             * @description Number of times this slot repeats in Book / player rendering.
+             */
+            repeat_count: number;
+            /** @description Exact section title as stored in the ChordPro song data. */
+            section_title: string;
+        };
         /** @description One persisted HTTP request audit row (admin monitoring API). */
         HttpAuditLog: {
             client_origin: string;
@@ -1253,6 +1267,8 @@ export interface components {
         };
         /** @description ChordPro-backed song item in a player sequence (`type`: `"chords"`). */
         PlayerChordsItem: {
+            /** @description Optional custom flow override carried from setlist slots. */
+            flow?: components["schemas"]["FlowSlot"][] | null;
             /** @description Language override for this player item; `None` uses the song's default language. */
             language?: string | null;
             song: components["schemas"]["Song"];
@@ -1473,6 +1489,8 @@ export interface components {
             titles?: string[] | null;
         };
         SongLink: {
+            /** @description Optional custom flow override for this slot; `None` preserves the source song order. */
+            flow?: components["schemas"]["FlowSlot"][] | null;
             /** @description Song record id. */
             id: string;
             key?: null | components["schemas"]["SimpleChord"];

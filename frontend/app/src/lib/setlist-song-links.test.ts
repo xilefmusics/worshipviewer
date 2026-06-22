@@ -11,6 +11,7 @@ import {
   moveIndex,
   normalizeSongLinkNr,
   normalizeSongLinkLanguage,
+  normalizeSongFlow,
   normalizeSongLinksForCollectionEditor,
   normalizeSongLinksForEditor,
   removeAt,
@@ -79,7 +80,7 @@ describe('songLinkForSetlistMutation', () => {
   it('includes tempo override on wire payload', () => {
     expect(
       songLinkForSetlistMutation({ id: 's1', key: 'C', tempo: 96 }),
-    ).toEqual({ id: 's1', key: { level: 3 }, tempo: 96, language: null })
+    ).toEqual({ id: 's1', key: { level: 3 }, tempo: 96, language: null, flow: null })
   })
 
   it('serializes inherit tempo as null', () => {
@@ -88,6 +89,7 @@ describe('songLinkForSetlistMutation', () => {
       key: null,
       tempo: null,
       language: null,
+      flow: null,
     })
   })
 
@@ -97,6 +99,23 @@ describe('songLinkForSetlistMutation', () => {
       key: null,
       tempo: null,
       language: 'de',
+      flow: null,
+    })
+  })
+
+  it('preserves a valid custom flow on wire payload', () => {
+    expect(
+      songLinkForSetlistMutation({
+        id: 's1',
+        key: null,
+        flow: [{ section_title: 'Chorus', occurrence_index: 0, repeat_count: 2 }],
+      }),
+    ).toEqual({
+      id: 's1',
+      key: null,
+      tempo: null,
+      language: null,
+      flow: [{ section_title: 'Chorus', occurrence_index: 0, repeat_count: 2 }],
     })
   })
 })
@@ -105,29 +124,29 @@ describe('normalizeSongLinksForEditor', () => {
   it('carries tempo from wire links', () => {
     const links: WireSongLink[] = [{ id: 'a', key: null, tempo: 72, language: 'de' }]
     expect(normalizeSongLinksForEditor(links)).toEqual([
-      { id: 'a', key: null, tempo: 72, language: 'de' },
+      { id: 'a', key: null, tempo: 72, language: 'de', flow: null },
     ])
   })
 
   it('keeps id and key only', () => {
     expect(normalizeSongLinksForEditor([{ id: 'a', key: { level: 3 }, nr: '1' }])).toEqual([
-      { id: 'a', key: 'C', tempo: null, language: null },
+      { id: 'a', key: 'C', tempo: null, language: null, flow: null },
     ])
     expect(normalizeSongLinksForEditor([{ id: 'b', key: null }])).toEqual([
-      { id: 'b', key: null, tempo: null, language: null },
+      { id: 'b', key: null, tempo: null, language: null, flow: null },
     ])
   })
 
   it('normalizes opaque song ids to strings', () => {
     expect(normalizeSongLinksForEditor([{ id: 99 as unknown as string, key: null }])).toEqual([
-      { id: '99', key: null, tempo: null, language: null },
+      { id: '99', key: null, tempo: null, language: null, flow: null },
     ])
   })
 
   it('coerces wire `{ level }` keys to chord symbols', () => {
     expect(
       normalizeSongLinksForEditor([{ id: 'a', key: { level: 8 } } as WireSongLink]),
-    ).toEqual([{ id: 'a', key: 'F', tempo: null, language: null }])
+    ).toEqual([{ id: 'a', key: 'F', tempo: null, language: null, flow: null }])
   })
 })
 
@@ -329,9 +348,9 @@ describe('normalizeSongLinksForCollectionEditor', () => {
   it('keeps normalized nr alongside id/key', () => {
     expect(
       normalizeSongLinksForCollectionEditor([{ id: 'a', key: { level: 3 }, nr: ' 1 ' }]),
-    ).toEqual([{ id: 'a', key: 'C', nr: '1' }])
+    ).toEqual([{ id: 'a', key: 'C', nr: '1', flow: null }])
     expect(normalizeSongLinksForCollectionEditor([{ id: 'b', key: null, nr: '' }])).toEqual([
-      { id: 'b', key: null, nr: null },
+      { id: 'b', key: null, nr: null, flow: null },
     ])
   })
 })
@@ -342,6 +361,7 @@ describe('songLinkForCollectionMutation', () => {
       id: 'x',
       key: { level: 3 },
       nr: null,
+      flow: null,
     })
   })
 
@@ -350,6 +370,28 @@ describe('songLinkForCollectionMutation', () => {
       id: 'y',
       key: null,
       nr: '3b',
+      flow: null,
     })
+  })
+})
+
+describe('normalizeSongFlow', () => {
+  it('preserves valid custom flow arrays and rejects invalid entries', () => {
+    expect(
+      normalizeSongFlow([
+        { section_title: 'Verse', occurrence_index: 0, repeat_count: 1 },
+        { section_title: 'Chorus', occurrence_index: 1, repeat_count: 2 },
+      ]),
+    ).toEqual([
+      { section_title: 'Verse', occurrence_index: 0, repeat_count: 1 },
+      { section_title: 'Chorus', occurrence_index: 1, repeat_count: 2 },
+    ])
+    expect(normalizeSongFlow([])).toBeNull()
+    expect(
+      normalizeSongFlow([{ section_title: ' ', occurrence_index: 0, repeat_count: 1 }]),
+    ).toBeNull()
+    expect(
+      normalizeSongFlow([{ section_title: 'Verse', occurrence_index: 0, repeat_count: 0 }]),
+    ).toBeNull()
   })
 })

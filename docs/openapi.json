@@ -415,6 +415,32 @@
         ],
         "type": "string"
       },
+      "FlowSlot": {
+        "properties": {
+          "occurrence_index": {
+            "description": "Zero-based occurrence among content-bearing sections with the same title.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "repeat_count": {
+            "description": "Number of times this slot repeats in Book / player rendering.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "section_title": {
+            "description": "Exact section title as stored in the ChordPro song data.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section_title",
+          "occurrence_index",
+          "repeat_count"
+        ],
+        "type": "object"
+      },
       "HttpAuditLog": {
         "description": "One persisted HTTP request audit row (admin monitoring API).",
         "properties": {
@@ -1167,6 +1193,16 @@
       "PlayerChordsItem": {
         "description": "ChordPro-backed song item in a player sequence (`type`: `\"chords\"`).",
         "properties": {
+          "flow": {
+            "description": "Optional custom flow override carried from setlist slots.",
+            "items": {
+              "$ref": "#/components/schemas/FlowSlot"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "language": {
             "description": "Language override for this player item; `None` uses the song's default language.",
             "type": [
@@ -1663,6 +1699,16 @@
       },
       "SongLink": {
         "properties": {
+          "flow": {
+            "description": "Optional custom flow override for this slot; `None` preserves the source song order.",
+            "items": {
+              "$ref": "#/components/schemas/FlowSlot"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "id": {
             "description": "Song record id.",
             "type": "string"

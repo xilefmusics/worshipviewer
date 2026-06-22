@@ -52,6 +52,7 @@ import {
   resolveInitialPlayerNav,
   type PlayerNavState,
 } from '@/lib/player/next-player-state'
+import { resolveSongForBookRendering } from '@/lib/player/custom-song-flow'
 import {
   hasChordsItems,
   itemTypeAt,
@@ -89,6 +90,16 @@ import { cn } from '@/lib/utils'
 type Player = components['schemas']['Player']
 type PlayerItem = Player['items'][number]
 type TocItem = Player['toc'][number]
+
+function resolveBookSongForItem(
+  type: PlayerEntityType,
+  item: PlayerItem | undefined,
+  expandSections = false,
+) {
+  if (!item || item.type !== 'chords') return null
+  const flow = type === 'setlist' ? item.flow ?? null : null
+  return resolveSongForBookRendering(item.song, flow, expandSections)
+}
 
 function initialLikedBySongId(player: Player): Record<string, boolean> {
   const liked: Record<string, boolean> = {}
@@ -381,10 +392,15 @@ export function PlayerBook({
         } else if (nextItem.type === 'chords') {
           try {
             const engine = await getChordEngine()
-            const key = resolveSongDataKey(nextItem.song.data as Record<string, unknown>)
-            const languageOptions = songLanguageOptions(nextItem.song.data as Record<string, unknown>)
+            const bookSong = resolveBookSongForItem(
+              type,
+              nextItem,
+              Boolean(layoutPreference.expandSections),
+            ) ?? nextItem.song
+            const key = resolveSongDataKey(bookSong.data as Record<string, unknown>)
+            const languageOptions = songLanguageOptions(bookSong.data as Record<string, unknown>)
             const slotLanguageIndex = languageIndexForSongLink(
-              nextItem.song.data as Record<string, unknown>,
+              bookSong.data as Record<string, unknown>,
               nextItem.language,
             )
             const selectedLanguageIndex = resolveSongLanguageIndex(
@@ -398,9 +414,9 @@ export function PlayerBook({
               representation: chordFormatToRepresentation(chordFormat),
             }
             if (isMultiColumnScrollMode(effectiveScroll)) {
-              engine.renderA4SectionHtmls(nextItem.song.data, renderOpts)
+              engine.renderA4SectionHtmls(bookSong.data, renderOpts)
             } else {
-              engine.renderA4Html(nextItem.song.data, renderOpts)
+              engine.renderA4Html(bookSong.data, renderOpts)
             }
           } catch {
             // Prefetch is best-effort
@@ -419,6 +435,8 @@ export function PlayerBook({
     bookSpread,
     effectiveScroll,
     chordFormat,
+    type,
+    layoutPreference.expandSections,
     viewState.languageByItem,
   ])
 
@@ -659,10 +677,17 @@ export function PlayerBook({
       const showNextPreview =
         layoutPreference.nextSongPreview || isMultiColumnWithNextPreviewMode(effectiveScroll)
       const nextItem = showNextPreview ? player.items[itemIndex + 1] : undefined
-      const nextSong = nextItem?.type === 'chords' ? nextItem.song : undefined
+      const nextSong = resolveBookSongForItem(
+        type,
+        nextItem,
+        Boolean(layoutPreference.expandSections),
+      )
       return (
         <ChordsThreeColumnSlide
-          song={item.song}
+          song={
+            resolveBookSongForItem(type, item, Boolean(layoutPreference.expandSections)) ??
+            item.song
+          }
           displayKey={displayKeyForItem(item, itemIndex)}
           languageIndex={renderLanguageIndexForItem(item, itemIndex)}
           nextSong={nextSong}
@@ -687,7 +712,7 @@ export function PlayerBook({
 
     return (
       <ChordsSlide
-        song={item.song}
+        song={resolveBookSongForItem(type, item) ?? item.song}
         displayKey={displayKeyForItem(item, itemIndex)}
         languageIndex={renderLanguageIndexForItem(item, itemIndex)}
         chordFormat={chordFormat}
