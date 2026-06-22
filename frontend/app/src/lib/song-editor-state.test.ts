@@ -13,6 +13,7 @@ import { ChordEngineError } from '@/ports/chord-engine'
 
 import {
   applyKeyChangeToSource,
+  createSongLanguageEntry,
   metadataStripFromSongData,
   parseErrorsFromResult,
   parseSourceWithEngine,
@@ -20,6 +21,8 @@ import {
   remapSongChordLevelsForAbsolutePitch,
   shouldPromptKeyChangeChords,
   songDataSnapshotsEqual,
+  songLanguageEntriesFromSongData,
+  songLanguageEntriesToWireArrays,
   songMetaTagsFromSongData,
   songMetaTagsToWireRecord,
   type SongMetadataStrip,
@@ -104,17 +107,37 @@ describe('buildSongPatchBody', () => {
   })
 })
 
+describe('songLanguageEntriesFromSongData', () => {
+  it('groups parallel titles, artists, and languages by index', () => {
+    const entries = songLanguageEntriesFromSongData({
+      titles: ['Anker', 'Anchor'],
+      artists: ['Urban Life Worship', 'Hillsong Worship'],
+      languages: ['de', 'en'],
+      sections: [],
+    }).map(({ language, title, artist }) => ({ language, title, artist }))
+
+    expect(entries).toEqual([
+      { language: 'de', title: 'Anker', artist: 'Urban Life Worship' },
+      { language: 'en', title: 'Anchor', artist: 'Hillsong Worship' },
+    ])
+  })
+
+  it('returns an empty list when all arrays are missing', () => {
+    expect(songLanguageEntriesFromSongData({ sections: [] })).toEqual([])
+  })
+})
+
 describe('metadataStripFromSongData', () => {
-  it('joins multiple titles like artists and languages', () => {
+  it('maps parallel language metadata into entries', () => {
     const strip = metadataStripFromSongData({
       titles: ['Anker', 'Anchor'],
       artists: ['Urban Life Worship', 'Hillsong Worship'],
       languages: ['de', 'en'],
       sections: [],
     })
-    expect(strip.title).toBe('Anker, Anchor')
-    expect(strip.artists).toBe('Urban Life Worship, Hillsong Worship')
-    expect(strip.languages).toBe('de, en')
+    expect(strip.languageEntries).toHaveLength(2)
+    expect(strip.languageEntries[0]?.title).toBe('Anker')
+    expect(strip.languageEntries[1]?.artist).toBe('Hillsong Worship')
   })
 })
 
@@ -122,20 +145,21 @@ describe('patchSongDataFromParsed', () => {
   it('tolerates partial strip objects', () => {
     const patch = patchSongDataFromParsed(
       { titles: ['A'], sections: [] },
-      { title: 'B' } as SongMetadataStrip,
+      { languageEntries: [createSongLanguageEntry('', 'B', '')] } as SongMetadataStrip,
     )
     expect(patch.titles).toEqual(['B'])
   })
 
-  it('splits comma-separated titles like artists and languages', () => {
+  it('maps language entries back to parallel wire arrays', () => {
     const patch = patchSongDataFromParsed(
       { sections: [] },
       {
-        title: 'Anker, Anchor',
         subtitle: '',
-        artists: 'Urban Life Worship, Hillsong Worship',
         copyright: '',
-        languages: 'de, en',
+        languageEntries: [
+          createSongLanguageEntry('de', 'Anker', 'Urban Life Worship'),
+          createSongLanguageEntry('en', 'Anchor', 'Hillsong Worship'),
+        ],
         tempo: '',
         timeSignature: '',
         key: '',
@@ -164,6 +188,21 @@ describe('patchSongDataFromParsed', () => {
     expect(
       patchSongDataFromParsed({ sections: [] }, { timeSignature: '3/4' } as SongMetadataStrip).time,
     ).toBeNull()
+  })
+})
+
+describe('songLanguageEntriesToWireArrays', () => {
+  it('preserves index alignment including empty slots', () => {
+    expect(
+      songLanguageEntriesToWireArrays([
+        createSongLanguageEntry('de', 'Anker', 'Band A'),
+        createSongLanguageEntry('', 'Anchor', ''),
+      ]),
+    ).toEqual({
+      titles: ['Anker', 'Anchor'],
+      artists: ['Band A', ''],
+      languages: ['de', ''],
+    })
   })
 })
 
@@ -245,11 +284,9 @@ describe('remapSongChordLevelsForAbsolutePitch', () => {
 
 describe('applyKeyChangeToSource', () => {
   const stripD: SongMetadataStrip = {
-    title: 'A',
     subtitle: '',
-    artists: '',
     copyright: '',
-    languages: '',
+    languageEntries: [createSongLanguageEntry('', 'A', '')],
     tempo: '',
     timeSignature: '',
     key: 'D',
@@ -303,11 +340,9 @@ describe('patchSongDataFromParsed tags', () => {
     const patch = patchSongDataFromParsed(
       { sections: [], tags: { old: 'value' } },
       {
-        title: '',
         subtitle: '',
-        artists: '',
         copyright: '',
-        languages: '',
+        languageEntries: [],
         tempo: '',
         timeSignature: '',
         key: '',
@@ -321,11 +356,9 @@ describe('patchSongDataFromParsed tags', () => {
     const patch = patchSongDataFromParsed(
       { sections: [], tags: { year: '2014' } },
       {
-        title: '',
         subtitle: '',
-        artists: '',
         copyright: '',
-        languages: '',
+        languageEntries: [],
         tempo: '',
         timeSignature: '',
         key: '',
@@ -353,11 +386,9 @@ describe('songDataSnapshotsEqual tags', () => {
     const cleared = patchSongDataFromParsed(
       { sections: [], tags: { year: '2014' } },
       {
-        title: '',
         subtitle: '',
-        artists: '',
         copyright: '',
-        languages: '',
+        languageEntries: [],
         tempo: '',
         timeSignature: '',
         key: '',

@@ -41,11 +41,9 @@ export const SONG_EDITOR_TYPING_DEBOUNCE_MS = 3000
 export type SongEditorTimeSignature = (typeof SONG_EDITOR_TIME_SIGNATURES)[number]
 
 export type SongMetadataStrip = {
-  title: string
   subtitle: string
-  artists: string
   copyright: string
-  languages: string
+  languageEntries: SongLanguageEntry[]
   tempo: string
   /** `''` = unset; otherwise one of {@link SONG_EDITOR_TIME_SIGNATURES}. */
   timeSignature: string
@@ -53,10 +51,26 @@ export type SongMetadataStrip = {
   tags: SongMetaTagEntry[]
 }
 
+export type SongLanguageEntry = {
+  id: string
+  language: string
+  title: string
+  artist: string
+}
+
 export type SongMetaTagEntry = {
   id: string
   key: string
   value: string
+}
+
+export function createSongLanguageEntry(
+  language = '',
+  title = '',
+  artist = '',
+  id = crypto.randomUUID(),
+): SongLanguageEntry {
+  return { id, language, title, artist }
 }
 
 export function createSongMetaTagEntry(key = '', value = '', id = crypto.randomUUID()): SongMetaTagEntry {
@@ -114,13 +128,6 @@ export function parseSourceWithEngine(engine: ChordEngine, source: string): Pars
   }
 }
 
-function splitCsv(value: string): string[] {
-  return value
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean)
-}
-
 function parseTempoInput(value: string): number | null {
   const trimmed = value.trim()
   if (!trimmed) return null
@@ -146,19 +153,44 @@ function parseTimeSignature(value: string): number[] | null {
   return null
 }
 
+/** Parallel `titles`, `artists`, and `languages` slots grouped by index. */
+export function songLanguageEntriesFromSongData(
+  data: ChordSongData | null | undefined,
+): SongLanguageEntry[] {
+  const titles = Array.isArray(data?.titles) ? data.titles.map(String) : []
+  const artists = Array.isArray(data?.artists) ? data.artists.map(String) : []
+  const languages = Array.isArray(data?.languages) ? data.languages.map(String) : []
+  const count = Math.max(titles.length, artists.length, languages.length)
+  if (count === 0) return []
+
+  return Array.from({ length: count }, (_, index) =>
+    createSongLanguageEntry(languages[index] ?? '', titles[index] ?? '', artists[index] ?? ''),
+  )
+}
+
+export function songLanguageEntriesToWireArrays(entries: SongLanguageEntry[] | undefined): {
+  titles: string[]
+  artists: string[]
+  languages: string[]
+} {
+  if (!entries?.length) {
+    return { titles: [], artists: [], languages: [] }
+  }
+  return {
+    titles: entries.map(({ title }) => title.trim()),
+    artists: entries.map(({ artist }) => artist.trim()),
+    languages: entries.map(({ language }) => language.trim()),
+  }
+}
+
 export function metadataStripFromSongData(data: ChordSongData): SongMetadataStrip {
-  const titles = Array.isArray(data.titles) ? data.titles.filter(Boolean).map(String) : []
-  const artists = Array.isArray(data.artists) ? data.artists.filter(Boolean) : []
-  const languages = Array.isArray(data.languages) ? data.languages.filter(Boolean) : []
   const tempo =
     typeof data.tempo === 'number' && Number.isFinite(data.tempo) ? String(Math.round(data.tempo)) : ''
 
   return {
-    title: titles.join(', '),
     subtitle: typeof data.subtitle === 'string' ? data.subtitle : '',
-    artists: artists.join(', '),
     copyright: typeof data.copyright === 'string' ? data.copyright : '',
-    languages: languages.join(', '),
+    languageEntries: songLanguageEntriesFromSongData(data),
     tempo,
     timeSignature: timeSignatureFromSongTime(data.time),
     key: coerceMusicalKeyString(data.key) ?? '',
@@ -168,11 +200,9 @@ export function metadataStripFromSongData(data: ChordSongData): SongMetadataStri
 
 function normalizeMetadataStrip(strip: Partial<SongMetadataStrip>): SongMetadataStrip {
   return {
-    title: strip.title ?? '',
     subtitle: strip.subtitle ?? '',
-    artists: strip.artists ?? '',
     copyright: strip.copyright ?? '',
-    languages: strip.languages ?? '',
+    languageEntries: strip.languageEntries ?? [],
     tempo: strip.tempo ?? '',
     timeSignature: strip.timeSignature ?? '',
     key: strip.key ?? '',
@@ -186,9 +216,11 @@ export function patchSongDataFromParsed(
 ): PatchSongData {
   const strip = normalizeMetadataStrip(stripInput)
   const sections = Array.isArray(parsed.sections) ? parsed.sections : []
-  const titlesFromStrip = splitCsv(strip.title)
-  const titles = titlesFromStrip.length
-    ? titlesFromStrip
+  const { titles: stripTitles, artists, languages } = songLanguageEntriesToWireArrays(
+    strip.languageEntries,
+  )
+  const titles = stripTitles.some(Boolean)
+    ? stripTitles
     : Array.isArray(parsed.titles) && parsed.titles.length
       ? parsed.titles.map(String)
       : ['']
@@ -199,9 +231,9 @@ export function patchSongDataFromParsed(
   return {
     titles,
     subtitle: strip.subtitle.trim() || null,
-    artists: splitCsv(strip.artists),
+    artists,
     copyright: strip.copyright.trim() || null,
-    languages: splitCsv(strip.languages),
+    languages,
     tempo: parseTempoInput(strip.tempo),
     time: parseTimeSignature(strip.timeSignature.trim()),
     key: keyWire,
