@@ -25,6 +25,7 @@ import { useOnline } from '@/hooks/use-online'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
+import { useResolvedSongWithFlow } from '@/lib/player/apply-song-flow'
 import { getChordEngine } from '@/lib/chord-engine'
 import { chordFormatToRepresentation, writeChordFormatPreference } from '@/lib/chord-format'
 import {
@@ -153,53 +154,6 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   )
 }
 
-function cloneSongForFlow(song: Song): Song {
-  return structuredClone(song) as Song
-}
-
-function cloneFlowItems(flow: SongFlowItem[]): SongFlowItem[] {
-  return flow.map((item) => ({ ...item }))
-}
-
-function useResolvedBookSong(song: Song, flow: SongFlowItem[] | null | undefined): Song {
-  const [resolvedSong, setResolvedSong] = useState(song)
-
-  useEffect(() => {
-    let cancelled = false
-    queueMicrotask(() => {
-      if (!cancelled) setResolvedSong(song)
-    })
-
-    if (flow == null || flow.length === 0) {
-      return () => {
-        cancelled = true
-      }
-    }
-
-    void (async () => {
-      try {
-        const engine = await getChordEngine()
-        const clonedSong = cloneSongForFlow(song)
-        const applied = engine.applyFlow(clonedSong.data, cloneFlowItems(flow))
-        clonedSong.data = applied as Song['data']
-        if (!cancelled) {
-          setResolvedSong(clonedSong)
-        }
-      } catch {
-        if (!cancelled) {
-          setResolvedSong(song)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [flow, song])
-
-  return resolvedSong
-}
-
 type ResolvedBookChordsProps = {
   song: Song
   flow: SongFlowItem[] | null | undefined
@@ -233,8 +187,8 @@ export function ResolvedBookChords({
   overflowStyle,
   expandSections,
 }: ResolvedBookChordsProps) {
-  const resolvedSong = useResolvedBookSong(song, flow)
-  const resolvedNextSong = useResolvedBookSong(nextSong ?? song, nextFlow)
+  const resolvedSong = useResolvedSongWithFlow(song, flow)
+  const resolvedNextSong = useResolvedSongWithFlow(nextSong ?? song, nextFlow)
 
   if (freeColumnCount != null) {
     return (

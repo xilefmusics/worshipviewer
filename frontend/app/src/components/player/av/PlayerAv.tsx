@@ -19,6 +19,7 @@ import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
 import { useAvBilingualPreference } from '@/hooks/useAvBilingualPreference'
 import { useSetlistEvictionWatch } from '@/hooks/useSetlistEvictionWatch'
+import { useResolvedPlayerItemChordData } from '@/lib/player/apply-song-flow'
 import {
   avItemTitle,
   avNextItemIndex,
@@ -184,13 +185,18 @@ export function PlayerAv({
 
   const collapseLyricWhitespace = readLyricCollapseWhitespacePreference()
 
+  const currentPlayerItem = player.items[session.itemIndex]
+  const projectedPlayerItem = player.items[projected.itemIndex]
+  const resolvedCurrentSongData = useResolvedPlayerItemChordData(currentPlayerItem)
+  const resolvedProjectedSongData = useResolvedPlayerItemChordData(projectedPlayerItem)
+
   const currentItem = useMemo(
     () =>
       avSlidesForPlayerItem(player.items, session.itemIndex, {
         maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
         balanceSlideLines: prefs.contentLayer.balanceSlideLines,
         collapseLyricWhitespace,
-      }, resolveLanguageIndexForItem, bilingualEnabled),
+      }, resolveLanguageIndexForItem, bilingualEnabled, resolvedCurrentSongData),
     [
       player.items,
       prefs.contentLayer.maxLinesPerSlide,
@@ -199,6 +205,7 @@ export function PlayerAv({
       resolveLanguageIndexForItem,
       session.itemIndex,
       bilingualEnabled,
+      resolvedCurrentSongData,
     ],
   )
 
@@ -208,7 +215,7 @@ export function PlayerAv({
         maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
         balanceSlideLines: prefs.contentLayer.balanceSlideLines,
         collapseLyricWhitespace,
-      }, resolveLanguageIndexForItem, bilingualEnabled),
+      }, resolveLanguageIndexForItem, bilingualEnabled, resolvedProjectedSongData),
     [
       player.items,
       prefs.contentLayer.maxLinesPerSlide,
@@ -217,6 +224,7 @@ export function PlayerAv({
       resolveLanguageIndexForItem,
       projected.itemIndex,
       bilingualEnabled,
+      resolvedProjectedSongData,
     ],
   )
 

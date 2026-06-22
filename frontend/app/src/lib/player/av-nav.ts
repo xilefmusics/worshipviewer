@@ -15,6 +15,7 @@ import {
 import type { AvLyricSplitPrefs } from '@/lib/player/av-preferences'
 import { itemTypeAt, tocEntryForIndex } from '@/lib/player/player-helpers'
 import { languageIndexForSongLink, songLanguageOptions } from '@/lib/setlist-song-links'
+import type { ChordSongData } from '@/ports/chord-engine'
 
 type Player = components['schemas']['Player']
 type PlayerItem = components['schemas']['PlayerItem']
@@ -77,6 +78,7 @@ export function avSlidesForItem(
   fallbackTitle?: string,
   resolveLanguageIndex?: AvLanguageIndexResolver,
   bilingualEnabled = false,
+  resolvedSongData?: ChordSongData,
 ): AvItemSlides {
   if (!item) return { slides: [''], sourceSlides: [''], outline: [], kind: 'blob' }
   if (item.type === 'blob') {
@@ -88,7 +90,10 @@ export function avSlidesForItem(
       kind: 'blob',
     }
   }
-  const songData = item.song.data
+  const songData =
+    resolvedSongData != null
+      ? ({ ...item.song.data, ...resolvedSongData } as typeof item.song.data)
+      : item.song.data
   const requestedPrimary = resolveAvItemLanguageIndex(item, itemIndex, resolveLanguageIndex)
   const effectivePrimary = bilingualEnabled
     ? resolveAvEffectivePrimaryLanguageIndex(
@@ -163,6 +168,7 @@ export function avSlidesForPlayerItem(
   split: AvLyricSplitPrefs,
   resolveLanguageIndex?: AvLanguageIndexResolver,
   bilingualEnabled = false,
+  resolvedSongData?: ChordSongData,
 ): AvItemSlides {
   return avSlidesForItem(
     items[itemIndex],
@@ -171,6 +177,7 @@ export function avSlidesForPlayerItem(
     undefined,
     resolveLanguageIndex,
     bilingualEnabled,
+    resolvedSongData,
   )
 }
 
