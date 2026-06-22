@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/select'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
 import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
+import { SetlistFlowEditorSheet } from '@/components/setlists/SetlistFlowEditorSheet'
 import { SetlistSongPickerSheet } from '@/components/setlists/SetlistSongPickerSheet'
 import { useCanEditSetlist } from '@/hooks/useCanEditSetlist'
 import { useSession } from '@/hooks/useSession'
@@ -68,6 +69,7 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
   const queryClient = useQueryClient()
   const online = useOnline()
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [flowEditorSlotId, setFlowEditorSlotId] = useState<string | null>(null)
 
   const { data: detail, isPending, error, refetch } = useSetlistDetailQuery(setlistId)
   const { canEdit, team: owningTeamDetail } = useCanEditSetlist(detail?.owner)
@@ -178,6 +180,22 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
       }),
     [hydrationQueries],
   )
+
+  const flowEditorRow = useMemo(
+    () => slotRows.find((row) => row.slotId === flowEditorSlotId) ?? null,
+    [flowEditorSlotId, slotRows],
+  )
+  const flowEditorSongIndex = flowEditorRow
+    ? slotRows.findIndex((row) => row.slotId === flowEditorRow.slotId)
+    : -1
+  const flowEditorSong =
+    flowEditorSongIndex >= 0 ? hydrationQueries[flowEditorSongIndex]?.data ?? null : null
+
+  useEffect(() => {
+    if (flowEditorSlotId && !flowEditorRow) {
+      queueMicrotask(() => setFlowEditorSlotId(null))
+    }
+  }, [flowEditorRow, flowEditorSlotId])
 
   const songOwnerIds = useMemo(() => {
     const ids = new Set<string>()
@@ -598,6 +616,7 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
                     })
                     queueMicrotask(() => notifyDraftEdited())
                   }}
+                  onEditFlow={() => setFlowEditorSlotId(row.slotId)}
                   onRemove={() => removeAtIndex(idx)}
                 />
               )
@@ -620,6 +639,39 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
         blockedAdd={patchInFlight}
         onPickSong={(s, language) => void insertSongFromPicker(s, language)}
       />
+
+      <SetlistFlowEditorSheet
+        open={flowEditorSlotId != null}
+        onOpenChange={(open) => {
+          if (!open) setFlowEditorSlotId(null)
+        }}
+        song={flowEditorSong}
+        flow={flowEditorRow?.link.flow ?? null}
+        canEdit={canEdit}
+        blockingAll={blockingAll}
+        onSave={(flow) => {
+          if (!flowEditorSlotId) return
+          setSlotRows((prev) =>
+            prev.map((row) =>
+              row.slotId === flowEditorSlotId
+                ? { ...row, link: { ...row.link, flow: flow.length > 0 ? flow : null } }
+                : row,
+            ),
+          )
+          queueMicrotask(() => notifyDraftEdited())
+          setFlowEditorSlotId(null)
+        }}
+        onReset={() => {
+          if (!flowEditorSlotId) return
+          setSlotRows((prev) =>
+            prev.map((row) =>
+              row.slotId === flowEditorSlotId ? { ...row, link: { ...row.link, flow: null } } : row,
+            ),
+          )
+          queueMicrotask(() => notifyDraftEdited())
+          setFlowEditorSlotId(null)
+        }}
+      />
     </div>
   )
 }
@@ -640,6 +692,7 @@ type SortProps = {
   onPatchKey: (key: string | null) => void
   onPatchTempo: (tempo: number | null) => void
   onPatchLanguage: (language: string | null) => void
+  onEditFlow: () => void
   onRemove: () => void
 }
 
@@ -701,6 +754,7 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
   const selectedLanguage = normalizeSongLinkLanguage(row.link.language)
   const displayLanguage = selectedLanguage ?? languageOptions[0] ?? null
   const isLanguageInherited = selectedLanguage == null
+  const hasCustomFlow = row.link.flow != null
   const showSongOriginalTempoCaption =
     !hydrationPending && !brokenHydration && Boolean(hydratedSong) && bpm != null
   let songOriginalTempoLine: string | null = null
@@ -802,7 +856,7 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
               </div>
 
               {!brokenHydration && hydratedSong ? (
-                <div className="grid grid-cols-3 gap-1 pt-1">
+                <div className="grid grid-cols-4 gap-1 pt-1">
                   <PopoverRoot>
                     <PopoverTrigger asChild>
                       <Button
@@ -851,6 +905,12 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
                     canEditUi={canEditUi}
                     blockingAll={blockingAll}
                     onPatchLanguage={props.onPatchLanguage}
+                  />
+                  <FlowOverrideChip
+                    hasCustomFlow={hasCustomFlow}
+                    canEditUi={canEditUi}
+                    blockingAll={blockingAll}
+                    onEditFlow={props.onEditFlow}
                   />
                 </div>
               ) : null}
@@ -1030,5 +1090,40 @@ function TempoOverrideChip({
         </div>
       </PopoverContent>
     </PopoverRoot>
+  )
+}
+
+type FlowOverrideChipProps = {
+  hasCustomFlow: boolean
+  canEditUi: boolean
+  blockingAll: boolean
+  onEditFlow: () => void
+}
+
+function FlowOverrideChip({
+  hasCustomFlow,
+  canEditUi,
+  blockingAll,
+  onEditFlow,
+}: FlowOverrideChipProps) {
+  const { t } = useTranslation()
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className={cn(
+        'h-9 w-full min-w-0 justify-start px-2 text-xs',
+        !hasCustomFlow && 'border-dashed text-[var(--color-muted-foreground)]',
+      )}
+      disabled={!canEditUi || blockingAll}
+      onClick={onEditFlow}
+    >
+      <span className="truncate">
+        {hasCustomFlow
+          ? t('setlists.editor.flowChipCustom')
+          : t('setlists.editor.flowChipPlaceholder')}
+      </span>
+    </Button>
   )
 }

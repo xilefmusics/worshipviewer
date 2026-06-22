@@ -4,6 +4,7 @@ import {
   coerceMusicalKeyString,
   normalizeSongLinkId,
   normalizeSongLinkLanguage,
+  songFlowEqual,
   songLinkForSetlistMutation,
   songLinkTempoEditorToWire,
   type EditorSongLink,
@@ -25,6 +26,7 @@ function songsEqual(a: EditorSongLink[], b: EditorSongLink[]): boolean {
     const la = normalizeSongLinkLanguage(a[i].language)
     const lb = normalizeSongLinkLanguage(b[i].language)
     if (la !== lb) return false
+    if (!songFlowEqual(a[i].flow, b[i].flow)) return false
   }
   return true
 }

@@ -274,6 +274,7 @@
           "owner": "team_example_id",
           "songs": [
             {
+              "flow": null,
               "id": "song_example",
               "key": null,
               "nr": "1"
@@ -291,7 +292,7 @@
           },
           "songs": {
             "items": {
-              "$ref": "#/components/schemas/SongLink"
+              "$ref": "#/components/schemas/SetlistSongLink"
             },
             "type": "array"
           },
@@ -934,7 +935,7 @@
           },
           "songs": {
             "items": {
-              "$ref": "#/components/schemas/SongLink"
+              "$ref": "#/components/schemas/SetlistSongLink"
             },
             "type": [
               "array",
@@ -1167,6 +1168,16 @@
       "PlayerChordsItem": {
         "description": "ChordPro-backed song item in a player sequence (`type`: `\"chords\"`).",
         "properties": {
+          "flow": {
+            "description": "Custom flow override from the setlist slot, if any.",
+            "items": {
+              "$ref": "#/components/schemas/SongFlowItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "language": {
             "description": "Language override for this player item; `None` uses the song's default language.",
             "type": [
@@ -1421,6 +1432,7 @@
           "owner": "usr_example",
           "songs": [
             {
+              "flow": null,
               "id": "song_example",
               "key": null,
               "nr": "1"
@@ -1437,7 +1449,7 @@
           },
           "songs": {
             "items": {
-              "$ref": "#/components/schemas/SongLink"
+              "$ref": "#/components/schemas/SetlistSongLink"
             },
             "type": "array"
           },
@@ -1450,6 +1462,62 @@
           "owner",
           "title",
           "songs"
+        ],
+        "type": "object"
+      },
+      "SetlistSongLink": {
+        "properties": {
+          "flow": {
+            "description": "Custom section order and repeats for this setlist slot.",
+            "items": {
+              "$ref": "#/components/schemas/SongFlowItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Song record id.",
+            "type": "string"
+          },
+          "key": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SimpleChord",
+                "description": "Transposition key for this slot (same `{ \"level\": … }` object as `Song.data.key`)."
+              }
+            ]
+          },
+          "language": {
+            "description": "Language override for this slot; `None` inherits the song's default language.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nr": {
+            "description": "Optional display position in the parent list (e.g. `1`, `2a`).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tempo": {
+            "description": "Tempo override in BPM for this slot; `None` inherits the song's `data.tempo`.",
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id"
         ],
         "type": "object"
       },
@@ -1658,6 +1726,33 @@
         },
         "required": [
           "sections"
+        ],
+        "type": "object"
+      },
+      "SongFlowItem": {
+        "description": "One section-flow item in a setlist slot or chordlib flow response.",
+        "properties": {
+          "occurrence_index": {
+            "description": "Zero-based occurrence index for duplicate section titles.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "repeats": {
+            "description": "Repeat count for the selected flow slot.",
+            "format": "int32",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "title": {
+            "description": "Section title as it appears in the source song.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "occurrence_index",
+          "repeats"
         ],
         "type": "object"
       },
@@ -2090,7 +2185,7 @@
           },
           "songs": {
             "items": {
-              "$ref": "#/components/schemas/SongLink"
+              "$ref": "#/components/schemas/SetlistSongLink"
             },
             "type": "array"
           },

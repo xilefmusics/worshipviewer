@@ -7,7 +7,7 @@ const ownerA = 'team-a'
 const base = {
   title: 'A',
   owner: ownerA,
-  songs: [{ id: 'x', key: 'C', nr: '1' }],
+  songs: [{ id: 'x', key: 'C', nr: '1', flow: null }],
 }
 
 describe('buildSetlistPatchBody', () => {
@@ -16,7 +16,7 @@ describe('buildSetlistPatchBody', () => {
       buildSetlistPatchBody(base, {
         title: 'A',
         owner: ownerA,
-        songs: [{ id: 'x', key: 'C' }],
+        songs: [{ id: 'x', key: 'C', nr: '1', flow: null }],
       }),
     ).toBeNull()
   })
@@ -26,7 +26,7 @@ describe('buildSetlistPatchBody', () => {
       buildSetlistPatchBody(base, {
         title: 'B',
         owner: ownerA,
-        songs: [{ id: 'x', key: 'C' }],
+        songs: [{ id: 'x', key: 'C', nr: '1', flow: null }],
       }),
     ).toEqual({ title: 'B' })
   })
@@ -37,14 +37,14 @@ describe('buildSetlistPatchBody', () => {
         title: 'A',
         owner: ownerA,
         songs: [
-          { id: 'y', key: null },
-          { id: 'x', key: 'C' },
+          { id: 'y', key: null, nr: null, flow: null },
+          { id: 'x', key: 'C', nr: '1', flow: null },
         ],
       }),
     ).toEqual({
       songs: [
-        { id: 'y', key: null, tempo: null, language: null },
-        { id: 'x', key: { level: 3 }, tempo: null, language: null },
+        { id: 'y', nr: null, key: null, tempo: null, language: null, flow: null },
+        { id: 'x', nr: '1', key: { level: 3 }, tempo: null, language: null, flow: null },
       ],
     })
   })
@@ -55,9 +55,9 @@ describe('buildSetlistPatchBody', () => {
         {
           title: 'A',
           owner: ownerA,
-          songs: [{ id: 'x', key: 'C' }],
+          songs: [{ id: 'x', key: 'C', nr: '1', flow: null }],
         },
-        { title: 'A', owner: ownerA, songs: [{ id: 'x', key: 'C' }] },
+        { title: 'A', owner: ownerA, songs: [{ id: 'x', key: 'C', nr: '1', flow: null }] },
       ),
     ).toBeNull()
   })
@@ -67,9 +67,9 @@ describe('buildSetlistPatchBody', () => {
       buildSetlistPatchBody(base, {
         title: 'A',
         owner: ownerA,
-        songs: [{ id: 'x', key: null }],
+        songs: [{ id: 'x', key: null, nr: '1', flow: null }],
       }),
-    ).toEqual({ songs: [{ id: 'x', key: null, tempo: null, language: null }] })
+    ).toEqual({ songs: [{ id: 'x', nr: '1', key: null, tempo: null, language: null, flow: null }] })
   })
 
   it('treats matching baseline and draft keys as unchanged', () => {
@@ -78,9 +78,9 @@ describe('buildSetlistPatchBody', () => {
         {
           title: 'A',
           owner: ownerA,
-          songs: [{ id: 'x', key: 'C' }],
+          songs: [{ id: 'x', key: 'C', nr: '1', flow: null }],
         },
-        { title: 'A', owner: ownerA, songs: [{ id: 'x', key: 'C' }] },
+        { title: 'A', owner: ownerA, songs: [{ id: 'x', key: 'C', nr: '1', flow: null }] },
       ),
     ).toBeNull()
   })
@@ -90,9 +90,9 @@ describe('buildSetlistPatchBody', () => {
       buildSetlistPatchBody(base, {
         title: 'A',
         owner: ownerA,
-        songs: [{ id: 'x', key: 'F' }],
+        songs: [{ id: 'x', key: 'F', nr: '1', flow: null }],
       }),
-    ).toEqual({ songs: [{ id: 'x', key: { level: 8 }, tempo: null, language: null }] })
+    ).toEqual({ songs: [{ id: 'x', nr: '1', key: { level: 8 }, tempo: null, language: null, flow: null }] })
   })
 
   it('stringifies numeric song ids for PATCH bodies', () => {
@@ -105,9 +105,9 @@ describe('buildSetlistPatchBody', () => {
       buildSetlistPatchBody(numBase, {
         title: 'A',
         owner: ownerA,
-        songs: [{ id: '7', key: 'C' }],
+        songs: [{ id: '7', key: 'C', flow: null }],
       }),
-    ).toEqual({ songs: [{ id: '7', key: { level: 3 }, tempo: null, language: null }] })
+    ).toEqual({ songs: [{ id: '7', nr: null, key: { level: 3 }, tempo: null, language: null, flow: null }] })
   })
 
   it('sends owner when changed', () => {
@@ -115,7 +115,7 @@ describe('buildSetlistPatchBody', () => {
       buildSetlistPatchBody(base, {
         title: 'A',
         owner: 'team-b',
-        songs: [{ id: 'x', key: 'C' }],
+        songs: [{ id: 'x', key: 'C', nr: '1', flow: null }],
       }),
     ).toEqual({ owner: 'team-b' })
   })
@@ -125,7 +125,7 @@ describe('buildSetlistPatchBody', () => {
       buildSetlistPatchBody(base, {
         title: 'A',
         owner: '',
-        songs: [{ id: 'x', key: 'C' }],
+        songs: [{ id: 'x', key: 'C', nr: '1', flow: null }],
       }),
     ).toBeNull()
   })
@@ -135,9 +135,9 @@ describe('buildSetlistPatchBody', () => {
       buildSetlistPatchBody(base, {
         title: 'A',
         owner: ownerA,
-        songs: [{ id: 'x', key: 'C', tempo: 88 }],
+        songs: [{ id: 'x', key: 'C', nr: '1', tempo: 88, flow: null }],
       }),
-    ).toEqual({ songs: [{ id: 'x', key: { level: 3 }, tempo: 88, language: null }] })
+    ).toEqual({ songs: [{ id: 'x', nr: '1', key: { level: 3 }, tempo: 88, language: null, flow: null }] })
   })
 
   it('treats matching tempo overrides as unchanged', () => {
@@ -146,9 +146,9 @@ describe('buildSetlistPatchBody', () => {
         {
           title: 'A',
           owner: ownerA,
-          songs: [{ id: 'x', key: 'C', tempo: 88 }],
+          songs: [{ id: 'x', key: 'C', nr: '1', tempo: 88, flow: null }],
         },
-        { title: 'A', owner: ownerA, songs: [{ id: 'x', key: 'C', tempo: 88 }] },
+        { title: 'A', owner: ownerA, songs: [{ id: 'x', key: 'C', nr: '1', tempo: 88, flow: null }] },
       ),
     ).toBeNull()
   })
@@ -158,9 +158,9 @@ describe('buildSetlistPatchBody', () => {
       buildSetlistPatchBody(base, {
         title: 'A',
         owner: ownerA,
-        songs: [{ id: 'x', key: 'C', language: 'de' }],
+        songs: [{ id: 'x', key: 'C', nr: '1', language: 'de', flow: null }],
       }),
-    ).toEqual({ songs: [{ id: 'x', key: { level: 3 }, tempo: null, language: 'de' }] })
+    ).toEqual({ songs: [{ id: 'x', nr: '1', key: { level: 3 }, tempo: null, language: 'de', flow: null }] })
   })
 
   it('treats matching language overrides as unchanged', () => {
@@ -169,9 +169,9 @@ describe('buildSetlistPatchBody', () => {
         {
           title: 'A',
           owner: ownerA,
-          songs: [{ id: 'x', key: 'C', language: 'de' }],
+          songs: [{ id: 'x', key: 'C', nr: '1', language: 'de', flow: null }],
         },
-        { title: 'A', owner: ownerA, songs: [{ id: 'x', key: 'C', language: ' de ' }] },
+        { title: 'A', owner: ownerA, songs: [{ id: 'x', key: 'C', nr: '1', language: ' de ', flow: null }] },
       ),
     ).toBeNull()
   })

@@ -24,8 +24,8 @@ export type ChordSongData = Record<string, unknown>
 /** One entry in a song section flow (`chordlib::types::SongFlowItem`). */
 export type SongFlowItem = {
   title: string
-  occurrence_index?: number
-  repeats?: number
+  occurrence_index: number
+  repeats: number
 }
 
 /**

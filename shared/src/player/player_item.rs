@@ -1,4 +1,5 @@
 use crate::song::Song;
+use chordlib::types::SongFlowItem;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "backend")]
 use utoipa::ToSchema;
@@ -25,6 +26,9 @@ pub struct PlayerChordsItem {
     pub song: Song,
     /// Language override for this player item; `None` uses the song's default language.
     pub language: Option<String>,
+    /// Custom flow override from the setlist slot, if any.
+    #[cfg_attr(feature = "backend", schema(value_type = Option<Vec<crate::song::SongFlowItemSchema>>))]
+    pub flow: Option<Vec<SongFlowItem>>,
 }
 
 impl Default for PlayerItem {

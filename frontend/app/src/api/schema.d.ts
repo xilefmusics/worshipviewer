@@ -929,6 +929,7 @@ export interface components {
          *       "owner": "team_example_id",
          *       "songs": [
          *         {
+         *           "flow": null,
          *           "id": "song_example",
          *           "key": null,
          *           "nr": "1"
@@ -940,7 +941,7 @@ export interface components {
         CreateSetlist: {
             /** @description Owning team id (same format as `Setlist.owner` in responses). Omit to create under the caller's personal team. */
             owner?: string | null;
-            songs: components["schemas"]["SongLink"][];
+            songs: components["schemas"]["SetlistSongLink"][];
             title: string;
         };
         /**
@@ -1182,7 +1183,7 @@ export interface components {
         /** @description Partial update for a setlist. Absent fields are left unchanged. */
         PatchSetlist: {
             owner?: string | null;
-            songs?: components["schemas"]["SongLink"][] | null;
+            songs?: components["schemas"]["SetlistSongLink"][] | null;
             title?: string | null;
         };
         /**
@@ -1253,6 +1254,8 @@ export interface components {
         };
         /** @description ChordPro-backed song item in a player sequence (`type`: `"chords"`). */
         PlayerChordsItem: {
+            /** @description Custom flow override from the setlist slot, if any. */
+            flow?: components["schemas"]["SongFlowItem"][] | null;
             /** @description Language override for this player item; `None` uses the song's default language. */
             language?: string | null;
             song: components["schemas"]["Song"];
@@ -1349,6 +1352,7 @@ export interface components {
          *       "owner": "usr_example",
          *       "songs": [
          *         {
+         *           "flow": null,
          *           "id": "song_example",
          *           "key": null,
          *           "nr": "1"
@@ -1360,8 +1364,24 @@ export interface components {
         Setlist: {
             id: string;
             owner: string;
-            songs: components["schemas"]["SongLink"][];
+            songs: components["schemas"]["SetlistSongLink"][];
             title: string;
+        };
+        SetlistSongLink: {
+            /** @description Custom section order and repeats for this setlist slot. */
+            flow?: components["schemas"]["SongFlowItem"][] | null;
+            /** @description Song record id. */
+            id: string;
+            key?: null | components["schemas"]["SimpleChord"];
+            /** @description Language override for this slot; `None` inherits the song's default language. */
+            language?: string | null;
+            /** @description Optional display position in the parent list (e.g. `1`, `2a`). */
+            nr?: string | null;
+            /**
+             * Format: int32
+             * @description Tempo override in BPM for this slot; `None` inherits the song's `data.tempo`.
+             */
+            tempo?: number | null;
         };
         /** @description Chromatic pitch class (song key, chord root, or slash bass). */
         SimpleChord: {
@@ -1471,6 +1491,21 @@ export interface components {
              *     ]
              */
             titles?: string[] | null;
+        };
+        /** @description One section-flow item in a setlist slot or chordlib flow response. */
+        SongFlowItem: {
+            /**
+             * Format: int32
+             * @description Zero-based occurrence index for duplicate section titles.
+             */
+            occurrence_index: number;
+            /**
+             * Format: int32
+             * @description Repeat count for the selected flow slot.
+             */
+            repeats: number;
+            /** @description Section title as it appears in the source song. */
+            title: string;
         };
         SongLink: {
             /** @description Song record id. */
@@ -1628,7 +1663,7 @@ export interface components {
         UpdateSetlist: {
             /** @description Target team id for the setlist's `owner`; omit or `null` to keep the current owner. */
             owner?: string | null;
-            songs: components["schemas"]["SongLink"][];
+            songs: components["schemas"]["SetlistSongLink"][];
             title: string;
         };
         /**

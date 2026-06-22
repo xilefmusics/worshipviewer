@@ -20,6 +20,7 @@ use crate::resources::user::service::UserServiceHandle;
 use crate::resources::user::session::service::SessionServiceHandle;
 use shared::collection::CreateCollection;
 use shared::setlist::CreateSetlist;
+use shared::setlist::SongLink as SetlistSongLink;
 use shared::song::CreateSong;
 use shared::team::{CreateTeam, TeamMemberInput, TeamRole, TeamUserRef, UpdateTeam};
 use shared::user::Role as UserRole;
@@ -319,12 +320,13 @@ pub fn setlist_with_songs(title: &str, song_ids: &[(&str, Option<&str>)]) -> Cre
         title: title.into(),
         songs: song_ids
             .iter()
-            .map(|(id, nr)| shared::song::Link {
+            .map(|(id, nr)| SetlistSongLink {
                 id: (*id).into(),
                 nr: nr.map(|s| s.into()),
                 key: None,
                 tempo: None,
                 language: None,
+                flow: None,
             })
             .collect(),
     }

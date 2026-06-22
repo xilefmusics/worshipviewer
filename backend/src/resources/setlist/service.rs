@@ -3,7 +3,7 @@ use std::sync::Arc;
 use shared::MoveOwner;
 use shared::api::ListQuery;
 use shared::player::Player;
-use shared::setlist::{CreateSetlist, PatchSetlist, Setlist};
+use shared::setlist::{CreateSetlist, PatchSetlist, Setlist, SongLink as SetlistSongLink};
 use shared::song::Song;
 use tracing::instrument;
 
@@ -16,6 +16,31 @@ use crate::resources::team::{parse_owner_record_id, thing_record_key};
 use super::repository::SetlistRepository;
 use super::surreal_repo::SurrealSetlistRepo;
 use crate::resources::common::player_from_song_links;
+
+fn validate_setlist_song_links(links: &[SetlistSongLink]) -> Result<(), AppError> {
+    for link in links {
+        if let Some(flow) = &link.flow {
+            if flow.is_empty() {
+                return Err(AppError::invalid_request(
+                    "setlist song flow must not be empty",
+                ));
+            }
+            for item in flow {
+                if item.title.trim().is_empty() {
+                    return Err(AppError::invalid_request(
+                        "setlist song flow item title must not be empty",
+                    ));
+                }
+                if item.repeats < 1 {
+                    return Err(AppError::invalid_request(
+                        "setlist song flow item repeats must be at least 1",
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
 
 #[derive(Clone)]
 pub struct SetlistService<R, L> {
@@ -107,6 +132,7 @@ impl<R: SetlistRepository, L: LikedSongIds> SetlistService<R, L> {
         ctx: &AuthorizationContext,
         mut setlist: CreateSetlist,
     ) -> Result<Setlist, AppError> {
+        validate_setlist_song_links(&setlist.songs)?;
         let owner = match setlist.owner.take() {
             None => ctx.personal_team()?,
             Some(ref s) => {
@@ -126,6 +152,7 @@ impl<R: SetlistRepository, L: LikedSongIds> SetlistService<R, L> {
         setlist: CreateSetlist,
         owner: Option<String>,
     ) -> Result<Setlist, AppError> {
+        validate_setlist_song_links(&setlist.songs)?;
         let write_teams = ctx.write_teams();
         let owner = resolve_owner_team(&write_teams, owner)?;
         self.repo
@@ -147,6 +174,7 @@ impl<R: SetlistRepository, L: LikedSongIds> SetlistService<R, L> {
             title: patch.title.unwrap_or(current.title),
             songs: patch.songs.unwrap_or(current.songs),
         };
+        validate_setlist_song_links(&merged.songs)?;
         self.update_setlist_for_user(ctx, id, merged, owner).await
     }
 
@@ -199,7 +227,7 @@ mod tests {
     use surrealdb::types::RecordId;
 
     use shared::api::ListQuery;
-    use shared::setlist::{CreateSetlist, Setlist};
+    use shared::setlist::{CreateSetlist, Setlist, SongLink as SetlistSongLink};
     use shared::song::LinkOwned as SongLinkOwned;
     use shared::team::TeamRole;
 
@@ -360,6 +388,47 @@ mod tests {
 
     fn test_user() -> User {
         User::new("u@test.local")
+    }
+
+    fn flow_item(
+        title: &str,
+        occurrence_index: u32,
+        repeats: u32,
+    ) -> chordlib::types::SongFlowItem {
+        chordlib::types::SongFlowItem {
+            title: title.to_string(),
+            occurrence_index,
+            repeats,
+        }
+    }
+
+    #[test]
+    fn validate_setlist_song_links_rejects_empty_flow() {
+        let links = vec![SetlistSongLink {
+            id: "song-1".into(),
+            nr: None,
+            key: None,
+            tempo: None,
+            language: None,
+            flow: Some(vec![]),
+        }];
+
+        let err = super::validate_setlist_song_links(&links).unwrap_err();
+        assert!(matches!(err, AppError::InvalidRequest(_)));
+    }
+
+    #[test]
+    fn validate_setlist_song_links_accepts_non_empty_flow() {
+        let links = vec![SetlistSongLink {
+            id: "song-1".into(),
+            nr: None,
+            key: None,
+            tempo: None,
+            language: None,
+            flow: Some(vec![flow_item("Verse", 0, 1)]),
+        }];
+
+        assert!(super::validate_setlist_song_links(&links).is_ok());
     }
 
     /// Shared integration fixture: owner, reader (Guest), writer (ContentMaintainer), and a
@@ -1082,12 +1151,13 @@ mod tests {
                     &created.id,
                     PatchSetlist {
                         title: include_title.then_some("PatchedTitle".into()),
-                        songs: include_songs.then_some(vec![shared::song::Link {
+                        songs: include_songs.then_some(vec![SetlistSongLink {
                             id: s2.id.clone(),
                             nr: Some("9".into()),
                             key: None,
                             tempo: None,
                             language: None,
+                            flow: None,
                         }]),
                         owner: None,
                     },

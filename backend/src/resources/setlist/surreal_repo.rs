@@ -14,7 +14,8 @@ use crate::database::Database;
 use crate::error::AppError;
 
 use crate::resources::common::{
-    SongLinkListRow, SongLinkRecord, belongs_to, resource_id, song_links_to_owned,
+    SetlistSongLinkListRow, SetlistSongLinkRecord, belongs_to, resource_id,
+    setlist_song_links_to_owned,
 };
 
 use super::model::SetlistRecord;
@@ -134,14 +135,14 @@ impl SetlistRepository for SurrealSetlistRepo {
             .await?;
 
         let record = response
-            .take::<Option<SongLinkListRow>>(0)?
+            .take::<Option<SetlistSongLinkListRow>>(0)?
             .ok_or_else(|| AppError::NotFound("setlist not found".into()))?;
 
         if !belongs_to(&record.owner, read_teams) {
             return Err(AppError::NotFound("setlist not found".into()));
         }
 
-        song_links_to_owned(&db.db, record.songs).await
+        setlist_song_links_to_owned(&db.db, record.songs).await
     }
 
     async fn create_setlist(
@@ -167,7 +168,7 @@ impl SetlistRepository for SurrealSetlistRepo {
     ) -> Result<Setlist, AppError> {
         let db = self.inner();
         let (tb, sid) = resource_id("setlist", id)?;
-        let songs: Vec<SongLinkRecord> = setlist.songs.into_iter().map(Into::into).collect();
+        let songs: Vec<SetlistSongLinkRecord> = setlist.songs.into_iter().map(Into::into).collect();
         let title = setlist.title;
 
         let mut response = if let Some(ref owner_rid) = owner {

@@ -88,6 +88,20 @@ pub struct SectionSchema {
     pub repeat_count: Option<u32>,
 }
 
+/// One section-flow item in a setlist slot or chordlib flow response.
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[cfg_attr(feature = "backend", schema(as = SongFlowItem))]
+pub struct SongFlowItemSchema {
+    /// Section title as it appears in the source song.
+    pub title: String,
+    /// Zero-based occurrence index for duplicate section titles.
+    #[cfg_attr(feature = "backend", schema(minimum = 0))]
+    pub occurrence_index: u32,
+    /// Repeat count for the selected flow slot.
+    #[cfg_attr(feature = "backend", schema(minimum = 1))]
+    pub repeats: u32,
+}
+
 /// ChordPro-derived metadata and content (titles, tags, [`sections`](https://chordpro.org/) as structured blocks).
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 #[cfg_attr(

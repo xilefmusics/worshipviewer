@@ -7,6 +7,7 @@ use surrealdb::engine::any::Any;
 use surrealdb::types::{Kind, RecordId, SurrealValue, Value, kind};
 
 use shared::player::Player;
+use shared::setlist::SongLink as SetlistSongLink;
 use shared::song::{Link as SongLink, LinkOwned as SongLinkOwned};
 
 use crate::database::record_id_string;
@@ -133,6 +134,7 @@ pub fn player_from_song_links(
                 key: link.key,
                 tempo: link.tempo,
                 language: link.language,
+                flow: link.flow,
             })
         })
         .try_fold(Player::default(), |acc, player| {
@@ -140,7 +142,7 @@ pub fn player_from_song_links(
         })
 }
 
-/// Owner + embedded song link rows (collection / setlist `songs` field).
+/// Owner + embedded song link rows (collection `songs` field).
 #[derive(Deserialize, SurrealValue)]
 pub struct SongLinkListRow {
     #[serde(default)]
@@ -171,6 +173,35 @@ pub async fn song_links_to_owned(
     song_link_records_to_owned(links, records)
 }
 
+/// Owner + embedded song link rows for setlists.
+#[derive(Deserialize, SurrealValue)]
+pub struct SetlistSongLinkListRow {
+    #[serde(default)]
+    pub owner: Option<RecordId>,
+    #[serde(default)]
+    pub songs: Vec<SetlistSongLinkRecord>,
+}
+
+/// Load full [`Song`] values for setlist link rows (`array<object>` with `id: record<song>`).
+pub async fn setlist_song_links_to_owned(
+    db: &Surreal<Any>,
+    links: Vec<SetlistSongLinkRecord>,
+) -> Result<Vec<SongLinkOwned>, AppError> {
+    if links.is_empty() {
+        return Ok(vec![]);
+    }
+    let ids: Vec<RecordId> = links.iter().map(|l| l.id.clone()).collect();
+    let mut response = db
+        .query("SELECT * FROM $ids")
+        .bind(("ids", ids))
+        .await
+        .map_err(|e| crate::log_and_convert!(AppError::database, "song.batch_by_id", e))?;
+    let records: Vec<SongRecord> = response
+        .take(0)
+        .map_err(|e| crate::log_and_convert!(AppError::database, "song.batch_by_id.take", e))?;
+    setlist_song_link_records_to_owned(links, records)
+}
+
 fn song_link_records_to_owned(
     links: Vec<SongLinkRecord>,
     records: Vec<SongRecord>,
@@ -196,6 +227,41 @@ fn song_link_records_to_owned(
             key: link.key.map(|k| k.0),
             tempo: link.tempo,
             language: link.language,
+            flow: None,
+            liked: false,
+        });
+    }
+    Ok(out)
+}
+
+fn setlist_song_link_records_to_owned(
+    links: Vec<SetlistSongLinkRecord>,
+    records: Vec<SongRecord>,
+) -> Result<Vec<SongLinkOwned>, AppError> {
+    let mut by_id: HashMap<String, SongRecord> = HashMap::with_capacity(records.len());
+    for r in records {
+        let Some(ref rid) = r.id else {
+            continue;
+        };
+        by_id.insert(record_id_string(rid), r);
+    }
+    let mut out = Vec::with_capacity(links.len());
+    for link in links {
+        let sid = record_id_string(&link.id);
+        let rec = by_id.get(&sid).cloned().ok_or_else(|| {
+            AppError::database(
+                "referenced song not found (collection or setlist data may be inconsistent)",
+            )
+        })?;
+        out.push(SongLinkOwned {
+            song: rec.into_song(),
+            nr: link.nr,
+            key: link.key.map(|k| k.0),
+            tempo: link.tempo,
+            language: link.language,
+            flow: link
+                .flow
+                .and_then(|flow| serde_json::from_value(serde_json::Value::Array(flow)).ok()),
             liked: false,
         });
     }
@@ -214,6 +280,22 @@ pub struct SongLinkRecord {
     tempo: Option<u32>,
     #[serde(default)]
     language: Option<String>,
+}
+
+/// DB record for a setlist song reference, including custom flow.
+#[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
+pub struct SetlistSongLinkRecord {
+    id: RecordId,
+    #[serde(default)]
+    nr: Option<String>,
+    #[serde(default)]
+    key: Option<SimpleChordField>,
+    #[serde(default)]
+    tempo: Option<u32>,
+    #[serde(default)]
+    language: Option<String>,
+    #[serde(default)]
+    flow: Option<Vec<serde_json::Value>>,
 }
 
 impl From<SongLinkRecord> for SongLink {
@@ -236,6 +318,38 @@ impl From<SongLink> for SongLinkRecord {
             key: link.key.map(SimpleChordField),
             tempo: link.tempo,
             language: link.language,
+        }
+    }
+}
+
+impl From<SetlistSongLink> for SetlistSongLinkRecord {
+    fn from(link: SetlistSongLink) -> Self {
+        Self {
+            id: song_thing(&link.id),
+            nr: link.nr,
+            key: link.key.map(SimpleChordField),
+            tempo: link.tempo,
+            language: link.language,
+            flow: link.flow.map(|flow| {
+                flow.into_iter()
+                    .map(|item| serde_json::to_value(item).unwrap_or(serde_json::Value::Null))
+                    .collect()
+            }),
+        }
+    }
+}
+
+impl From<SetlistSongLinkRecord> for SetlistSongLink {
+    fn from(record: SetlistSongLinkRecord) -> Self {
+        Self {
+            id: record_id_string(&record.id),
+            nr: record.nr,
+            key: record.key.map(|k| k.0),
+            tempo: record.tempo,
+            language: record.language,
+            flow: record
+                .flow
+                .and_then(|flow| serde_json::from_value(serde_json::Value::Array(flow)).ok()),
         }
     }
 }
@@ -325,6 +439,7 @@ mod tests {
                 key: None,
                 tempo: None,
                 language: None,
+                flow: None,
                 liked: false,
             },
             SongLinkOwned {
@@ -333,6 +448,7 @@ mod tests {
                 key: None,
                 tempo: None,
                 language: None,
+                flow: None,
                 liked: false,
             },
         ];
