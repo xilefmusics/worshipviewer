@@ -123,4 +123,23 @@ describe('useSetlistFlowValidity', () => {
     })
     expect(getChordEngine).not.toHaveBeenCalled()
   })
+
+  it('does not revalidate when hydrated song array reference changes but content is unchanged', async () => {
+    const songs = [chordSong('song-1')]
+    const slotRows = [{ slotId: 'slot-1', link: { flow: null } }]
+
+    const { rerender } = renderHook(
+      ({ hydratedSongs }) => useSetlistFlowValidity(slotRows, hydratedSongs),
+      { initialProps: { hydratedSongs: songs } },
+    )
+
+    await waitFor(() => {
+      expect(getChordEngine).not.toHaveBeenCalled()
+    })
+
+    rerender({ hydratedSongs: [...songs] })
+    rerender({ hydratedSongs: [...songs] })
+
+    expect(getChordEngine).not.toHaveBeenCalled()
+  })
 })

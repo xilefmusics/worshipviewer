@@ -1,5 +1,5 @@
 import type { components } from '@/api/schema'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 
 import { getChordEngine } from '@/lib/chord-engine'
 import { isSongFlowValid } from '@/lib/player/resolve-song-flow'
@@ -27,6 +27,24 @@ function flowValidityKey(
     .join('|')
 }
 
+function staleFlowMapsEqual(
+  left: ReadonlyMap<string, boolean>,
+  right: ReadonlyMap<string, boolean>,
+): boolean {
+  if (left.size !== right.size) return false
+  for (const [key, value] of left) {
+    if (right.get(key) !== value) return false
+  }
+  return true
+}
+
+function commitStaleFlowMap(
+  setStaleBySlotId: Dispatch<SetStateAction<ReadonlyMap<string, boolean>>>,
+  next: ReadonlyMap<string, boolean>,
+) {
+  setStaleBySlotId((prev) => (staleFlowMapsEqual(prev, next) ? prev : next))
+}
+
 /** Map of setlist slot ids whose saved custom flow no longer applies to the current song. */
 export function useSetlistFlowValidity(
   slotRows: SlotRowForFlowValidity[],
@@ -49,9 +67,7 @@ export function useSetlistFlowValidity(
       )
 
     if (slotsToValidate.length === 0) {
-      queueMicrotask(() => {
-        if (!cancelled) setStaleBySlotId(new Map())
-      })
+      commitStaleFlowMap(setStaleBySlotId, new Map())
       return () => {
         cancelled = true
       }
@@ -67,16 +83,18 @@ export function useSetlistFlowValidity(
           const valid = isSongFlowValid(engine, song.data as ChordSongData, flow)
           if (!valid) next.set(row.slotId, true)
         }
-        if (!cancelled) setStaleBySlotId(next)
+        if (!cancelled) commitStaleFlowMap(setStaleBySlotId, next)
       } catch {
-        if (!cancelled) setStaleBySlotId(new Map())
+        if (!cancelled) commitStaleFlowMap(setStaleBySlotId, new Map())
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [validityKey, slotRows, songs])
+    // validityKey encodes slotRows + songs; avoid unstable array refs from useQueries in deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- slotRows/songs are captured when validityKey changes
+  }, [validityKey])
 
   return staleBySlotId
 }
