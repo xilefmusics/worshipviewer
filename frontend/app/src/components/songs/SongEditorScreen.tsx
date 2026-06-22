@@ -36,6 +36,7 @@ import {
   applyKeyChangeToSource,
   applyMetadataStripToSource,
   formatSourceFromSongData,
+  createSongLanguageEntry,
   createSongMetaTagEntry,
   metadataStripFromSongData,
   parseErrorsFromResult,
@@ -91,11 +92,9 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     engineCache.key === engineKey ? engineCache.state : { status: 'loading' }
   const [sourceText, setSourceText] = useState('')
   const [metadataStrip, setMetadataStrip] = useState<SongMetadataStrip>({
-    title: '',
     subtitle: '',
-    artists: '',
     copyright: '',
-    languages: '',
+    languageEntries: [],
     tempo: '',
     timeSignature: '',
     key: '',
@@ -388,6 +387,36 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     }))
   }, [])
 
+  const updateLanguageEntry = useCallback(
+    (id: string, field: 'language' | 'title' | 'artist', value: string) => {
+      setMetadataStrip((strip) => ({
+        ...strip,
+        languageEntries: strip.languageEntries.map((entry) =>
+          entry.id === id ? { ...entry, [field]: value } : entry,
+        ),
+      }))
+    },
+    [],
+  )
+
+  const addLanguageEntry = useCallback(() => {
+    setMetadataStrip((strip) => ({
+      ...strip,
+      languageEntries: [...strip.languageEntries, createSongLanguageEntry()],
+    }))
+  }, [])
+
+  const removeLanguageEntry = useCallback(
+    (id: string) => {
+      setMetadataStrip((strip) => {
+        const next = { ...strip, languageEntries: strip.languageEntries.filter((entry) => entry.id !== id) }
+        queueMicrotask(() => commitMetadataStrip(next))
+        return next
+      })
+    },
+    [commitMetadataStrip],
+  )
+
   const addMetaTag = useCallback(() => {
     setMetadataStrip((strip) => ({ ...strip, tags: [...strip.tags, createSongMetaTagEntry()] }))
   }, [])
@@ -587,52 +616,78 @@ export function SongEditorScreen({ songId }: { songId: string }) {
           className="grid gap-3"
         >
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="grid gap-1 text-sm">
-              <span>{t('songs.editor.titleLabel')}</span>
-              <Input
-                value={metadataStrip.title}
-                readOnly={sourceBlocked}
-                onChange={(e) => setMetadataStrip((s) => ({ ...s, title: e.target.value }))}
-                onBlur={onMetadataFieldBlur}
-              />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span>{t('songs.editor.subtitleLabel')}</span>
-              <Input
-                value={metadataStrip.subtitle}
-                readOnly={sourceBlocked}
-                onChange={(e) => setMetadataStrip((s) => ({ ...s, subtitle: e.target.value }))}
-                onBlur={onMetadataFieldBlur}
-              />
-            </label>
-            <label className="grid gap-1 text-sm sm:col-span-2">
-              <span>{t('songs.editor.artistsLabel')}</span>
-              <Input
-                value={metadataStrip.artists}
-                readOnly={sourceBlocked}
-                onChange={(e) => setMetadataStrip((s) => ({ ...s, artists: e.target.value }))}
-                onBlur={onMetadataFieldBlur}
-              />
-            </label>
-            <label className="grid gap-1 text-sm sm:col-span-2">
-              <span>{t('songs.editor.copyrightLabel')}</span>
-              <Input
-                value={metadataStrip.copyright}
-                readOnly={sourceBlocked}
-                onChange={(e) => setMetadataStrip((s) => ({ ...s, copyright: e.target.value }))}
-                onBlur={onMetadataFieldBlur}
-              />
-            </label>
-            <label className="grid gap-1 text-sm sm:col-span-2">
-              <span>{t('songs.editor.languagesLabel')}</span>
-              <Input
-                value={metadataStrip.languages}
-                readOnly={sourceBlocked}
-                placeholder={t('songs.editor.languagesPlaceholder')}
-                onChange={(e) => setMetadataStrip((s) => ({ ...s, languages: e.target.value }))}
-                onBlur={onMetadataFieldBlur}
-              />
-            </label>
+            <div className="grid gap-2 sm:col-span-2">
+              {metadataStrip.languageEntries.length === 0 ? (
+                <p className="text-sm text-[var(--color-muted-foreground)]">
+                  {t('songs.editor.languageVariantsEmpty')}
+                </p>
+              ) : (
+                <ul className="grid gap-3" role="list">
+                  {metadataStrip.languageEntries.map((entry, index) => (
+                    <li key={entry.id} className="grid gap-2">
+                      <div className="flex items-end gap-2">
+                        <label className="grid flex-1 gap-1 text-sm">
+                          <span>{t('songs.editor.titleNumberedLabel', { number: index + 1 })}</span>
+                          <Input
+                            value={entry.title}
+                            readOnly={sourceBlocked}
+                            onChange={(e) => updateLanguageEntry(entry.id, 'title', e.target.value)}
+                            onBlur={onMetadataFieldBlur}
+                          />
+                        </label>
+                        {!sourceBlocked ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0"
+                            aria-label={t('songs.editor.languageVariantsRemoveAria')}
+                            onClick={() => removeLanguageEntry(entry.id)}
+                          >
+                            <TrashIcon size={18} />
+                          </Button>
+                        ) : null}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="grid gap-1 text-sm">
+                          <span>{t('songs.editor.languagesNumberedLabel', { number: index + 1 })}</span>
+                          <Input
+                            value={entry.language}
+                            readOnly={sourceBlocked}
+                            placeholder={t('songs.editor.languagesPlaceholder')}
+                            onChange={(e) => updateLanguageEntry(entry.id, 'language', e.target.value)}
+                            onBlur={onMetadataFieldBlur}
+                          />
+                        </label>
+                        <label className="grid gap-1 text-sm">
+                          <span>{t('songs.editor.artistsNumberedLabel', { number: index + 1 })}</span>
+                          <Input
+                            value={entry.artist}
+                            readOnly={sourceBlocked}
+                            onChange={(e) => updateLanguageEntry(entry.id, 'artist', e.target.value)}
+                            onBlur={onMetadataFieldBlur}
+                          />
+                        </label>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {!sourceBlocked ? (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 shrink-0"
+                    onClick={addLanguageEntry}
+                  >
+                    <PlusIcon size={16} />
+                    {t('songs.editor.languageVariantsAdd')}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
             <label className="grid gap-1 text-sm">
               <span>{t('songs.editor.tempoLabel')}</span>
               <Input
@@ -690,6 +745,15 @@ export function SongEditorScreen({ songId }: { songId: string }) {
                   ))}
                 </SelectContent>
               </Select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span>{t('songs.editor.copyrightLabel')}</span>
+              <Input
+                value={metadataStrip.copyright}
+                readOnly={sourceBlocked}
+                onChange={(e) => setMetadataStrip((s) => ({ ...s, copyright: e.target.value }))}
+                onBlur={onMetadataFieldBlur}
+              />
             </label>
             <div className="grid gap-2 sm:col-span-2">
               <div className="flex items-center justify-between gap-2">
