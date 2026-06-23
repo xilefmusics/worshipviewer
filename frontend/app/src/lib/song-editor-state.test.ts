@@ -13,6 +13,7 @@ import { ChordEngineError } from '@/ports/chord-engine'
 
 import {
   applyKeyChangeToSource,
+  beatsPerMeasureFromTimeSignature,
   createSongLanguageEntry,
   metadataStripFromSongData,
   parseErrorsFromResult,
@@ -188,6 +189,12 @@ describe('patchSongDataFromParsed', () => {
     expect(
       patchSongDataFromParsed({ sections: [] }, { timeSignature: '3/4' } as SongMetadataStrip).time,
     ).toBeNull()
+  })
+
+  it('returns beats per measure for supported time signatures', () => {
+    expect(beatsPerMeasureFromTimeSignature('4/4')).toBe(4)
+    expect(beatsPerMeasureFromTimeSignature('6/8')).toBe(6)
+    expect(beatsPerMeasureFromTimeSignature('')).toBeNull()
   })
 })
 

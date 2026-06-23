@@ -16,6 +16,11 @@ import { SessionLoadingFallback } from '@/components/SessionLoadingFallback'
 import { SessionUnavailableScreen } from '@/components/SessionUnavailableScreen'
 import { SetlistPaletteRegistrarProvider } from '@/context/SetlistPaletteBridgeContext'
 import {
+  SongEditorNavigationBridgeProvider,
+  useSongEditorNavigationBridge,
+  type SongEditorNavigationBridge,
+} from '@/context/SongEditorNavigationBridgeContext'
+import {
   formatAdminDateInputValue,
   parseAdminDateInputValue,
   resolveAdminDateRange,
@@ -336,6 +341,7 @@ function HubChrome({
   searchInputRef: React.RefObject<HTMLInputElement | null>
   paletteOpen: boolean
 }) {
+  const songEditorNavigationBridge = useSongEditorNavigationBridge()
   const { t } = useTranslation()
   const { data: user } = useSession()
   const queryClient = useQueryClient()
@@ -479,6 +485,16 @@ function HubChrome({
       to: '/player',
       search: buildPlayerReturnSearch(context),
     })
+  }
+
+  async function leaveSongEditor() {
+    const ok = (await songEditorNavigationBridge?.flushBeforeLeave()) ?? true
+    if (ok === false) return
+    if (songEditorPlayerReturn) {
+      navigateBackToPlayer(songEditorPlayerReturn)
+      return
+    }
+    void navigate({ to: '/songs' })
   }
 
   const detailTitle = isTeamDetail
@@ -713,11 +729,7 @@ function HubChrome({
                 size="icon"
                 variant="outline"
                 onClick={() => {
-                  if (songEditorPlayerReturn) {
-                    navigateBackToPlayer(songEditorPlayerReturn)
-                    return
-                  }
-                  void navigate({ to: '/songs' })
+                  void leaveSongEditor()
                 }}
                 className={hubDetailBackButtonClass}
                 aria-label={t('songs.editor.backToList')}
@@ -1023,6 +1035,8 @@ export function HubShell() {
   const [paletteOk, setPaletteOk] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [setlistPaletteBridge, setSetlistPaletteBridge] = useState<SetlistPaletteBridge | null>(null)
+  const [songEditorNavigationBridge, setSongEditorNavigationBridge] =
+    useState<SongEditorNavigationBridge | null>(null)
   const searchAnchorRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -1049,17 +1063,22 @@ export function HubShell() {
   return (
     <HubSearchProvider>
       <SetlistPaletteRegistrarProvider value={setSetlistPaletteBridge}>
-        <HubChrome searchAnchorRef={searchAnchorRef} searchInputRef={searchInputRef} paletteOpen={paletteOpen}>
-          <Outlet />
-        </HubChrome>
-        <CommandPalette
-          enabled={paletteOk}
-          open={paletteOpen}
-          onOpenChange={setPaletteOpen}
-          searchAnchorRef={searchAnchorRef}
-          searchInputRef={searchInputRef}
-          setlistBridge={setlistPaletteBridge}
-        />
+        <SongEditorNavigationBridgeProvider
+          bridge={songEditorNavigationBridge}
+          setBridge={setSongEditorNavigationBridge}
+        >
+          <HubChrome searchAnchorRef={searchAnchorRef} searchInputRef={searchInputRef} paletteOpen={paletteOpen}>
+            <Outlet />
+          </HubChrome>
+          <CommandPalette
+            enabled={paletteOk}
+            open={paletteOpen}
+            onOpenChange={setPaletteOpen}
+            searchAnchorRef={searchAnchorRef}
+            searchInputRef={searchInputRef}
+            setlistBridge={setlistPaletteBridge}
+          />
+        </SongEditorNavigationBridgeProvider>
       </SetlistPaletteRegistrarProvider>
     </HubSearchProvider>
   )
