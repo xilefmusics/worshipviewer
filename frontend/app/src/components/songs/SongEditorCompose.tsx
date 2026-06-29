@@ -2446,6 +2446,7 @@ function ComposeSectionCard({
 }) {
   const { t } = useTranslation()
   const [focusLineId, setFocusLineId] = useState<string | null>(null)
+  const [repeatDraft, setRepeatDraft] = useState<string | null>(null)
 
   const updateSection = useCallback(
     (patch: Partial<ComposeSection>) => {
@@ -2522,25 +2523,28 @@ function ComposeSectionCard({
             ×
           </span>
           <input
-            type="number"
-            min={1}
-            step={1}
+            type="text"
             inputMode="numeric"
-            value={section.repeatCount}
+            pattern="[0-9]*"
+            value={repeatDraft ?? String(section.repeatCount)}
             readOnly={readOnly}
             aria-label={t('songs.editor.compose.sectionRepeatLabel')}
-            className="w-9 [appearance:textfield] bg-transparent px-0.5 py-0.5 text-center text-sm font-semibold text-[var(--color-foreground)] outline-none focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-primary)] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="w-9 bg-transparent px-0.5 py-0.5 text-center text-sm font-semibold text-[var(--color-foreground)] outline-none focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-primary)]"
+            onFocus={() => {
+              if (!readOnly) {
+                setRepeatDraft(String(section.repeatCount))
+              }
+            }}
             onChange={(e) => {
-              const parsed = Number.parseInt(e.target.value, 10)
+              const next = e.target.value.replace(/\D/g, '')
+              setRepeatDraft(next)
+            }}
+            onBlur={() => {
+              const parsed = Number.parseInt(repeatDraft ?? String(section.repeatCount), 10)
               updateSection({
                 repeatCount: Number.isFinite(parsed) && parsed >= 1 ? parsed : 1,
               })
-            }}
-            onBlur={(e) => {
-              const parsed = Number.parseInt(e.target.value, 10)
-              if (!Number.isFinite(parsed) || parsed < 1) {
-                updateSection({ repeatCount: 1 })
-              }
+              setRepeatDraft(null)
             }}
           />
         </div>
