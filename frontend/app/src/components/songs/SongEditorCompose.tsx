@@ -7,6 +7,7 @@ import {
   type DragOverEvent,
   type DragStartEvent,
   DragOverlay,
+  MeasuringStrategy,
   type Modifier,
   PointerSensor,
   TouchSensor,
@@ -220,6 +221,54 @@ function trackIndexFromLineDragId(id: string): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+function isComposeLineTrackDropId(id: unknown): boolean {
+  return typeof id === 'string' && id.startsWith('line:') && !id.startsWith('line-after:')
+}
+
+function isComposeLineDropId(id: unknown): boolean {
+  return (
+    typeof id === 'string' &&
+    (id.startsWith('line-after:') || (id.startsWith('line:') && !id.startsWith('line-after:')))
+  )
+}
+
+type ComposeDropData = LineDropData | LineAfterDropData
+
+function droppableDataFromCollision(collision: {
+  data?: { droppableContainer?: { data: { current?: unknown } } }
+}): ComposeDropData | null {
+  const current = collision.data?.droppableContainer?.data?.current
+  if (current && typeof current === 'object' && 'type' in current) {
+    if (current.type === 'line' || current.type === 'line-after') {
+      return current as ComposeDropData
+    }
+  }
+  return null
+}
+
+function preferComposeLineDropCollisions<T extends { id: unknown }>(hits: T[]): T[] {
+  const lineHits = hits.filter((hit) => isComposeLineTrackDropId(hit.id))
+  if (lineHits.length > 1) {
+    const preferred = [...lineHits].sort(
+      (a, b) => trackIndexFromLineDragId(String(b.id)) - trackIndexFromLineDragId(String(a.id)),
+    )[0]
+    return preferred ? [preferred] : lineHits
+  }
+  if (lineHits.length === 1) return lineHits
+
+  const lineAfterHit = hits.find((hit) => String(hit.id).startsWith('line-after:'))
+  return lineAfterHit ? [lineAfterHit] : []
+}
+
+function composeLineDropCollisionDetection(args: Parameters<CollisionDetection>[0]) {
+  const pointerHits = pointerWithin(args).filter((hit) => isComposeLineDropId(hit.id))
+  const preferredPointerHits = preferComposeLineDropCollisions(pointerHits)
+  if (preferredPointerHits.length > 0) return preferredPointerHits
+
+  const cornerHits = closestCorners(args).filter((hit) => isComposeLineDropId(hit.id))
+  return preferComposeLineDropCollisions(cornerHits)
+}
+
 function sectionSortCollisionDetection(args: Parameters<CollisionDetection>[0]) {
   const isSectionTarget = (id: unknown) => isSectionSortId(id) && id !== args.active.id
 
@@ -240,21 +289,37 @@ const composeCollisionDetection: CollisionDetection = (args) => {
   if (isSectionSortId(args.active.id)) {
     return sectionSortCollisionDetection(args)
   }
-  const hits = pointerWithin(args)
-  if (hits.length <= 1) return hits
+  return composeLineDropCollisionDetection(args)
+}
 
-  const lineHits = hits.filter((hit) => {
-    const id = String(hit.id)
-    return id.startsWith('line:') && !id.startsWith('line-after:')
-  })
-  if (lineHits.length <= 1) return hits
+function resolveComposeDropTarget(event: DragOverEvent | DragMoveEvent): {
+  data: ComposeDropData
+  width: number | undefined
+} | null {
+  const collisions =
+    'collisions' in event && Array.isArray(event.collisions) ? event.collisions : []
+  const preferred = preferComposeLineDropCollisions(
+    collisions.filter((collision) => isComposeLineDropId(collision.id)),
+  )[0]
 
-  const sortedLineHits = [...lineHits].sort(
-    (a, b) => trackIndexFromLineDragId(String(b.id)) - trackIndexFromLineDragId(String(a.id)),
-  )
-  const preferred = sortedLineHits[0]
-  if (!preferred) return hits
-  return [preferred, ...hits.filter((hit) => hit.id !== preferred.id)]
+  if (preferred) {
+    const data = droppableDataFromCollision(preferred)
+    if (data) {
+      return {
+        data,
+        width: event.over?.id === preferred.id ? event.over.rect.width : undefined,
+      }
+    }
+  }
+
+  const overData = event.over?.data.current
+  if (overData && typeof overData === 'object' && 'type' in overData) {
+    if (overData.type === 'line' || overData.type === 'line-after') {
+      return { data: overData as ComposeDropData, width: event.over?.rect.width }
+    }
+  }
+
+  return null
 }
 
 function parseLineChordDragId(id: string): { lineId: string; chordId: string } | null {
@@ -3336,10 +3401,11 @@ export function SongEditorCompose({
 
   function updateDropTarget(event: DragOverEvent | DragMoveEvent) {
     const clientX = dragPointerClientX(event)
-    const overData = event.over?.data.current
-    const overWidth = event.over?.rect.width
+    const resolved = resolveComposeDropTarget(event)
+    const overData = resolved?.data ?? null
+    const overWidth = resolved?.width
 
-    if (overData && typeof overData === 'object' && 'type' in overData) {
+    if (overData) {
       if (overData.type === 'line-after') {
         setActiveDropLineAfterId((overData as LineAfterDropData).lineId)
         setActiveDropLineId(null)
@@ -3487,18 +3553,14 @@ export function SongEditorCompose({
     lastDropTargetRef.current = null
 
     const activeData = event.active.data.current
-    const overData = event.over?.data.current
 
     if (
       activeData &&
       typeof activeData === 'object' &&
       'type' in activeData &&
-      activeData.type === 'pool' &&
-      overData &&
-      typeof overData === 'object' &&
-      'type' in overData
+      activeData.type === 'pool'
     ) {
-      if (overData.type === 'line-after' && dropLineAfterId) {
+      if (dropLineAfterId) {
         const symbol = (activeData as PoolDragData).symbol
         updateSections(
           insertComposeLineAfter(
@@ -3510,12 +3572,7 @@ export function SongEditorCompose({
         return
       }
 
-      if (
-        overData.type === 'line' &&
-        dropLineId &&
-        dropTrackIndex != null &&
-        dropCharIndex != null
-      ) {
+      if (dropLineId && dropTrackIndex != null && dropCharIndex != null) {
         const symbol = (activeData as PoolDragData).symbol
         updateSections(
           addChordToSections(
@@ -3533,8 +3590,8 @@ export function SongEditorCompose({
     }
 
     const parsed = parseLineChordDragId(String(event.active.id))
-    if (parsed && overData && typeof overData === 'object' && 'type' in overData) {
-      if (overData.type === 'line-after' && dropLineAfterId) {
+    if (parsed) {
+      if (dropLineAfterId) {
         updateSections(
           duplicateDrag
             ? duplicateComposeChordToLineAfter(
@@ -3638,6 +3695,11 @@ export function SongEditorCompose({
     <DndContext
       sensors={sensors}
       collisionDetection={composeCollisionDetection}
+      measuring={{
+        droppable: {
+          strategy: MeasuringStrategy.Always,
+        },
+      }}
       modifiers={[composeSectionDragModifier]}
       onDragStart={onDragStart}
       onDragMove={onDragMove}
