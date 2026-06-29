@@ -19,6 +19,7 @@ import {
   composeChordDisplayLabel,
   composeChordOnlyLineMeasureMismatch,
   composeTranslationTrackChordsMismatch,
+  composeLineChordsForTrack,
   composeDefaultBarDurationMillis,
   composeSectionsFromSongData,
   composeSectionsToSongSections,
@@ -306,6 +307,34 @@ describe('composeSectionsFromSongData', () => {
     expect(sections[0]?.lines[0]?.chords[0]?.durationMillis).toBeNull()
   })
 
+  it('skips empty wire lines when importing compose sections', () => {
+    const engine = mockEngine()
+    const sections = composeSectionsFromSongData(
+      {
+        sections: [
+          {
+            title: 'Verse',
+            repeat_count: 1,
+            lines: [
+              {
+                parts: [{ chord: null, languages: ['Hello world'], comment: false }],
+              },
+              {
+                parts: [{ chord: null, languages: [''], comment: false }],
+              },
+            ],
+          },
+        ],
+      },
+      engine,
+      'C',
+      'letters',
+    )
+
+    expect(sections[0]?.lines).toHaveLength(1)
+    expect(sections[0]?.lines[0]?.text).toBe('Hello world')
+  })
+
   it('imports parallel translation tracks from wire parts', () => {
     const engine = mockEngine()
     const sections = composeSectionsFromSongData(
@@ -489,9 +518,22 @@ describe('composeSectionsToSongSections', () => {
       text: 'Hello world',
       chords: [{ id: 'c1', position: 0, symbol: 'G', durationMillis: null }],
       translations: ['Hallo Welt'],
+      translationChords: [[]],
     }
 
     expect(composeTranslationTrackChordsMismatch(line, 1, '4/4')).toBe(true)
+  })
+
+  it('inherits primary chords on translation tracks when wire omits matching markers', () => {
+    const line = {
+      id: 'line-1',
+      text: 'Hello world',
+      chords: [{ id: 'c1', position: 6, symbol: 'G', durationMillis: null }],
+      translations: ['Hallo Welt'],
+    }
+
+    expect(composeLineChordsForTrack(line, 1)).toEqual(line.chords)
+    expect(composeTranslationTrackChordsMismatch(line, 1, '4/4')).toBe(false)
   })
 
   it('ignores translation chord mismatch when neither line has chords', () => {
@@ -582,6 +624,8 @@ describe('composeSectionsToSongSections', () => {
 
     expect(line?.chords[0]?.position).toBe(6)
     expect(line?.translationChords).toBeUndefined()
+    expect(composeLineChordsForTrack(line!, 1)).toEqual(line?.chords)
+    expect(composeTranslationTrackChordsMismatch(line!, 1, '4/4')).toBe(false)
   })
 
   it('round-trips independent translation chords through wire lines', () => {
@@ -714,6 +758,49 @@ describe('composeSectionsToSongSections', () => {
     expect(wire[0]?.lines?.[0]?.parts?.[0]?.languages).toEqual([
       "It's getting harder to recognize",
     ])
+  })
+
+  it('omits empty placeholder lines from wire export', () => {
+    const engine = mockEngine()
+    const wire = composeSectionsToSongSections(
+      [
+        {
+          id: 'sec-1',
+          title: 'Verse',
+          repeatCount: 1,
+          lines: [
+            createComposeLine('Hello world'),
+            createComposeLine(),
+          ],
+        },
+      ],
+      engine,
+      'C',
+    ) as Array<{ lines?: unknown[] }>
+
+    expect(wire[0]?.lines).toHaveLength(1)
+  })
+
+  it('keeps chord-only lines when filtering empty placeholder rows', () => {
+    const engine = mockEngine()
+    const wire = composeSectionsToSongSections(
+      [
+        {
+          id: 'sec-1',
+          title: 'Intro',
+          repeatCount: 1,
+          lines: [
+            createComposeLine(),
+            createComposeChordOnlyLine('G'),
+          ],
+        },
+      ],
+      engine,
+      'C',
+    ) as Array<{ lines?: Array<{ parts?: Array<{ chord?: unknown }> }> }>
+
+    expect(wire[0]?.lines).toHaveLength(1)
+    expect(wire[0]?.lines?.[0]?.parts?.some((part) => part.chord != null)).toBe(true)
   })
 })
 

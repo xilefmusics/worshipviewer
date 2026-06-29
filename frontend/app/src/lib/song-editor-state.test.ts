@@ -26,6 +26,7 @@ import {
   songLanguageEntriesToWireArrays,
   songMetaTagsFromSongData,
   songMetaTagsToWireRecord,
+  stripEmptyLinesFromSongData,
   type SongMetadataStrip,
 } from '@/lib/song-editor-state'
 import { buildSongPatchBody } from '@/lib/song-patch-body'
@@ -149,6 +150,47 @@ describe('patchSongDataFromParsed', () => {
       { languageEntries: [createSongLanguageEntry('', 'B', '')] } as SongMetadataStrip,
     )
     expect(patch.titles).toEqual(['B'])
+  })
+
+  it('removes empty wire lines before save', () => {
+    const patch = patchSongDataFromParsed(
+      {
+        sections: [
+          {
+            title: 'Verse',
+            lines: [
+              {
+                parts: [{ chord: null, languages: ['Hello world'], comment: false }],
+              },
+              {
+                parts: [{ chord: null, languages: [''], comment: false }],
+              },
+            ],
+          },
+        ],
+      },
+      metadataStripFromSongData({ sections: [] }),
+    )
+
+    expect(patch.sections?.[0]?.lines).toHaveLength(1)
+    expect(patch.sections?.[0]?.lines?.[0]?.parts?.[0]?.languages).toEqual(['Hello world'])
+  })
+
+  it('stripEmptyLinesFromSongData removes empty wire lines from parsed song data', () => {
+    const stripped = stripEmptyLinesFromSongData({
+      sections: [
+        {
+          title: 'Verse',
+          lines: [
+            { parts: [{ chord: null, languages: ['Hello world'], comment: false }] },
+            { parts: [{ chord: null, languages: [''], comment: false }] },
+          ],
+        },
+      ],
+    } as ChordSongData)
+
+    const lines = (stripped.sections as Array<{ lines?: unknown[] }> | undefined)?.[0]?.lines
+    expect(lines).toHaveLength(1)
   })
 
   it('maps language entries back to parallel wire arrays', () => {

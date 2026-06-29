@@ -44,6 +44,7 @@ import {
   parseSourceWithEngine,
   patchSongDataFromParsed,
   patchSongDataFromSongData,
+  stripEmptyLinesFromSongData,
   type PatchSongData,
   SONG_EDITOR_TIME_SIGNATURES,
   SONG_EDITOR_TYPING_DEBOUNCE_MS,
@@ -272,6 +273,24 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   )
   useRegisterSongEditorNavigationBridge(navigationBridge)
 
+  const applyCanonicalSongDataToEditor = useCallback(
+    (songData: ChordSongData) => {
+      if (!engine) return
+      const stripped = stripEmptyLinesFromSongData(songData)
+      composeSongDataRef.current = stripped
+      const strip = metadataStripFromSongData(stripped)
+      skipComposeResyncRef.current = true
+      setComposeSections(
+        composeSectionsFromSongData(stripped, engine, strip.key || null, chordFormat),
+      )
+      setSourceText(formatSourceFromSongData(engine, stripped, chordFormat))
+      setMetadataStrip(strip)
+      setParseError(null)
+      setComposeDraftRevision((revision) => revision + 1)
+    },
+    [chordFormat, engine],
+  )
+
   const switchEditorTab = useCallback(
     async (tab: EditorTab) => {
       if (tab === activeTab) return
@@ -279,9 +298,14 @@ export function SongEditorScreen({ songId }: { songId: string }) {
         const ok = await flushNow()
         if (ok === false) return
       }
+      const parsed = parseResultRef.current
+      if (engine && parsed?.ok) {
+        const data = (composeSongDataRef.current ?? parsed.data) as ChordSongData
+        applyCanonicalSongDataToEditor(data)
+      }
       setActiveTab(tab)
     },
-    [activeTab, canAutosavePatch, flushNow],
+    [activeTab, applyCanonicalSongDataToEditor, canAutosavePatch, engine, flushNow],
   )
 
   useEffect(() => {
@@ -318,19 +342,9 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   useEffect(() => {
     if (!engine || !detail || saveRevision === 0) return
     queueMicrotask(() => {
-      const data = detail.data as Record<string, unknown>
-      const strip = metadataStripFromSongData(data)
-      composeSongDataRef.current = data
-      skipComposeResyncRef.current = true
-      setComposeSections(
-        composeSectionsFromSongData(data, engine, strip.key || null, chordFormat),
-      )
-      setComposeDraftRevision((revision) => revision + 1)
-      setSourceText(formatSourceFromSongData(engine, data, chordFormat))
-      setMetadataStrip(strip)
-      setParseError(null)
+      applyCanonicalSongDataToEditor(detail.data as ChordSongData)
     })
-  }, [saveRevision, engine, detail, chordFormat])
+  }, [applyCanonicalSongDataToEditor, saveRevision, engine, detail])
 
   const blockingAll =
     patchInFlight || !!saveFailure || offlineFrozen || !editable || resumePrompt || !engineReady

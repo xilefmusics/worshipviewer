@@ -123,7 +123,7 @@ describe('composeOtherChordPool', () => {
       'Fm',
       'Eaug',
       'C/E',
-      'G7',
+      'G/B',
       'Ab',
       'Eb',
     ])
@@ -134,7 +134,7 @@ describe('composeOtherChordPool', () => {
       'Cm',
       'Baug',
       'G/B',
-      'D7',
+      'D/F#',
       'Eb',
       'Bb',
     ])
@@ -148,7 +148,7 @@ describe('composePoolSymbolToLetterChord', () => {
     expect(composePoolSymbolToLetterChord('b7', null, 'nashville')).toBe('Bb')
     expect(composePoolSymbolToLetterChord('4m', 'C', 'nashville')).toBe('Fm')
     expect(composePoolSymbolToLetterChord('1/3', 'G', 'nashville')).toBe('G/B')
-    expect(composePoolSymbolToLetterChord('5/7', 'G', 'nashville')).toBe('D7')
+    expect(composePoolSymbolToLetterChord('5/7', 'G', 'nashville')).toBe('D/F#')
     expect(composePoolSymbolToLetterChord('b3', 'G', 'nashville')).toBe('Bb')
     expect(composePoolSymbolToLetterChord('G', null, 'letters')).toBe('G')
   })
@@ -204,6 +204,16 @@ describe('buildDiatonicChordModeSymbol', () => {
         songKey: 'G',
       }),
     ).toBe('G/B')
+    expect(
+      buildDiatonicChordModeSymbol({
+        selectedIndex: 0,
+        minor: false,
+        flat: false,
+        bassDegree: 7,
+        chordFormat: 'letters',
+        songKey: 'G',
+      }),
+    ).toBe('G/F#')
     expect(
       buildDiatonicChordModeSymbol({
         selectedIndex: CHORD_MODE_FLAT7_SELECTED_INDEX,
@@ -285,7 +295,7 @@ describe('chord mode extensions', () => {
 describe('diatonic slash bass', () => {
   it('maps custom slash Nashville symbols to letter chords', () => {
     expect(composePoolSymbolToLetterChord('2m/5', 'C', 'nashville')).toBe('Dm/G')
-    expect(composePoolSymbolToLetterChord('1/7', 'G', 'nashville')).toBe('G/F')
+    expect(composePoolSymbolToLetterChord('1/7', 'G', 'nashville')).toBe('G/F#')
   })
 })
 

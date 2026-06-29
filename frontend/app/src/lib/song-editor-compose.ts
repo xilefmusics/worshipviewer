@@ -1,6 +1,10 @@
 import type { ChordFormatPreference } from '@/lib/chord-format'
 import { composePoolSymbolToLetterChord } from '@/lib/song-editor-compose-pool'
-import { beatsPerMeasureFromTimeSignature, songEditorFormatOptions } from '@/lib/song-editor-state'
+import {
+  beatsPerMeasureFromTimeSignature,
+  isWireLineEmptyForExport,
+  songEditorFormatOptions,
+} from '@/lib/song-editor-state'
 import type { ChordEngine, ChordSongData } from '@/ports/chord-engine'
 
 export type ComposeChord = {
@@ -53,10 +57,28 @@ export function composeLineTrackText(line: Pick<ComposeLine, 'text' | 'translati
   return line.translations?.[trackIndex - 1] ?? ''
 }
 
+function hasExplicitComposeLineTrackChords(
+  line: Pick<ComposeLine, 'translationChords'>,
+  trackIndex: number,
+): boolean {
+  if (trackIndex < 1) return true
+  const translationChords = line.translationChords
+  if (translationChords == null) return false
+  return trackIndex - 1 < translationChords.length
+}
+
 /** Lyric-track index: 0 = primary, 1+ = translation slots. */
 export function composeLineChordsForTrack(line: ComposeLine, trackIndex: number): ComposeChord[] {
   if (trackIndex === 0) return line.chords
-  return line.translationChords?.[trackIndex - 1] ?? []
+  const translationIndex = trackIndex - 1
+  if (hasExplicitComposeLineTrackChords(line, trackIndex)) {
+    return line.translationChords?.[translationIndex] ?? []
+  }
+  const translationText = line.translations?.[translationIndex] ?? ''
+  if (translationText.trim().length > 0) {
+    return line.chords
+  }
+  return []
 }
 
 export function findComposeLineChordTrackIndex(line: ComposeLine, chordId: string): number | null {
@@ -214,6 +236,16 @@ export function isComposeChordBarRow(line: ComposeLine): boolean {
   if (line.text.trim().length > 0 || composeLineHasTranslationContent(line)) return false
   if (isComposeChordOnlyLine(line)) return true
   return line.chordBar === true
+}
+
+/** Placeholder lyric row with no text, translations, or exportable chords. */
+export function isComposeLineEmptyForExport(line: ComposeLine): boolean {
+  if (line.text.trim().length > 0) return false
+  if (composeLineHasTranslationContent(line)) return false
+  if (line.chords.some((chord) => isComposeBarDisplayChord(chord))) return false
+  return !(line.translationChords ?? []).some((track) =>
+    track.some((chord) => isComposeBarDisplayChord(chord)),
+  )
 }
 
 export function convertComposeLineToChordBar(line: ComposeLine): ComposeLine {
@@ -996,6 +1028,8 @@ export function composeTranslationTrackChordsMismatch(
   )
   if (primaryChords.length === 0) return false
 
+  if (!hasExplicitComposeLineTrackChords(line, trackIndex)) return false
+
   const translationChords = line.translationChords?.[trackIndex - 1] ?? []
   const translationChordsWithSymbols = sortedComposeLineChords({ chords: translationChords }).filter(
     (chord) => chord.symbol.trim(),
@@ -1438,7 +1472,9 @@ export function composeSectionsFromSongData(
 
   return sections.map((section) => {
     const wire = section as WireSection
-    const lines = Array.isArray(wire.lines) ? wire.lines : []
+    const lines = (Array.isArray(wire.lines) ? wire.lines : []).filter(
+      (line) => !isWireLineEmptyForExport(line),
+    )
     return {
       id: crypto.randomUUID(),
       title: typeof wire.title === 'string' ? wire.title : '',
@@ -1612,16 +1648,18 @@ export function composeSectionsToSongSections(
   return sections.map((section) => ({
     title: section.title.trim(),
     repeat_count: section.repeatCount >= 1 ? section.repeatCount : 1,
-    lines: section.lines.flatMap((line) =>
-      composeLineToWireLines(
-        normalizeComposeLineForLanguageTracks(line, languageTrackCount),
-        engine,
-        songKey,
-        timeSignature,
-        languageTrackCount,
-        chordFormat,
-      ).map((parts) => ({ parts })),
-    ),
+    lines: section.lines
+      .filter((line) => !isComposeLineEmptyForExport(line))
+      .flatMap((line) =>
+        composeLineToWireLines(
+          normalizeComposeLineForLanguageTracks(line, languageTrackCount),
+          engine,
+          songKey,
+          timeSignature,
+          languageTrackCount,
+          chordFormat,
+        ).map((parts) => ({ parts })),
+      ),
   }))
 }
 

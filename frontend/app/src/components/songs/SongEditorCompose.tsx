@@ -1,5 +1,5 @@
 import {
-  closestCenter,
+  closestCorners,
   DndContext,
   type CollisionDetection,
   type DragEndEvent,
@@ -7,6 +7,8 @@ import {
   type DragOverEvent,
   type DragStartEvent,
   DragOverlay,
+  MeasuringStrategy,
+  type Modifier,
   PointerSensor,
   TouchSensor,
   pointerWithin,
@@ -15,6 +17,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import {
   arrayMove,
   SortableContext,
@@ -218,25 +221,105 @@ function trackIndexFromLineDragId(id: string): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+function isComposeLineTrackDropId(id: unknown): boolean {
+  return typeof id === 'string' && id.startsWith('line:') && !id.startsWith('line-after:')
+}
+
+function isComposeLineDropId(id: unknown): boolean {
+  return (
+    typeof id === 'string' &&
+    (id.startsWith('line-after:') || (id.startsWith('line:') && !id.startsWith('line-after:')))
+  )
+}
+
+type ComposeDropData = LineDropData | LineAfterDropData
+
+function droppableDataFromCollision(collision: {
+  data?: { droppableContainer?: { data: { current?: unknown } } }
+}): ComposeDropData | null {
+  const current = collision.data?.droppableContainer?.data?.current
+  if (current && typeof current === 'object' && 'type' in current) {
+    if (current.type === 'line' || current.type === 'line-after') {
+      return current as ComposeDropData
+    }
+  }
+  return null
+}
+
+function preferComposeLineDropCollisions<T extends { id: unknown }>(hits: T[]): T[] {
+  const lineHits = hits.filter((hit) => isComposeLineTrackDropId(hit.id))
+  if (lineHits.length > 1) {
+    const preferred = [...lineHits].sort(
+      (a, b) => trackIndexFromLineDragId(String(b.id)) - trackIndexFromLineDragId(String(a.id)),
+    )[0]
+    return preferred ? [preferred] : lineHits
+  }
+  if (lineHits.length === 1) return lineHits
+
+  const lineAfterHit = hits.find((hit) => String(hit.id).startsWith('line-after:'))
+  return lineAfterHit ? [lineAfterHit] : []
+}
+
+function composeLineDropCollisionDetection(args: Parameters<CollisionDetection>[0]) {
+  const pointerHits = pointerWithin(args).filter((hit) => isComposeLineDropId(hit.id))
+  const preferredPointerHits = preferComposeLineDropCollisions(pointerHits)
+  if (preferredPointerHits.length > 0) return preferredPointerHits
+
+  const cornerHits = closestCorners(args).filter((hit) => isComposeLineDropId(hit.id))
+  return preferComposeLineDropCollisions(cornerHits)
+}
+
+function sectionSortCollisionDetection(args: Parameters<CollisionDetection>[0]) {
+  const isSectionTarget = (id: unknown) => isSectionSortId(id) && id !== args.active.id
+
+  const pointerHits = pointerWithin(args).filter((hit) => isSectionTarget(hit.id))
+  if (pointerHits.length > 0) return pointerHits
+
+  return closestCorners(args).filter((hit) => isSectionTarget(hit.id))
+}
+
+const composeSectionDragModifier: Modifier = ({ active, ...args }) => {
+  if (isSectionSortId(active?.id)) {
+    return restrictToVerticalAxis({ active, ...args })
+  }
+  return args.transform
+}
+
 const composeCollisionDetection: CollisionDetection = (args) => {
   if (isSectionSortId(args.active.id)) {
-    return closestCenter(args)
+    return sectionSortCollisionDetection(args)
   }
-  const hits = pointerWithin(args)
-  if (hits.length <= 1) return hits
+  return composeLineDropCollisionDetection(args)
+}
 
-  const lineHits = hits.filter((hit) => {
-    const id = String(hit.id)
-    return id.startsWith('line:') && !id.startsWith('line-after:')
-  })
-  if (lineHits.length <= 1) return hits
+function resolveComposeDropTarget(event: DragOverEvent | DragMoveEvent): {
+  data: ComposeDropData
+  width: number | undefined
+} | null {
+  const collisions =
+    'collisions' in event && Array.isArray(event.collisions) ? event.collisions : []
+  const preferred = preferComposeLineDropCollisions(
+    collisions.filter((collision) => isComposeLineDropId(collision.id)),
+  )[0]
 
-  const sortedLineHits = [...lineHits].sort(
-    (a, b) => trackIndexFromLineDragId(String(b.id)) - trackIndexFromLineDragId(String(a.id)),
-  )
-  const preferred = sortedLineHits[0]
-  if (!preferred) return hits
-  return [preferred, ...hits.filter((hit) => hit.id !== preferred.id)]
+  if (preferred) {
+    const data = droppableDataFromCollision(preferred)
+    if (data) {
+      return {
+        data,
+        width: event.over?.id === preferred.id ? event.over.rect.width : undefined,
+      }
+    }
+  }
+
+  const overData = event.over?.data.current
+  if (overData && typeof overData === 'object' && 'type' in overData) {
+    if (overData.type === 'line' || overData.type === 'line-after') {
+      return { data: overData as ComposeDropData, width: event.over?.rect.width }
+    }
+  }
+
+  return null
 }
 
 function parseLineChordDragId(id: string): { lineId: string; chordId: string } | null {
@@ -2446,6 +2529,7 @@ function ComposeSectionCard({
 }) {
   const { t } = useTranslation()
   const [focusLineId, setFocusLineId] = useState<string | null>(null)
+  const [repeatDraft, setRepeatDraft] = useState<string | null>(null)
 
   const updateSection = useCallback(
     (patch: Partial<ComposeSection>) => {
@@ -2488,8 +2572,8 @@ function ComposeSectionCard({
   const sectionStyle: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.85 : undefined,
-    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0 : undefined,
+    zIndex: isDragging ? 0 : undefined,
   }
 
   return (
@@ -2522,25 +2606,28 @@ function ComposeSectionCard({
             ×
           </span>
           <input
-            type="number"
-            min={1}
-            step={1}
+            type="text"
             inputMode="numeric"
-            value={section.repeatCount}
+            pattern="[0-9]*"
+            value={repeatDraft ?? String(section.repeatCount)}
             readOnly={readOnly}
             aria-label={t('songs.editor.compose.sectionRepeatLabel')}
-            className="w-9 [appearance:textfield] bg-transparent px-0.5 py-0.5 text-center text-sm font-semibold text-[var(--color-foreground)] outline-none focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-primary)] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="w-9 bg-transparent px-0.5 py-0.5 text-center text-sm font-semibold text-[var(--color-foreground)] outline-none focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--color-primary)]"
+            onFocus={() => {
+              if (!readOnly) {
+                setRepeatDraft(String(section.repeatCount))
+              }
+            }}
             onChange={(e) => {
-              const parsed = Number.parseInt(e.target.value, 10)
+              const next = e.target.value.replace(/\D/g, '')
+              setRepeatDraft(next)
+            }}
+            onBlur={() => {
+              const parsed = Number.parseInt(repeatDraft ?? String(section.repeatCount), 10)
               updateSection({
                 repeatCount: Number.isFinite(parsed) && parsed >= 1 ? parsed : 1,
               })
-            }}
-            onBlur={(e) => {
-              const parsed = Number.parseInt(e.target.value, 10)
-              if (!Number.isFinite(parsed) || parsed < 1) {
-                updateSection({ repeatCount: 1 })
-              }
+              setRepeatDraft(null)
             }}
           />
         </div>
@@ -2763,6 +2850,7 @@ export function SongEditorCompose({
     charIndex: number
   } | null>(null)
   const [activeLineChordDragId, setActiveLineChordDragId] = useState<string | null>(null)
+  const [activeSectionSortId, setActiveSectionSortId] = useState<string | null>(null)
   const [duplicateDragSourceId, setDuplicateDragSourceId] = useState<string | null>(null)
   const [chordModeEnabled, setChordModeEnabled] = useState(false)
   const [eraserModeEnabled, setEraserModeEnabled] = useState(false)
@@ -3313,10 +3401,11 @@ export function SongEditorCompose({
 
   function updateDropTarget(event: DragOverEvent | DragMoveEvent) {
     const clientX = dragPointerClientX(event)
-    const overData = event.over?.data.current
-    const overWidth = event.over?.rect.width
+    const resolved = resolveComposeDropTarget(event)
+    const overData = resolved?.data ?? null
+    const overWidth = resolved?.width
 
-    if (overData && typeof overData === 'object' && 'type' in overData) {
+    if (overData) {
       if (overData.type === 'line-after') {
         setActiveDropLineAfterId((overData as LineAfterDropData).lineId)
         setActiveDropLineId(null)
@@ -3365,7 +3454,10 @@ export function SongEditorCompose({
   }
 
   function onDragStart(event: DragStartEvent) {
-    if (isSectionSortId(event.active.id)) return
+    if (isSectionSortId(event.active.id)) {
+      setActiveSectionSortId(parseSectionSortId(String(event.active.id)))
+      return
+    }
 
     setIsComposeDragging(true)
     const data = event.active.data.current
@@ -3434,6 +3526,7 @@ export function SongEditorCompose({
           }
         }
       }
+      setActiveSectionSortId(null)
       return
     }
 
@@ -3460,18 +3553,14 @@ export function SongEditorCompose({
     lastDropTargetRef.current = null
 
     const activeData = event.active.data.current
-    const overData = event.over?.data.current
 
     if (
       activeData &&
       typeof activeData === 'object' &&
       'type' in activeData &&
-      activeData.type === 'pool' &&
-      overData &&
-      typeof overData === 'object' &&
-      'type' in overData
+      activeData.type === 'pool'
     ) {
-      if (overData.type === 'line-after' && dropLineAfterId) {
+      if (dropLineAfterId) {
         const symbol = (activeData as PoolDragData).symbol
         updateSections(
           insertComposeLineAfter(
@@ -3483,12 +3572,7 @@ export function SongEditorCompose({
         return
       }
 
-      if (
-        overData.type === 'line' &&
-        dropLineId &&
-        dropTrackIndex != null &&
-        dropCharIndex != null
-      ) {
+      if (dropLineId && dropTrackIndex != null && dropCharIndex != null) {
         const symbol = (activeData as PoolDragData).symbol
         updateSections(
           addChordToSections(
@@ -3506,8 +3590,8 @@ export function SongEditorCompose({
     }
 
     const parsed = parseLineChordDragId(String(event.active.id))
-    if (parsed && overData && typeof overData === 'object' && 'type' in overData) {
-      if (overData.type === 'line-after' && dropLineAfterId) {
+    if (parsed) {
+      if (dropLineAfterId) {
         updateSections(
           duplicateDrag
             ? duplicateComposeChordToLineAfter(
@@ -3557,6 +3641,7 @@ export function SongEditorCompose({
   }
 
   function onDragCancel() {
+    setActiveSectionSortId(null)
     setActiveLineChordDragId(null)
     setDuplicateDragSourceId(null)
     setActivePoolSymbol(null)
@@ -3599,12 +3684,23 @@ export function SongEditorCompose({
     )
   }, [chordModeEnabled, chordModeHover, chordModeSelectedSymbol, sections, timeSignature])
 
+  const activeSectionDragPreview = useMemo(() => {
+    if (!activeSectionSortId) return null
+    return sections.find((section) => section.id === activeSectionSortId) ?? null
+  }, [activeSectionSortId, sections])
+
   return (
     <ComposeLineChordDragContext.Provider value={lineChordDragContext}>
     <ComposeChordModeContext.Provider value={chordModeContext}>
     <DndContext
       sensors={sensors}
       collisionDetection={composeCollisionDetection}
+      measuring={{
+        droppable: {
+          strategy: MeasuringStrategy.Always,
+        },
+      }}
+      modifiers={[composeSectionDragModifier]}
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragOver={onDragOver}
@@ -3710,7 +3806,25 @@ export function SongEditorCompose({
       ) : null}
 
       <DragOverlay dropAnimation={null}>
-        {activeBarChordDragOverlay ? (
+        {activeSectionDragPreview ? (
+          <div className="grid w-[min(32rem,calc(100vw-1.5rem))] gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-1 shadow-lg">
+            <div className="flex items-center gap-1 px-1">
+              <span
+                aria-hidden
+                className="flex size-7 shrink-0 items-center justify-center text-[var(--color-muted-foreground)]"
+              >
+                ::
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-foreground)]">
+                {activeSectionDragPreview.title.trim() ||
+                  t('songs.editor.compose.sectionTitlePlaceholder')}
+              </span>
+              <span className="shrink-0 px-0.5 text-sm font-semibold text-[var(--color-muted-foreground)]">
+                ×{activeSectionDragPreview.repeatCount}
+              </span>
+            </div>
+          </div>
+        ) : activeBarChordDragOverlay ? (
           <div
             style={{
               width: activeBarChordDragOverlay.width,

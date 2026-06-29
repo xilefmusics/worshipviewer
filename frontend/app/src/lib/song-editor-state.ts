@@ -216,12 +216,52 @@ function normalizeMetadataStrip(strip: Partial<SongMetadataStrip>): SongMetadata
   }
 }
 
+type WireLineLike = {
+  parts?: Array<{ chord?: unknown; languages?: string[]; comment?: boolean }>
+}
+
+type WireSectionLike = {
+  title?: string
+  lines?: WireLineLike[]
+  repeat_count?: number | null
+}
+
+export function isWireLineEmptyForExport(line: WireLineLike): boolean {
+  const parts = Array.isArray(line.parts) ? line.parts : []
+  if (!parts.length) return true
+  return !parts.some((part) => {
+    if (part.chord != null) return true
+    return (part.languages ?? []).some((segment) => segment.trim().length > 0)
+  })
+}
+
+export function stripEmptyLinesFromSongData(data: ChordSongData): ChordSongData {
+  return {
+    ...data,
+    sections: stripEmptyLinesFromSections(data.sections) ?? [],
+  }
+}
+
+function stripEmptyLinesFromSections(sections: ChordSongData['sections']): PatchSongData['sections'] {
+  if (!Array.isArray(sections)) return sections as PatchSongData['sections']
+  return sections.map((section) => {
+    const wire = section as WireSectionLike
+    const lines = Array.isArray(wire.lines) ? wire.lines : []
+    return {
+      ...section,
+      lines: lines.filter((line) => !isWireLineEmptyForExport(line)),
+    }
+  }) as PatchSongData['sections']
+}
+
 export function patchSongDataFromParsed(
   parsed: ChordSongData,
   stripInput: SongMetadataStrip,
 ): PatchSongData {
   const strip = normalizeMetadataStrip(stripInput)
-  const sections = Array.isArray(parsed.sections) ? parsed.sections : []
+  const sections = stripEmptyLinesFromSections(
+    Array.isArray(parsed.sections) ? parsed.sections : [],
+  )
   const { titles: stripTitles, artists, languages } = songLanguageEntriesToWireArrays(
     strip.languageEntries,
   )
