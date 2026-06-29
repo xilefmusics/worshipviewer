@@ -38,6 +38,22 @@ const MAJOR_B7_ROOTS: Record<(typeof MUSICAL_KEYS)[number], string> = {
   B: 'A',
 }
 
+/** Leading-tone roots (major 7) spelled for each major key signature. */
+const MAJOR_7_ROOTS: Record<(typeof MUSICAL_KEYS)[number], string> = {
+  C: 'B',
+  Db: 'C',
+  D: 'C#',
+  Eb: 'D',
+  E: 'D#',
+  F: 'E',
+  Gb: 'F',
+  G: 'F#',
+  Ab: 'G',
+  A: 'G#',
+  Bb: 'A',
+  B: 'A#',
+}
+
 /** Flat-III roots spelled for each major key signature. */
 const MAJOR_B3_ROOTS: Record<(typeof MUSICAL_KEYS)[number], string> = {
   C: 'Eb',
@@ -331,7 +347,8 @@ function nashvilleSlashBassToLetter(
   key: (typeof MUSICAL_KEYS)[number],
 ): string | null {
   const normalized = bassPart.trim()
-  if (normalized === '7' || normalized.toLowerCase() === 'b7') return MAJOR_B7_ROOTS[key]
+  if (normalized === '7') return MAJOR_7_ROOTS[key]
+  if (normalized.toLowerCase() === 'b7') return MAJOR_B7_ROOTS[key]
   const degree = Number.parseInt(normalized, 10)
   if (degree >= 1 && degree <= 6) return MAJOR_DIATONIC_ROOTS[key][degree - 1] ?? null
   return null
@@ -380,7 +397,7 @@ function otherLetterChordsForKey(keySymbol: (typeof MUSICAL_KEYS)[number]): Comp
     `${roots[3]!}m`,
     `${roots[2]!}aug`,
     `${roots[0]!}/${roots[2]!}`,
-    `${roots[4]!}7`,
+    `${roots[4]!}/${MAJOR_7_ROOTS[keySymbol]!}`,
     MAJOR_B6_ROOTS[keySymbol],
     MAJOR_B3_ROOTS[keySymbol],
   ]
