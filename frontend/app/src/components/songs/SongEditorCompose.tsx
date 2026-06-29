@@ -1,5 +1,5 @@
 import {
-  closestCenter,
+  closestCorners,
   DndContext,
   type CollisionDetection,
   type DragEndEvent,
@@ -7,6 +7,7 @@ import {
   type DragOverEvent,
   type DragStartEvent,
   DragOverlay,
+  type Modifier,
   PointerSensor,
   TouchSensor,
   pointerWithin,
@@ -15,6 +16,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import {
   arrayMove,
   SortableContext,
@@ -218,9 +220,25 @@ function trackIndexFromLineDragId(id: string): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+function sectionSortCollisionDetection(args: Parameters<CollisionDetection>[0]) {
+  const isSectionTarget = (id: unknown) => isSectionSortId(id) && id !== args.active.id
+
+  const pointerHits = pointerWithin(args).filter((hit) => isSectionTarget(hit.id))
+  if (pointerHits.length > 0) return pointerHits
+
+  return closestCorners(args).filter((hit) => isSectionTarget(hit.id))
+}
+
+const composeSectionDragModifier: Modifier = ({ active, ...args }) => {
+  if (isSectionSortId(active?.id)) {
+    return restrictToVerticalAxis({ active, ...args })
+  }
+  return args.transform
+}
+
 const composeCollisionDetection: CollisionDetection = (args) => {
   if (isSectionSortId(args.active.id)) {
-    return closestCenter(args)
+    return sectionSortCollisionDetection(args)
   }
   const hits = pointerWithin(args)
   if (hits.length <= 1) return hits
@@ -2489,8 +2507,8 @@ function ComposeSectionCard({
   const sectionStyle: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.85 : undefined,
-    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0 : undefined,
+    zIndex: isDragging ? 0 : undefined,
   }
 
   return (
@@ -2767,6 +2785,7 @@ export function SongEditorCompose({
     charIndex: number
   } | null>(null)
   const [activeLineChordDragId, setActiveLineChordDragId] = useState<string | null>(null)
+  const [activeSectionSortId, setActiveSectionSortId] = useState<string | null>(null)
   const [duplicateDragSourceId, setDuplicateDragSourceId] = useState<string | null>(null)
   const [chordModeEnabled, setChordModeEnabled] = useState(false)
   const [eraserModeEnabled, setEraserModeEnabled] = useState(false)
@@ -3369,7 +3388,10 @@ export function SongEditorCompose({
   }
 
   function onDragStart(event: DragStartEvent) {
-    if (isSectionSortId(event.active.id)) return
+    if (isSectionSortId(event.active.id)) {
+      setActiveSectionSortId(parseSectionSortId(String(event.active.id)))
+      return
+    }
 
     setIsComposeDragging(true)
     const data = event.active.data.current
@@ -3438,6 +3460,7 @@ export function SongEditorCompose({
           }
         }
       }
+      setActiveSectionSortId(null)
       return
     }
 
@@ -3561,6 +3584,7 @@ export function SongEditorCompose({
   }
 
   function onDragCancel() {
+    setActiveSectionSortId(null)
     setActiveLineChordDragId(null)
     setDuplicateDragSourceId(null)
     setActivePoolSymbol(null)
@@ -3603,12 +3627,18 @@ export function SongEditorCompose({
     )
   }, [chordModeEnabled, chordModeHover, chordModeSelectedSymbol, sections, timeSignature])
 
+  const activeSectionDragPreview = useMemo(() => {
+    if (!activeSectionSortId) return null
+    return sections.find((section) => section.id === activeSectionSortId) ?? null
+  }, [activeSectionSortId, sections])
+
   return (
     <ComposeLineChordDragContext.Provider value={lineChordDragContext}>
     <ComposeChordModeContext.Provider value={chordModeContext}>
     <DndContext
       sensors={sensors}
       collisionDetection={composeCollisionDetection}
+      modifiers={[composeSectionDragModifier]}
       onDragStart={onDragStart}
       onDragMove={onDragMove}
       onDragOver={onDragOver}
@@ -3714,7 +3744,25 @@ export function SongEditorCompose({
       ) : null}
 
       <DragOverlay dropAnimation={null}>
-        {activeBarChordDragOverlay ? (
+        {activeSectionDragPreview ? (
+          <div className="grid w-[min(32rem,calc(100vw-1.5rem))] gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-1 shadow-lg">
+            <div className="flex items-center gap-1 px-1">
+              <span
+                aria-hidden
+                className="flex size-7 shrink-0 items-center justify-center text-[var(--color-muted-foreground)]"
+              >
+                ::
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-foreground)]">
+                {activeSectionDragPreview.title.trim() ||
+                  t('songs.editor.compose.sectionTitlePlaceholder')}
+              </span>
+              <span className="shrink-0 px-0.5 text-sm font-semibold text-[var(--color-muted-foreground)]">
+                ×{activeSectionDragPreview.repeatCount}
+              </span>
+            </div>
+          </div>
+        ) : activeBarChordDragOverlay ? (
           <div
             style={{
               width: activeBarChordDragOverlay.width,
