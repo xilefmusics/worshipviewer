@@ -19,6 +19,7 @@ import {
   composeChordDisplayLabel,
   composeChordOnlyLineMeasureMismatch,
   composeTranslationTrackChordsMismatch,
+  composeLineChordsForTrack,
   composeDefaultBarDurationMillis,
   composeSectionsFromSongData,
   composeSectionsToSongSections,
@@ -489,9 +490,22 @@ describe('composeSectionsToSongSections', () => {
       text: 'Hello world',
       chords: [{ id: 'c1', position: 0, symbol: 'G', durationMillis: null }],
       translations: ['Hallo Welt'],
+      translationChords: [[]],
     }
 
     expect(composeTranslationTrackChordsMismatch(line, 1, '4/4')).toBe(true)
+  })
+
+  it('inherits primary chords on translation tracks when wire omits matching markers', () => {
+    const line = {
+      id: 'line-1',
+      text: 'Hello world',
+      chords: [{ id: 'c1', position: 6, symbol: 'G', durationMillis: null }],
+      translations: ['Hallo Welt'],
+    }
+
+    expect(composeLineChordsForTrack(line, 1)).toEqual(line.chords)
+    expect(composeTranslationTrackChordsMismatch(line, 1, '4/4')).toBe(false)
   })
 
   it('ignores translation chord mismatch when neither line has chords', () => {
@@ -582,6 +596,8 @@ describe('composeSectionsToSongSections', () => {
 
     expect(line?.chords[0]?.position).toBe(6)
     expect(line?.translationChords).toBeUndefined()
+    expect(composeLineChordsForTrack(line!, 1)).toEqual(line?.chords)
+    expect(composeTranslationTrackChordsMismatch(line!, 1, '4/4')).toBe(false)
   })
 
   it('round-trips independent translation chords through wire lines', () => {

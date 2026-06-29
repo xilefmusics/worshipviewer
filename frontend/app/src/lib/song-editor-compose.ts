@@ -53,10 +53,28 @@ export function composeLineTrackText(line: Pick<ComposeLine, 'text' | 'translati
   return line.translations?.[trackIndex - 1] ?? ''
 }
 
+function hasExplicitComposeLineTrackChords(
+  line: Pick<ComposeLine, 'translationChords'>,
+  trackIndex: number,
+): boolean {
+  if (trackIndex < 1) return true
+  const translationChords = line.translationChords
+  if (translationChords == null) return false
+  return trackIndex - 1 < translationChords.length
+}
+
 /** Lyric-track index: 0 = primary, 1+ = translation slots. */
 export function composeLineChordsForTrack(line: ComposeLine, trackIndex: number): ComposeChord[] {
   if (trackIndex === 0) return line.chords
-  return line.translationChords?.[trackIndex - 1] ?? []
+  const translationIndex = trackIndex - 1
+  if (hasExplicitComposeLineTrackChords(line, trackIndex)) {
+    return line.translationChords?.[translationIndex] ?? []
+  }
+  const translationText = line.translations?.[translationIndex] ?? ''
+  if (translationText.trim().length > 0) {
+    return line.chords
+  }
+  return []
 }
 
 export function findComposeLineChordTrackIndex(line: ComposeLine, chordId: string): number | null {
@@ -995,6 +1013,8 @@ export function composeTranslationTrackChordsMismatch(
     chord.symbol.trim(),
   )
   if (primaryChords.length === 0) return false
+
+  if (!hasExplicitComposeLineTrackChords(line, trackIndex)) return false
 
   const translationChords = line.translationChords?.[trackIndex - 1] ?? []
   const translationChordsWithSymbols = sortedComposeLineChords({ chords: translationChords }).filter(
