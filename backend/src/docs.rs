@@ -29,6 +29,12 @@ use shared::like::LikeStatus;
 use shared::player::{
     Orientation, Player, PlayerBlobItem, PlayerChordsItem, PlayerItem, ScrollType, TocItem,
 };
+use shared::player_room::{
+    CreatePlayerRoom, CreatedPlayerRoom, InspectPlayerRoomInvite, JoinPlayerRoom,
+    JoinPlayerRoomInvite, PlayerRoomContent, PlayerRoomCredentials, PlayerRoomInviteInfo,
+    PlayerRoomMode, PlayerRoomMusicalState, PlayerRoomParticipant, PlayerRoomProjectionPayload,
+    PlayerRoomSnapshot, PlayerRoomSourceType, PlayerRoomSummary,
+};
 use shared::setlist::SongLink as SetlistSongLink;
 use shared::song::{
     ChordKindSchema, ChordSchema, LineSchema, Link as SongLink, PartSchema, RootSpellingHintSchema,
@@ -70,6 +76,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
         ("Blobs", "blob.md"),
         ("Setlists", "setlist.md"),
         ("Teams", "team.md"),
+        ("Player Rooms", "player-room.md"),
     ];
     if let Some(tags) = doc.tags.as_mut() {
         for tag in tags.iter_mut() {
@@ -195,7 +202,16 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
         crate::resources::team::invitation::rest::accept_team_invitation_under_team,
         crate::resources::team::invitation::rest::accept_team_invitation,
         crate::resources::monitoring::rest::list_http_audit_logs,
-        crate::resources::monitoring::rest::get_monitoring_metrics
+        crate::resources::monitoring::rest::get_monitoring_metrics,
+        crate::resources::player_room::rest::list_rooms,
+        crate::resources::player_room::rest::create_room,
+        crate::resources::player_room::rest::get_room,
+        crate::resources::player_room::rest::join_room,
+        crate::resources::player_room::rest::close_room,
+        crate::resources::player_room::rest::inspect_invite,
+        crate::resources::player_room::rest::join_invite,
+        crate::resources::player_room::rest::reconnect_room,
+        crate::resources::player_room::rest::room_media
     ),
     components(
         schemas(
@@ -254,6 +270,21 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
             TocItem,
             ScrollType,
             Orientation,
+            PlayerRoomSourceType,
+            PlayerRoomMode,
+            PlayerRoomContent,
+            PlayerRoomMusicalState,
+            PlayerRoomProjectionPayload,
+            PlayerRoomParticipant,
+            PlayerRoomSummary,
+            PlayerRoomSnapshot,
+            CreatePlayerRoom,
+            JoinPlayerRoom,
+            InspectPlayerRoomInvite,
+            JoinPlayerRoomInvite,
+            PlayerRoomInviteInfo,
+            PlayerRoomCredentials,
+            CreatedPlayerRoom,
             Team,
             TeamMember,
             TeamRole,
@@ -282,7 +313,8 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
         (name = "Collections", description = "Owned song collections, nested songs, and player views."),
         (name = "Blobs", description = "Binary image assets: metadata, byte upload/download with cache headers."),
         (name = "Setlists", description = "Ordered sets of songs and player payloads for services."),
-        (name = "Teams", description = "Team membership, roles, and invitations (nested under `/teams/{id}/invitations`).")
+        (name = "Teams", description = "Team membership, roles, and invitations (nested under `/teams/{id}/invitations`)."),
+        (name = "Player Rooms", description = "Persisted cross-device player sessions, invitations, scoped media, and realtime synchronization.")
     ),
     modifiers(&SessionSecurity)
 )]

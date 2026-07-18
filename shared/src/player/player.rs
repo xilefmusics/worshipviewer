@@ -59,6 +59,10 @@ impl Player {
         &self.toc
     }
 
+    pub fn items(&self) -> &[PlayerItem] {
+        &self.items
+    }
+
     pub fn song_id(&self) -> Option<String> {
         self.toc
             .iter()

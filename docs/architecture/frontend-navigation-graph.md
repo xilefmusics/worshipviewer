@@ -186,6 +186,9 @@ graph TD
 | `playerNormal` | `/player?mode=normal` | `components/player/PlayerBook.tsx` |
 | `playerAv` | `/player?mode=av` | `components/player/av/PlayerAv.tsx` |
 | `playerOutput` | `/player/output` | `routes/player/output.tsx` |
+| `playerRooms` | `/player-rooms` | `routes/_hub/player-rooms.tsx` |
+| `playerRoomLive` | `/player/room/:roomId` | `routes/player/room.$roomId.tsx` |
+| `playerRoomInvite` | `/player-rooms/invite#secret` | `routes/player-rooms.invite.tsx` |
 
 ### Overlays / panels
 
@@ -222,5 +225,6 @@ graph TD
 - Command palette opens with Cmd/Ctrl+K and only on `pointer:fine` devices.
 - Footer Add FAB is hidden on `/sessions`, `/settings`, and all detail/editor routes.
 - `playerNormal` and `playerAv` are the same `/player` route; the active surface is chosen by the `mode` search param.
+- Player Rooms are opened from the profile menu or a source player. Public invite routes remain outside both authenticated route guards.
 - Auth: any protected route redirects to `/login?return_to=<path>` when there is no session; an API 401 hard-redirects to `/login`.
 - `SongEditorActionsMenu` exists in the codebase but is not currently wired into `SongEditorScreen`, so it is omitted from the live graph.

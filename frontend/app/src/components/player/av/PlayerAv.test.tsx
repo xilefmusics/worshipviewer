@@ -439,6 +439,38 @@ describe('PlayerAv', () => {
     expect(lastPayload.contentLines).toEqual([{ primary: 'Hello', secondary: 'Hallo' }])
   })
 
+  it('does not republish an unchanged room projection when the callback changes', async () => {
+    const user = userEvent.setup()
+    const firstRoomProjectionChange = vi.fn()
+    const nextRoomProjectionChange = vi.fn()
+    const { rerender } = render(
+      <PlayerAv
+        type="setlist"
+        id="setlist-1"
+        player={player}
+        allowNetworkFetch={false}
+        canControlRoomProjection
+        onRoomProjectionChange={firstRoomProjectionChange}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'English row' }))
+    await waitFor(() => expect(firstRoomProjectionChange).toHaveBeenCalled())
+
+    rerender(
+      <PlayerAv
+        type="setlist"
+        id="setlist-1"
+        player={player}
+        allowNetworkFetch={false}
+        canControlRoomProjection
+        onRoomProjectionChange={nextRoomProjectionChange}
+      />,
+    )
+
+    await waitFor(() => expect(nextRoomProjectionChange).not.toHaveBeenCalled())
+  })
+
   it('keeps the projected output on the last selected slide when switching songs', async () => {
     const user = userEvent.setup()
 

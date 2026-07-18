@@ -46,6 +46,7 @@
   },
   "common": {
     "load": "Laden…",
+    "cancel": "Abbrechen",
     "containerSetlist": "Setliste",
     "containerCollection": "Sammlung",
     "entitySetlist": "Setliste",
@@ -312,6 +313,7 @@
       "slideAnnounce": "Folie {{current}} von {{total}} — {{title}}",
       "openSettings": "AV-Player-Einstellungen",
       "openOutput": "Ausgabe öffnen (O)",
+      "showAvPanel": "AV-Bereich anzeigen",
       "outputAria": "Projektionsausgabe",
       "outputMissingSession": "Projektionssitzung fehlt.",
       "slidesAria": "Folien des aktuellen Elements",
@@ -1049,6 +1051,50 @@
     "failed": "Teambeitritt fehlgeschlagen.",
     "invalidLink": "Dieser Einladungslink enthält nicht alle nötigen Angaben.",
     "backToTeams": "Zurück zu Teams"
+  },
+  "playerRooms": {
+    "title": "Player-Räume",
+    "start": "Player-Raum starten",
+    "end": "Schließen",
+    "copyInvite": "Einladung kopieren",
+    "inviteCopied": "Einladungslink kopiert",
+    "togglePanel": "Player-Raum",
+    "host": "Gastgeber",
+    "avHost": "AV-Gastgeber",
+    "connected": "Verbunden",
+    "reconnecting": "Verbindung wird wiederhergestellt …",
+    "ended": "Der Player-Raum wurde beendet",
+    "onlineRequired": "Player-Räume benötigen eine Internetverbindung.",
+    "createFailed": "Player-Raum konnte nicht gestartet werden.",
+    "loadFailed": "Player-Räume konnten nicht geladen werden.",
+    "missingCredentials": "Tritt diesem Player-Raum erneut bei.",
+    "displayName": "Anzeigename",
+    "guestBadge": "(Gast)",
+    "guestsNotAllowed": "Dieser Raum nimmt derzeit keine neuen Gäste auf.",
+    "allowGuests": {
+      "label": "Gäste erlauben",
+      "copyDisabled": "Gästezugang aktivieren, um den Einladungslink zu kopieren."
+    },
+    "participants": "Teilnehmende",
+    "empty": "Keine aktiven Player-Räume.",
+    "avOccupied": "AV belegt",
+    "avFree": "AV verfügbar",
+    "join": "Beitreten",
+    "footerJoinAria": "Player-Raum beitreten: {{title}}",
+    "modeChooserLabel": "Beitrittsmodus",
+    "listParticipants": "{{count}} Teilnehmende",
+    "sourceType": {
+      "song": "Song",
+      "collection": "Sammlung",
+      "setlist": "Setliste"
+    },
+    "mode": { "sheet": "Noten", "chords": "Akkorde", "text": "Text", "av": "AV", "slide": "Folie" },
+    "modeDescription": {
+      "chords": "Blättere mit Noten und Akkordsymbolen mit.",
+      "text": "Nur Liedtext — Akkordsymbole werden ausgeblendet.",
+      "av": "Steuere oder verfolge die Live-Präsentation.",
+      "slide": "Sieh nur die projizierten Folien, ohne Steuerung."
+    }
   },
   "sessions": {
     "listTitle": "Aktive Sitzungen",

@@ -1,5 +1,5 @@
-import { getRouteApi, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useNavigate, useRouterState } from '@tanstack/react-router'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { PlayerMode } from '@/lib/player/player-mode'
 import {
@@ -10,10 +10,26 @@ import {
 import type { TocDisplayMode } from '@/lib/player/toc-display'
 import { buildPlayerSearch, type PlayerEntityType } from '@/lib/player-route'
 
-const playerRoute = getRouteApi('/player/')
+type PlayerSearch = {
+  type?: PlayerEntityType
+  id?: string
+  index?: number
+  mode?: PlayerMode
+  toc?: TocDisplayMode
+  tocLang?: string | string[]
+  tocTags?: string | string[]
+}
+
+function usePlayerLocation() {
+  const location = useRouterState({ select: (state) => state.location })
+  return {
+    active: location.pathname === '/player' || location.pathname === '/player/',
+    search: location.search as PlayerSearch,
+  }
+}
 
 function playerSearchSnapshot(
-  search: ReturnType<typeof playerRoute.useSearch>,
+  search: PlayerSearch,
   type: PlayerEntityType,
   id: string,
   mode: PlayerMode,
@@ -36,46 +52,37 @@ export function usePlayerIndexSearchSync(
   mode: PlayerMode,
 ) {
   const navigate = useNavigate()
-  const search = playerRoute.useSearch({
-    select: (state) => ({
-      index: state.index,
-      mode: state.mode,
-      toc: state.toc,
-      tocLang: state.tocLang,
-      tocTags: state.tocTags,
-    }),
-  })
+  const { active, search } = usePlayerLocation()
 
   useEffect(() => {
+    if (!active) return
     if (search.index === index) return
     void navigate({
       to: '/player',
       search: buildPlayerSearch({ ...playerSearchSnapshot(search, type, id, mode), index }),
       replace: true,
     })
-  }, [id, index, mode, navigate, search, type])
+  }, [active, id, index, mode, navigate, search, type])
 }
 
 export function usePlayerTocSearchSync() {
   const navigate = useNavigate()
-  const search = playerRoute.useSearch({
-    select: (state) => ({
-      type: state.type,
-      id: state.id,
-      index: state.index,
-      mode: state.mode,
-      toc: state.toc,
-      tocLang: state.tocLang,
-      tocTags: state.tocTags,
-    }),
-  })
+  const { active, search } = usePlayerLocation()
+  const [localSearch, setLocalSearch] = useState<{
+    toc: TocDisplayMode
+    tocLang: string[]
+    tocTags: string[]
+  }>({ toc: 'order', tocLang: [], tocTags: [] })
 
-  const mode = resolveTocDisplayMode(search.toc)
+  const mode = active ? resolveTocDisplayMode(search.toc) : localSearch.toc
   const activeLanguageIds = useMemo(
-    () => new Set(parseTocLangSearch(search.tocLang)),
-    [search.tocLang],
+    () => new Set(active ? parseTocLangSearch(search.tocLang) : localSearch.tocLang),
+    [active, localSearch.tocLang, search.tocLang],
   )
-  const activeTagIds = useMemo(() => new Set(parseTocTagsSearch(search.tocTags)), [search.tocTags])
+  const activeTagIds = useMemo(
+    () => new Set(active ? parseTocTagsSearch(search.tocTags) : localSearch.tocTags),
+    [active, localSearch.tocTags, search.tocTags],
+  )
 
   const updateToc = useCallback(
     (partial: {
@@ -83,6 +90,14 @@ export function usePlayerTocSearchSync() {
       tocLang?: readonly string[]
       tocTags?: readonly string[]
     }) => {
+      if (!active) {
+        setLocalSearch((current) => ({
+          toc: partial.toc ?? current.toc,
+          tocLang: [...(partial.tocLang ?? current.tocLang)],
+          tocTags: [...(partial.tocTags ?? current.tocTags)],
+        }))
+        return
+      }
       if (!search.type || !search.id) return
       void navigate({
         to: '/player',
@@ -98,7 +113,7 @@ export function usePlayerTocSearchSync() {
         replace: true,
       })
     },
-    [navigate, search.id, search.index, search.mode, search.toc, search.tocLang, search.tocTags, search.type],
+    [active, navigate, search.id, search.index, search.mode, search.toc, search.tocLang, search.tocTags, search.type],
   )
 
   const setMode = useCallback(

@@ -33,6 +33,8 @@ There is **no central Problem→UI mapper**; call sites choose surface ad hoc. P
 | 429 | `too_many_requests` | Toast | Auth and API rate limits |
 | 5xx | `internal` | Toast + hub retry | Generic server error |
 
+Player Room joins treat an AV `409 conflict` as a return to the chooser with AV disabled. Closed, expired, or invalid public invitations all render the same terminal “Player Room has ended” state. A lost socket preserves the last snapshot, marks controls unavailable, and reconnects with bounded backoff.
+
 ## Representative call sites
 
 | Area | File | Pattern |

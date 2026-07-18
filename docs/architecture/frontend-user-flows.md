@@ -779,3 +779,21 @@ flowchart TD
 ---
 
 > Cross-cutting notes: the command palette and ⌘K-based "insert song" exist only on `pointer:fine` devices. The collection editor has no Add-songs button (⌘K only) and no remove-song action (move/transfer only). `SongEditorActionsMenu` is dead code. Successful **Delete team** does not auto-navigate (no `onRequestClose` wired). Import, Duplicate, Delete, Add-to-setlist, and the Add (+) FAB are all online-only.
+
+### L6. Player Room
+
+```mermaid
+flowchart LR
+    source["Song / collection / setlist player"] --> start["Start Player Room"]
+    start --> host["Host Sheet or AV surface"]
+    list["Player Rooms hub"] --> chooser["Fixed mode chooser"]
+    invite["Public fragment invite"] --> name["Display name"] --> chooser
+    chooser --> sheet["Sheet follower"]
+    chooser --> av["Single AV host"]
+    chooser --> slide["Passive Slide output"]
+    host -->|"item / language / transposition"| sheet
+    host --> av
+    av -->|"structured projection"| slide
+```
+
+All room surfaces show reconnecting without discarding their last snapshot. An ended room is terminal and public failures do not reveal team or source data.

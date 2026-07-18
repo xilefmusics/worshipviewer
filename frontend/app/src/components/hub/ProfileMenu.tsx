@@ -9,6 +9,7 @@ import {
   IconInstall,
   IconLogout,
   IconSettings,
+  IconUsers,
 } from '@/components/icons/profile-menu-icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,7 +42,7 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
   const songEditorNavigationBridge = useSongEditorNavigationBridge()
   const { imageSrc, onImageError, initials } = useUserAvatarDisplay(user)
   const [hoveredRow, setHoveredRow] = useState<
-    'settings' | 'admin' | 'about' | 'install' | 'logout' | null
+    'rooms' | 'settings' | 'admin' | 'about' | 'install' | 'logout' | null
   >(null)
 
   async function leaveSongEditorIfNeeded(): Promise<boolean> {
@@ -96,6 +97,14 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
           <span className="block truncate text-sm text-[var(--color-foreground)]">{user.email}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={() => void navigate({ to: '/player-rooms' })}
+          onMouseEnter={() => setHoveredRow('rooms')}
+          onMouseLeave={() => setHoveredRow(null)}
+        >
+          <IconUsers isHovered={hoveredRow === 'rooms'} />
+          {t('playerRooms.title')}
+        </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => {
             void (async () => {

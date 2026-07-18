@@ -13,6 +13,7 @@ pub use move_owner::MoveOwner;
 pub mod net;
 pub mod patch;
 pub mod player;
+pub mod player_room;
 pub mod setlist;
 pub mod song;
 pub mod team;
