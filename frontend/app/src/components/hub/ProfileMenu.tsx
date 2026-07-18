@@ -8,7 +8,6 @@ import {
   IconAbout,
   IconInstall,
   IconLogout,
-  IconSessions,
   IconSettings,
 } from '@/components/icons/profile-menu-icons'
 import { Button } from '@/components/ui/button'
@@ -42,7 +41,7 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
   const songEditorNavigationBridge = useSongEditorNavigationBridge()
   const { imageSrc, onImageError, initials } = useUserAvatarDisplay(user)
   const [hoveredRow, setHoveredRow] = useState<
-    'settings' | 'sessions' | 'admin' | 'about' | 'install' | 'logout' | null
+    'settings' | 'admin' | 'about' | 'install' | 'logout' | null
   >(null)
 
   async function leaveSongEditorIfNeeded(): Promise<boolean> {
@@ -109,19 +108,6 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
         >
           <IconSettings isHovered={hoveredRow === 'settings'} />
           {t('hub.profile.settings')}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => {
-            void (async () => {
-              if (!(await leaveSongEditorIfNeeded())) return
-              void navigate({ to: '/sessions' })
-            })()
-          }}
-          onMouseEnter={() => setHoveredRow('sessions')}
-          onMouseLeave={() => setHoveredRow(null)}
-        >
-          <IconSessions isHovered={hoveredRow === 'sessions'} />
-          {t('hub.profile.sessions')}
         </DropdownMenuItem>
         {user.role === 'admin' ? (
           <DropdownMenuItem

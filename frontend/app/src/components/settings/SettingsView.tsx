@@ -826,9 +826,6 @@ export function SettingsView({
               <CardDescription>{t('settings.account.description')}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2 p-4 pt-0">
-              <Button type="button" variant="outline" onClick={() => void navigate({ to: '/teams' })}>
-                {t('settings.account.teams')}
-              </Button>
               <Button type="button" variant="outline" onClick={() => void navigate({ to: '/sessions' })}>
                 {t('settings.account.sessions')}
               </Button>
