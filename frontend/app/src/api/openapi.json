@@ -101,7 +101,7 @@
             ]
           },
           "duration": {
-            "description": "Duration in milliclicks (1000 per ChordPro click in `{chord:…:N}`).",
+            "description": "Duration in milliclicks (1000 per ChordPro click in `{chord:\u2026:N}`).",
             "format": "int32",
             "minimum": 0,
             "type": [
@@ -268,6 +268,39 @@
         ],
         "type": "object"
       },
+      "CreatePlayerRoom": {
+        "properties": {
+          "host_mode": {
+            "$ref": "#/components/schemas/PlayerRoomMode"
+          },
+          "musical_state": {
+            "$ref": "#/components/schemas/PlayerRoomMusicalState"
+          },
+          "projection": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PlayerRoomProjectionPayload"
+              }
+            ]
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "source_type": {
+            "$ref": "#/components/schemas/PlayerRoomSourceType"
+          }
+        },
+        "required": [
+          "source_type",
+          "source_id",
+          "host_mode",
+          "musical_state"
+        ],
+        "type": "object"
+      },
       "CreateSetlist": {
         "additionalProperties": false,
         "example": {
@@ -387,6 +420,25 @@
         ],
         "type": "object"
       },
+      "CreatedPlayerRoom": {
+        "properties": {
+          "credentials": {
+            "$ref": "#/components/schemas/PlayerRoomCredentials"
+          },
+          "invite_secret": {
+            "type": "string"
+          },
+          "room": {
+            "$ref": "#/components/schemas/PlayerRoomSummary"
+          }
+        },
+        "required": [
+          "room",
+          "credentials",
+          "invite_secret"
+        ],
+        "type": "object"
+      },
       "ErrorResponse": {
         "deprecated": true,
         "description": "Standard error envelope returned by all API error responses.\n\n`code` is a stable, machine-readable identifier; `error` is a human-readable\ndescription.",
@@ -499,6 +551,65 @@
         },
         "required": [
           "request_count"
+        ],
+        "type": "object"
+      },
+      "InspectPlayerRoomInvite": {
+        "properties": {
+          "invite_secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "invite_secret"
+        ],
+        "type": "object"
+      },
+      "JoinPlayerRoom": {
+        "properties": {
+          "hide_chords": {
+            "type": "boolean"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/PlayerRoomMode"
+          },
+          "resume_credential": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "type": "object"
+      },
+      "JoinPlayerRoomInvite": {
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "hide_chords": {
+            "type": "boolean"
+          },
+          "invite_secret": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/PlayerRoomMode"
+          },
+          "resume_credential": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "invite_secret",
+          "display_name",
+          "mode"
         ],
         "type": "object"
       },
@@ -1083,7 +1194,7 @@
       },
       "PatchTeam": {
         "additionalProperties": false,
-        "description": "Partial update for a team. Absent fields are left unchanged.\n\n`members` uses three-state semantics:\n- absent → members list is not modified\n- `null` → rejected (a team must always have members)\n- `[…]` → replaces the entire members list",
+        "description": "Partial update for a team. Absent fields are left unchanged.\n\n`members` uses three-state semantics:\n- absent \u2192 members list is not modified\n- `null` \u2192 rejected (a team must always have members)\n- `[\u2026]` \u2192 replaces the entire members list",
         "properties": {
           "cover": {
             "type": [
@@ -1239,6 +1350,309 @@
             ]
           }
         ]
+      },
+      "PlayerRoomContent": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlayerItem"
+            },
+            "type": "array"
+          },
+          "toc": {
+            "items": {
+              "$ref": "#/components/schemas/TocItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "toc"
+        ],
+        "type": "object"
+      },
+      "PlayerRoomCredentials": {
+        "properties": {
+          "connection_ticket": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/PlayerRoomMode"
+          },
+          "participant_id": {
+            "type": "string"
+          },
+          "resume_credential": {
+            "type": "string"
+          },
+          "room_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_id",
+          "participant_id",
+          "mode",
+          "resume_credential",
+          "connection_ticket"
+        ],
+        "type": "object"
+      },
+      "PlayerRoomInviteInfo": {
+        "properties": {
+          "av_occupied": {
+            "type": "boolean"
+          },
+          "guests_allowed": {
+            "type": "boolean"
+          },
+          "host_email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "room_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_id",
+          "name",
+          "host_email",
+          "av_occupied"
+        ],
+        "type": "object"
+      },
+      "PlayerRoomMode": {
+        "enum": [
+          "sheet",
+          "av",
+          "slide"
+        ],
+        "type": "string"
+      },
+      "PlayerRoomMusicalState": {
+        "properties": {
+          "item_index": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transposition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "item_index"
+        ],
+        "type": "object"
+      },
+      "PlayerRoomParticipant": {
+        "properties": {
+          "anonymous": {
+            "type": "boolean"
+          },
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "hide_chords": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "is_av_host": {
+            "type": "boolean"
+          },
+          "is_host": {
+            "type": "boolean"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/PlayerRoomMode"
+          }
+        },
+        "required": [
+          "id",
+          "mode",
+          "display_name",
+          "anonymous",
+          "connected",
+          "is_host",
+          "is_av_host"
+        ],
+        "type": "object"
+      },
+      "PlayerRoomProjectionPayload": {
+        "properties": {
+          "background_layer": {
+            "type": "object"
+          },
+          "content_layer": {
+            "type": "object"
+          },
+          "content_lines": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "content_text": {
+            "type": "string"
+          },
+          "item_title": {
+            "type": "string"
+          },
+          "next_preview": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "screen_state": {
+            "type": "string"
+          },
+          "transition": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "content_text",
+          "content_layer",
+          "background_layer",
+          "transition",
+          "screen_state",
+          "item_title"
+        ],
+        "type": "object"
+      },
+      "PlayerRoomSnapshot": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PlayerRoomSummary"
+          },
+          {
+            "properties": {
+              "content": {
+                "$ref": "#/components/schemas/PlayerRoomContent"
+              },
+              "guests_allowed": {
+                "type": "boolean"
+              },
+              "host_lease_expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "musical_state": {
+                "$ref": "#/components/schemas/PlayerRoomMusicalState"
+              },
+              "participants": {
+                "items": {
+                  "$ref": "#/components/schemas/PlayerRoomParticipant"
+                },
+                "type": "array"
+              },
+              "projection": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PlayerRoomProjectionPayload"
+                  }
+                ]
+              },
+              "revision": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "content",
+              "musical_state",
+              "participants",
+              "revision",
+              "host_lease_expires_at"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "PlayerRoomSourceType": {
+        "enum": [
+          "song",
+          "collection",
+          "setlist"
+        ],
+        "type": "string"
+      },
+      "PlayerRoomSummary": {
+        "properties": {
+          "av_occupied": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "host_email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "participant_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "source_title": {
+            "type": "string"
+          },
+          "source_type": {
+            "$ref": "#/components/schemas/PlayerRoomSourceType"
+          },
+          "team_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "team_id",
+          "source_type",
+          "source_id",
+          "source_title",
+          "host_email",
+          "participant_count",
+          "av_occupied",
+          "created_at"
+        ],
+        "type": "object"
       },
       "Problem": {
         "description": "[RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem document (`application/problem+json`).\n\nCanonical error body for HTTP 4xx/5xx responses (Problem Details; obsoletes RFC 7807). Extension members include `code`.",
@@ -1488,7 +1902,7 @@
               },
               {
                 "$ref": "#/components/schemas/SimpleChord",
-                "description": "Transposition key for this slot (same `{ \"level\": … }` object as `Song.data.key`)."
+                "description": "Transposition key for this slot (same `{ \"level\": \u2026 }` object as `Song.data.key`)."
               }
             ]
           },
@@ -1525,7 +1939,7 @@
         "description": "Chromatic pitch class (song key, chord root, or slash bass).",
         "properties": {
           "level": {
-            "description": "Pitch class: 0 = C, 1 = C#/Db, …, 11 = B.",
+            "description": "Pitch class: 0 = C, 1 = C#/Db, \u2026, 11 = B.",
             "example": 7,
             "format": "int32",
             "maximum": 11,
@@ -1769,7 +2183,7 @@
               },
               {
                 "$ref": "#/components/schemas/SimpleChord",
-                "description": "Transposition key for this slot (same `{ \"level\": … }` object as `Song.data.key`)."
+                "description": "Transposition key for this slot (same `{ \"level\": \u2026 }` object as `Song.data.key`)."
               }
             ]
           },
@@ -1842,7 +2256,7 @@
             ]
           },
           "sort": {
-            "description": "Sort: comma-separated fields, `-` prefix for descending (e.g. `-id`, `title`, `-id,title`).\nUse `relevance` when searching (`q` non-empty). Legacy tokens (`id_desc`, …) accepted with a warning.",
+            "description": "Sort: comma-separated fields, `-` prefix for descending (e.g. `-id`, `title`, `-id,title`).\nUse `relevance` when searching (`q` non-empty). Legacy tokens (`id_desc`, \u2026) accepted with a warning.",
             "example": "-id",
             "type": [
               "string",
@@ -2058,7 +2472,7 @@
       },
       "TransferCollectionSong": {
         "additionalProperties": false,
-        "description": "Move a song link from this collection into another (`POST …/collections/{id}/songs/{song_id}/transfer`).",
+        "description": "Move a song link from this collection into another (`POST \u2026/collections/{id}/songs/{song_id}/transfer`).",
         "example": {
           "key": {
             "level": 3
@@ -2333,7 +2747,7 @@
     }
   },
   "info": {
-    "description": "Versioned REST API under `/api/v1`. Authentication flows live at `/auth/*` (unversioned); clients should treat that split as stable for this major API generation. Public deployment metadata is available at `GET /api/v1/about` (no authentication).\n\n**Breaking 2.0:** See `docs/api-breaking-2-0.md` for migration (`PlayerItem`, `Song.blobs` as link objects, `Session` wire model, `Problem` without `error`, PUT bodies use `Update*` types in the spec).\n\n**Timestamps:** All timestamps are UTC and use RFC 3339 with a `Z` suffix (e.g. `2026-04-18T12:00:00Z`).\n\n**Identifiers:** Resource IDs are opaque printable strings returned by the API; treat them as opaque and do not parse their internal structure.\n\n**References & expand:** Cross-resource links use objects such as `BlobLink` (`{ \"id\": \"…\" }`) instead of bare id strings where noted. Session list/detail responses default to a narrow `user` link (`id` + `email`); pass `expand=user` (comma-separated with other tokens as added) to embed the full `User`. HTTP audit request counts and last-used timestamps for a single user or session are available from `GET .../metrics` routes next to each single-resource user/session endpoint, not on the `User` / `SessionBody` objects themselves.\n\n**JSON naming:** Object keys use `snake_case`. Enum wire values use the casing shown in each schema (broader enum casing standardization is planned).\n\n**Pagination:** List endpoints accept `page` (0-based) and `page_size` (1–500, default 50). Responses include `X-Total-Count` with the total matching rows before pagination and RFC 5988 `Link` headers (relations: first, prev, next, last) where applicable.\n\n**Rate limiting:** Versioned `/api/v1/*` routes use token-bucket limits per client IP (`Retry-After`, `X-RateLimit-*` on **429**; configurable via server settings).\n\n**Errors:** Failed requests return `Content-Type: application/problem+json` ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details, formerly RFC 7807) with a `Problem` body (`type`, `title`, `status`, `code`, optional `detail` / `instance`). Use `detail` for human-readable text; stable machine-readable `code` values include: `unauthorized`, `forbidden`, `not_found`, `invalid_request`, `invalid_page_size`, `conflict`, `too_many_requests`, `not_acceptable`, `precondition_failed`, `internal`. Legacy schemas `ErrorResponse` and `ProblemDetails` remain listed for one release but are deprecated in favor of `Problem`.\n\n**CSRF:** Cookie sessions use `SameSite=Lax`; state-changing methods are `POST`/`PUT`/`PATCH`/`DELETE` (not `GET`). Cross-site simple requests cannot mutate state via cookies under typical browser rules. Browser `fetch` from the SPA uses `credentials: 'include'` on same-origin API calls (see `frontend/app/src/api/client.ts`). API clients using bearer tokens should still avoid exposing tokens to third-party origins.\n\n**Examples:** See schema `example` fields on core DTOs in the components section.",
+    "description": "Versioned REST API under `/api/v1`. Authentication flows live at `/auth/*` (unversioned); clients should treat that split as stable for this major API generation. Public deployment metadata is available at `GET /api/v1/about` (no authentication).\n\n**Breaking 2.0:** See `docs/api-breaking-2-0.md` for migration (`PlayerItem`, `Song.blobs` as link objects, `Session` wire model, `Problem` without `error`, PUT bodies use `Update*` types in the spec).\n\n**Timestamps:** All timestamps are UTC and use RFC 3339 with a `Z` suffix (e.g. `2026-04-18T12:00:00Z`).\n\n**Identifiers:** Resource IDs are opaque printable strings returned by the API; treat them as opaque and do not parse their internal structure.\n\n**References & expand:** Cross-resource links use objects such as `BlobLink` (`{ \"id\": \"\u2026\" }`) instead of bare id strings where noted. Session list/detail responses default to a narrow `user` link (`id` + `email`); pass `expand=user` (comma-separated with other tokens as added) to embed the full `User`. HTTP audit request counts and last-used timestamps for a single user or session are available from `GET .../metrics` routes next to each single-resource user/session endpoint, not on the `User` / `SessionBody` objects themselves.\n\n**JSON naming:** Object keys use `snake_case`. Enum wire values use the casing shown in each schema (broader enum casing standardization is planned).\n\n**Pagination:** List endpoints accept `page` (0-based) and `page_size` (1\u2013500, default 50). Responses include `X-Total-Count` with the total matching rows before pagination and RFC 5988 `Link` headers (relations: first, prev, next, last) where applicable.\n\n**Rate limiting:** Versioned `/api/v1/*` routes use token-bucket limits per client IP (`Retry-After`, `X-RateLimit-*` on **429**; configurable via server settings).\n\n**Errors:** Failed requests return `Content-Type: application/problem+json` ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details, formerly RFC 7807) with a `Problem` body (`type`, `title`, `status`, `code`, optional `detail` / `instance`). Use `detail` for human-readable text; stable machine-readable `code` values include: `unauthorized`, `forbidden`, `not_found`, `invalid_request`, `invalid_page_size`, `conflict`, `too_many_requests`, `not_acceptable`, `precondition_failed`, `internal`. Legacy schemas `ErrorResponse` and `ProblemDetails` remain listed for one release but are deprecated in favor of `Problem`.\n\n**CSRF:** Cookie sessions use `SameSite=Lax`; state-changing methods are `POST`/`PUT`/`PATCH`/`DELETE` (not `GET`). Cross-site simple requests cannot mutate state via cookies under typical browser rules. Browser `fetch` from the SPA uses `credentials: 'include'` on same-origin API calls (see `frontend/app/src/api/client.ts`). API clients using bearer tokens should still avoid exposing tokens to third-party origins.\n\n**Examples:** See schema `example` fields on core DTOs in the components section.",
     "license": {
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
@@ -2383,7 +2797,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -3289,7 +3703,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -4244,7 +4658,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50. Omit with `page` for full list.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50. Omit with `page` for full list.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -4461,7 +4875,7 @@
         "operationId": "accept_team_invitation",
         "parameters": [
           {
-            "description": "Invitation identifier (deprecated path — prefer `/api/v1/teams/{team_id}/invitations/{invitation_id}/accept`)",
+            "description": "Invitation identifier (deprecated path \u2014 prefer `/api/v1/teams/{team_id}/invitations/{invitation_id}/accept`)",
             "in": "path",
             "name": "invitation_id",
             "required": true,
@@ -4554,7 +4968,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -4685,7 +5099,7 @@
                 }
               }
             },
-            "description": "Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps or YYYY-MM-DD dates. Rates are 0.0–1.0."
+            "description": "Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps or YYYY-MM-DD dates. Rates are 0.0\u20131.0."
           },
           "400": {
             "content": {
@@ -4751,6 +5165,376 @@
         ]
       }
     },
+    "/api/v1/player-rooms": {
+      "get": {
+        "operationId": "list_rooms",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "team",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlayerRoomSummary"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Player Rooms"
+        ]
+      },
+      "post": {
+        "operationId": "create_room",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlayerRoom"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedPlayerRoom"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
+    "/api/v1/player-rooms/invite/inspect": {
+      "post": {
+        "operationId": "inspect_invite",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InspectPlayerRoomInvite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerRoomInviteInfo"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
+    "/api/v1/player-rooms/invite/join": {
+      "post": {
+        "operationId": "join_invite",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinPlayerRoomInvite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerRoomCredentials"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
+    "/api/v1/player-rooms/{id}": {
+      "delete": {
+        "operationId": "close_room",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Player-Room-Credential",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Player Rooms"
+        ]
+      },
+      "get": {
+        "operationId": "get_room",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerRoomSnapshot"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
+    "/api/v1/player-rooms/{id}/join": {
+      "post": {
+        "operationId": "join_room",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinPlayerRoom"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerRoomCredentials"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
+    "/api/v1/player-rooms/{id}/reconnect": {
+      "post": {
+        "operationId": "reconnect_room",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinPlayerRoom"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlayerRoomCredentials"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
+    "/api/v1/player-rooms/{room_id}/media/{blob_id}": {
+      "get": {
+        "operationId": "room_media",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "room_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "blob_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
     "/api/v1/setlists": {
       "get": {
         "operationId": "get_setlists",
@@ -4770,7 +5554,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -5580,7 +6364,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50. Omit with `page` for full list.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50. Omit with `page` for full list.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -5693,7 +6477,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -5727,7 +6511,7 @@
             }
           },
           {
-            "description": "Sort: JSON:API-style comma-separated keys (`-` = descending), e.g. `-id`, `title`, `relevance` (with `q`). Legacy `id_desc` / … still accepted.",
+            "description": "Sort: JSON:API-style comma-separated keys (`-` = descending), e.g. `-id`, `title`, `relevance` (with `q`). Legacy `id_desc` / \u2026 still accepted.",
             "in": "query",
             "name": "sort",
             "required": false,
@@ -6780,7 +7564,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50 when omitted.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50 when omitted.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -7495,7 +8279,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50. Omit with `page` for full list.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50. Omit with `page` for full list.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -7980,7 +8764,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -8542,7 +9326,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50 when omitted.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50 when omitted.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -9256,7 +10040,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50 when omitted.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50 when omitted.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -9814,7 +10598,7 @@
         "operationId": "login",
         "parameters": [
           {
-            "description": "Optional same-origin path (`/…`) to use after login. Must start with `/` and must not be `//…` or `/http…`; otherwise it is ignored and the default post-login path is used (see `sanitize_redirect`).",
+            "description": "Optional same-origin path (`/\u2026`) to use after login. Must start with `/` and must not be `//\u2026` or `/http\u2026`; otherwise it is ignored and the default post-login path is used (see `sanitize_redirect`).",
             "in": "query",
             "name": "redirect_to",
             "required": false,
@@ -10076,6 +10860,14 @@
         "url": "https://github.com/xilefmusics/worshipviewer/blob/main/docs/business-logic-constraints/team.md"
       },
       "name": "Teams"
+    },
+    {
+      "description": "Persisted cross-device player sessions, invitations, scoped media, and realtime synchronization.",
+      "externalDocs": {
+        "description": "Business logic constraints (markdown in repository).",
+        "url": "https://github.com/xilefmusics/worshipviewer/blob/main/docs/business-logic-constraints/player-room.md"
+      },
+      "name": "Player Rooms"
     }
   ]
 }

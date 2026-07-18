@@ -6,9 +6,9 @@ Engineering notes for features not yet modeled in the current API/UI. Not commit
 
 Today **`blob`** supports image MIME types for covers, avatars, and sheet attachments. Click tracks, pads, and other **audio** media need MIME validation, player delivery, and storage quota rules before UI entry points.
 
-## Realtime sessions transport (future epic H-2)
+## Realtime multi-instance fan-out (future epic H-2)
 
-The **Sessions** hub list shows login sessions (devices/tokens), not live rehearsal sync. A future realtime layer (WebSocket/SSE) would be separate from `session` CRUD; product docs should distinguish “login session” vs “live session” (see action plan §5.14).
+Player Rooms provide the server-authoritative WebSocket player/projection protocol. Active sockets currently share updates only within one backend process; horizontal deployments still need shared pub/sub or a database change feed.
 
 ## Song links / `song::Link` naming (future epic H-3)
 

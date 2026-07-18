@@ -28,6 +28,15 @@ impl<R, S> BlobService<R, S> {
 }
 
 impl<R: BlobRepository, S: BlobStorage> BlobService<R, S> {
+    pub async fn open_blob_data_file_for_room(
+        &self,
+        team: surrealdb::types::RecordId,
+        id: &str,
+    ) -> Result<actix_files::NamedFile, AppError> {
+        let blob = self.repo.get_blob(&[team], id).await?;
+        self.storage.open_blob_data_file(&blob)
+    }
+
     #[instrument(level = "debug", err, skip(self, ctx))]
     pub async fn list_blobs_for_user(
         &self,

@@ -46,6 +46,7 @@
   },
   "common": {
     "load": "Loading…",
+    "cancel": "Cancel",
     "containerSetlist": "setlist",
     "containerCollection": "collection",
     "entitySetlist": "setlist",
@@ -312,6 +313,7 @@
       "slideAnnounce": "Slide {{current}} of {{total}} — {{title}}",
       "openSettings": "AV player settings",
       "openOutput": "Open output (O)",
+      "showAvPanel": "Show AV panel",
       "outputAria": "Projection output",
       "outputMissingSession": "Missing projection session.",
       "slidesAria": "Slides for current item",
@@ -1049,6 +1051,50 @@
     "failed": "Could not join the team.",
     "invalidLink": "This invitation link is missing required information.",
     "backToTeams": "Back to teams"
+  },
+  "playerRooms": {
+    "title": "Player Rooms",
+    "start": "Start Player Room",
+    "end": "Close",
+    "copyInvite": "Copy invite",
+    "inviteCopied": "Invite link copied",
+    "togglePanel": "Player Room",
+    "host": "Host",
+    "avHost": "AV host",
+    "connected": "Connected",
+    "reconnecting": "Reconnecting…",
+    "ended": "Player Room has ended",
+    "onlineRequired": "Player Rooms require an internet connection.",
+    "createFailed": "Could not start the Player Room.",
+    "loadFailed": "Could not load Player Rooms.",
+    "missingCredentials": "Join this Player Room again to continue.",
+    "displayName": "Display name",
+    "guestBadge": "(Guest)",
+    "guestsNotAllowed": "This room is not accepting new guests.",
+    "allowGuests": {
+      "label": "Allow guests",
+      "copyDisabled": "Enable guest access to copy the invite link."
+    },
+    "participants": "participants",
+    "empty": "No active Player Rooms.",
+    "avOccupied": "AV occupied",
+    "avFree": "AV available",
+    "join": "Join",
+    "footerJoinAria": "Join player room: {{title}}",
+    "modeChooserLabel": "Join mode",
+    "listParticipants": "{{count}} participants",
+    "sourceType": {
+      "song": "Song",
+      "collection": "Collection",
+      "setlist": "Setlist"
+    },
+    "mode": { "sheet": "Sheet", "chords": "Chords", "text": "Text", "av": "AV", "slide": "Slide" },
+    "modeDescription": {
+      "chords": "Follow along with sheet music and chord symbols.",
+      "text": "Lyrics only — chord symbols are hidden.",
+      "av": "Control or follow the live presentation output.",
+      "slide": "View the projected slides only, without controls."
+    }
   },
   "sessions": {
     "listTitle": "Active sessions",

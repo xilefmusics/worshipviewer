@@ -245,6 +245,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/player-rooms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_rooms"];
+        put?: never;
+        post: operations["create_room"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/player-rooms/invite/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["inspect_invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/player-rooms/invite/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["join_invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/player-rooms/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_room"];
+        put?: never;
+        post?: never;
+        delete: operations["close_room"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/player-rooms/{id}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["join_room"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/player-rooms/{id}/reconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reconnect_room"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/player-rooms/{room_id}/media/{blob_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["room_media"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/setlists": {
         parameters: {
             query?: never;
@@ -924,6 +1036,13 @@ export interface components {
             songs: components["schemas"]["SongLink"][];
             title: string;
         };
+        CreatePlayerRoom: {
+            host_mode: components["schemas"]["PlayerRoomMode"];
+            musical_state: components["schemas"]["PlayerRoomMusicalState"];
+            projection?: null | components["schemas"]["PlayerRoomProjectionPayload"];
+            source_id: string;
+            source_type: components["schemas"]["PlayerRoomSourceType"];
+        };
         /**
          * @example {
          *       "owner": "team_example_id",
@@ -985,6 +1104,11 @@ export interface components {
             email: string;
             role?: components["schemas"]["Role"];
         };
+        CreatedPlayerRoom: {
+            credentials: components["schemas"]["PlayerRoomCredentials"];
+            invite_secret: string;
+            room: components["schemas"]["PlayerRoomSummary"];
+        };
         /**
          * ErrorResponse
          * @deprecated
@@ -1033,6 +1157,21 @@ export interface components {
             last_used_at?: string | null;
             /** Format: int64 */
             request_count: number;
+        };
+        InspectPlayerRoomInvite: {
+            invite_secret: string;
+        };
+        JoinPlayerRoom: {
+            hide_chords?: boolean;
+            mode: components["schemas"]["PlayerRoomMode"];
+            resume_credential?: string | null;
+        };
+        JoinPlayerRoomInvite: {
+            display_name: string;
+            hide_chords?: boolean;
+            invite_secret: string;
+            mode: components["schemas"]["PlayerRoomMode"];
+            resume_credential?: string | null;
         };
         /**
          * @description Chord quality on the wire (`kind` field of [`ChordSchema`]).
@@ -1267,6 +1406,78 @@ export interface components {
             /** @enum {string} */
             type: "chords";
         });
+        PlayerRoomContent: {
+            items: components["schemas"]["PlayerItem"][];
+            toc: components["schemas"]["TocItem"][];
+        };
+        PlayerRoomCredentials: {
+            connection_ticket: string;
+            mode: components["schemas"]["PlayerRoomMode"];
+            participant_id: string;
+            resume_credential: string;
+            room_id: string;
+        };
+        PlayerRoomInviteInfo: {
+            av_occupied: boolean;
+            guests_allowed?: boolean;
+            host_email: string;
+            name: string;
+            room_id: string;
+        };
+        /** @enum {string} */
+        PlayerRoomMode: "sheet" | "av" | "slide";
+        PlayerRoomMusicalState: {
+            item_index: number;
+            language?: string | null;
+            transposition?: string | null;
+        };
+        PlayerRoomParticipant: {
+            anonymous: boolean;
+            avatar_url?: string | null;
+            connected: boolean;
+            display_name: string;
+            hide_chords?: boolean;
+            id: string;
+            is_av_host: boolean;
+            is_host: boolean;
+            mode: components["schemas"]["PlayerRoomMode"];
+        };
+        PlayerRoomProjectionPayload: {
+            background_layer: Record<string, never>;
+            content_layer: Record<string, never>;
+            content_lines?: Record<string, never> | null;
+            content_text: string;
+            item_title: string;
+            next_preview?: string | null;
+            screen_state: string;
+            transition: Record<string, never>;
+        };
+        PlayerRoomSnapshot: components["schemas"]["PlayerRoomSummary"] & {
+            content: components["schemas"]["PlayerRoomContent"];
+            guests_allowed?: boolean;
+            /** Format: date-time */
+            host_lease_expires_at: string;
+            musical_state: components["schemas"]["PlayerRoomMusicalState"];
+            participants: components["schemas"]["PlayerRoomParticipant"][];
+            projection?: null | components["schemas"]["PlayerRoomProjectionPayload"];
+            /** Format: int64 */
+            revision: number;
+        };
+        /** @enum {string} */
+        PlayerRoomSourceType: "song" | "collection" | "setlist";
+        PlayerRoomSummary: {
+            av_occupied: boolean;
+            /** Format: date-time */
+            created_at: string;
+            host_email: string;
+            id: string;
+            name: string;
+            participant_count: number;
+            source_id: string;
+            source_title: string;
+            source_type: components["schemas"]["PlayerRoomSourceType"];
+            team_id: string;
+        };
         /**
          * Problem
          * @description [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem document (`application/problem+json`).
@@ -3491,6 +3702,215 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_rooms: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                q?: string;
+                team?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerRoomSummary"][];
+                };
+            };
+        };
+    };
+    create_room: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePlayerRoom"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedPlayerRoom"];
+                };
+            };
+        };
+    };
+    inspect_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectPlayerRoomInvite"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerRoomInviteInfo"];
+                };
+            };
+        };
+    };
+    join_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinPlayerRoomInvite"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerRoomCredentials"];
+                };
+            };
+        };
+    };
+    get_room: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerRoomSnapshot"];
+                };
+            };
+        };
+    };
+    close_room: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Player-Room-Credential": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    join_room: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinPlayerRoom"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerRoomCredentials"];
+                };
+            };
+        };
+    };
+    reconnect_room: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinPlayerRoom"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerRoomCredentials"];
+                };
+            };
+        };
+    };
+    room_media: {
+        parameters: {
+            query?: never;
+            header: {
+                Authorization: string;
+            };
+            path: {
+                room_id: string;
+                blob_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
                 };
             };
         };

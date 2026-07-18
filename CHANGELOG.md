@@ -6,6 +6,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Added
 
+- Player Rooms for synchronized Sheet, AV, and Slide participants across devices, including anonymous invite links and reconnecting presence.
 - `./scripts/verify-ci.sh` — one-shot local run of CI-equivalent checks (fmt, audit, tests, OpenAPI, frontend build).
 - `backend/.cargo/audit.toml` — documents ignored transitive `rsa` advisory (no upstream fix).
 - `pnpm audit` gate in frontend CI; `serialize-javascript` ≥7.0.5 via pnpm overrides.

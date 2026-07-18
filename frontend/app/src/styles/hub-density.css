@@ -26,8 +26,9 @@
   );
   /** Compose chord belt sits on the same bottom inset; reserve belt height above it. */
   --compose-chord-belt-scroll-clearance: calc(var(--hub-footer-chrome-bottom-inset) + 6.5rem);
+  --hub-footer-join-prompt-clearance: 2.75rem;
   --hub-footer-scroll-clearance: calc(
     6.12rem - var(--hub-footer-pad-base) + var(--hub-footer-pad-bottom) - 0.36rem +
-      var(--hub-footer-chrome-mb)
+      var(--hub-footer-chrome-mb) + var(--hub-footer-join-prompt-clearance)
   );
 }

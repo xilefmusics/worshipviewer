@@ -2,6 +2,8 @@
 
 This document replaces the former standalone `logging-review.md` referenced from architecture docs. It defines stable field names for structured logs and lists audit events the backend emits.
 
+Player Room invite secrets, participant resume credentials, and connection tickets are never valid log, trace, metric, audit, URL, or Problem Detail fields. Room and participant IDs may be logged for operational correlation after authorization succeeds.
+
 ## 1. Subscriber setup
 
 See [`backend/src/observability.rs`](../backend/src/observability.rs):

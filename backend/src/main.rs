@@ -18,6 +18,7 @@ use backend::resources;
 use backend::resources::Session;
 use backend::resources::blob::service::BlobServiceHandle;
 use backend::resources::collection::service::CollectionServiceHandle;
+use backend::resources::player_room::PlayerRoomService;
 use backend::resources::setlist::{SetlistService, SurrealSetlistRepo};
 use backend::resources::song::service::SongServiceHandle;
 use backend::resources::team::TeamServiceHandle;
@@ -164,6 +165,15 @@ async fn main() -> AnyResult<()> {
     let setlist_service = SetlistService::new(SurrealSetlistRepo::new(db.clone()), db.clone());
     let team_service = TeamServiceHandle::build(db.clone());
     let invitation_service = InvitationServiceHandle::build(db.clone());
+    let player_room_service = PlayerRoomService::new(db.clone()).await?;
+    let cleanup_service = player_room_service.clone();
+    actix_web::rt::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            cleanup_service.cleanup().await;
+        }
+    });
     let db_data = Data::from(db);
 
     let docs_settings = settings.clone();
@@ -188,6 +198,7 @@ async fn main() -> AnyResult<()> {
             .app_data(Data::new(setlist_service.clone()))
             .app_data(Data::new(team_service.clone()))
             .app_data(Data::new(invitation_service.clone()))
+            .app_data(Data::new(player_room_service.clone()))
             .app_data(Data::new(user_service.clone()))
             .app_data(Data::new(session_service.clone()))
             .app_data(oidc_clients.clone())
