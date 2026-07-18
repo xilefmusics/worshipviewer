@@ -3,7 +3,6 @@ import type { HTMLAttributes } from 'react'
 import { DownloadIcon } from '@/components/icons/lucide-animated/download-icon'
 import { InfoIcon } from '@/components/icons/lucide-animated/info-icon'
 import { LogoutIcon } from '@/components/icons/lucide-animated/logout-icon'
-import { SessionsIcon } from '@/components/icons/lucide-animated/sessions-icon'
 import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
 import { UsersIcon } from '@/components/icons/lucide-animated/users-icon'
 import { cn } from '@/lib/utils'
@@ -32,17 +31,6 @@ export function IconSettings({ className, isHovered, ...rest }: ProfileMenuIconP
 export function IconUsers({ className, isHovered, ...rest }: ProfileMenuIconProps) {
   return (
     <UsersIcon
-      className={cn(iconClass, className)}
-      isHovered={isHovered}
-      size={PROFILE_MENU_ICON_PX}
-      {...rest}
-    />
-  )
-}
-
-export function IconSessions({ className, isHovered, ...rest }: ProfileMenuIconProps) {
-  return (
-    <SessionsIcon
       className={cn(iconClass, className)}
       isHovered={isHovered}
       size={PROFILE_MENU_ICON_PX}

@@ -62,7 +62,7 @@ export const hubNavigateCommands: HubNavigateCommand[] = [
   {
     id: 'sessions',
     value: 'nav-sessions',
-    labelKey: 'hub.profile.sessions',
+    labelKey: 'settings.account.sessions',
     keywords: ['sessions'],
     to: '/sessions',
   },
