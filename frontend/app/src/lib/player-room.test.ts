@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   playerFromRoom,
@@ -9,7 +9,34 @@ import {
   type PlayerRoomSnapshot,
 } from '@/lib/player-room'
 
-beforeEach(() => sessionStorage.clear())
+function createSessionStorageMock(): Storage {
+  const store = new Map<string, string>()
+  return {
+    get length() {
+      return store.size
+    },
+    clear: () => {
+      store.clear()
+    },
+    getItem: (key: string) => store.get(key) ?? null,
+    key: (index: number) => [...store.keys()][index] ?? null,
+    removeItem: (key: string) => {
+      store.delete(key)
+    },
+    setItem: (key: string, value: string) => {
+      store.set(key, value)
+    },
+  }
+}
+
+const sessionStorageMock = createSessionStorageMock()
+vi.stubGlobal('sessionStorage', sessionStorageMock)
+
+beforeEach(() => sessionStorageMock.clear())
+
+afterAll(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('player rooms', () => {
   it('uses source title as the short room display name', () => {
