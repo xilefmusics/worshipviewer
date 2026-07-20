@@ -37,7 +37,6 @@ import {
 import { HUB_TAB_LABEL_CLASS } from '@/components/hub/hub-list-styles'
 import { HUB_SEARCH_INPUT_CLASS, HUB_SEARCH_PILL_TEXT_CLASS } from '@/components/hub/hub-search-styles'
 import { HubTabBar } from '@/components/hub/HubTabBar'
-import { HubPlayerRoomJoinPrompt } from '@/components/hub/HubPlayerRoomJoinPrompt'
 import { HubTeamFilterSelect } from '@/components/hub/HubTeamFilterSelect'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
 import { FilterIcon } from '@/components/icons/filter-icon'
@@ -972,12 +971,11 @@ function HubChrome({
           <div className={cn(hubChromeRowClass, 'items-center')}>
             <div
               className={cn(
-                'relative my-[0.36rem] flex w-full min-w-0 max-w-full justify-start',
+                'my-[0.36rem] flex w-full min-w-0 max-w-full justify-start',
                 hubChromeRowLayoutClass,
                 HUB_FOOTER_CHROME_MB_CLASS,
               )}
             >
-              <HubPlayerRoomJoinPrompt />
               <HubTabBar />
               {!hideHubPlus ? (
                 <Button

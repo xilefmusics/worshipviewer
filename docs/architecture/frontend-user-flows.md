@@ -796,4 +796,4 @@ flowchart LR
     av -->|"structured projection"| slide
 ```
 
-All room surfaces show reconnecting without discarding their last snapshot. An ended room is terminal and public failures do not reveal team or source data.
+All room surfaces show reconnecting without discarding their last snapshot. Player Room discovery is loaded only after navigating to the Player Rooms hub; unrelated legacy hub pages do not poll or prefetch room data. An ended room is terminal and public failures do not reveal team or source data.

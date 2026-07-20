@@ -83,6 +83,8 @@ export function PlayerRoomsList() {
     queryKey: ['player-rooms', debouncedQ, selectedTeamId],
     queryFn: () => listPlayerRooms({ page: 0, q: debouncedQ, team: selectedTeamId ?? undefined }),
     enabled: online,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 
   if (!online) return <p className="p-6 text-center">{t('playerRooms.onlineRequired')}</p>
