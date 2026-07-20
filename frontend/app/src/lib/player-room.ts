@@ -166,27 +166,46 @@ export function applyPlayerRoomServerMessage(
 export function usePlayerRoom(credentials: PlayerRoomCredentials | null): RoomConnection {
   const [snapshot, setSnapshot] = useState<PlayerRoomSnapshot | null>(null)
   const [status, setStatus] = useState<RoomConnection['status']>('connecting')
+  const roomId = credentials?.room_id
+  const participantId = credentials?.participant_id
+  const mode = credentials?.mode
+  const resumeCredential = credentials?.resume_credential
+  const connectionTicket = credentials?.connection_ticket
   const socketRef = useRef<WebSocket | null>(null); const retryRef = useRef(0); const closedRef = useRef(false); const snapshotRef = useRef<PlayerRoomSnapshot | null>(null)
+  const pendingCommandsRef = useRef(new Map<string, object>())
   const send = useCallback((message: object) => {
-    if (credentials && socketRef.current?.readyState === WebSocket.OPEN) {
-      sendPlayerRoomEvent(credentials.room_id, socketRef.current, message)
+    if (roomId && socketRef.current?.readyState === WebSocket.OPEN) {
+      sendPlayerRoomEvent(roomId, socketRef.current, message)
+      return
     }
-  }, [credentials])
+    if ('type' in message && typeof message.type === 'string' && message.type.startsWith('update_')) {
+      pendingCommandsRef.current.set(message.type, message)
+    }
+  }, [roomId])
   useEffect(() => {
-    if (!credentials) return
+    if (!roomId || !participantId || !mode || !resumeCredential || !connectionTicket) return
+    const connectionCredentials: PlayerRoomCredentials = {
+      room_id: roomId,
+      participant_id: participantId,
+      mode,
+      resume_credential: resumeCredential,
+      connection_ticket: connectionTicket,
+    }
+    const pendingCommands = pendingCommandsRef.current
     closedRef.current = false; let disposed = false; let retryTimer: number | undefined; let heartbeat: number | undefined
     const connect = async () => {
+      if (disposed) return
       setStatus(retryRef.current ? 'reconnecting' : 'connecting')
-      console.log(`[PlayerRoom ${credentials.room_id}] connecting`, { attempt: retryRef.current + 1 })
-      let activeCredentials = credentials
+      console.log(`[PlayerRoom ${roomId}] connecting`, { attempt: retryRef.current + 1 })
+      let activeCredentials = connectionCredentials
       if (retryRef.current > 0) {
-        const reconnected = await reconnectPlayerRoom(credentials).catch(() => null)
+        const reconnected = await reconnectPlayerRoom(connectionCredentials).catch(() => null)
         if (disposed) return
         if (!reconnected) {
-          console.warn(`[PlayerRoom ${credentials.room_id}] credential exchange failed`)
+          console.warn(`[PlayerRoom ${roomId}] credential exchange failed`)
           setStatus('reconnecting')
           const delay = Math.min(10_000, 500 * 2 ** retryRef.current++)
-          console.log(`[PlayerRoom ${credentials.room_id}] reconnect scheduled`, { delayMs: delay })
+          console.log(`[PlayerRoom ${roomId}] reconnect scheduled`, { delayMs: delay })
           retryTimer = window.setTimeout(connect, delay)
           return
         }
@@ -195,48 +214,60 @@ export function usePlayerRoom(credentials: PlayerRoomCredentials | null): RoomCo
       const base = apiBase || window.location.origin; const url = new URL('/api/v1/player-rooms/ws', base); url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
       const ws = new WebSocket(url); socketRef.current = ws
       ws.onopen = () => {
-        console.log(`[PlayerRoom ${credentials.room_id}] socket open`)
-        sendPlayerRoomEvent(credentials.room_id, ws, { type: 'authenticate', ticket: activeCredentials.connection_ticket })
+        if (disposed) {
+          ws.close()
+          return
+        }
+        console.log(`[PlayerRoom ${roomId}] socket open`)
+        sendPlayerRoomEvent(roomId, ws, { type: 'authenticate', ticket: activeCredentials.connection_ticket })
+        for (const command of pendingCommands.values()) {
+          sendPlayerRoomEvent(roomId, ws, command)
+        }
+        pendingCommands.clear()
         heartbeat = window.setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) sendPlayerRoomEvent(credentials.room_id, ws, { type: 'heartbeat', revision: snapshotRef.current?.revision ?? null })
+          if (ws.readyState === WebSocket.OPEN) sendPlayerRoomEvent(roomId, ws, { type: 'heartbeat', revision: snapshotRef.current?.revision ?? null })
         }, 10_000)
       }
       ws.onmessage = (event) => {
+        if (disposed) return
         let message: PlayerRoomServerMessage
         try {
           message = JSON.parse(String(event.data)) as typeof message
         } catch (error) {
-          console.warn(`[PlayerRoom ${credentials.room_id}] invalid incoming event`, {
+          console.warn(`[PlayerRoom ${roomId}] invalid incoming event`, {
             dataType: typeof event.data,
             dataLength: typeof event.data === 'string' ? event.data.length : undefined,
             error,
           })
           return
         }
-        logPlayerRoomEvent(credentials.room_id, 'incoming', message)
+        logPlayerRoomEvent(roomId, 'incoming', message)
         if (message.type === 'room_ended') { closedRef.current = true; setStatus('ended'); ws.close(); return }
         setSnapshot((current) => {
           const result = applyPlayerRoomServerMessage(current, message)
-          if (result.needsSnapshot) sendPlayerRoomEvent(credentials.room_id, ws, { type: 'request_snapshot' })
+          if (result.needsSnapshot) sendPlayerRoomEvent(roomId, ws, { type: 'request_snapshot' })
           snapshotRef.current = result.snapshot
           return result.snapshot
         })
         setStatus('connected')
         retryRef.current = 0
       }
-      ws.onerror = () => console.warn(`[PlayerRoom ${credentials.room_id}] socket error`)
+      ws.onerror = () => {
+        if (!disposed) console.warn(`[PlayerRoom ${roomId}] socket error`)
+      }
       ws.onclose = (event) => {
-        console.log(`[PlayerRoom ${credentials.room_id}] socket closed`, { code: event.code, reason: event.reason, wasClean: event.wasClean })
+        if (disposed) return
+        console.log(`[PlayerRoom ${roomId}] socket closed`, { code: event.code, reason: event.reason, wasClean: event.wasClean })
         if (heartbeat) window.clearInterval(heartbeat)
         if (closedRef.current) return
         setStatus('reconnecting')
         const delay = Math.min(10_000, 500 * 2 ** retryRef.current++)
-        console.log(`[PlayerRoom ${credentials.room_id}] reconnect scheduled`, { delayMs: delay })
+        console.log(`[PlayerRoom ${roomId}] reconnect scheduled`, { delayMs: delay })
         retryTimer = window.setTimeout(connect, delay)
       }
     }
-    void connect(); return () => { disposed = true; closedRef.current = true; snapshotRef.current = null; if (retryTimer) window.clearTimeout(retryTimer); if (heartbeat) window.clearInterval(heartbeat); socketRef.current?.close() }
-  }, [credentials])
+    void connect(); return () => { disposed = true; closedRef.current = true; snapshotRef.current = null; pendingCommands.clear(); if (retryTimer) window.clearTimeout(retryTimer); if (heartbeat) window.clearInterval(heartbeat); socketRef.current?.close() }
+  }, [connectionTicket, mode, participantId, resumeCredential, roomId])
   const sendMusicalState = useCallback(
     (musical_state: PlayerRoomMusicalState) =>
       send({ type: 'update_musical_state', command_id: crypto.randomUUID(), musical_state }),
