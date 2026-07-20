@@ -20,6 +20,16 @@ export type PlayerRoomSummary = { id: string; name: string; team_id: string; sou
 export type PlayerRoomSnapshot = PlayerRoomSummary & { content: { items: components['schemas']['Player']['items']; toc: components['schemas']['Player']['toc'] }; musical_state: PlayerRoomMusicalState; projection: PlayerRoomProjection | null; participants: PlayerRoomParticipant[]; revision: number; host_lease_expires_at: string; guests_allowed?: boolean }
 export type PlayerRoomCredentials = { room_id: string; participant_id: string; mode: PlayerRoomMode; resume_credential: string; connection_ticket: string }
 export type CreatedPlayerRoom = { room: PlayerRoomSummary; credentials: PlayerRoomCredentials; invite_secret: string }
+export type PlayerRoomServerMessage =
+  | { type: 'snapshot'; snapshot: PlayerRoomSnapshot }
+  | { type: 'heartbeat'; revision: number; host_lease_expires_at: string }
+  | { type: 'musical_state_updated'; musical_state: PlayerRoomMusicalState; revision: number }
+  | { type: 'projection_updated'; projection: PlayerRoomProjection; revision: number }
+  | { type: 'guests_allowed_updated'; guests_allowed: boolean; revision: number }
+  | { type: 'participants_changed'; participants: PlayerRoomParticipant[]; participant_count: number; av_occupied: boolean; revision: number }
+  | { type: 'command_accepted'; command_id: string; revision: number }
+  | { type: 'command_rejected'; command_id: string; reason: string; revision: number }
+  | { type: 'room_ended' }
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const credentialKey = (roomId: string) => `playerRoom:${roomId}:credentials`
@@ -97,10 +107,66 @@ async function reconnectPlayerRoom(credentials: PlayerRoomCredentials): Promise<
 
 export type RoomConnection = { snapshot: PlayerRoomSnapshot | null; status: 'connecting' | 'connected' | 'reconnecting' | 'ended'; sendMusicalState: (state: PlayerRoomMusicalState) => void; sendProjection: (projection: PlayerRoomProjection) => void; sendGuestsAllowed: (guestsAllowed: boolean) => void; leave: () => void }
 
+export function applyPlayerRoomServerMessage(
+  current: PlayerRoomSnapshot | null,
+  message: PlayerRoomServerMessage,
+): { snapshot: PlayerRoomSnapshot | null; needsSnapshot: boolean } {
+  if (message.type === 'snapshot') {
+    return {
+      snapshot: !current || message.snapshot.revision >= current.revision ? message.snapshot : current,
+      needsSnapshot: false,
+    }
+  }
+  if (
+    message.type === 'heartbeat' ||
+    message.type === 'room_ended'
+  ) {
+    const remoteRevision = 'revision' in message ? message.revision : current?.revision
+    return {
+      snapshot: current,
+      needsSnapshot: remoteRevision != null && current != null && remoteRevision > current.revision,
+    }
+  }
+  if (message.type === 'command_accepted') {
+    return { snapshot: current, needsSnapshot: false }
+  }
+  if (message.type === 'command_rejected') {
+    return {
+      snapshot: current,
+      needsSnapshot:
+        message.reason === 'revision_conflict' &&
+        current != null &&
+        message.revision > current.revision,
+    }
+  }
+  if (!current) return { snapshot: null, needsSnapshot: true }
+  if (message.revision <= current.revision) return { snapshot: current, needsSnapshot: false }
+  if (message.revision > current.revision + 1) return { snapshot: current, needsSnapshot: true }
+  switch (message.type) {
+    case 'musical_state_updated':
+      return { snapshot: { ...current, musical_state: message.musical_state, revision: message.revision }, needsSnapshot: false }
+    case 'projection_updated':
+      return { snapshot: { ...current, projection: message.projection, revision: message.revision }, needsSnapshot: false }
+    case 'guests_allowed_updated':
+      return { snapshot: { ...current, guests_allowed: message.guests_allowed, revision: message.revision }, needsSnapshot: false }
+    case 'participants_changed':
+      return {
+        snapshot: {
+          ...current,
+          participants: message.participants,
+          participant_count: message.participant_count,
+          av_occupied: message.av_occupied,
+          revision: message.revision,
+        },
+        needsSnapshot: false,
+      }
+  }
+}
+
 export function usePlayerRoom(credentials: PlayerRoomCredentials | null): RoomConnection {
   const [snapshot, setSnapshot] = useState<PlayerRoomSnapshot | null>(null)
   const [status, setStatus] = useState<RoomConnection['status']>('connecting')
-  const socketRef = useRef<WebSocket | null>(null); const retryRef = useRef(0); const closedRef = useRef(false)
+  const socketRef = useRef<WebSocket | null>(null); const retryRef = useRef(0); const closedRef = useRef(false); const snapshotRef = useRef<PlayerRoomSnapshot | null>(null)
   const send = useCallback((message: object) => {
     if (credentials && socketRef.current?.readyState === WebSocket.OPEN) {
       sendPlayerRoomEvent(credentials.room_id, socketRef.current, message)
@@ -132,11 +198,11 @@ export function usePlayerRoom(credentials: PlayerRoomCredentials | null): RoomCo
         console.log(`[PlayerRoom ${credentials.room_id}] socket open`)
         sendPlayerRoomEvent(credentials.room_id, ws, { type: 'authenticate', ticket: activeCredentials.connection_ticket })
         heartbeat = window.setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) sendPlayerRoomEvent(credentials.room_id, ws, { type: 'heartbeat' })
+          if (ws.readyState === WebSocket.OPEN) sendPlayerRoomEvent(credentials.room_id, ws, { type: 'heartbeat', revision: snapshotRef.current?.revision ?? null })
         }, 10_000)
       }
       ws.onmessage = (event) => {
-        let message: { type: string; snapshot?: PlayerRoomSnapshot }
+        let message: PlayerRoomServerMessage
         try {
           message = JSON.parse(String(event.data)) as typeof message
         } catch (error) {
@@ -149,7 +215,14 @@ export function usePlayerRoom(credentials: PlayerRoomCredentials | null): RoomCo
         }
         logPlayerRoomEvent(credentials.room_id, 'incoming', message)
         if (message.type === 'room_ended') { closedRef.current = true; setStatus('ended'); ws.close(); return }
-        if (message.snapshot) { setSnapshot((current) => { if (current && message.type === 'state_updated' && message.snapshot!.revision > current.revision + 1) { sendPlayerRoomEvent(credentials.room_id, ws, { type: 'request_snapshot' }); return current } return !current || message.snapshot!.revision >= current.revision ? message.snapshot! : current }); setStatus('connected'); retryRef.current = 0 }
+        setSnapshot((current) => {
+          const result = applyPlayerRoomServerMessage(current, message)
+          if (result.needsSnapshot) sendPlayerRoomEvent(credentials.room_id, ws, { type: 'request_snapshot' })
+          snapshotRef.current = result.snapshot
+          return result.snapshot
+        })
+        setStatus('connected')
+        retryRef.current = 0
       }
       ws.onerror = () => console.warn(`[PlayerRoom ${credentials.room_id}] socket error`)
       ws.onclose = (event) => {
@@ -162,7 +235,7 @@ export function usePlayerRoom(credentials: PlayerRoomCredentials | null): RoomCo
         retryTimer = window.setTimeout(connect, delay)
       }
     }
-    void connect(); return () => { disposed = true; closedRef.current = true; if (retryTimer) window.clearTimeout(retryTimer); if (heartbeat) window.clearInterval(heartbeat); socketRef.current?.close() }
+    void connect(); return () => { disposed = true; closedRef.current = true; snapshotRef.current = null; if (retryTimer) window.clearTimeout(retryTimer); if (heartbeat) window.clearInterval(heartbeat); socketRef.current?.close() }
   }, [credentials])
   const sendMusicalState = useCallback(
     (musical_state: PlayerRoomMusicalState) =>

@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  applyPlayerRoomServerMessage,
   playerFromRoom,
   playerRoomShortName,
   readRoomCredentials,
@@ -69,5 +70,48 @@ describe('player rooms', () => {
       ticket: '[redacted]',
       nested: { resume_credential: '[redacted]', inviteSecret: '[redacted]' },
     })
+  })
+
+  it('applies a contiguous room delta without replacing immutable content', () => {
+    const current = {
+      id: 'r1',
+      content: { items: [{ type: 'blob', blob_id: 'b1' }], toc: [] },
+      musical_state: { item_index: 0, language: null, transposition: null },
+      revision: 4,
+    } as unknown as PlayerRoomSnapshot
+    const result = applyPlayerRoomServerMessage(current, {
+      type: 'musical_state_updated',
+      musical_state: { item_index: 0, language: null, transposition: '2' },
+      revision: 5,
+    })
+    expect(result).toEqual({
+      snapshot: {
+        ...current,
+        musical_state: { item_index: 0, language: null, transposition: '2' },
+        revision: 5,
+      },
+      needsSnapshot: false,
+    })
+    expect(result.snapshot?.content).toBe(current.content)
+  })
+
+  it('requests one authoritative snapshot when a delta revision is skipped', () => {
+    const current = { id: 'r1', revision: 4 } as unknown as PlayerRoomSnapshot
+    expect(applyPlayerRoomServerMessage(current, {
+      type: 'participants_changed',
+      participants: [],
+      participant_count: 0,
+      av_occupied: false,
+      revision: 7,
+    })).toEqual({ snapshot: current, needsSnapshot: true })
+  })
+
+  it('waits for the matching delta after a command acknowledgement', () => {
+    const current = { id: 'r1', revision: 4 } as unknown as PlayerRoomSnapshot
+    expect(applyPlayerRoomServerMessage(current, {
+      type: 'command_accepted',
+      command_id: 'command-1',
+      revision: 5,
+    })).toEqual({ snapshot: current, needsSnapshot: false })
   })
 })
