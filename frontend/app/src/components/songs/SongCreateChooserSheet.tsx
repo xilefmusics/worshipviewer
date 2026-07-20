@@ -13,6 +13,7 @@ type SongCreateChooserSheetProps = {
   canImport: boolean
   onNewSong: () => void
   onImport: () => void
+  onImportUltimateGuitar: () => void
 }
 
 export function SongCreateChooserSheet({
@@ -22,6 +23,7 @@ export function SongCreateChooserSheet({
   canImport,
   onNewSong,
   onImport,
+  onImportUltimateGuitar,
 }: SongCreateChooserSheetProps) {
   const { t } = useTranslation()
   const shouldReduceMotion = useReducedMotion()
@@ -124,6 +126,25 @@ export function SongCreateChooserSheet({
                       }}
                     >
                       {t('hub.createChooser.importFiles')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!online || !canImport}
+                      title={
+                        !online
+                          ? t('hub.createChooser.importOfflineHint')
+                          : !canImport
+                            ? t('hub.createOfflineHint')
+                            : undefined
+                      }
+                      onClick={() => {
+                        if (!online || !canImport) return
+                        onOpenChange(false)
+                        onImportUltimateGuitar()
+                      }}
+                    >
+                      {t('hub.createChooser.importUltimateGuitar')}
                     </Button>
                   </div>
                   <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

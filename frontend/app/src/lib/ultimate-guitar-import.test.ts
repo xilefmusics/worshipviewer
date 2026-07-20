@@ -4,6 +4,7 @@ import {
   importUltimateGuitarHtml,
   isLikelyUltimateGuitarHtml,
   isUltimateGuitarUrl,
+  parseUltimateGuitarHtml,
   shouldAttemptUgImport,
 } from '@/lib/ultimate-guitar-import'
 import type { ChordEngine, ChordSongData } from '@/ports/chord-engine'
@@ -92,7 +93,11 @@ describe('shouldAttemptUgImport', () => {
 
 describe('importUltimateGuitarHtml', () => {
   it('formats parsed data as WorshipPro source', () => {
-    const result = importUltimateGuitarHtml(mockEngine, '<html></html>', 'letters')
+    const result = importUltimateGuitarHtml(
+      mockEngine,
+      '<!DOCTYPE html><html><body><div class="js-store"></div></body></html>',
+      'letters',
+    )
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.source).toContain('Imported')
@@ -107,10 +112,41 @@ describe('importUltimateGuitarHtml', () => {
         throw new Error('div.js-store not found')
       },
     }
-    const result = importUltimateGuitarHtml(failingEngine, '<html></html>', 'letters')
+    const result = importUltimateGuitarHtml(
+      failingEngine,
+      '<!DOCTYPE html><html><body><div class="js-store"></div></body></html>',
+      'letters',
+    )
     expect(result.ok).toBe(false)
     if (!result.ok) {
       expect(result.error).toContain('div.js-store not found')
     }
+  })
+})
+
+describe('parseUltimateGuitarHtml', () => {
+  it('returns parsed song data without formatting it', () => {
+    const html = '<!DOCTYPE html><html><body><div class="js-store"></div></body></html>'
+    const result = parseUltimateGuitarHtml(mockEngine, html)
+    expect(result).toEqual({ ok: true, data: { titles: ['Imported'] } })
+  })
+
+  it('rejects source that is not Ultimate Guitar HTML', () => {
+    const result = parseUltimateGuitarHtml(mockEngine, '<html><body>Other site</body></html>')
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toContain('does not look like Ultimate Guitar')
+  })
+
+  it('returns parser errors for malformed Ultimate Guitar HTML', () => {
+    const failingEngine: ChordEngine = {
+      ...mockEngine,
+      parseUltimateGuitarHtml() {
+        throw new Error('invalid data-content')
+      },
+    }
+    const html = '<!DOCTYPE html><html><body><div class="js-store"></div></body></html>'
+    const result = parseUltimateGuitarHtml(failingEngine, html)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toContain('invalid data-content')
   })
 })

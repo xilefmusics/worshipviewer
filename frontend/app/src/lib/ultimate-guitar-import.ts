@@ -9,6 +9,10 @@ export type ImportUltimateGuitarResult =
   | { ok: true; data: ChordSongData; source: string }
   | { ok: false; error: string }
 
+export type ParseUltimateGuitarResult =
+  | { ok: true; data: ChordSongData }
+  | { ok: false; error: string }
+
 export function isUltimateGuitarUrl(text: string): boolean {
   return UG_URL_PATTERN.test(text.trim())
 }
@@ -38,17 +42,29 @@ export function shouldAttemptUgImport(source: string, parseOk: boolean): boolean
   return isLikelyUltimateGuitarHtml(source)
 }
 
+export function parseUltimateGuitarHtml(
+  engine: ChordEngine,
+  html: string,
+): ParseUltimateGuitarResult {
+  if (!isLikelyUltimateGuitarHtml(html)) {
+    return { ok: false, error: 'Source does not look like Ultimate Guitar page HTML.' }
+  }
+
+  try {
+    return { ok: true, data: engine.parseUltimateGuitarHtml(html) }
+  } catch (e) {
+    const message = e instanceof ChordEngineError ? e.message : String(e)
+    return { ok: false, error: message }
+  }
+}
+
 export function importUltimateGuitarHtml(
   engine: ChordEngine,
   html: string,
   chordFormat: ChordFormatPreference,
 ): ImportUltimateGuitarResult {
-  try {
-    const data = engine.parseUltimateGuitarHtml(html)
-    const source = formatSourceFromSongData(engine, data, chordFormat)
-    return { ok: true, data, source }
-  } catch (e) {
-    const message = e instanceof ChordEngineError ? e.message : String(e)
-    return { ok: false, error: message }
-  }
+  const parsed = parseUltimateGuitarHtml(engine, html)
+  if (!parsed.ok) return parsed
+  const source = formatSourceFromSongData(engine, parsed.data, chordFormat)
+  return { ok: true, data: parsed.data, source }
 }

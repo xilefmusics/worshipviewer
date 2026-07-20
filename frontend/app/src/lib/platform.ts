@@ -1,3 +1,30 @@
+export type KeyboardShortcutPlatform = 'mac' | 'windows-linux' | 'mobile'
+
+type NavigatorPlatformInfo = Pick<Navigator, 'maxTouchPoints' | 'platform' | 'userAgent'> & {
+  userAgentData?: {
+    mobile?: boolean
+    platform?: string
+  }
+}
+
+/** Detect the shortcut family to present, including iPadOS desktop-mode user agents. */
+export function detectKeyboardShortcutPlatform(
+  nav: NavigatorPlatformInfo | undefined = globalThis.navigator,
+): KeyboardShortcutPlatform {
+  if (!nav) return 'windows-linux'
+
+  const ua = nav.userAgent ?? ''
+  const platform = nav.userAgentData?.platform || nav.platform || ''
+  const mobile =
+    nav.userAgentData?.mobile === true ||
+    /(Android|iPad|iPhone|iPod|Mobile)/i.test(ua) ||
+    (platform === 'MacIntel' && nav.maxTouchPoints > 1)
+
+  if (mobile) return 'mobile'
+  if (/Mac/i.test(platform) || /Macintosh|Mac OS X/i.test(ua)) return 'mac'
+  return 'windows-linux'
+}
+
 /**
  * iPhone / iPod / iPad (incl. iPadOS 13+ “desktop” UA) / iOS WebKit (`standalone` exists).
  * Safari on macOS does not expose `navigator.standalone`.

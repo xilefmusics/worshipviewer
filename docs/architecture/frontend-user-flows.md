@@ -266,6 +266,9 @@ flowchart TD
     sheet --> importBtn{"Import files: online AND a writable team?"}
     importBtn -->|Yes| importDlg["→ Import songs dialog (D5)"]
     importBtn -->|No| impDisabled["Disabled (offline / no edit hint)"]
+    sheet --> ugBtn{"Import from Ultimate Guitar: online AND a writable team?"}
+    ugBtn -->|Yes| ugDlg["→ Ultimate Guitar import sheet (D7)"]
+    ugBtn -->|No| ugDisabled["Disabled (offline / no edit hint)"]
     sheet -->|Cancel / drag| songs
 ```
 
@@ -346,6 +349,28 @@ flowchart TD
     exists -->|Yes| info["Toast: already in that setlist (stays open)"]
     exists -->|No| add["PATCH append → toast “Added to ‘title’.” → close"]
     dlg -->|Cancel| row
+```
+
+### D7. Import a song from Ultimate Guitar page source
+
+```mermaid
+flowchart TD
+    dlg(["Ultimate Guitar import sheet"]) --> device{"Mobile device?"}
+    device -->|Yes| mobile["Explain that page-source import requires desktop"]
+    device -->|No| guide["Show detected macOS or Windows/Linux keycaps → open page source → select and copy all"]
+    guide --> paste["Paste complete source into textarea"]
+    paste --> process["Process: validate source → load chord engine → parse HTML"]
+    process -->|Invalid| err["Show accessible error; no API mutation"] --> dlg
+    process --> col{"Editable collection?"}
+    col -->|2+| pick["Choose collection (last-used default)"]
+    col -->|1| auto["Auto target"]
+    col -->|0| create["Create personal 'My Songs' collection"]
+    pick --> post["POST /api/v1/songs with parsed data"]
+    auto --> post
+    create --> post
+    post -->|Failure| apiErr["Show error and keep sheet open"] --> dlg
+    post -->|Success| editor(["→ /songs/:songId editor"])
+    dlg -->|Cancel / drag| songs(["/songs"])
 ```
 
 ---
