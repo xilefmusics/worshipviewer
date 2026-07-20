@@ -49,8 +49,20 @@ function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
     parseUltimateGuitarHtml() {
       return sample
     },
+    parseSongBeamer() {
+      return sample
+    },
+    parseProPresenter() {
+      return sample
+    },
     formatChordPro(song: ChordSongData) {
       return `{title: ${(song.titles as string[] | undefined)?.[0] ?? ''}}\n${JSON.stringify(song.sections)}`
+    },
+    formatSongBeamer() {
+      return new Uint8Array()
+    },
+    formatProPresenter() {
+      return new Uint8Array()
     },
     renderA4Html() {
       return { html: '<div/>', css: '' }

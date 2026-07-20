@@ -2,12 +2,12 @@ import { getChordEngine } from '@/lib/chord-engine'
 import type { ChordFormatPreference } from '@/lib/chord-format'
 import {
   exportSongPdf,
-  exportSongText,
-  type TextExportFormat,
+  exportSongFile,
+  type FileExportFormat,
 } from '@/lib/song-import-export'
 import type { ChordEngine, ChordSongData } from '@/ports/chord-engine'
 
-export type SongExportKind = TextExportFormat | 'pdf'
+export type SongExportKind = FileExportFormat | 'pdf'
 
 export async function runSongExport(
   data: ChordSongData,
@@ -21,5 +21,5 @@ export async function runSongExport(
     await exportSongPdf(resolved, data, chordFormat, hideChords)
     return
   }
-  exportSongText(resolved, data, kind, chordFormat, hideChords)
+  exportSongFile(resolved, data, kind, chordFormat, hideChords)
 }

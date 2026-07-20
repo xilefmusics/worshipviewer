@@ -52,6 +52,18 @@ describe('runSetlistExport', () => {
     )
   })
 
+  it('runs zip export for ProPresenter kind', async () => {
+    await runSetlistExport(queryClient, 'sl-1', 'propresenter', 'letters')
+    expect(runOrderedSongsZipExport).toHaveBeenCalledWith(
+      queryClient,
+      'Sunday',
+      expect.any(Array),
+      'propresenter',
+      'letters',
+      undefined,
+    )
+  })
+
   it('forwards setlist slot language to ordered export links', async () => {
     await runSetlistExport(queryClient, 'sl-1', 'chordpro', 'letters')
     expect(runOrderedSongsZipExport).toHaveBeenCalledWith(

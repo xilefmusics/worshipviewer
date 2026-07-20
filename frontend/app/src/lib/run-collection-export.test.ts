@@ -51,6 +51,18 @@ describe('runCollectionExport', () => {
     )
   })
 
+  it('runs zip export for SongBeamer kind', async () => {
+    await runCollectionExport(queryClient, 'coll-1', 'songbeamer', 'letters')
+    expect(runOrderedSongsZipExport).toHaveBeenCalledWith(
+      queryClient,
+      'Hymns',
+      expect.any(Array),
+      'songbeamer',
+      'letters',
+      undefined,
+    )
+  })
+
   it('forwards hide chords preference', async () => {
     await runCollectionExport(queryClient, 'coll-1', 'pdf', 'letters', true)
     expect(runOrderedSongsPdfExport).toHaveBeenCalledWith(

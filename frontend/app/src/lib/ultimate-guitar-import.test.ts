@@ -13,11 +13,23 @@ const mockEngine: ChordEngine = {
   parseChordPro() {
     return {}
   },
+  parseSongBeamer() {
+    return {}
+  },
+  parseProPresenter() {
+    return {}
+  },
   parseUltimateGuitarHtml() {
     return { titles: ['Imported'] }
   },
   formatChordPro(song: ChordSongData) {
     return `{title: ${(song.titles as string[])[0]}}\n\n[C]Line`
+  },
+  formatSongBeamer() {
+    return new Uint8Array()
+  },
+  formatProPresenter() {
+    return new Uint8Array()
   },
   renderA4Html() {
     return { html: '', css: '' }
