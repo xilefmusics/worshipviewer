@@ -6,6 +6,7 @@ import { fetchTeamsPage } from '@/api/teams-sessions-fetch'
 import { CreateSongDialog } from '@/components/songs/CreateSongDialog'
 import { ImportSongsDialog } from '@/components/songs/ImportSongsDialog'
 import { SongCreateChooserSheet } from '@/components/songs/SongCreateChooserSheet'
+import { UltimateGuitarImportSheet } from '@/components/songs/UltimateGuitarImportSheet'
 import { EntityListView } from '@/components/hub/EntityListView'
 import { emptyEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { useOnline } from '@/hooks/use-online'
@@ -29,11 +30,12 @@ function SongsRoute() {
   const [chooserOpen, setChooserOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [ultimateGuitarImportOpen, setUltimateGuitarImportOpen] = useState(false)
 
   const teamsQ = useInfiniteQuery({
     queryKey: [...teamsListRootKey, 'songCreateChooser', ''] as const,
     initialPageParam: 0,
-    enabled: chooserOpen || createOpen || importOpen,
+    enabled: chooserOpen || createOpen || importOpen || ultimateGuitarImportOpen,
     queryFn: async ({ pageParam, signal }) => {
       return fetchTeamsPage(queryClient, { page: pageParam as number, q: '', signal })
     },
@@ -70,6 +72,7 @@ function SongsRoute() {
         canImport={canImport}
         onNewSong={() => setCreateOpen(true)}
         onImport={() => setImportOpen(true)}
+        onImportUltimateGuitar={() => setUltimateGuitarImportOpen(true)}
       />
       <CreateSongDialog
         open={createOpen}
@@ -84,6 +87,19 @@ function SongsRoute() {
         }}
       />
       <ImportSongsDialog open={importOpen} onOpenChange={setImportOpen} online={online} />
+      <UltimateGuitarImportSheet
+        open={ultimateGuitarImportOpen}
+        onOpenChange={setUltimateGuitarImportOpen}
+        online={online}
+        onImported={(id) => {
+          setUltimateGuitarImportOpen(false)
+          void navigate({
+            to: '/songs/$songId',
+            params: { songId: id },
+            search: emptyEditorReturnSearch(),
+          })
+        }}
+      />
     </>
   )
 }

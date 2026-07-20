@@ -33,7 +33,7 @@ Global: `serviceWorkers: 'block'` — PWA install/update path **not** covered (*
 | A5 | Join invitation | `auth.spec.ts` | |
 | B1–B6 | Teams CRUD, invite, cover | `teams.spec.ts` | |
 | C1–C3 | Collections | `collections.spec.ts` | |
-| D1–D6 | Songs create/import | `songs.spec.ts` | D5 import execute |
+| D1–D7 | Songs create/import | `songs.spec.ts` | D5 file import; D7 Ultimate Guitar import |
 | E1–E6 | Setlists | `setlists.spec.ts` | E4 desktop-only; E5 key picker |
 | F1–F2 | Move / add songs | `move-songs.spec.ts` | F1 failure toast |
 | G1–G2 | Song editor | `editors.spec.ts` | Offline paused |
