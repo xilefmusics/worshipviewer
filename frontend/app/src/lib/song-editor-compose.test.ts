@@ -216,6 +216,12 @@ function mockEngine(): ChordEngine {
     parseUltimateGuitarHtml() {
       return sample
     },
+    parseSongBeamer() {
+      return sample
+    },
+    parseProPresenter() {
+      return sample
+    },
     formatChordPro(song: ChordSongData) {
       const sections = song.sections as
         | Array<{
@@ -237,6 +243,12 @@ function mockEngine(): ChordEngine {
         return '{title: _}\n{key: C}\n{section: _}\n[C]x'
       }
       return '{title: _}\n{section: _}\nx'
+    },
+    formatSongBeamer() {
+      return new Uint8Array()
+    },
+    formatProPresenter() {
+      return new Uint8Array()
     },
     renderA4Html() {
       return { html: '<div/>', css: '' }

@@ -11,18 +11,19 @@ import type { ChordEngine, ChordSongData } from '@/ports/chord-engine'
 
 export const MAX_IMPORT_FILE_BYTES = 2 * 1024 * 1024
 
-/** File picker `accept` for ChordPro / Worship Pro import. */
+/** File picker `accept` for every chordlib-backed song import format. */
 export const SONG_IMPORT_FILE_ACCEPT =
-  '.cp,.cho,.chopro,.chordpro,.wp,.wop,.worshippro,text/plain'
+  '.cp,.cho,.chopro,.chordpro,.wp,.wop,.worshippro,.sng,.pro,text/plain'
 
 /** DIN-A4 layout width/height in CSS px (matches chordlib render at scale 1). */
 const A4_WIDTH_PX = 794
 const A4_HEIGHT_PX = 1123
 
-export type TextExportFormat = 'chordpro' | 'worshippro'
+export type FileExportFormat = 'chordpro' | 'worshippro' | 'songbeamer' | 'propresenter'
+export type SongImportFormat = 'chordpro' | 'songbeamer' | 'propresenter'
 
-export type ReadTextFileResult =
-  | { ok: true; name: string; text: string }
+export type ReadSongFileResult =
+  | { ok: true; name: string; bytes: Uint8Array }
   | { ok: false; name: string; error: string }
 
 export type ParseImportResult =
@@ -69,9 +70,9 @@ export function songTitleFromData(data: ChordSongData, language?: number): strin
   return songTitleForLanguage(data as Record<string, unknown>, tag)
 }
 
-export async function readTextFiles(files: FileList | File[]): Promise<ReadTextFileResult[]> {
+export async function readSongFiles(files: FileList | File[]): Promise<ReadSongFileResult[]> {
   const list = Array.from(files)
-  const out: ReadTextFileResult[] = []
+  const out: ReadSongFileResult[] = []
   for (const file of list) {
     const name = file.name || 'file'
     if (file.size > MAX_IMPORT_FILE_BYTES) {
@@ -79,8 +80,8 @@ export async function readTextFiles(files: FileList | File[]): Promise<ReadTextF
       continue
     }
     try {
-      const text = await file.text()
-      out.push({ ok: true, name, text })
+      const bytes = new Uint8Array(await file.arrayBuffer())
+      out.push({ ok: true, name, bytes })
     } catch {
       out.push({ ok: false, name, error: 'Could not read file.' })
     }
@@ -88,9 +89,26 @@ export async function readTextFiles(files: FileList | File[]): Promise<ReadTextF
   return out
 }
 
-export function parseImportSource(engine: ChordEngine, text: string): ParseImportResult {
+export function importFormatFromFilename(filename: string): SongImportFormat {
+  const extension = filename.trim().toLowerCase().match(/\.([^.]+)$/)?.[1]
+  if (extension === 'sng') return 'songbeamer'
+  if (extension === 'pro') return 'propresenter'
+  return 'chordpro'
+}
+
+export function parseImportSource(
+  engine: ChordEngine,
+  filename: string,
+  bytes: Uint8Array,
+): ParseImportResult {
   try {
-    const data = engine.parseChordPro(text)
+    const format = importFormatFromFilename(filename)
+    const data =
+      format === 'songbeamer'
+        ? engine.parseSongBeamer(bytes)
+        : format === 'propresenter'
+          ? engine.parseProPresenter(bytes)
+          : engine.parseChordPro(new TextDecoder().decode(bytes))
     return { ok: true, data }
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
@@ -113,29 +131,74 @@ export function createSongBodyFromParsed(
 export function formatSongForExport(
   engine: ChordEngine,
   data: ChordSongData,
-  format: TextExportFormat,
+  format: FileExportFormat,
   chordFormat: ChordFormatPreference,
   keyOverride?: string,
   language?: number,
   hideChords: boolean = readHideChordsPreference(),
-): string {
-  const worshipPro = format === 'worshippro'
+): string | Uint8Array {
   const key =
     keyOverride ?? resolveSongDataKey(data as Record<string, unknown>) ?? undefined
-  const text = engine.formatChordPro(data, {
-    worshipPro,
-    key,
-    language,
-    representation: chordFormatToRepresentation(chordFormat),
-  })
-  return hideChords ? stripChordsFromChordpro(text) : text
+  const representation = chordFormatToRepresentation(chordFormat)
+  if (format === 'chordpro' || format === 'worshippro') {
+    const text = engine.formatChordPro(data, {
+      worshipPro: format === 'worshippro',
+      key,
+      language,
+      representation,
+    })
+    return hideChords ? stripChordsFromChordpro(text) : text
+  }
+
+  const exportData = hideChords ? songDataWithoutChords(data) : data
+  if (format === 'songbeamer') {
+    return engine.formatSongBeamer(exportData, { key, representation })
+  }
+  return engine.formatProPresenter(exportData, { key, representation, language })
+}
+
+export function songDataWithoutChords(data: ChordSongData): ChordSongData {
+  const copy = JSON.parse(JSON.stringify(data)) as Record<string, unknown>
+  const sections = Array.isArray(copy.sections) ? copy.sections : []
+  for (const section of sections) {
+    if (!section || typeof section !== 'object') continue
+    const lines = Array.isArray((section as Record<string, unknown>).lines)
+      ? ((section as Record<string, unknown>).lines as unknown[])
+      : []
+    for (const line of lines) {
+      if (!line || typeof line !== 'object') continue
+      const parts = Array.isArray((line as Record<string, unknown>).parts)
+        ? ((line as Record<string, unknown>).parts as unknown[])
+        : []
+      for (const part of parts) {
+        if (part && typeof part === 'object' && 'chord' in part) {
+          const structuredPart = part as Record<string, unknown>
+          structuredPart.chord = null
+        }
+      }
+    }
+  }
+  return copy
+}
+
+export function exportFileExtension(format: FileExportFormat): string {
+  switch (format) {
+    case 'chordpro':
+      return 'cp'
+    case 'worshippro':
+      return 'wp'
+    case 'songbeamer':
+      return 'sng'
+    case 'propresenter':
+      return 'pro'
+  }
 }
 
 export function orderedSongZipEntryNames(
   songs: { data: ChordSongData; language?: number }[],
-  format: TextExportFormat,
+  format: FileExportFormat,
 ): string[] {
-  const ext = format === 'worshippro' ? 'wp' : 'cp'
+  const ext = exportFileExtension(format)
   return songs.map((song, index) => {
     const base = sanitizeDownloadBasename(songTitleFromData(song.data, song.language))
     const num = String(index + 1).padStart(2, '0')
@@ -168,18 +231,25 @@ export function downloadTextFile(filename: string, content: string, mime = 'text
   URL.revokeObjectURL(url)
 }
 
-export function exportSongText(
+export function exportSongFile(
   engine: ChordEngine,
   data: ChordSongData,
-  format: TextExportFormat,
+  format: FileExportFormat,
   chordFormat: ChordFormatPreference,
   hideChords: boolean = readHideChordsPreference(),
 ): void {
-  const worshipPro = format === 'worshippro'
-  const ext = worshipPro ? 'wp' : 'cp'
+  const ext = exportFileExtension(format)
   const basename = sanitizeDownloadBasename(songTitleFromData(data))
-  const text = formatSongForExport(engine, data, format, chordFormat, undefined, undefined, hideChords)
-  downloadTextFile(`${basename}.${ext}`, text)
+  const content = formatSongForExport(engine, data, format, chordFormat, undefined, undefined, hideChords)
+  if (typeof content === 'string') {
+    downloadTextFile(`${basename}.${ext}`, content)
+  } else {
+    const bytes = Uint8Array.from(content)
+    downloadBlobFile(
+      `${basename}.${ext}`,
+      new Blob([bytes.buffer], { type: 'application/octet-stream' }),
+    )
+  }
 }
 
 const PDF_PAGE_BASE_CSS = `
@@ -396,7 +466,7 @@ export async function exportOrderedSongsZip(
   engine: ChordEngine,
   listTitle: string,
   songs: HubExportSong[],
-  format: TextExportFormat,
+  format: FileExportFormat,
   chordFormat: ChordFormatPreference,
   hideChords: boolean = readHideChordsPreference(),
 ): Promise<void> {
@@ -406,7 +476,7 @@ export async function exportOrderedSongsZip(
   const zip = new JSZip()
   const entryNames = orderedSongZipEntryNames(songs, format)
   songs.forEach((song, index) => {
-    const text = formatSongForExport(
+    const content = formatSongForExport(
       engine,
       song.data,
       format,
@@ -415,7 +485,7 @@ export async function exportOrderedSongsZip(
       song.language,
       hideChords,
     )
-    zip.file(entryNames[index]!, text)
+    zip.file(entryNames[index]!, content)
   })
   const blob = await zip.generateAsync({ type: 'blob' })
   const zipBasename = sanitizeDownloadBasename(listTitle)
@@ -477,13 +547,13 @@ export async function importSongsBatch(args: {
   const created: BatchImportCreated[] = []
   const failed: BatchImportFailed[] = []
 
-  const reads = await readTextFiles(args.files)
+  const reads = await readSongFiles(args.files)
   for (const item of reads) {
     if (!item.ok) {
       failed.push({ name: item.name, error: item.error })
       continue
     }
-    const parsed = parseImportSource(args.engine, item.text)
+    const parsed = parseImportSource(args.engine, item.name, item.bytes)
     if (!parsed.ok) {
       failed.push({ name: item.name, error: parsed.error })
       continue

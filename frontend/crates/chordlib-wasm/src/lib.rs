@@ -1,8 +1,10 @@
-//! WASM bindings for [`chordlib`] — parse ChordPro/WorshipPro, format source, render A4 HTML.
+//! WASM bindings for [`chordlib`] song-format parsing, formatting, and A4 HTML rendering.
 
 use chordlib::inputs::chord_pro;
+use chordlib::inputs::propresenter;
+use chordlib::inputs::songbeamer;
 use chordlib::inputs::ultimate_guitar;
-use chordlib::outputs::{FormatChordPro, FormatHTML};
+use chordlib::outputs::{FormatChordPro, FormatHTML, FormatProPresenter, FormatSongBeamer};
 use chordlib::types::{ChordRepresentation, SimpleChord, Song, SongFlowItem};
 use wasm_bindgen::prelude::*;
 
@@ -39,6 +41,20 @@ pub fn parse_chord_pro(source: &str) -> Result<String, String> {
     serde_json::to_string(&song).map_err(|e| e.to_string())
 }
 
+/// Parse a SongBeamer `.sng` document, preserving its original byte encoding rules.
+#[wasm_bindgen(js_name = parseSongBeamer)]
+pub fn parse_songbeamer(bytes: &[u8]) -> Result<String, String> {
+    let song = songbeamer::load_bytes(bytes).map_err(|e| e.to_string())?;
+    serde_json::to_string(&song).map_err(|e| e.to_string())
+}
+
+/// Parse a modern protobuf-based ProPresenter `.pro` presentation.
+#[wasm_bindgen(js_name = parseProPresenter)]
+pub fn parse_propresenter(bytes: &[u8]) -> Result<String, String> {
+    let song = propresenter::load_bytes(bytes).map_err(|e| e.to_string())?;
+    serde_json::to_string(&song).map_err(|e| e.to_string())
+}
+
 /// Parse Ultimate Guitar saved page HTML into song JSON.
 #[wasm_bindgen(js_name = parseUltimateGuitarHtml)]
 pub fn parse_ultimate_guitar_html(html: &str) -> Result<String, String> {
@@ -60,6 +76,41 @@ pub fn format_chord_pro(
     let rep_ref = parse_representation(representation)?;
     let lang = language.map(|l| l as usize);
     Ok((&song).format_chord_pro(key_ref.as_ref(), rep_ref.as_ref(), lang, worship_pro))
+}
+
+/// Format structured song JSON as deterministic SongBeamer `.sng` bytes.
+#[wasm_bindgen(js_name = formatSongBeamer)]
+pub fn format_songbeamer(
+    song_json: &str,
+    key: Option<String>,
+    representation: Option<String>,
+) -> Result<Vec<u8>, String> {
+    let song = parse_song_json(song_json)?;
+    let key_ref = parse_key(key)?;
+    let rep_ref = parse_representation(representation)?;
+    (&song)
+        .format_songbeamer(key_ref.as_ref(), rep_ref.as_ref())
+        .map_err(|e| e.to_string())
+}
+
+/// Format structured song JSON as modern protobuf-based ProPresenter `.pro` bytes.
+#[wasm_bindgen(js_name = formatProPresenter)]
+pub fn format_propresenter(
+    song_json: &str,
+    key: Option<String>,
+    representation: Option<String>,
+    language: Option<u32>,
+) -> Result<Vec<u8>, String> {
+    let song = parse_song_json(song_json)?;
+    let key_ref = parse_key(key)?;
+    let rep_ref = parse_representation(representation)?;
+    (&song)
+        .format_propresenter(
+            key_ref.as_ref(),
+            rep_ref.as_ref(),
+            language.map(|value| value as usize),
+        )
+        .map_err(|e| e.to_string())
 }
 
 /// DIN-A4 HTML preview (body fragment + CSS) for a structured song.
@@ -189,6 +240,32 @@ mod tests {
         let out = format_chord_pro(&json, false, None, None, None).expect("format");
         assert!(out.contains("title"));
         assert!(out.contains("[C]"));
+    }
+
+    #[test]
+    fn songbeamer_bytes_round_trip() {
+        let source = "{title: Test}\n{key: C}\n{section: Verse}\n[C]Hello";
+        let json = parse_chord_pro(source).expect("parse");
+        let bytes = format_songbeamer(&json, None, None).expect("format SongBeamer");
+        assert!(bytes.starts_with(&[0xef, 0xbb, 0xbf]));
+
+        let parsed = parse_songbeamer(&bytes).expect("parse SongBeamer");
+        let song: Song = serde_json::from_str(&parsed).expect("json");
+        assert_eq!(song.title(), "Test");
+        assert_eq!(song.sections.len(), 1);
+    }
+
+    #[test]
+    fn propresenter_bytes_round_trip() {
+        let source = "{title: Test}\n{key: C}\n{section: Verse}\n[C]Hello";
+        let json = parse_chord_pro(source).expect("parse");
+        let bytes = format_propresenter(&json, None, None, None).expect("format ProPresenter");
+        assert!(!bytes.is_empty());
+
+        let parsed = parse_propresenter(&bytes).expect("parse ProPresenter");
+        let song: Song = serde_json::from_str(&parsed).expect("json");
+        assert_eq!(song.title(), "Test");
+        assert_eq!(song.sections.len(), 1);
     }
 
     #[test]

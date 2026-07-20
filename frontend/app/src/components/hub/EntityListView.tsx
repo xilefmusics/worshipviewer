@@ -852,6 +852,18 @@ function HubItemContextMenu({
               </ContextMenuItem>
               <ContextMenuItem
                 className="gap-2"
+                onSelect={() => void onSongExport('songbeamer')}
+              >
+                {t('hub.actions.export')} — {t('hub.actions.exportSongBeamer')}
+              </ContextMenuItem>
+              <ContextMenuItem
+                className="gap-2"
+                onSelect={() => void onSongExport('propresenter')}
+              >
+                {t('hub.actions.export')} — {t('hub.actions.exportProPresenter')}
+              </ContextMenuItem>
+              <ContextMenuItem
+                className="gap-2"
                 title={hubExportPdfHint}
                 onSelect={() => void onSongExport('pdf')}
               >
@@ -873,6 +885,18 @@ function HubItemContextMenu({
                 onSelect={() => void onOrderedExport('worshippro')}
               >
                 {t('hub.actions.export')} — {t('hub.actions.exportWorshipPro')}
+              </ContextMenuItem>
+              <ContextMenuItem
+                className="gap-2"
+                onSelect={() => void onOrderedExport('songbeamer')}
+              >
+                {t('hub.actions.export')} — {t('hub.actions.exportSongBeamer')}
+              </ContextMenuItem>
+              <ContextMenuItem
+                className="gap-2"
+                onSelect={() => void onOrderedExport('propresenter')}
+              >
+                {t('hub.actions.export')} — {t('hub.actions.exportProPresenter')}
               </ContextMenuItem>
               <ContextMenuItem
                 className="gap-2"

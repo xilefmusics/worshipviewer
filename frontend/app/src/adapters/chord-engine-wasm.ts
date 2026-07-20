@@ -3,6 +3,7 @@ import {
   type ChordEngine,
   type ChordSongData,
   type FormatChordProOptions,
+  type FormatPresentationOptions,
   type RenderA4HtmlOptions,
   type SongFlowItem,
 } from '@/ports/chord-engine'
@@ -46,6 +47,14 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
       return wrapWasmError(() => parseSongJson(wasm.parseChordPro(source)))
     },
 
+    parseSongBeamer(bytes: Uint8Array) {
+      return wrapWasmError(() => parseSongJson(wasm.parseSongBeamer(bytes)))
+    },
+
+    parseProPresenter(bytes: Uint8Array) {
+      return wrapWasmError(() => parseSongJson(wasm.parseProPresenter(bytes)))
+    },
+
     parseUltimateGuitarHtml(html: string) {
       return wrapWasmError(() => parseSongJson(wasm.parseUltimateGuitarHtml(html)))
     },
@@ -56,6 +65,25 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
         wasm.formatChordPro(
           json,
           options?.worshipPro ?? false,
+          options?.key,
+          options?.representation,
+          options?.language,
+        ),
+      )
+    },
+
+    formatSongBeamer(song: ChordSongData, options?: FormatPresentationOptions) {
+      const json = JSON.stringify(song)
+      return wrapWasmError(() =>
+        wasm.formatSongBeamer(json, options?.key, options?.representation),
+      )
+    },
+
+    formatProPresenter(song: ChordSongData, options?: FormatPresentationOptions) {
+      const json = JSON.stringify(song)
+      return wrapWasmError(() =>
+        wasm.formatProPresenter(
+          json,
           options?.key,
           options?.representation,
           options?.language,

@@ -10,6 +10,13 @@ export type FormatChordProOptions = {
   worshipPro?: boolean
 }
 
+export type FormatPresentationOptions = {
+  key?: string
+  representation?: ChordRepresentation
+  /** Zero-based language index; used by ProPresenter export. */
+  language?: number
+}
+
 export type RenderA4HtmlOptions = {
   key?: string
   representation?: ChordRepresentation
@@ -34,8 +41,12 @@ export type SongFlowItem = {
  */
 export interface ChordEngine {
   parseChordPro(source: string): ChordSongData
+  parseSongBeamer(bytes: Uint8Array): ChordSongData
+  parseProPresenter(bytes: Uint8Array): ChordSongData
   parseUltimateGuitarHtml(html: string): ChordSongData
   formatChordPro(song: ChordSongData, options?: FormatChordProOptions): string
+  formatSongBeamer(song: ChordSongData, options?: FormatPresentationOptions): Uint8Array
+  formatProPresenter(song: ChordSongData, options?: FormatPresentationOptions): Uint8Array
   renderA4Html(song: ChordSongData, options?: RenderA4HtmlOptions): { html: string; css: string }
   renderA4SectionHtmls(
     song: ChordSongData,

@@ -8,7 +8,7 @@ import {
   exportOrderedSongsZip,
   exportSetlistPdf,
   type HubExportSong,
-  type TextExportFormat,
+  type FileExportFormat,
 } from '@/lib/song-import-export'
 import {
   coerceMusicalKeyString,
@@ -62,7 +62,7 @@ export async function runOrderedSongsZipExport(
   queryClient: QueryClient,
   title: string,
   links: HubExportSongLink[],
-  format: TextExportFormat,
+  format: FileExportFormat,
   chordFormat: ChordFormatPreference,
   hideChords?: boolean,
 ): Promise<void> {

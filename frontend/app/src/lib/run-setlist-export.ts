@@ -6,10 +6,10 @@ import {
   runOrderedSongsPdfExport,
   runOrderedSongsZipExport,
 } from '@/lib/hydrate-hub-song-links'
-import type { TextExportFormat } from '@/lib/song-import-export'
+import type { FileExportFormat } from '@/lib/song-import-export'
 import { normalizeSongLinksForEditor } from '@/lib/setlist-song-links'
 
-export type SetlistExportKind = TextExportFormat | 'pdf'
+export type SetlistExportKind = FileExportFormat | 'pdf'
 
 export async function runSetlistExport(
   queryClient: QueryClient,

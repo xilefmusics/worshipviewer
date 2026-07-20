@@ -27,7 +27,7 @@ import { runSongExport, type SongExportKind } from '@/lib/run-song-export'
 import {
   formatImportedSource,
   parseImportSource,
-  readTextFiles,
+  readSongFiles,
   SONG_IMPORT_FILE_ACCEPT,
 } from '@/lib/song-import-export'
 import type { ChordEngine, ChordSongData } from '@/ports/chord-engine'
@@ -72,13 +72,13 @@ export function SongEditorActionsMenu({
     async (file: File) => {
       if (!engine) return
       onImportError?.(null)
-      const reads = await readTextFiles([file])
+      const reads = await readSongFiles([file])
       const first = reads[0]
       if (!first || !first.ok) {
         onImportError?.(first && !first.ok ? first.error : t('songs.editor.importFailed'))
         return
       }
-      const parsed = parseImportSource(engine, first.text)
+      const parsed = parseImportSource(engine, first.name, first.bytes)
       if (!parsed.ok) {
         onImportError?.(parsed.error)
         return
@@ -167,6 +167,12 @@ export function SongEditorActionsMenu({
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void onExport('worshippro')}>
             {t('songs.editor.exportWorshipPro')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void onExport('songbeamer')}>
+            {t('songs.editor.exportSongBeamer')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void onExport('propresenter')}>
+            {t('songs.editor.exportProPresenter')}
           </DropdownMenuItem>
           <DropdownMenuItem
             title={exportPdfHintTitle(
