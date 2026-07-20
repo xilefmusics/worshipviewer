@@ -576,22 +576,22 @@ export function PlayerAv({
 
       if (action === 'prev') {
         e.preventDefault()
-        if (!navBlocked) goPrev()
+        if (!evicted) goPrev()
         return
       }
       if (action === 'next') {
         e.preventDefault()
-        if (!navBlocked) goNext()
+        if (!evicted) goNext()
         return
       }
       if (action === 'home') {
         e.preventDefault()
-        if (!navBlocked) goToSlide(0)
+        if (!evicted) goToSlide(0)
         return
       }
       if (action === 'end') {
         e.preventDefault()
-        if (!navBlocked) goToSlide(slideCount - 1)
+        if (!evicted) goToSlide(slideCount - 1)
         return
       }
       if (action === 'escape') {
@@ -637,6 +637,7 @@ export function PlayerAv({
     goPrevItem,
     goToSlide,
     jumpToSection,
+    evicted,
     navBlocked,
     navigate,
     openOutputWindow,

@@ -1,5 +1,4 @@
-import { motion, useReducedMotion } from 'motion/react'
-import { useCallback, useEffect, useMemo, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { PlayerBook } from '@/components/player/PlayerBook'
@@ -31,33 +30,24 @@ function projectionToWire(payload: AvProjectionPayload): PlayerRoomProjection {
   }
 }
 
-function SlideModeShell({
-  projection,
-  roomSidebar,
-}: {
-  projection: PlayerRoomProjection
-  roomSidebar: ReactNode
-}) {
-  const reduceMotion = useReducedMotion()
-
+function SlideModeShell({ projection }: { projection: PlayerRoomProjection | null }) {
   return (
-    <div className="relative h-dvh w-dvw overflow-hidden bg-black">
-      <AvSlideView
-        contentText={projection.content_text}
-        contentLines={projection.content_lines as never}
-        contentLayer={projection.content_layer as never}
-        backgroundLayer={projection.background_layer as never}
-        transition={projection.transition as never}
-        screenState={projection.screen_state}
-      />
-      <motion.div
-        className="absolute inset-y-0 right-0 z-[60] flex overflow-hidden"
-        initial={reduceMotion ? false : { x: '100%' }}
-        animate={{ x: 0 }}
-        transition={{ type: 'spring', stiffness: 420, damping: 36 }}
-      >
-        {roomSidebar}
-      </motion.div>
+    <div
+      className="h-dvh w-dvw overflow-hidden bg-black"
+      onDoubleClick={() => {
+        void document.documentElement.requestFullscreen?.()
+      }}
+    >
+      {projection ? (
+        <AvSlideView
+          contentText={projection.content_text}
+          contentLines={projection.content_lines as never}
+          contentLayer={projection.content_layer as never}
+          backgroundLayer={projection.background_layer as never}
+          transition={projection.transition as never}
+          screenState={projection.screen_state}
+        />
+      ) : null}
     </div>
   )
 }
@@ -97,6 +87,10 @@ export function PlayerRoomLivePage({ credentials }: { credentials: PlayerRoomCre
     )
   }
 
+  if (credentials.mode === 'slide') {
+    return <SlideModeShell projection={snapshot.projection} />
+  }
+
   const roomSidebar = (
     <PlayerRoomSidebar
       name={playerRoomShortName(snapshot)}
@@ -118,18 +112,6 @@ export function PlayerRoomLivePage({ credentials }: { credentials: PlayerRoomCre
   )
 
   const roomPanelProps = { roomSidebar }
-
-  if (credentials.mode === 'slide') {
-    const projection = snapshot.projection
-    if (!projection) {
-      return (
-        <main className="flex min-h-dvh items-center justify-center p-6">{t('common.load')}</main>
-      )
-    }
-    return (
-      <SlideModeShell projection={projection} roomSidebar={roomSidebar} />
-    )
-  }
 
   const shared = {
     type: snapshot.source_type,

@@ -514,4 +514,51 @@ describe('PlayerAv', () => {
     const nextPayload = broadcast.mock.calls.at(-1)?.[0] as { contentText?: string }
     expect(nextPayload.contentText).toBe('Second song line')
   })
+
+  it('lets an AV-only room host navigate slides without changing musical state', async () => {
+    const user = userEvent.setup()
+    const onRoomProjectionChange = vi.fn()
+    const onRoomMusicalStateChange = vi.fn()
+
+    render(
+      <PlayerAv
+        type="setlist"
+        id="setlist-1"
+        player={twoItemPlayer}
+        allowNetworkFetch={false}
+        roomMusicalState={{ item_index: 0, language: 'de', transposition: null }}
+        canControlRoomProjection
+        canControlRoomMusicalState={false}
+        onRoomProjectionChange={onRoomProjectionChange}
+        onRoomMusicalStateChange={onRoomMusicalStateChange}
+      />,
+    )
+
+    await user.keyboard('{ArrowRight}')
+    await waitFor(() => {
+      expect(onRoomProjectionChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ contentText: 'Tschuess' }),
+      )
+    })
+
+    await user.keyboard('{Home}')
+    await waitFor(() => {
+      expect(onRoomProjectionChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ contentText: 'Hallo' }),
+      )
+    })
+
+    await user.keyboard('{End}')
+    await waitFor(() => {
+      expect(onRoomProjectionChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ contentText: 'Tschuess' }),
+      )
+    })
+
+    await user.keyboard('{PageUp}{PageDown}n')
+
+    expect(screen.getByText('Anker')).toBeInTheDocument()
+    expect(screen.queryByText('Second Song')).not.toBeInTheDocument()
+    expect(onRoomMusicalStateChange).not.toHaveBeenCalled()
+  })
 })
