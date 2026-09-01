@@ -25,6 +25,10 @@ vi.mock('@/components/player-room/PlayerRoomSidebar', () => ({
   PlayerRoomSidebar: () => <aside data-testid="room-sidebar" />,
 }))
 
+vi.mock('@/components/player-room/PlayerRoomQueuePanel', () => ({
+  PlayerRoomQueuePanel: () => <aside data-testid="room-queue" />,
+}))
+
 vi.mock('@/components/player/PlayerBook', () => ({
   PlayerBook: () => <div data-testid="player-book" />,
 }))
@@ -73,6 +77,7 @@ function snapshotWithProjection(
     av_occupied: true,
     created_at: new Date().toISOString(),
     content: { items: [{ type: 'blob', blob_id: 'blob-1' }], toc: [] },
+    queue: [],
     musical_state: { item_index: 0, language: null, transposition: null },
     projection: nextProjection,
     participants: [
@@ -113,11 +118,12 @@ describe('PlayerRoomLivePage slide mode', () => {
   it('renders a clean black canvas before the first projection event', () => {
     mockRoom(snapshotWithProjection(null))
 
-    const { container } = render(<PlayerRoomLivePage credentials={credentials} />)
+    render(<PlayerRoomLivePage credentials={credentials} />)
 
-    expect(container.firstElementChild).toHaveClass('bg-black', 'h-dvh', 'w-dvw')
+    expect(screen.getByTestId('player-room-slide-canvas')).toHaveClass('bg-black', 'h-full', 'w-full')
     expect(screen.queryByText('common.load')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('room-sidebar')).not.toBeInTheDocument()
+    expect(screen.getByTestId('room-sidebar')).toBeInTheDocument()
+    expect(screen.getByTestId('room-queue')).toBeInTheDocument()
     expect(screen.queryByTestId('slide-view')).not.toBeInTheDocument()
   })
 
@@ -127,7 +133,8 @@ describe('PlayerRoomLivePage slide mode', () => {
     render(<PlayerRoomLivePage credentials={credentials} />)
 
     expect(screen.getByTestId('slide-view')).toBeInTheDocument()
-    expect(screen.queryByTestId('room-sidebar')).not.toBeInTheDocument()
+    expect(screen.getByTestId('room-sidebar')).toBeInTheDocument()
+    expect(screen.getByTestId('room-queue')).toBeInTheDocument()
     expect(slideViewProps).toMatchObject({
       contentText: 'Projected lyric',
       screenState: 'live',
@@ -141,9 +148,9 @@ describe('PlayerRoomLivePage slide mode', () => {
       configurable: true,
       value: requestFullscreen,
     })
-    const { container } = render(<PlayerRoomLivePage credentials={credentials} />)
+    render(<PlayerRoomLivePage credentials={credentials} />)
 
-    fireEvent.doubleClick(container.firstElementChild as Element)
+    fireEvent.doubleClick(screen.getByTestId('player-room-slide-canvas'))
 
     expect(requestFullscreen).toHaveBeenCalledOnce()
   })

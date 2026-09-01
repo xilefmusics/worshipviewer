@@ -1225,6 +1225,8 @@
     "copyInvite": "Einladung kopieren",
     "inviteCopied": "Einladungslink kopiert",
     "togglePanel": "Player-Raum",
+    "panels": "Player-Raum-Bereiche",
+    "panel": { "queue": "Warteschlange", "player": "Aktueller Song", "details": "Teilnehmende und Einstellungen" },
     "host": "Gastgeber",
     "avHost": "AV-Gastgeber",
     "connected": "Verbunden",
@@ -1261,6 +1263,23 @@
       "text": "Nur Liedtext — Akkordsymbole werden ausgeblendet.",
       "av": "Steuere oder verfolge die Live-Präsentation.",
       "slide": "Sieh nur die projizierten Folien, ohne Steuerung."
+    },
+    "queue": {
+      "title": "Nächste Songs",
+      "description": "Hier hinzugefügte Songs werden mit allen im Raum geteilt.",
+      "searchPlaceholder": "Eigene Songs suchen …",
+      "searchAria": "Songs zum Hinzufügen suchen",
+      "empty": "Keine Songs in der Warteschlange.",
+      "add": "Hinzufügen",
+      "queued": "In der Warteschlange",
+      "added": "Song zur Warteschlange hinzugefügt.",
+      "addedBy": "Hinzugefügt von {{name}}",
+      "playNext": "Als Nächstes",
+      "promoted": "Song in den aktuellen Player verschoben.",
+      "remove": "Entfernen",
+      "removed": "Song aus der Warteschlange entfernt.",
+      "updated": "Warteschlange aktualisiert.",
+      "failed": "Warteschlange konnte nicht aktualisiert werden."
     }
   },
   "media": {

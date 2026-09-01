@@ -257,6 +257,7 @@ type PlayerBookProps = {
   initialIndex?: number
   mode?: PlayerMode
   allowNetworkFetch: boolean
+  embedded?: boolean
   resourceTitle?: string
   deletedReconciled?: boolean
   roomMusicalState?: { item_index: number; language: string | null; transposition: string | null }
@@ -274,6 +275,7 @@ export function PlayerBook({
   initialIndex,
   mode = 'normal',
   allowNetworkFetch,
+  embedded = false,
   resourceTitle,
   deletedReconciled,
   roomMusicalState,
@@ -402,7 +404,7 @@ export function PlayerBook({
     [player.toc, likedBySongId],
   )
   const tocRow = tocEntryForIndex(displayToc, nav.index)
-  const showToc = displayToc.length > 0
+  const showToc = !embedded && displayToc.length > 0
   const showChordsControls = hasChordsItems(player.items)
   const evicted = useSetlistEvictionWatch(type === 'setlist' ? id : undefined, type === 'setlist')
   const navBlocked = evicted || Boolean(roomMusicalState && !canControlRoomMusicalState)

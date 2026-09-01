@@ -1,18 +1,20 @@
 use std::time::Duration as StdDuration;
 
 use actix_web::{
-    HttpRequest, HttpResponse, Scope, delete, get, post,
+    HttpRequest, HttpResponse, Scope, delete, get, post, put,
     web::{self, Data, Json, Path, Query, ReqData},
 };
 use futures_util::StreamExt;
 use shared::{
     api::{ListQuery, PAGE_SIZE_DEFAULT},
+    player::PlayerItem,
     player_room::*,
 };
 use tokio::sync::broadcast;
 
 use crate::{
     auth::{AuthorizationContext, context::AuthorizedTeamRole, middleware::RequireUser},
+    docs::Problem,
     error::AppError,
     resources::{blob::service::BlobServiceHandle, team::parse_owner_record_id},
 };
@@ -33,6 +35,10 @@ pub fn scope() -> Scope {
                 .service(create_room)
                 .service(get_room)
                 .service(join_room)
+                .service(add_queue_item)
+                .service(promote_queue_item)
+                .service(remove_queue_item)
+                .service(reorder_queue)
                 .service(close_room),
         )
 }
@@ -161,6 +167,135 @@ pub async fn join_room(
         )
         .await?,
     ))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/player-rooms/{id}/queue",
+    params(("id" = String, Path)),
+    request_body = AddPlayerRoomQueueItem,
+    responses((status = 204), (status = 400, body = Problem, content_type = "application/problem+json"), (status = 401, body = Problem, content_type = "application/problem+json"), (status = 404, body = Problem, content_type = "application/problem+json"), (status = 409, body = Problem, content_type = "application/problem+json")),
+    tag = "Player Rooms",
+    security(("SessionCookie" = []), ("SessionToken" = []))
+)]
+#[post("/{id}/queue")]
+pub async fn add_queue_item(
+    room_svc: Data<PlayerRoomService>,
+    song_svc: Data<crate::resources::song::service::SongServiceHandle>,
+    ctx: ReqData<AuthorizationContext>,
+    id: Path<String>,
+    body: Json<AddPlayerRoomQueueItem>,
+) -> Result<HttpResponse, AppError> {
+    let request = body.into_inner();
+    let player = song_svc
+        .song_player_for_user(&ctx, &request.song_id)
+        .await?;
+    let content = PlayerRoomContent::from(&player);
+    let Some(PlayerItem::Chords(song)) = content.items.into_iter().next() else {
+        return Err(AppError::invalid_request(
+            "only songs can be added to a player room queue",
+        ));
+    };
+    if song.song.not_a_song {
+        return Err(AppError::invalid_request(
+            "only songs can be added to a player room queue",
+        ));
+    }
+    let song_id = song.song.id.clone();
+    let title = song.song.data.title().to_string();
+    room_svc
+        .add_queue_item(
+            &id,
+            &ctx.user.id,
+            &team_ids(&ctx),
+            PlayerRoomQueueItem {
+                id: uuid::Uuid::new_v4().to_string(),
+                song_id,
+                title,
+                song,
+                added_by: ctx.user.email.clone(),
+            },
+            request.revision,
+        )
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/player-rooms/{id}/queue/{queue_id}/promote",
+    params(("id" = String, Path), ("queue_id" = String, Path)),
+    request_body = PlayerRoomQueueRevision,
+    responses((status = 204), (status = 403, body = Problem, content_type = "application/problem+json"), (status = 404, body = Problem, content_type = "application/problem+json"), (status = 409, body = Problem, content_type = "application/problem+json")),
+    tag = "Player Rooms",
+    security(("SessionCookie" = []), ("SessionToken" = []))
+)]
+#[post("/{id}/queue/{queue_id}/promote")]
+pub async fn promote_queue_item(
+    svc: Data<PlayerRoomService>,
+    ctx: ReqData<AuthorizationContext>,
+    path: Path<(String, String)>,
+    body: Json<PlayerRoomQueueRevision>,
+) -> Result<HttpResponse, AppError> {
+    let (id, queue_id) = path.into_inner();
+    svc.promote_queue_item(&id, &ctx.user.id, &team_ids(&ctx), &queue_id, body.revision)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[utoipa::path(
+    delete,
+    path = "/api/v1/player-rooms/{id}/queue/{queue_id}",
+    params(("id" = String, Path), ("queue_id" = String, Path), ("revision" = u64, Query)),
+    responses((status = 204), (status = 403, body = Problem, content_type = "application/problem+json"), (status = 404, body = Problem, content_type = "application/problem+json"), (status = 409, body = Problem, content_type = "application/problem+json")),
+    tag = "Player Rooms",
+    security(("SessionCookie" = []), ("SessionToken" = []))
+)]
+#[delete("/{id}/queue/{queue_id}")]
+pub async fn remove_queue_item(
+    svc: Data<PlayerRoomService>,
+    ctx: ReqData<AuthorizationContext>,
+    path: Path<(String, String)>,
+    query: Query<PlayerRoomQueueRevision>,
+) -> Result<HttpResponse, AppError> {
+    let (id, queue_id) = path.into_inner();
+    svc.remove_queue_item(
+        &id,
+        &ctx.user.id,
+        &team_ids(&ctx),
+        &queue_id,
+        query.revision,
+    )
+    .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[utoipa::path(
+    put,
+    path = "/api/v1/player-rooms/{id}/queue/order",
+    params(("id" = String, Path)),
+    request_body = ReorderPlayerRoomQueue,
+    responses((status = 204), (status = 400, body = Problem, content_type = "application/problem+json"), (status = 403, body = Problem, content_type = "application/problem+json"), (status = 404, body = Problem, content_type = "application/problem+json"), (status = 409, body = Problem, content_type = "application/problem+json")),
+    tag = "Player Rooms",
+    security(("SessionCookie" = []), ("SessionToken" = []))
+)]
+#[put("/{id}/queue/order")]
+pub async fn reorder_queue(
+    svc: Data<PlayerRoomService>,
+    ctx: ReqData<AuthorizationContext>,
+    id: Path<String>,
+    body: Json<ReorderPlayerRoomQueue>,
+) -> Result<HttpResponse, AppError> {
+    let body = body.into_inner();
+    svc.reorder_queue(
+        &id,
+        &ctx.user.id,
+        &team_ids(&ctx),
+        &body.queue_ids,
+        body.revision,
+    )
+    .await?;
+    Ok(HttpResponse::NoContent().finish())
 }
 
 #[utoipa::path(delete, path = "/api/v1/player-rooms/{id}", params(("id" = String, Path)), responses((status = 204)), tag = "Player Rooms", security(("SessionCookie" = []), ("SessionToken" = [])))]

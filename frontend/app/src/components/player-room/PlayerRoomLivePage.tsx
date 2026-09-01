@@ -5,6 +5,8 @@ import { PlayerBook } from '@/components/player/PlayerBook'
 import { PlayerAv } from '@/components/player/av/PlayerAv'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
 import { PlayerRoomSidebar } from '@/components/player-room/PlayerRoomSidebar'
+import { PlayerRoomQueuePanel } from '@/components/player-room/PlayerRoomQueuePanel'
+import { PlayerRoomThreePanelShell } from '@/components/player-room/PlayerRoomThreePanelShell'
 import {
   endPlayerRoom,
   playerFromRoom,
@@ -33,7 +35,8 @@ function projectionToWire(payload: AvProjectionPayload): PlayerRoomProjection {
 function SlideModeShell({ projection }: { projection: PlayerRoomProjection | null }) {
   return (
     <div
-      className="h-dvh w-dvw overflow-hidden bg-black"
+      data-testid="player-room-slide-canvas"
+      className="h-full w-full overflow-hidden bg-black"
       onDoubleClick={() => {
         void document.documentElement.requestFullscreen?.()
       }}
@@ -62,17 +65,18 @@ export function PlayerRoomLivePage({ credentials }: { credentials: PlayerRoomCre
   )
   const snapshot = room.snapshot
   const participant = snapshot?.participants.find((row) => row.id === credentials.participant_id)
-  const player = useMemo(() => (snapshot ? playerFromRoom(snapshot) : null), [snapshot])
+  const roomPlayer = useMemo(() => (snapshot ? playerFromRoom(snapshot) : null), [snapshot])
   useEffect(() => {
     if (!snapshot) return
-    const ids = snapshot.content.items.flatMap((item) =>
+    const contentIds = snapshot.content.items.flatMap((item) =>
       item.type === 'blob'
         ? [item.blob_id]
         : item.type === 'chords'
           ? item.song.blobs.map((blob) => blob.id)
           : [],
     )
-    return registerPlayerRoomMedia(snapshot.id, credentials.resume_credential, ids)
+    const queueIds = snapshot.queue.flatMap((item) => item.song.song.blobs.map((blob) => blob.id))
+    return registerPlayerRoomMedia(snapshot.id, credentials.resume_credential, [...new Set([...contentIds, ...queueIds])])
   }, [credentials.resume_credential, snapshot])
 
   if (room.status === 'ended') {
@@ -83,7 +87,7 @@ export function PlayerRoomLivePage({ credentials }: { credentials: PlayerRoomCre
     )
   }
 
-  if (!snapshot || !player || !participant) {
+  if (!snapshot || !roomPlayer || !participant) {
     return (
       <main className="flex min-h-dvh items-center justify-center p-6">
         {room.status === 'reconnecting' ? t('playerRooms.reconnecting') : t('common.load')}
@@ -91,11 +95,7 @@ export function PlayerRoomLivePage({ credentials }: { credentials: PlayerRoomCre
     )
   }
 
-  if (credentials.mode === 'slide') {
-    return <SlideModeShell projection={snapshot.projection} />
-  }
-
-  const roomSidebar = (
+  const roomDetails = (
     <PlayerRoomSidebar
       name={playerRoomShortName(snapshot)}
       createdAt={snapshot.created_at}
@@ -113,29 +113,52 @@ export function PlayerRoomLivePage({ credentials }: { credentials: PlayerRoomCre
             }
           : undefined
       }
+      className="w-full border-l-0"
     />
   )
 
-  const roomPanelProps = { roomSidebar }
+  const queuePanel = (
+    <PlayerRoomQueuePanel
+      roomId={snapshot.id}
+      queue={snapshot.queue}
+      revision={snapshot.revision}
+      canAdd={!participant.anonymous}
+      canManage={participant.is_host}
+      className="border-r-0"
+    />
+  )
+
+  if (credentials.mode === 'slide') {
+    return (
+      <PlayerRoomThreePanelShell
+        queue={queuePanel}
+        player={<SlideModeShell projection={snapshot.projection} />}
+        details={roomDetails}
+      />
+    )
+  }
 
   if (snapshot.content.items.length === 0) {
     return (
-      <main className="flex h-dvh min-h-0 bg-[var(--color-background)]">
-        <section className="flex min-w-0 flex-1 flex-col items-center justify-center p-6 text-center">
+      <PlayerRoomThreePanelShell
+        queue={queuePanel}
+        player={
+          <section className="flex h-full min-w-0 flex-col items-center justify-center p-6 text-center">
           <h1 className="text-xl font-semibold">{t('playerRooms.emptyRoomTitle')}</h1>
           <p className="mt-2 max-w-md text-sm text-[var(--color-muted-foreground)]">
             {t('playerRooms.emptyRoomDescription')}
           </p>
-        </section>
-        {roomSidebar}
-      </main>
+          </section>
+        }
+        details={roomDetails}
+      />
     )
   }
 
   const shared = {
     type: snapshot.source_type ?? 'song',
     id: `room-${snapshot.id}`,
-    player,
+    player: roomPlayer,
     initialIndex: snapshot.musical_state.item_index,
     allowNetworkFetch: true,
     allowLibraryActions: false,
@@ -144,16 +167,18 @@ export function PlayerRoomLivePage({ credentials }: { credentials: PlayerRoomCre
     roomStateRevision: snapshot.revision,
     canControlRoomMusicalState: participant.is_host,
     onRoomMusicalStateChange: room.sendMusicalState,
-    ...roomPanelProps,
   }
 
-  return credentials.mode === 'av' ? (
+  const player = credentials.mode === 'av' ? (
     <PlayerAv
       {...shared}
+      embedded
       canControlRoomProjection={participant.is_av_host}
       onRoomProjectionChange={sendRoomProjection}
     />
   ) : (
-    <PlayerBook {...shared} mode="normal" />
+    <PlayerBook {...shared} embedded mode="normal" />
   )
+
+  return <PlayerRoomThreePanelShell queue={queuePanel} player={player} details={roomDetails} />
 }

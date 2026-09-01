@@ -15,9 +15,16 @@ export type PlayerRoomProjection = {
   item_title: string
   next_preview: string | null
 }
+export type PlayerRoomQueueItem = {
+  id: string
+  song_id: string
+  title: string
+  song: Extract<components['schemas']['PlayerItem'], { type: 'chords' }>
+  added_by: string
+}
 export type PlayerRoomParticipant = { id: string; mode: PlayerRoomMode; hide_chords?: boolean; display_name: string; avatar_url: string | null; anonymous: boolean; connected: boolean; is_host: boolean; is_av_host: boolean }
 export type PlayerRoomSummary = { id: string; name: string; team_id: string; source_type: PlayerRoomSourceType | null; source_id: string | null; source_title: string | null; host_email: string; can_close?: boolean; participant_count: number; av_occupied: boolean; created_at: string }
-export type PlayerRoomSnapshot = PlayerRoomSummary & { content: { items: components['schemas']['Player']['items']; toc: components['schemas']['Player']['toc'] }; musical_state: PlayerRoomMusicalState; projection: PlayerRoomProjection | null; participants: PlayerRoomParticipant[]; revision: number; host_lease_expires_at: string; guests_allowed?: boolean }
+export type PlayerRoomSnapshot = PlayerRoomSummary & { content: { items: components['schemas']['Player']['items']; toc: components['schemas']['Player']['toc'] }; queue: PlayerRoomQueueItem[]; musical_state: PlayerRoomMusicalState; projection: PlayerRoomProjection | null; participants: PlayerRoomParticipant[]; revision: number; host_lease_expires_at: string; guests_allowed?: boolean }
 export type PlayerRoomCredentials = { room_id: string; participant_id: string; mode: PlayerRoomMode; resume_credential: string; connection_ticket: string }
 export type CreatedPlayerRoom = { room: PlayerRoomSummary; credentials: PlayerRoomCredentials; invite_secret: string }
 export type PlayerRoomServerMessage =
@@ -25,6 +32,7 @@ export type PlayerRoomServerMessage =
   | { type: 'heartbeat'; revision: number; host_lease_expires_at: string }
   | { type: 'musical_state_updated'; musical_state: PlayerRoomMusicalState; revision: number }
   | { type: 'projection_updated'; projection: PlayerRoomProjection; revision: number }
+  | { type: 'queue_updated'; queue: PlayerRoomQueueItem[]; revision: number }
   | { type: 'guests_allowed_updated'; guests_allowed: boolean; revision: number }
   | { type: 'participants_changed'; participants: PlayerRoomParticipant[]; participant_count: number; av_occupied: boolean; revision: number }
   | { type: 'command_accepted'; command_id: string; revision: number }
@@ -103,6 +111,18 @@ export async function joinPlayerRoom(roomId: string, mode: PlayerRoomMode, hideC
 export async function inspectPlayerRoomInvite(inviteSecret: string): Promise<{ room_id: string; name: string; host_email: string; av_occupied: boolean; guests_allowed?: boolean }> { return jsonRequest('/api/v1/player-rooms/invite/inspect', { method: 'POST', body: JSON.stringify({ invite_secret: inviteSecret }) }) }
 export async function joinPlayerRoomInvite(input: { invite_secret: string; display_name: string; mode: PlayerRoomMode; hide_chords?: boolean }): Promise<PlayerRoomCredentials> { const credentials = await jsonRequest<PlayerRoomCredentials>('/api/v1/player-rooms/invite/join', { method: 'POST', body: JSON.stringify({ hide_chords: false, ...input }) }); saveRoomCredentials(credentials); return credentials }
 export async function endPlayerRoom(roomId: string): Promise<void> { const response = await fetch(`${apiBase}/api/v1/player-rooms/${encodeURIComponent(roomId)}`, { method: 'DELETE', credentials: 'include' }); if (!response.ok) throw new Error(response.status === 403 ? 'player_room_forbidden' : 'player_room_unavailable') }
+async function roomMutation(path: string, init: RequestInit): Promise<void> {
+  const response = await fetch(`${apiBase}${path}`, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...init.headers } })
+  if (!response.ok) {
+    const problem = await response.clone().json().catch(() => null)
+    const code = problem && typeof problem === 'object' && 'code' in problem ? String(problem.code) : response.status === 403 ? 'player_room_forbidden' : response.status === 409 ? 'revision_conflict' : 'player_room_unavailable'
+    throw new Error(code)
+  }
+}
+export function addPlayerRoomQueueItem(roomId: string, songId: string, revision: number): Promise<void> { return roomMutation(`/api/v1/player-rooms/${encodeURIComponent(roomId)}/queue`, { method: 'POST', body: JSON.stringify({ song_id: songId, revision }) }) }
+export function promotePlayerRoomQueueItem(roomId: string, queueId: string, revision: number): Promise<void> { return roomMutation(`/api/v1/player-rooms/${encodeURIComponent(roomId)}/queue/${encodeURIComponent(queueId)}/promote`, { method: 'POST', body: JSON.stringify({ revision }) }) }
+export function removePlayerRoomQueueItem(roomId: string, queueId: string, revision: number): Promise<void> { return roomMutation(`/api/v1/player-rooms/${encodeURIComponent(roomId)}/queue/${encodeURIComponent(queueId)}?revision=${encodeURIComponent(revision)}`, { method: 'DELETE' }) }
+export function reorderPlayerRoomQueue(roomId: string, queueIds: string[], revision: number): Promise<void> { return roomMutation(`/api/v1/player-rooms/${encodeURIComponent(roomId)}/queue/order`, { method: 'PUT', body: JSON.stringify({ queue_ids: queueIds, revision }) }) }
 async function reconnectPlayerRoom(credentials: PlayerRoomCredentials): Promise<PlayerRoomCredentials> { const next = await jsonRequest<PlayerRoomCredentials>(`/api/v1/player-rooms/${encodeURIComponent(credentials.room_id)}/reconnect`, { method: 'POST', body: JSON.stringify({ mode: credentials.mode, resume_credential: credentials.resume_credential }) }); saveRoomCredentials(next); return next }
 
 export type RoomConnection = { snapshot: PlayerRoomSnapshot | null; status: 'connecting' | 'connected' | 'reconnecting' | 'ended'; sendMusicalState: (state: PlayerRoomMusicalState) => void; sendProjection: (projection: PlayerRoomProjection) => void; sendGuestsAllowed: (guestsAllowed: boolean) => void; leave: () => void }
@@ -149,6 +169,8 @@ export function applyPlayerRoomServerMessage(
       return { snapshot: { ...current, projection: message.projection, revision: message.revision }, needsSnapshot: false }
     case 'guests_allowed_updated':
       return { snapshot: { ...current, guests_allowed: message.guests_allowed, revision: message.revision }, needsSnapshot: false }
+    case 'queue_updated':
+      return { snapshot: { ...current, queue: message.queue, revision: message.revision }, needsSnapshot: false }
     case 'participants_changed':
       return {
         snapshot: {

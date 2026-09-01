@@ -86,7 +86,7 @@ describe('player rooms', () => {
   })
 
   it('adapts content snapshots without importing host layout state', () => {
-    const snapshot = { id: 'r1', name: 'Room', team_id: 't1', source_type: 'song', source_id: 's1', source_title: 'Song', host_email: 'h@example.com', participant_count: 1, av_occupied: false, created_at: new Date().toISOString(), content: { items: [{ type: 'blob', blob_id: 'b1' }], toc: [] }, musical_state: { item_index: 0, language: null, transposition: null }, projection: null, participants: [], revision: 1, host_lease_expires_at: new Date().toISOString() } as PlayerRoomSnapshot
+    const snapshot = { id: 'r1', name: 'Room', team_id: 't1', source_type: 'song', source_id: 's1', source_title: 'Song', host_email: 'h@example.com', participant_count: 1, av_occupied: false, created_at: new Date().toISOString(), content: { items: [{ type: 'blob', blob_id: 'b1' }], toc: [] }, queue: [], musical_state: { item_index: 0, language: null, transposition: null }, projection: null, participants: [], revision: 1, host_lease_expires_at: new Date().toISOString() } as PlayerRoomSnapshot
     expect(playerFromRoom(snapshot)).toMatchObject({ index: 0, scroll_type: 'one_page', orientation: 'portrait', items: snapshot.content.items })
   })
 
@@ -134,6 +134,16 @@ describe('player rooms', () => {
       av_occupied: false,
       revision: 7,
     })).toEqual({ snapshot: current, needsSnapshot: true })
+  })
+
+  it('applies queue updates as revisioned room deltas', () => {
+    const current = { id: 'r1', queue: [], revision: 4 } as unknown as PlayerRoomSnapshot
+    const queue = [{ id: 'q1', song_id: 's1', title: 'Song', added_by: 'Alex' }]
+    expect(applyPlayerRoomServerMessage(current, {
+      type: 'queue_updated',
+      queue: queue as never,
+      revision: 5,
+    })).toEqual({ snapshot: { ...current, queue, revision: 5 }, needsSnapshot: false })
   })
 
   it('waits for the matching delta after a command acknowledgement', () => {

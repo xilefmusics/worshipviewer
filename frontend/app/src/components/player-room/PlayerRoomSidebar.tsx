@@ -22,6 +22,7 @@ type PlayerRoomSidebarProps = {
   onGuestsAllowedChange: (allowed: boolean) => void
   inviteSecret: string | null
   onEndRoom?: () => void
+  className?: string
 }
 
 export function PlayerRoomSidebar({
@@ -35,6 +36,7 @@ export function PlayerRoomSidebar({
   onGuestsAllowedChange,
   inviteSecret,
   onEndRoom,
+  className,
 }: PlayerRoomSidebarProps) {
   const { t } = useTranslation()
   const elapsedSeconds = useRoomElapsedSeconds(createdAt)
@@ -46,7 +48,7 @@ export function PlayerRoomSidebar({
     <aside
       className={cn(
         'flex h-full min-h-0 shrink-0 flex-col border-l border-[var(--color-border)] bg-[var(--color-surface)]',
-        PLAYER_TOC_WIDTH_CLASS,
+        className ?? PLAYER_TOC_WIDTH_CLASS,
       )}
       aria-label={t('playerRooms.title')}
     >

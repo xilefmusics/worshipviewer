@@ -31,6 +31,23 @@
         ],
         "type": "object"
       },
+      "AddPlayerRoomQueueItem": {
+        "properties": {
+          "revision": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "song_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "song_id",
+          "revision"
+        ],
+        "type": "object"
+      },
       "Blob": {
         "example": {
           "file_type": "image/png",
@@ -101,7 +118,7 @@
             ]
           },
           "duration": {
-            "description": "Duration in milliclicks (1000 per ChordPro click in `{chord:…:N}`).",
+            "description": "Duration in milliclicks (1000 per ChordPro click in `{chord:\u2026:N}`).",
             "format": "int32",
             "minimum": 0,
             "type": [
@@ -1662,7 +1679,7 @@
       },
       "PatchTeam": {
         "additionalProperties": false,
-        "description": "Partial update for a team. Absent fields are left unchanged.\n\n`members` uses three-state semantics:\n- absent → members list is not modified\n- `null` → rejected (a team must always have members)\n- `[…]` → replaces the entire members list",
+        "description": "Partial update for a team. Absent fields are left unchanged.\n\n`members` uses three-state semantics:\n- absent \u2192 members list is not modified\n- `null` \u2192 rejected (a team must always have members)\n- `[\u2026]` \u2192 replaces the entire members list",
         "properties": {
           "cover": {
             "type": [
@@ -2054,6 +2071,46 @@
         ],
         "type": "object"
       },
+      "PlayerRoomQueueItem": {
+        "properties": {
+          "added_by": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "song": {
+            "$ref": "#/components/schemas/PlayerChordsItem"
+          },
+          "song_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "song_id",
+          "title",
+          "song",
+          "added_by"
+        ],
+        "type": "object"
+      },
+      "PlayerRoomQueueRevision": {
+        "properties": {
+          "revision": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "type": "object"
+      },
       "PlayerRoomSnapshot": {
         "allOf": [
           {
@@ -2089,6 +2146,12 @@
                     "$ref": "#/components/schemas/PlayerRoomProjectionPayload"
                   }
                 ]
+              },
+              "queue": {
+                "items": {
+                  "$ref": "#/components/schemas/PlayerRoomQueueItem"
+                },
+                "type": "array"
               },
               "revision": {
                 "format": "int64",
@@ -2260,6 +2323,26 @@
           "code"
         ],
         "title": "ProblemDetails",
+        "type": "object"
+      },
+      "ReorderPlayerRoomQueue": {
+        "properties": {
+          "queue_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "revision": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "queue_ids",
+          "revision"
+        ],
         "type": "object"
       },
       "Role": {
@@ -2499,7 +2582,7 @@
               },
               {
                 "$ref": "#/components/schemas/SimpleChord",
-                "description": "Transposition key for this slot (same `{ \"level\": … }` object as `Song.data.key`)."
+                "description": "Transposition key for this slot (same `{ \"level\": \u2026 }` object as `Song.data.key`)."
               }
             ]
           },
@@ -2536,7 +2619,7 @@
         "description": "Chromatic pitch class (song key, chord root, or slash bass).",
         "properties": {
           "level": {
-            "description": "Pitch class: 0 = C, 1 = C#/Db, …, 11 = B.",
+            "description": "Pitch class: 0 = C, 1 = C#/Db, \u2026, 11 = B.",
             "example": 7,
             "format": "int32",
             "maximum": 11,
@@ -2780,7 +2863,7 @@
               },
               {
                 "$ref": "#/components/schemas/SimpleChord",
-                "description": "Transposition key for this slot (same `{ \"level\": … }` object as `Song.data.key`)."
+                "description": "Transposition key for this slot (same `{ \"level\": \u2026 }` object as `Song.data.key`)."
               }
             ]
           },
@@ -2853,7 +2936,7 @@
             ]
           },
           "sort": {
-            "description": "Sort: comma-separated fields, `-` prefix for descending (e.g. `-id`, `title`, `-id,title`).\nUse `relevance` when searching (`q` non-empty). Legacy tokens (`id_desc`, …) accepted with a warning.",
+            "description": "Sort: comma-separated fields, `-` prefix for descending (e.g. `-id`, `title`, `-id,title`).\nUse `relevance` when searching (`q` non-empty). Legacy tokens (`id_desc`, \u2026) accepted with a warning.",
             "example": "-id",
             "type": [
               "string",
@@ -3076,7 +3159,7 @@
       },
       "TransferCollectionSong": {
         "additionalProperties": false,
-        "description": "Move a song link from this collection into another (`POST …/collections/{id}/songs/{song_id}/transfer`).",
+        "description": "Move a song link from this collection into another (`POST \u2026/collections/{id}/songs/{song_id}/transfer`).",
         "example": {
           "key": {
             "level": 3
@@ -3388,7 +3471,7 @@
     }
   },
   "info": {
-    "description": "Versioned REST API under `/api/v1`. Authentication flows live at `/auth/*` (unversioned); clients should treat that split as stable for this major API generation. Public deployment metadata is available at `GET /api/v1/about` (no authentication).\n\n**Breaking 2.0:** See `docs/api-breaking-2-0.md` for migration (`PlayerItem`, `Song.blobs` as link objects, `Session` wire model, `Problem` without `error`, PUT bodies use `Update*` types in the spec).\n\n**Timestamps:** All timestamps are UTC and use RFC 3339 with a `Z` suffix (e.g. `2026-04-18T12:00:00Z`).\n\n**Identifiers:** Resource IDs are opaque printable strings returned by the API; treat them as opaque and do not parse their internal structure.\n\n**References & expand:** Cross-resource links use objects such as `BlobLink` (`{ \"id\": \"…\" }`) instead of bare id strings where noted. Session list/detail responses default to a narrow `user` link (`id` + `email`); pass `expand=user` (comma-separated with other tokens as added) to embed the full `User`. HTTP audit request counts and last-used timestamps for a single user or session are available from `GET .../metrics` routes next to each single-resource user/session endpoint, not on the `User` / `SessionBody` objects themselves.\n\n**JSON naming:** Object keys use `snake_case`. Enum wire values use the casing shown in each schema (broader enum casing standardization is planned).\n\n**Pagination:** List endpoints accept `page` (0-based) and `page_size` (1–500, default 50). Responses include `X-Total-Count` with the total matching rows before pagination and RFC 5988 `Link` headers (relations: first, prev, next, last) where applicable.\n\n**Rate limiting:** Versioned `/api/v1/*` routes use token-bucket limits per client IP (`Retry-After`, `X-RateLimit-*` on **429**; configurable via server settings).\n\n**Errors:** Failed requests return `Content-Type: application/problem+json` ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details, formerly RFC 7807) with a `Problem` body (`type`, `title`, `status`, `code`, optional `detail` / `instance`). Use `detail` for human-readable text; stable machine-readable `code` values include: `unauthorized`, `forbidden`, `not_found`, `invalid_request`, `invalid_page_size`, `media_invalid_url`, `media_unsupported_url`, `payload_too_large`, `conflict`, `too_many_requests`, `not_acceptable`, `precondition_failed`, `internal`. Legacy schemas `ErrorResponse` and `ProblemDetails` remain listed for one release but are deprecated in favor of `Problem`.\n\n**CSRF:** Cookie sessions use `SameSite=Lax`; state-changing methods are `POST`/`PUT`/`PATCH`/`DELETE` (not `GET`). Cross-site simple requests cannot mutate state via cookies under typical browser rules. Browser `fetch` from the SPA uses `credentials: 'include'` on same-origin API calls (see `frontend/app/src/api/client.ts`). API clients using bearer tokens should still avoid exposing tokens to third-party origins.\n\n**Examples:** See schema `example` fields on core DTOs in the components section.",
+    "description": "Versioned REST API under `/api/v1`. Authentication flows live at `/auth/*` (unversioned); clients should treat that split as stable for this major API generation. Public deployment metadata is available at `GET /api/v1/about` (no authentication).\n\n**Breaking 2.0:** See `docs/api-breaking-2-0.md` for migration (`PlayerItem`, `Song.blobs` as link objects, `Session` wire model, `Problem` without `error`, PUT bodies use `Update*` types in the spec).\n\n**Timestamps:** All timestamps are UTC and use RFC 3339 with a `Z` suffix (e.g. `2026-04-18T12:00:00Z`).\n\n**Identifiers:** Resource IDs are opaque printable strings returned by the API; treat them as opaque and do not parse their internal structure.\n\n**References & expand:** Cross-resource links use objects such as `BlobLink` (`{ \"id\": \"\u2026\" }`) instead of bare id strings where noted. Session list/detail responses default to a narrow `user` link (`id` + `email`); pass `expand=user` (comma-separated with other tokens as added) to embed the full `User`. HTTP audit request counts and last-used timestamps for a single user or session are available from `GET .../metrics` routes next to each single-resource user/session endpoint, not on the `User` / `SessionBody` objects themselves.\n\n**JSON naming:** Object keys use `snake_case`. Enum wire values use the casing shown in each schema (broader enum casing standardization is planned).\n\n**Pagination:** List endpoints accept `page` (0-based) and `page_size` (1\u2013500, default 50). Responses include `X-Total-Count` with the total matching rows before pagination and RFC 5988 `Link` headers (relations: first, prev, next, last) where applicable.\n\n**Rate limiting:** Versioned `/api/v1/*` routes use token-bucket limits per client IP (`Retry-After`, `X-RateLimit-*` on **429**; configurable via server settings).\n\n**Errors:** Failed requests return `Content-Type: application/problem+json` ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details, formerly RFC 7807) with a `Problem` body (`type`, `title`, `status`, `code`, optional `detail` / `instance`). Use `detail` for human-readable text; stable machine-readable `code` values include: `unauthorized`, `forbidden`, `not_found`, `invalid_request`, `invalid_page_size`, `media_invalid_url`, `media_unsupported_url`, `payload_too_large`, `conflict`, `too_many_requests`, `not_acceptable`, `precondition_failed`, `internal`. Legacy schemas `ErrorResponse` and `ProblemDetails` remain listed for one release but are deprecated in favor of `Problem`.\n\n**CSRF:** Cookie sessions use `SameSite=Lax`; state-changing methods are `POST`/`PUT`/`PATCH`/`DELETE` (not `GET`). Cross-site simple requests cannot mutate state via cookies under typical browser rules. Browser `fetch` from the SPA uses `credentials: 'include'` on same-origin API calls (see `frontend/app/src/api/client.ts`). API clients using bearer tokens should still avoid exposing tokens to third-party origins.\n\n**Examples:** See schema `example` fields on core DTOs in the components section.",
     "license": {
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
@@ -3438,7 +3521,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -4344,7 +4427,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -5299,7 +5382,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50. Omit with `page` for full list.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50. Omit with `page` for full list.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -5516,7 +5599,7 @@
         "operationId": "accept_team_invitation",
         "parameters": [
           {
-            "description": "Invitation identifier (deprecated path — prefer `/api/v1/teams/{team_id}/invitations/{invitation_id}/accept`)",
+            "description": "Invitation identifier (deprecated path \u2014 prefer `/api/v1/teams/{team_id}/invitations/{invitation_id}/accept`)",
             "in": "path",
             "name": "invitation_id",
             "required": true,
@@ -5609,7 +5692,7 @@
             }
           },
           {
-            "description": "Items per page (1–500, default 50)",
+            "description": "Items per page (1\u2013500, default 50)",
             "in": "query",
             "name": "page_size",
             "required": false,
@@ -6564,7 +6647,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -6695,7 +6778,7 @@
                 }
               }
             },
-            "description": "Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps or YYYY-MM-DD dates. Rates are 0.0–1.0."
+            "description": "Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps or YYYY-MM-DD dates. Rates are 0.0\u20131.0."
           },
           "400": {
             "content": {
@@ -7041,6 +7124,326 @@
         ]
       }
     },
+    "/api/v1/player-rooms/{id}/queue": {
+      "post": {
+        "operationId": "add_queue_item",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddPlayerRoomQueueItem"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
+    "/api/v1/player-rooms/{id}/queue/order": {
+      "put": {
+        "operationId": "reorder_queue",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderPlayerRoomQueue"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
+    "/api/v1/player-rooms/{id}/queue/{queue_id}": {
+      "delete": {
+        "operationId": "remove_queue_item",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "queue_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
+    "/api/v1/player-rooms/{id}/queue/{queue_id}/promote": {
+      "post": {
+        "operationId": "promote_queue_item",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "queue_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlayerRoomQueueRevision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
     "/api/v1/player-rooms/{id}/reconnect": {
       "post": {
         "operationId": "reconnect_room",
@@ -7142,7 +7545,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -7961,7 +8364,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50. Omit with `page` for full list.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50. Omit with `page` for full list.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -8074,7 +8477,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -8108,7 +8511,7 @@
             }
           },
           {
-            "description": "Sort: JSON:API-style comma-separated keys (`-` = descending), e.g. `-id`, `title`, `relevance` (with `q`). Legacy `id_desc` / … still accepted.",
+            "description": "Sort: JSON:API-style comma-separated keys (`-` = descending), e.g. `-id`, `title`, `relevance` (with `q`). Legacy `id_desc` / \u2026 still accepted.",
             "in": "query",
             "name": "sort",
             "required": false,
@@ -9161,7 +9564,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50 when omitted.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50 when omitted.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -9876,7 +10279,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50. Omit with `page` for full list.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50. Omit with `page` for full list.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -10361,7 +10764,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -10923,7 +11326,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50 when omitted.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50 when omitted.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -11637,7 +12040,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1–500. Defaults to 50 when omitted.",
+            "description": "Items per page. Must be 1\u2013500. Defaults to 50 when omitted.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -12195,7 +12598,7 @@
         "operationId": "login",
         "parameters": [
           {
-            "description": "Optional same-origin path (`/…`) to use after login. Must start with `/` and must not be `//…` or `/http…`; otherwise it is ignored and the default post-login path is used (see `sanitize_redirect`).",
+            "description": "Optional same-origin path (`/\u2026`) to use after login. Must start with `/` and must not be `//\u2026` or `/http\u2026`; otherwise it is ignored and the default post-login path is used (see `sanitize_redirect`).",
             "in": "query",
             "name": "redirect_to",
             "required": false,

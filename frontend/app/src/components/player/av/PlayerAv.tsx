@@ -121,6 +121,7 @@ type PlayerAvProps = {
   player: Player
   initialIndex?: number
   allowNetworkFetch: boolean
+  embedded?: boolean
   resourceTitle?: string
   deletedReconciled?: boolean
   roomMusicalState?: { item_index: number; language: string | null; transposition: string | null }
@@ -173,6 +174,7 @@ export function PlayerAv({
   id,
   player,
   initialIndex,
+  embedded = false,
   resourceTitle,
   roomMusicalState,
   roomStateRevision,
@@ -206,7 +208,7 @@ export function PlayerAv({
     const startSlide = initialIndex != null ? 0 : saved.slideIndex
     return { ...saved, itemIndex: startItem, slideIndex: startSlide }
   })
-  const [tocVisible] = useState(true)
+  const [tocVisible] = useState(!embedded)
   const [rightPanel, setRightPanel] = useState<'av' | 'room'>(() => (roomSidebar ? 'room' : 'av'))
   const [languagePopoverOpen, setLanguagePopoverOpen] = useState(false)
   const resolveLanguageIndexForItem = useCallback(
@@ -238,7 +240,7 @@ export function PlayerAv({
     resourceTitle || tocRow?.title,
     resolveLanguageIndexForItem,
   )
-  const showToc = player.toc.length > 0
+  const showToc = !embedded && player.toc.length > 0
   const containsMedia = player.items.some((item) => item.type === 'media')
   const watchSetlistMirrorEviction =
     type === 'setlist' && watchSetlistEviction && !containsMedia
@@ -907,7 +909,7 @@ export function PlayerAv({
     currentItem.kind,
   ])
 
-  const showAvRightPanel = !roomSidebar || rightPanel === 'av'
+  const showAvRightPanel = !embedded && (!roomSidebar || rightPanel === 'av')
   const showRoomSidebar = Boolean(roomSidebar) && rightPanel === 'room'
   const outputSummaryLabel =
     outputSummary.total === 0
@@ -1174,11 +1176,12 @@ export function PlayerAv({
           </div>
         </div>
 
-        <aside className={cn('player-av__right shrink-0', PLAYER_TOC_WIDTH_CLASS)}>
-          {showRoomSidebar ? (
-            roomSidebar
-          ) : showAvRightPanel ? (
-            <>
+        {!embedded ? (
+          <aside className={cn('player-av__right shrink-0', PLAYER_TOC_WIDTH_CLASS)}>
+            {showRoomSidebar ? (
+              roomSidebar
+            ) : showAvRightPanel ? (
+              <>
               <div className="player-av__preview">
                 <AvSlideView
                   preview
@@ -1201,9 +1204,10 @@ export function PlayerAv({
                 rows={outlineRows}
                 onSelectSlide={(slideIndex) => goToSlide(slideIndex)}
               />
-            </>
-          ) : null}
-        </aside>
+              </>
+            ) : null}
+          </aside>
+        ) : null}
       </div>
     </div>
   )

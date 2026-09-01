@@ -1225,6 +1225,8 @@
     "copyInvite": "Copy invite",
     "inviteCopied": "Invite link copied",
     "togglePanel": "Player Room",
+    "panels": "Player Room panels",
+    "panel": { "queue": "Queue", "player": "Current song", "details": "Members and settings" },
     "host": "Host",
     "avHost": "AV host",
     "connected": "Connected",
@@ -1261,6 +1263,23 @@
       "text": "Lyrics only — chord symbols are hidden.",
       "av": "Control or follow the live presentation output.",
       "slide": "View the projected slides only, without controls."
+    },
+    "queue": {
+      "title": "Next songs",
+      "description": "Songs added here are shared with everyone in the room.",
+      "searchPlaceholder": "Search your songs…",
+      "searchAria": "Search songs to add to the queue",
+      "empty": "No songs are queued.",
+      "add": "Add",
+      "queued": "Queued",
+      "added": "Song added to the queue.",
+      "addedBy": "Added by {{name}}",
+      "playNext": "Play next",
+      "promoted": "Song moved to the current player.",
+      "remove": "Remove",
+      "removed": "Song removed from the queue.",
+      "updated": "Queue updated.",
+      "failed": "Queue update failed."
     }
   },
   "media": {

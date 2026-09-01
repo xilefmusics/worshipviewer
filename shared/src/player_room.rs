@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "backend")]
 use utoipa::ToSchema;
 
-use crate::player::{Player, PlayerItem, TocItem};
+use crate::player::{Player, PlayerChordsItem, PlayerItem, TocItem};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -79,6 +79,16 @@ pub struct PlayerRoomProjectionPayload {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct PlayerRoomQueueItem {
+    pub id: String,
+    pub song_id: String,
+    pub title: String,
+    pub song: Box<PlayerChordsItem>,
+    pub added_by: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct PlayerRoomParticipant {
     pub id: String,
     pub mode: PlayerRoomMode,
@@ -115,6 +125,8 @@ pub struct PlayerRoomSnapshot {
     #[serde(flatten)]
     pub summary: PlayerRoomSummary,
     pub content: PlayerRoomContent,
+    #[serde(default)]
+    pub queue: Vec<PlayerRoomQueueItem>,
     pub musical_state: PlayerRoomMusicalState,
     pub projection: Option<PlayerRoomProjectionPayload>,
     pub participants: Vec<PlayerRoomParticipant>,
@@ -122,6 +134,26 @@ pub struct PlayerRoomSnapshot {
     pub host_lease_expires_at: DateTime<Utc>,
     #[serde(default = "default_guests_allowed")]
     pub guests_allowed: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct AddPlayerRoomQueueItem {
+    pub song_id: String,
+    pub revision: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct ReorderPlayerRoomQueue {
+    pub queue_ids: Vec<String>,
+    pub revision: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct PlayerRoomQueueRevision {
+    pub revision: u64,
 }
 
 fn default_guests_allowed() -> bool {
