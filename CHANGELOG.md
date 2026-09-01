@@ -6,6 +6,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Added
 
+- Empty, team-owned Player Rooms can be created directly from the Player Rooms hub and entered in Sheet view.
 - Spotify track and playlist Media items with external playback controls in the AV player.
 - Independent grayscale text controls for primary and translated AV lyrics.
 - Two Zeltlager background presets for AV-mode lyric projection.

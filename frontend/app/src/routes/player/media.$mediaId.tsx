@@ -40,5 +40,5 @@ function DirectMediaPlayerPage() {
   if (query.isError || !player) {
     return <div className="mx-auto flex min-h-dvh max-w-lg flex-col items-center justify-center gap-4 p-6 text-center"><p role="alert" className="text-sm text-[var(--color-muted-foreground)]">{t('setlists.editor.directMediaUnavailable')}</p><Button asChild variant="outline"><Link to="/media">{t('media.editor.backToList')}</Link></Button></div>
   }
-  return <PlayerAv type="setlist" id={`direct-media:${mediaId}`} player={player} allowNetworkFetch resourceTitle={query.data.title} allowLibraryActions={false} allowPlayerRoomActions={false} backToOverride="/media" backAriaKeyOverride="media.editor.backToList" watchSetlistEviction={false} />
+  return <PlayerAv type="setlist" id={`direct-media:${mediaId}`} player={player} allowNetworkFetch resourceTitle={query.data.title} allowLibraryActions={false} backToOverride="/media" backAriaKeyOverride="media.editor.backToList" watchSetlistEviction={false} />
 }

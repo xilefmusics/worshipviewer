@@ -9,7 +9,6 @@ import { AvOutlinePanel } from '@/components/player/av/AvOutlinePanel'
 import { AvSectionShortcuts } from '@/components/player/av/AvSectionShortcuts'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
 import { AvSlidesPanel } from '@/components/player/av/AvSlidesPanel'
-import { StartPlayerRoomButton } from '@/components/player-room/StartPlayerRoomButton'
 import { UsersIcon } from '@/components/icons/lucide-animated/users-icon'
 import { LayersIcon } from '@/components/icons/lucide-animated/layers-icon'
 import { PlayerEditMenu } from '@/components/player/PlayerEditMenu'
@@ -131,7 +130,6 @@ type PlayerAvProps = {
   onRoomMusicalStateChange?: (state: { item_index: number; language: string | null; transposition: string | null }) => void
   onRoomProjectionChange?: (payload: import('@/lib/player/av-preferences').AvProjectionPayload) => void
   allowLibraryActions?: boolean
-  allowPlayerRoomActions?: boolean
   backToOverride?: '/media'
   backAriaKeyOverride?: string
   watchSetlistEviction?: boolean
@@ -183,7 +181,6 @@ export function PlayerAv({
   onRoomMusicalStateChange,
   onRoomProjectionChange,
   allowLibraryActions = true,
-  allowPlayerRoomActions = true,
   backToOverride,
   backAriaKeyOverride,
   watchSetlistEviction = true,
@@ -1046,9 +1043,6 @@ export function PlayerAv({
             onEditMedia={navigateToMediaEditor}
             onEditResource={navigateToResourceEditor}
           /> : null}
-          {!roomMusicalState && allowPlayerRoomActions ? (
-            <StartPlayerRoomButton type={type} id={id} mode="av" player={player} />
-          ) : null}
           {roomSidebar ? (
             <Button
               type="button"

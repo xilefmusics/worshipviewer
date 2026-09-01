@@ -44,7 +44,7 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
   const songEditorNavigationBridge = useSongEditorNavigationBridge()
   const { imageSrc, onImageError, initials } = useUserAvatarDisplay(user)
   const [hoveredRow, setHoveredRow] = useState<
-    'rooms' | 'settings' | 'admin' | 'about' | 'tutorials' | 'install' | 'logout' | null
+    'teams' | 'settings' | 'admin' | 'about' | 'tutorials' | 'install' | 'logout' | null
   >(null)
 
   async function leaveSongEditorIfNeeded(): Promise<boolean> {
@@ -100,12 +100,12 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onSelect={() => void navigate({ to: '/player-rooms' })}
-          onMouseEnter={() => setHoveredRow('rooms')}
+          onSelect={() => void navigate({ to: '/teams' })}
+          onMouseEnter={() => setHoveredRow('teams')}
           onMouseLeave={() => setHoveredRow(null)}
         >
-          <IconUsers isHovered={hoveredRow === 'rooms'} />
-          {t('playerRooms.title')}
+          <IconUsers isHovered={hoveredRow === 'teams'} />
+          {t('hub.profile.teams')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => {

@@ -57,6 +57,189 @@ pub(crate) fn build_app(
     build_app_with_api_limits(db, 50, 200, None)
 }
 
+mod player_room_http {
+    use actix_web::{http::StatusCode, test};
+    use serde::Deserialize;
+    use shared::player_room::{
+        CreatePlayerRoom, CreatedPlayerRoom, PlayerRoomMode, PlayerRoomSnapshot,
+    };
+    use surrealdb::types::SurrealValue;
+
+    use crate::http_tests::{build_app, create_session_token};
+    use crate::test_helpers::{TeamFixture, test_db};
+
+    #[actix_web::test]
+    async fn admin_and_content_maintainer_create_source_free_team_rooms() {
+        #[derive(Deserialize, SurrealValue)]
+        struct PersistedHost {
+            host_user_id: Option<String>,
+        }
+
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let writer_token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let admin_token = create_session_token(&db, fixture.admin_user.clone())
+            .await
+            .unwrap();
+        let app = test::init_service(build_app(db.clone())).await;
+
+        let request = test::TestRequest::post()
+            .uri("/api/v1/player-rooms")
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .set_json(CreatePlayerRoom {
+                team_id: fixture.shared_team_id.clone(),
+                name: Some("Sunday Worship".into()),
+            })
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        if response.status() != StatusCode::CREATED {
+            let status = response.status();
+            let body = test::read_body(response).await;
+            panic!(
+                "create returned {status}: {}",
+                String::from_utf8_lossy(&body)
+            );
+        }
+        let created: CreatedPlayerRoom = test::read_body_json(response).await;
+        assert_eq!(created.room.team_id, fixture.shared_team_id);
+        assert_eq!(created.room.name, "Sunday Worship");
+        assert_eq!(created.room.source_type, None);
+        assert_eq!(created.room.source_id, None);
+        assert_eq!(created.room.source_title, None);
+        assert!(!created.room.name.trim().is_empty());
+        assert_eq!(created.credentials.mode, PlayerRoomMode::Sheet);
+
+        let request = test::TestRequest::get()
+            .uri(&format!("/api/v1/player-rooms/{}", created.room.id))
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .to_request();
+        let snapshot: PlayerRoomSnapshot = test::call_and_read_body_json(&app, request).await;
+        assert!(snapshot.content.items.is_empty());
+        assert!(snapshot.content.toc.is_empty());
+        assert_eq!(snapshot.participants.len(), 1);
+        assert!(snapshot.participants[0].is_host);
+
+        let mut persisted = db
+            .db
+            .query("SELECT host_user_id FROM ONLY type::record('player_room', $id)")
+            .bind(("id", created.room.id.clone()))
+            .await
+            .unwrap();
+        let persisted = persisted.take::<Option<PersistedHost>>(0).unwrap().unwrap();
+        assert_eq!(
+            persisted.host_user_id.as_deref(),
+            Some(fixture.writer.id.as_str())
+        );
+
+        let request = test::TestRequest::post()
+            .uri("/api/v1/player-rooms")
+            .insert_header(("Authorization", format!("Bearer {admin_token}")))
+            .set_json(CreatePlayerRoom {
+                team_id: fixture.shared_team_id,
+                name: None,
+            })
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::CREATED
+        );
+    }
+
+    #[actix_web::test]
+    async fn guest_cannot_create_a_room_or_leave_a_row_behind() {
+        #[derive(Deserialize, SurrealValue)]
+        struct CountRow {
+            count: i64,
+        }
+
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let guest_token = create_session_token(&db, fixture.guest.clone())
+            .await
+            .unwrap();
+        let app = test::init_service(build_app(db.clone())).await;
+        let request = test::TestRequest::post()
+            .uri("/api/v1/player-rooms")
+            .insert_header(("Authorization", format!("Bearer {guest_token}")))
+            .set_json(CreatePlayerRoom {
+                team_id: fixture.shared_team_id,
+                name: None,
+            })
+            .to_request();
+
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::NOT_FOUND
+        );
+        let mut response = db
+            .db
+            .query("SELECT count() AS count FROM player_room GROUP ALL")
+            .await
+            .unwrap();
+        let count = response
+            .take::<Vec<CountRow>>(0)
+            .unwrap()
+            .first()
+            .map_or(0, |row| row.count);
+        assert_eq!(count, 0);
+    }
+
+    #[actix_web::test]
+    async fn room_close_uses_current_account_and_team_role() {
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let writer_token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let guest_token = create_session_token(&db, fixture.guest.clone())
+            .await
+            .unwrap();
+        let admin_token = create_session_token(&db, fixture.admin_user.clone())
+            .await
+            .unwrap();
+        let app = test::init_service(build_app(db)).await;
+
+        let request = test::TestRequest::post()
+            .uri("/api/v1/player-rooms")
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .set_json(CreatePlayerRoom {
+                team_id: fixture.shared_team_id.clone(),
+                name: None,
+            })
+            .to_request();
+        let created: CreatedPlayerRoom = test::call_and_read_body_json(&app, request).await;
+
+        let request = test::TestRequest::delete()
+            .uri(&format!("/api/v1/player-rooms/{}", created.room.id))
+            .insert_header(("Authorization", format!("Bearer {guest_token}")))
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::FORBIDDEN
+        );
+
+        let request = test::TestRequest::delete()
+            .uri(&format!("/api/v1/player-rooms/{}", created.room.id))
+            .insert_header(("Authorization", format!("Bearer {admin_token}")))
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::NO_CONTENT
+        );
+
+        let request = test::TestRequest::delete()
+            .uri(&format!("/api/v1/player-rooms/{}", created.room.id))
+            .insert_header(("Authorization", format!("Bearer {admin_token}")))
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::NO_CONTENT
+        );
+    }
+}
+
 /// Same as [`build_app`] but with configurable `/api/v1` per-IP rate limits (for **BLC-HTTP-004** tests).
 fn build_app_with_api_limits(
     db: Arc<Database>,
@@ -135,6 +318,9 @@ fn build_app_with_api_limits(
         .app_data(Data::new(blob_service(&db, blob_dir)))
         .app_data(Data::new(collection_service(&db)))
         .app_data(Data::new(media_svc))
+        .app_data(Data::new(
+            crate::resources::player_room::PlayerRoomService::new(db.clone()),
+        ))
         .app_data(Data::new(media_asset_svc))
         .app_data(Data::new(media_processing_handle))
         .app_data(Data::new(song_service(&db)))

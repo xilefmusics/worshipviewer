@@ -1207,11 +1207,8 @@ export interface components {
             url: string;
         };
         CreatePlayerRoom: {
-            host_mode: components["schemas"]["PlayerRoomMode"];
-            musical_state: components["schemas"]["PlayerRoomMusicalState"];
-            projection?: null | components["schemas"]["PlayerRoomProjectionPayload"];
-            source_id: string;
-            source_type: components["schemas"]["PlayerRoomSourceType"];
+            name?: string | null;
+            team_id: string;
         };
         /**
          * @example {
@@ -1749,15 +1746,16 @@ export interface components {
         PlayerRoomSourceType: "song" | "collection" | "setlist";
         PlayerRoomSummary: {
             av_occupied: boolean;
+            can_close?: boolean;
             /** Format: date-time */
             created_at: string;
             host_email: string;
             id: string;
             name: string;
             participant_count: number;
-            source_id: string;
-            source_title: string;
-            source_type: components["schemas"]["PlayerRoomSourceType"];
+            source_id?: string | null;
+            source_title?: string | null;
+            source_type?: null | components["schemas"]["PlayerRoomSourceType"];
             team_id: string;
         };
         /**
@@ -4795,9 +4793,7 @@ export interface operations {
     close_room: {
         parameters: {
             query?: never;
-            header: {
-                "X-Player-Room-Credential": string;
-            };
+            header?: never;
             path: {
                 id: string;
             };

@@ -367,34 +367,18 @@
       },
       "CreatePlayerRoom": {
         "properties": {
-          "host_mode": {
-            "$ref": "#/components/schemas/PlayerRoomMode"
-          },
-          "musical_state": {
-            "$ref": "#/components/schemas/PlayerRoomMusicalState"
-          },
-          "projection": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/PlayerRoomProjectionPayload"
-              }
+          "name": {
+            "type": [
+              "string",
+              "null"
             ]
           },
-          "source_id": {
+          "team_id": {
             "type": "string"
-          },
-          "source_type": {
-            "$ref": "#/components/schemas/PlayerRoomSourceType"
           }
         },
         "required": [
-          "source_type",
-          "source_id",
-          "host_mode",
-          "musical_state"
+          "team_id"
         ],
         "type": "object"
       },
@@ -2136,6 +2120,9 @@
           "av_occupied": {
             "type": "boolean"
           },
+          "can_close": {
+            "type": "boolean"
+          },
           "created_at": {
             "format": "date-time",
             "type": "string"
@@ -2154,13 +2141,26 @@
             "type": "integer"
           },
           "source_id": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "source_title": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "source_type": {
-            "$ref": "#/components/schemas/PlayerRoomSourceType"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PlayerRoomSourceType"
+              }
+            ]
           },
           "team_id": {
             "type": "string"
@@ -2170,9 +2170,6 @@
           "id",
           "name",
           "team_id",
-          "source_type",
-          "source_id",
-          "source_title",
           "host_email",
           "participant_count",
           "av_occupied",
@@ -6936,14 +6933,6 @@
           {
             "in": "path",
             "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Player-Room-Credential",
             "required": true,
             "schema": {
               "type": "string"

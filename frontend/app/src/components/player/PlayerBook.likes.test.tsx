@@ -55,9 +55,6 @@ vi.mock('@/components/player/PlayerLikeHeartBurst', () => ({
     <div data-testid="like-feedback" data-liked={liked} />
   ),
 }))
-vi.mock('@/components/player-room/StartPlayerRoomButton', () => ({
-  StartPlayerRoomButton: () => null,
-}))
 vi.mock('@/components/player/PlayerTocSidebar', () => ({
   PlayerTocSidebar: ({ toc }: { toc: components['schemas']['TocItem'][] }) => (
     <div data-testid="liked-toc">

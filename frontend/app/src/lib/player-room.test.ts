@@ -2,9 +2,11 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   applyPlayerRoomServerMessage,
+  createPlayerRoom,
   playerFromRoom,
   playerRoomShortName,
   readRoomCredentials,
+  readRoomInvite,
   redactPlayerRoomEvent,
   saveRoomCredentials,
   type PlayerRoomSnapshot,
@@ -33,19 +35,23 @@ function createSessionStorageMock(): Storage {
 const sessionStorageMock = createSessionStorageMock()
 vi.stubGlobal('sessionStorage', sessionStorageMock)
 
-beforeEach(() => sessionStorageMock.clear())
+beforeEach(() => {
+  sessionStorageMock.clear()
+  vi.unstubAllGlobals()
+  vi.stubGlobal('sessionStorage', sessionStorageMock)
+})
 
 afterAll(() => {
   vi.unstubAllGlobals()
 })
 
 describe('player rooms', () => {
-  it('uses source title as the short room display name', () => {
+  it('uses the stable room name as the short display name', () => {
     expect(
       playerRoomShortName({
-        source_title: 'Sunday Setlist',
+        name: 'Player Room abc12345',
       } as Parameters<typeof playerRoomShortName>[0]),
-    ).toBe('Sunday Setlist')
+    ).toBe('Player Room abc12345')
   })
 
   it('keeps participant credentials scoped by room', () => {
@@ -53,6 +59,30 @@ describe('player rooms', () => {
     saveRoomCredentials(credentials)
     expect(readRoomCredentials('r1')).toEqual(credentials)
     expect(readRoomCredentials('r2')).toBeNull()
+  })
+
+  it('stores returned room credentials only after successful creation', async () => {
+    const credentials = { room_id: 'r1', participant_id: 'p1', mode: 'sheet' as const, resume_credential: 'resume', connection_ticket: 'ticket' }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      room: { id: 'r1' },
+      credentials,
+      invite_secret: 'invite',
+    }), { status: 201, headers: { 'Content-Type': 'application/json' } })))
+
+    await createPlayerRoom({ team_id: 'team-1' })
+
+    expect(readRoomCredentials('r1')).toEqual(credentials)
+    expect(readRoomInvite('r1')).toBe('invite')
+  })
+
+  it('retains no room credential when creation fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      code: 'forbidden',
+    }), { status: 403, headers: { 'Content-Type': 'application/json' } })))
+
+    await expect(createPlayerRoom({ team_id: 'team-1' })).rejects.toThrow('forbidden')
+
+    expect(readRoomCredentials('r1')).toBeNull()
   })
 
   it('adapts content snapshots without importing host layout state', () => {

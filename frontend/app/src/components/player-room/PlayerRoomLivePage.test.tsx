@@ -148,3 +148,26 @@ describe('PlayerRoomLivePage slide mode', () => {
     expect(requestFullscreen).toHaveBeenCalledOnce()
   })
 })
+
+describe('PlayerRoomLivePage empty room', () => {
+  it('renders a purposeful Sheet empty state with host controls reachable', () => {
+    const emptySnapshot = snapshotWithProjection(null)
+    emptySnapshot.source_type = null
+    emptySnapshot.source_id = null
+    emptySnapshot.source_title = null
+    emptySnapshot.content = { items: [], toc: [] }
+    emptySnapshot.participants[0] = {
+      ...emptySnapshot.participants[0],
+      mode: 'sheet',
+      is_host: true,
+    }
+    mockRoom(emptySnapshot)
+
+    render(<PlayerRoomLivePage credentials={{ ...credentials, mode: 'sheet' }} />)
+
+    expect(screen.getByText('playerRooms.emptyRoomTitle')).toBeInTheDocument()
+    expect(screen.getByTestId('room-sidebar')).toBeInTheDocument()
+    expect(screen.queryByTestId('player-book')).not.toBeInTheDocument()
+    expect(screen.queryByText('common.load')).not.toBeInTheDocument()
+  })
+})

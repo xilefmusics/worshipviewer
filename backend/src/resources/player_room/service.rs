@@ -4,6 +4,7 @@ use std::{
 };
 
 use chrono::{DateTime, Duration, Utc};
+use rand::RngExt;
 use ring::{
     digest,
     rand::{SecureRandom, SystemRandom},
@@ -24,7 +25,35 @@ use crate::{
 const LEASE_SECONDS: i64 = 30;
 const TICKET_SECONDS: i64 = 60;
 const MAX_GUEST_NAME: usize = 80;
+const MAX_ROOM_NAME: usize = 80;
 const MAX_PROJECTION_BYTES: usize = 256 * 1024;
+
+const ROOM_NAME_VERBS: &[&str] = &[
+    "Praise",
+    "Sing",
+    "Worship",
+    "Pray",
+    "Rejoice",
+    "Glorify",
+    "Exalt",
+    "Serve",
+    "Gather",
+    "Celebrate",
+    "Proclaim",
+];
+const ROOM_NAME_NOUNS: &[&str] = &[
+    "Hymn",
+    "Psalm",
+    "Chorus",
+    "Grace",
+    "Hallelujah",
+    "Amen",
+    "Light",
+    "Song",
+    "Praise",
+    "Gospel",
+    "Worship",
+];
 
 #[derive(Clone)]
 pub struct PlayerRoomService {
@@ -38,10 +67,11 @@ pub struct PlayerRoomService {
 struct RoomRecord {
     id: RecordId,
     owner: RecordId,
-    source_type: String,
-    source_id: String,
-    source_title: String,
+    source_type: Option<String>,
+    source_id: Option<String>,
+    source_title: Option<String>,
     name: String,
+    host_user_id: Option<String>,
     host_email: String,
     musical_state_json: String,
     projection_json: Option<String>,
@@ -61,10 +91,11 @@ struct RoomRecord {
 struct RoomSummaryRecord {
     id: RecordId,
     owner: RecordId,
-    source_type: String,
-    source_id: String,
-    source_title: String,
+    source_type: Option<String>,
+    source_id: Option<String>,
+    source_title: Option<String>,
     name: String,
+    host_user_id: Option<String>,
     host_email: String,
     av_participant_id: Option<String>,
     created_at: Datetime,
@@ -183,12 +214,17 @@ pub enum ServerEvent {
 
 pub struct CreateRoomInput {
     pub team_id: String,
-    pub source_title: String,
-    pub content: PlayerRoomContent,
+    pub name: Option<String>,
     pub host_user_id: String,
     pub host_email: String,
     pub host_avatar_url: Option<String>,
-    pub request: CreatePlayerRoom,
+    pub source_type: Option<PlayerRoomSourceType>,
+    pub source_id: Option<String>,
+    pub source_title: Option<String>,
+    pub content: PlayerRoomContent,
+    pub host_mode: PlayerRoomMode,
+    pub musical_state: PlayerRoomMusicalState,
+    pub projection: Option<PlayerRoomProjectionPayload>,
 }
 
 fn default_guests_allowed() -> bool {
@@ -211,6 +247,13 @@ impl PlayerRoomService {
         Ok(hex::encode(bytes))
     }
 
+    fn generated_room_name() -> String {
+        let mut rng = rand::rng();
+        let verb = ROOM_NAME_VERBS[rng.random_range(0..ROOM_NAME_VERBS.len())];
+        let noun = ROOM_NAME_NOUNS[rng.random_range(0..ROOM_NAME_NOUNS.len())];
+        format!("{verb} {noun}")
+    }
+
     fn hash(secret: &str) -> String {
         hex::encode(digest::digest(&digest::SHA256, secret.as_bytes()))
     }
@@ -223,11 +266,12 @@ impl PlayerRoomService {
         }
     }
 
-    fn source_type_from_db(value: &str) -> Result<PlayerRoomSourceType, AppError> {
+    fn source_type_from_db(value: Option<&str>) -> Result<Option<PlayerRoomSourceType>, AppError> {
         match value {
-            "song" => Ok(PlayerRoomSourceType::Song),
-            "collection" => Ok(PlayerRoomSourceType::Collection),
-            "setlist" => Ok(PlayerRoomSourceType::Setlist),
+            None => Ok(None),
+            Some("song") => Ok(Some(PlayerRoomSourceType::Song)),
+            Some("collection") => Ok(Some(PlayerRoomSourceType::Collection)),
+            Some("setlist") => Ok(Some(PlayerRoomSourceType::Setlist)),
             _ => Err(AppError::database("invalid player-room source type")),
         }
     }
@@ -354,8 +398,7 @@ impl PlayerRoomService {
     }
 
     fn is_active(room: &RoomRecord) -> bool {
-        let lease: DateTime<Utc> = room.host_lease_expires_at.into();
-        room.closed_at.is_none() && lease > Utc::now()
+        room.closed_at.is_none()
     }
 
     fn participant_is_active(participant: &ParticipantRecord) -> bool {
@@ -376,10 +419,29 @@ impl PlayerRoomService {
             avatar_url: participant.avatar_url.clone(),
             anonymous: participant.anonymous,
             connected: participant.connected && Self::participant_is_active(participant),
-            is_host: participant.participant_id == room.host_participant_id,
+            is_host: Self::participant_is_host(room, participant),
             is_av_host: room.av_participant_id.as_deref()
                 == Some(participant.participant_id.as_str())
                 && Self::participant_is_active(participant),
+        })
+    }
+
+    fn participant_is_host(room: &RoomRecord, participant: &ParticipantRecord) -> bool {
+        room.host_user_id.as_deref().map_or_else(
+            || participant.participant_id == room.host_participant_id,
+            |host_user_id| participant.user_id.as_deref() == Some(host_user_id),
+        )
+    }
+
+    fn host_user_id<'a>(
+        room: &'a RoomRecord,
+        participants: &'a [ParticipantRecord],
+    ) -> Option<&'a str> {
+        room.host_user_id.as_deref().or_else(|| {
+            participants
+                .iter()
+                .find(|participant| participant.participant_id == room.host_participant_id)
+                .and_then(|participant| participant.user_id.as_deref())
         })
     }
 
@@ -400,10 +462,11 @@ impl PlayerRoomService {
             id: record_id_string(&room.id),
             name: room.name.clone(),
             team_id: record_id_string(&room.owner),
-            source_type: Self::source_type_from_db(&room.source_type)?,
+            source_type: Self::source_type_from_db(room.source_type.as_deref())?,
             source_id: room.source_id.clone(),
             source_title: room.source_title.clone(),
             host_email: room.host_email.clone(),
+            can_close: false,
             participant_count: active.len(),
             av_occupied,
             created_at: room.created_at.into(),
@@ -452,7 +515,7 @@ impl PlayerRoomService {
             .db
             .query(
                 r#"
-SELECT id, owner, source_type, source_id, source_title, name, host_email,
+SELECT id, owner, source_type, source_id, source_title, name, host_user_id, host_email,
        musical_state_json, projection_json, revision,
        invite_hash, host_participant_id, av_participant_id, media_ids,
        created_at, host_lease_expires_at, closed_at, guests_allowed
@@ -526,12 +589,18 @@ WHERE room = type::record('player_room', $room_id);
     }
 
     pub async fn create(&self, mut input: CreateRoomInput) -> Result<CreatedPlayerRoom, AppError> {
-        Self::normalize_initial_language(&input.content, &mut input.request.musical_state);
-        Self::validate_state(&input.content, &input.request.musical_state)?;
-        if let Some(projection) = &input.request.projection {
+        Self::normalize_initial_language(&input.content, &mut input.musical_state);
+        if !input.content.items.is_empty() {
+            Self::validate_state(&input.content, &input.musical_state)?;
+        } else if input.musical_state != PlayerRoomMusicalState::default() {
+            return Err(AppError::invalid_request(
+                "an empty player room must use the default musical state",
+            ));
+        }
+        if let Some(projection) = &input.projection {
             Self::validate_projection(projection)?;
         }
-        if input.request.host_mode == PlayerRoomMode::Slide {
+        if input.host_mode == PlayerRoomMode::Slide {
             return Err(AppError::invalid_request(
                 "a room host must start in Sheet or AV mode",
             ));
@@ -546,10 +615,9 @@ WHERE room = type::record('player_room', $room_id);
         let lease = now + Duration::seconds(LEASE_SECONDS);
         let snapshot_json = serde_json::to_string(&input.content)
             .map_err(|e| AppError::internal_from_err("player_room.snapshot.encode", e))?;
-        let musical_json = serde_json::to_string(&input.request.musical_state)
+        let musical_json = serde_json::to_string(&input.musical_state)
             .map_err(|e| AppError::internal_from_err("player_room.musical.encode", e))?;
         let projection_json = input
-            .request
             .projection
             .as_ref()
             .map(serde_json::to_string)
@@ -558,7 +626,15 @@ WHERE room = type::record('player_room', $room_id);
         let media_ids = Self::collect_media(&input.content)
             .into_iter()
             .collect::<Vec<_>>();
-        let name = format!("{} — {}", input.source_title, input.host_email);
+        let name = input
+            .name
+            .take()
+            .map(|name| name.trim().to_string())
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(Self::generated_room_name);
+        if name.chars().count() > MAX_ROOM_NAME {
+            return Err(AppError::invalid_request("player room name is too long"));
+        }
 
         let mut response = self
             .db
@@ -569,7 +645,7 @@ BEGIN TRANSACTION;
 CREATE type::record('player_room', $room_id) CONTENT {
     owner: type::record('team', $team_id), source_type: $source_type,
     source_id: $source_id, source_title: $source_title, name: $name,
-    host_email: $host_email, snapshot_json: NONE, state_json: NONE,
+    host_user_id: $host_user_id, host_email: $host_email, snapshot_json: NONE, state_json: NONE,
     musical_state_json: $musical_json, projection_json: $projection_json,
     revision: 1, invite_hash: $invite_hash, host_participant_id: $participant_id,
     av_participant_id: $av_participant_id, media_ids: $media_ids,
@@ -597,11 +673,15 @@ COMMIT TRANSACTION;
             .bind(("team_id", input.team_id.clone()))
             .bind((
                 "source_type",
-                Self::source_type_to_db(input.request.source_type).to_string(),
+                input
+                    .source_type
+                    .map(Self::source_type_to_db)
+                    .map(str::to_string),
             ))
-            .bind(("source_id", input.request.source_id.clone()))
+            .bind(("source_id", input.source_id.clone()))
             .bind(("source_title", input.source_title.clone()))
             .bind(("name", name.clone()))
+            .bind(("host_user_id", input.host_user_id.clone()))
             .bind(("host_email", input.host_email.clone()))
             .bind(("snapshot_json", snapshot_json))
             .bind(("musical_json", musical_json))
@@ -610,7 +690,7 @@ COMMIT TRANSACTION;
             .bind(("participant_id", participant_id.clone()))
             .bind((
                 "av_participant_id",
-                (input.request.host_mode == PlayerRoomMode::Av).then(|| participant_id.clone()),
+                (input.host_mode == PlayerRoomMode::Av).then(|| participant_id.clone()),
             ))
             .bind(("media_ids", media_ids))
             .bind(("now", now))
@@ -619,10 +699,7 @@ COMMIT TRANSACTION;
             .bind(("user_id", Some(input.host_user_id)))
             .bind(("display_name", input.host_email.clone()))
             .bind(("avatar_url", input.host_avatar_url))
-            .bind((
-                "mode",
-                Self::mode_to_db(input.request.host_mode).to_string(),
-            ))
+            .bind(("mode", Self::mode_to_db(input.host_mode).to_string()))
             .bind(("resume_hash", Self::hash(&resume_credential)))
             .bind(("ticket_id", Uuid::new_v4().to_string()))
             .bind(("ticket_hash", Self::hash(&connection_ticket)))
@@ -634,12 +711,13 @@ COMMIT TRANSACTION;
             id: room_id.clone(),
             name,
             team_id: input.team_id,
-            source_type: input.request.source_type,
-            source_id: input.request.source_id,
+            source_type: input.source_type,
+            source_id: input.source_id,
             source_title: input.source_title,
             host_email: input.host_email,
+            can_close: true,
             participant_count: 1,
-            av_occupied: input.request.host_mode == PlayerRoomMode::Av,
+            av_occupied: input.host_mode == PlayerRoomMode::Av,
             created_at: now,
         };
         Ok(CreatedPlayerRoom {
@@ -647,7 +725,7 @@ COMMIT TRANSACTION;
             credentials: PlayerRoomCredentials {
                 room_id,
                 participant_id,
-                mode: input.request.host_mode,
+                mode: input.host_mode,
                 resume_credential,
                 connection_ticket,
             },
@@ -659,6 +737,8 @@ COMMIT TRANSACTION;
         &self,
         teams: &[String],
         q: Option<&str>,
+        user_id: &str,
+        closable_teams: &[String],
     ) -> Result<Vec<PlayerRoomSummary>, AppError> {
         let owners = teams
             .iter()
@@ -670,9 +750,9 @@ COMMIT TRANSACTION;
             .query(
                 r#"
 SELECT id, owner, source_type, source_id, source_title, name, host_email,
-       av_participant_id, created_at
+       host_user_id, av_participant_id, created_at
 FROM player_room
-WHERE owner IN $owners AND closed_at = NONE AND host_lease_expires_at > time::now()
+WHERE owner IN $owners AND closed_at = NONE
 ORDER BY created_at DESC;
 "#,
             )
@@ -706,8 +786,13 @@ ORDER BY created_at DESC;
                 .iter()
                 .filter(|participant| participant.room == room.id)
                 .collect::<Vec<_>>();
-            let haystack =
-                format!("{} {} {}", room.name, room.source_title, room.host_email).to_lowercase();
+            let haystack = format!(
+                "{} {} {}",
+                room.name,
+                room.source_title.as_deref().unwrap_or_default(),
+                room.host_email
+            )
+            .to_lowercase();
             if !needle.is_empty() && !haystack.contains(&needle) {
                 continue;
             }
@@ -720,10 +805,12 @@ ORDER BY created_at DESC;
                 id: room_id,
                 name: room.name,
                 team_id: record_id_string(&room.owner),
-                source_type: Self::source_type_from_db(&room.source_type)?,
+                source_type: Self::source_type_from_db(room.source_type.as_deref())?,
                 source_id: room.source_id,
                 source_title: room.source_title,
                 host_email: room.host_email,
+                can_close: room.host_user_id.as_deref() == Some(user_id)
+                    || closable_teams.contains(&record_id_string(&room.owner)),
                 participant_count: participants.len(),
                 av_occupied,
                 created_at: room.created_at.into(),
@@ -797,10 +884,15 @@ ORDER BY created_at DESC;
             return Err(AppError::conflict("guests_not_allowed"));
         }
 
+        let host_account = user_id.is_some_and(|user_id| {
+            Self::host_user_id(&aggregate.room, &aggregate.participants) == Some(user_id)
+        });
         let resume_hash = resume.map(Self::hash);
         let resumed = resume_hash.as_ref().and_then(|hash| {
             aggregate.participants.iter().find(|participant| {
-                participant.resume_hash == *hash && Self::participant_is_active(participant)
+                participant.resume_hash == *hash
+                    && Self::participant_is_active(participant)
+                    && user_id.is_none_or(|user_id| participant.user_id.as_deref() == Some(user_id))
             })
         });
         let (participant_id, resume_credential, is_new) = if let Some(participant) = resumed {
@@ -847,7 +939,9 @@ UPSERT type::record('player_room_participant', $participant_row_id) MERGE {
     joined_at: $joined_at
 };
 UPDATE type::record('player_room', $room_id)
-SET revision += 1, av_participant_id = IF $claim_av THEN $participant_id ELSE av_participant_id END;
+SET revision += 1,
+    host_user_id = IF host_user_id = NONE THEN $host_user_id ELSE host_user_id END,
+    av_participant_id = IF $claim_av THEN $participant_id ELSE av_participant_id END;
 CREATE type::record('player_room_ticket', $ticket_id) CONTENT {
     room: type::record('player_room', $room_id), participant_id: $participant_id,
     ticket_hash: $ticket_hash, expires_at: $ticket_expires_at, consumed_at: NONE
@@ -867,6 +961,10 @@ COMMIT TRANSACTION;
             .bind(("resume_hash", Self::hash(&resume_credential)))
             .bind(("lease", lease))
             .bind(("joined_at", now))
+            .bind((
+                "host_user_id",
+                host_account.then(|| user_id.unwrap().to_string()),
+            ))
             .bind(("claim_av", mode == PlayerRoomMode::Av))
             .bind(("ticket_id", Uuid::new_v4().to_string()))
             .bind(("ticket_hash", Self::hash(&ticket)))
@@ -891,9 +989,7 @@ COMMIT TRANSACTION;
         let mut response = self
             .db
             .db
-            .query(
-                "SELECT id FROM ONLY player_room WHERE invite_hash = $hash AND closed_at = NONE AND host_lease_expires_at > time::now()",
-            )
+            .query("SELECT id FROM ONLY player_room WHERE invite_hash = $hash AND closed_at = NONE")
             .bind(("hash", Self::hash(secret)))
             .await?;
         #[derive(Deserialize, SurrealValue)]
@@ -909,7 +1005,7 @@ COMMIT TRANSACTION;
         let summary = Self::summary_from_room(&aggregate.room, &aggregate.participants)?;
         Ok(PlayerRoomInviteInfo {
             room_id: summary.id,
-            name: summary.source_title,
+            name: summary.name,
             host_email: summary.host_email,
             av_occupied: summary.av_occupied,
             guests_allowed: aggregate.room.guests_allowed,
@@ -977,26 +1073,41 @@ COMMIT TRANSACTION;
         })
     }
 
-    pub async fn close(&self, room_id: &str, resume: &str) -> Result<(), AppError> {
-        let aggregate = self.load_active_aggregate(room_id).await?;
-        let host = aggregate
-            .participants
-            .iter()
-            .find(|participant| participant.participant_id == aggregate.room.host_participant_id)
-            .ok_or_else(AppError::forbidden)?;
-        if host.resume_hash != Self::hash(resume) {
+    pub async fn close(
+        &self,
+        room_id: &str,
+        user_id: &str,
+        teams: &[String],
+        closable_teams: &[String],
+    ) -> Result<(), AppError> {
+        let aggregate = self
+            .load_aggregate(room_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("player room not found".into()))?;
+        let owner = record_id_string(&aggregate.room.owner);
+        if !teams.contains(&owner) {
+            return Err(AppError::NotFound("player room not found".into()));
+        }
+        if aggregate.room.closed_at.is_some() {
+            return Ok(());
+        }
+        if Self::host_user_id(&aggregate.room, &aggregate.participants) != Some(user_id)
+            && !closable_teams.contains(&owner)
+        {
             return Err(AppError::forbidden());
         }
         let mut response = self
             .db
             .db
             .query(
-                "UPDATE type::record('player_room', $room_id) SET closed_at = time::now(), revision += 1",
+                "UPDATE type::record('player_room', $room_id) SET closed_at = time::now(), revision += 1 WHERE closed_at = NONE RETURN AFTER",
             )
             .bind(("room_id", room_id.to_string()))
             .await?;
         surreal_take_errors("player_room.close", &mut response)?;
-        self.publish(room_id, ServerEvent::RoomEnded).await;
+        if !response.take::<Vec<RoomRecord>>(0)?.is_empty() {
+            self.publish(room_id, ServerEvent::RoomEnded).await;
+        }
         Ok(())
     }
 
@@ -1041,7 +1152,6 @@ COMMIT TRANSACTION;
         let sender = self.sender(&room_id).await;
         let receiver = sender.subscribe();
         let lease = Utc::now() + Duration::seconds(LEASE_SECONDS);
-        let is_host = participant_id == aggregate.room.host_participant_id;
         let mut response = self
             .db
             .db
@@ -1050,19 +1160,15 @@ COMMIT TRANSACTION;
 UPDATE type::record('player_room_participant', $row_id)
 SET connected = true, lease_expires_at = $lease;
 UPDATE type::record('player_room', $room_id)
-SET revision += 1, host_lease_expires_at = IF $is_host THEN $lease ELSE host_lease_expires_at END;
+SET revision += 1;
 "#,
             )
             .bind(("row_id", format!("{room_id}:{participant_id}")))
             .bind(("room_id", room_id.clone()))
             .bind(("lease", lease))
-            .bind(("is_host", is_host))
             .await?;
         surreal_take_errors("player_room.ticket.consume", &mut response)?;
         aggregate.room.revision += 1;
-        if is_host {
-            aggregate.room.host_lease_expires_at = lease.into();
-        }
         aggregate.participants[participant_index].connected = true;
         aggregate.participants[participant_index].lease_expires_at = lease.into();
         let snapshot = Self::snapshot(&aggregate)?;
@@ -1096,7 +1202,7 @@ SET revision += 1, host_lease_expires_at = IF $is_host THEN $lease ELSE host_lea
         binding_value: String,
     ) -> Result<Option<u64>, AppError> {
         let query = format!(
-            "UPDATE player_room SET {assignment}, revision += 1 WHERE id = type::record('player_room', $room_id) AND revision = $revision AND closed_at = NONE AND host_lease_expires_at > time::now() RETURN AFTER"
+            "UPDATE player_room SET {assignment}, revision += 1 WHERE id = type::record('player_room', $room_id) AND revision = $revision AND closed_at = NONE RETURN AFTER"
         );
         let mut response = self
             .db
@@ -1130,15 +1236,13 @@ UPDATE type::record('player_room_participant', $row_id)
 SET connected = true, lease_expires_at = $lease
 WHERE connected = true AND lease_expires_at > time::now()
 RETURN participant_id;
-UPDATE type::record('player_room', $room_id)
-SET host_lease_expires_at = IF host_participant_id = $participant_id THEN $lease ELSE host_lease_expires_at END
-WHERE closed_at = NONE AND host_lease_expires_at > time::now()
-RETURN revision, host_lease_expires_at;
+SELECT revision, host_lease_expires_at
+FROM ONLY type::record('player_room', $room_id)
+WHERE closed_at = NONE;
 "#,
             )
             .bind(("row_id", format!("{room_id}:{participant_id}")))
             .bind(("room_id", room_id.to_string()))
-            .bind(("participant_id", participant_id.to_string()))
             .bind(("lease", lease))
             .await?;
         surreal_take_errors("player_room.heartbeat", &mut response)?;
@@ -1224,7 +1328,12 @@ SET revision += 1,
                 command_id,
                 musical_state,
             } => {
-                if participant_id != aggregate.room.host_participant_id {
+                let participant = aggregate
+                    .participants
+                    .iter()
+                    .find(|participant| participant.participant_id == participant_id)
+                    .expect("participant was checked above");
+                if !Self::participant_is_host(&aggregate.room, participant) {
                     return Ok(Some(ServerEvent::CommandRejected {
                         command_id,
                         reason: "room_host_required".into(),
@@ -1336,7 +1445,12 @@ SET revision += 1,
                 command_id,
                 guests_allowed,
             } => {
-                if participant_id != aggregate.room.host_participant_id {
+                let participant = aggregate
+                    .participants
+                    .iter()
+                    .find(|participant| participant.participant_id == participant_id)
+                    .expect("participant was checked above");
+                if !Self::participant_is_host(&aggregate.room, participant) {
                     return Ok(Some(ServerEvent::CommandRejected {
                         command_id,
                         reason: "room_host_required".into(),
@@ -1479,16 +1593,6 @@ mod tests {
         revision: i64,
     }
 
-    fn request() -> CreatePlayerRoom {
-        CreatePlayerRoom {
-            source_type: PlayerRoomSourceType::Song,
-            source_id: "song-1".into(),
-            host_mode: PlayerRoomMode::Sheet,
-            musical_state: PlayerRoomMusicalState::default(),
-            projection: None,
-        }
-    }
-
     fn service(db: Arc<Database>) -> PlayerRoomService {
         PlayerRoomService::new(db)
     }
@@ -1497,17 +1601,22 @@ mod tests {
         service
             .create(CreateRoomInput {
                 team_id: "team-1".into(),
-                source_title: "Song".into(),
+                name: None,
+                host_user_id: "user-1".into(),
+                host_email: "host@example.com".into(),
+                host_avatar_url: None,
+                source_type: Some(PlayerRoomSourceType::Song),
+                source_id: Some("song-1".into()),
+                source_title: Some("Song".into()),
                 content: PlayerRoomContent {
                     items: vec![PlayerItem::Blob(PlayerBlobItem {
                         blob_id: "blob-1".into(),
                     })],
                     toc: vec![],
                 },
-                host_user_id: "user-1".into(),
-                host_email: "host@example.com".into(),
-                host_avatar_url: None,
-                request: request(),
+                host_mode: PlayerRoomMode::Sheet,
+                musical_state: PlayerRoomMusicalState::default(),
+                projection: None,
             })
             .await
             .unwrap()
@@ -1629,7 +1738,12 @@ mod tests {
             .unwrap_err();
         assert!(matches!(error, AppError::Conflict(_)));
         service
-            .close(&created.room.id, &created.credentials.resume_credential)
+            .close(
+                &created.room.id,
+                "user-1",
+                &["team-1".into()],
+                &["team-1".into()],
+            )
             .await
             .unwrap();
         assert!(
@@ -1786,5 +1900,101 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(error, AppError::Conflict(_)));
+    }
+
+    #[tokio::test]
+    async fn room_lifetime_and_host_authority_survive_expired_device_leases() {
+        let db = crate::test_helpers::test_db().await.unwrap();
+        let service = service(db.clone());
+        let created = create_room(&service).await;
+
+        let mut response = db
+            .db
+            .query(
+                "UPDATE type::record('player_room', $room_id) SET host_lease_expires_at = time::now() - 1s; UPDATE player_room_participant SET connected = false, lease_expires_at = time::now() - 1s WHERE room = type::record('player_room', $room_id)",
+            )
+            .bind(("room_id", created.room.id.clone()))
+            .await
+            .unwrap();
+        surreal_take_errors("player_room.test.expire_leases", &mut response).unwrap();
+
+        let rooms = service
+            .list(&["team-1".into()], None, "user-1", &[])
+            .await
+            .unwrap();
+        assert_eq!(rooms.len(), 1);
+        assert_eq!(rooms[0].participant_count, 0);
+        assert!(service.inspect_invite(&created.invite_secret).await.is_ok());
+
+        let restored = service
+            .join_authenticated(
+                &created.room.id,
+                "user-1",
+                "host@example.com",
+                None,
+                PlayerRoomMode::Sheet,
+                false,
+                None,
+                &["team-1".into()],
+            )
+            .await
+            .unwrap();
+        assert_ne!(restored.participant_id, created.credentials.participant_id);
+        let (_, _, _, snapshot) = service
+            .consume_ticket(&restored.connection_ticket)
+            .await
+            .unwrap();
+        assert!(snapshot.participants.iter().any(|participant| {
+            participant.id == restored.participant_id && participant.is_host
+        }));
+
+        let accepted = service
+            .command(
+                &created.room.id,
+                &restored.participant_id,
+                ClientEvent::UpdateGuestsAllowed {
+                    command_id: "restored-host".into(),
+                    guests_allowed: false,
+                },
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(accepted, ServerEvent::CommandAccepted { .. }));
+    }
+
+    #[tokio::test]
+    async fn only_host_or_current_team_maintainers_can_close() {
+        let db = crate::test_helpers::test_db().await.unwrap();
+        let service = service(db);
+        let created = create_room(&service).await;
+
+        let error = service
+            .close(&created.room.id, "user-2", &["team-1".into()], &[])
+            .await
+            .unwrap_err();
+        assert!(matches!(error, AppError::Forbidden));
+
+        service
+            .close(
+                &created.room.id,
+                "user-2",
+                &["team-1".into()],
+                &["team-1".into()],
+            )
+            .await
+            .unwrap();
+        assert!(
+            service
+                .inspect_invite(&created.invite_secret)
+                .await
+                .is_err()
+        );
+        assert!(
+            service
+                .close(&created.room.id, "user-2", &["team-1".into()], &[])
+                .await
+                .is_ok()
+        );
     }
 }

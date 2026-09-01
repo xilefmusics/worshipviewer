@@ -102,13 +102,14 @@ export function PlayerRoomLivePage({ credentials }: { credentials: PlayerRoomCre
       status={room.status === 'connected' ? 'connected' : 'reconnecting'}
       participants={snapshot.participants}
       isHost={participant.is_host}
+      canClose={participant.is_host || snapshot.can_close === true}
       guestsAllowed={snapshot.guests_allowed !== false}
       onGuestsAllowedChange={sendGuestsAllowed}
       inviteSecret={participant.is_host ? readRoomInvite(snapshot.id) : null}
       onEndRoom={
-        participant.is_host
+        participant.is_host || snapshot.can_close
           ? () => {
-              void endPlayerRoom(snapshot.id, credentials.resume_credential)
+              void endPlayerRoom(snapshot.id)
             }
           : undefined
       }
@@ -117,14 +118,28 @@ export function PlayerRoomLivePage({ credentials }: { credentials: PlayerRoomCre
 
   const roomPanelProps = { roomSidebar }
 
+  if (snapshot.content.items.length === 0) {
+    return (
+      <main className="flex h-dvh min-h-0 bg-[var(--color-background)]">
+        <section className="flex min-w-0 flex-1 flex-col items-center justify-center p-6 text-center">
+          <h1 className="text-xl font-semibold">{t('playerRooms.emptyRoomTitle')}</h1>
+          <p className="mt-2 max-w-md text-sm text-[var(--color-muted-foreground)]">
+            {t('playerRooms.emptyRoomDescription')}
+          </p>
+        </section>
+        {roomSidebar}
+      </main>
+    )
+  }
+
   const shared = {
-    type: snapshot.source_type,
+    type: snapshot.source_type ?? 'song',
     id: `room-${snapshot.id}`,
     player,
     initialIndex: snapshot.musical_state.item_index,
     allowNetworkFetch: true,
     allowLibraryActions: false,
-    resourceTitle: snapshot.source_title,
+    resourceTitle: snapshot.source_title ?? snapshot.name,
     roomMusicalState: snapshot.musical_state,
     roomStateRevision: snapshot.revision,
     canControlRoomMusicalState: participant.is_host,

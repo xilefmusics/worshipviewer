@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -17,6 +17,7 @@ import { playerRoomJoinModeChoiceToWire } from '@/lib/player-room-join-mode'
 import { useHubSearch } from '@/hooks/useHubSearch'
 import { useOnline } from '@/hooks/use-online'
 import {
+  endPlayerRoom,
   formatRoomDuration,
   joinPlayerRoom,
   listPlayerRooms,
@@ -25,6 +26,7 @@ import {
   useRoomElapsedSeconds,
   type PlayerRoomSummary,
 } from '@/lib/player-room'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const tapFeedback = { scale: 0.985 }
@@ -33,9 +35,13 @@ const tapTransition = { duration: 0.12, ease: [0.25, 0.1, 0.25, 1] as const }
 function RoomListRow({
   room,
   onSelect,
+  onClose,
+  closing,
 }: {
   room: PlayerRoomSummary
   onSelect: () => void
+  onClose: () => void
+  closing: boolean
 }) {
   const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
@@ -43,13 +49,14 @@ function RoomListRow({
   const durationLabel = formatRoomDuration(elapsedSeconds)
 
   return (
-    <motion.button
-      type="button"
-      className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_BORDER_CLASS, 'w-full border-0 bg-transparent text-left')}
-      onClick={onSelect}
-      whileTap={reduceMotion ? undefined : tapFeedback}
-      transition={tapTransition}
-    >
+    <div className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_BORDER_CLASS, 'w-full gap-3')}>
+      <motion.button
+        type="button"
+        className="min-w-0 flex-1 border-0 bg-transparent text-left"
+        onClick={onSelect}
+        whileTap={reduceMotion ? undefined : tapFeedback}
+        transition={tapTransition}
+      >
       <div className="flex min-w-0 flex-1 flex-col justify-center py-0.5">
         <p className={HUB_LIST_TITLE_CLASS}>{playerRoomShortName(room)}</p>
         <div className="flex min-w-0 items-baseline gap-2">
@@ -68,7 +75,13 @@ function RoomListRow({
           </time>
         </div>
       </div>
-    </motion.button>
+      </motion.button>
+      {room.can_close ? (
+        <Button type="button" variant="destructive" size="sm" disabled={closing} onClick={onClose}>
+          {t('playerRooms.end')}
+        </Button>
+      ) : null}
+    </div>
   )
 }
 
@@ -76,9 +89,11 @@ export function PlayerRoomsList() {
   const { t } = useTranslation()
   const { debouncedQ, selectedTeamId } = useHubSearch()
   const online = useOnline()
+  const queryClient = useQueryClient()
   const [selected, setSelected] = useState<PlayerRoomSummary | null>(null)
   const [chooserOpen, setChooserOpen] = useState(false)
   const [pending, setPending] = useState(false)
+  const [closingId, setClosingId] = useState<string | null>(null)
   const query = useQuery({
     queryKey: ['player-rooms', debouncedQ, selectedTeamId],
     queryFn: () => listPlayerRooms({ page: 0, q: debouncedQ, team: selectedTeamId ?? undefined }),
@@ -100,9 +115,17 @@ export function PlayerRoomsList() {
           <RoomListRow
             key={room.id}
             room={room}
+            closing={closingId === room.id}
             onSelect={() => {
               setSelected(room)
               setChooserOpen(true)
+            }}
+            onClose={() => {
+              setClosingId(room.id)
+              void endPlayerRoom(room.id)
+                .then(() => queryClient.invalidateQueries({ queryKey: ['player-rooms'] }))
+                .catch(() => undefined)
+                .finally(() => setClosingId(null))
             }}
           />
         ))}

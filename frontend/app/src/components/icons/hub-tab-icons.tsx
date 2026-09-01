@@ -6,7 +6,6 @@ import { ListMusicIcon } from '@/components/icons/lucide-animated/list-music-ico
 import { PlusIcon } from '@/components/icons/lucide-animated/plus-icon'
 import { SessionsIcon } from '@/components/icons/lucide-animated/sessions-icon'
 import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
-import { UsersIcon } from '@/components/icons/lucide-animated/users-icon'
 import { cn } from '@/lib/utils'
 
 /** ~90% of prior 26px; matches scaled hub tab / Neu button chrome. */
@@ -66,10 +65,10 @@ export function IconHubSettings({ className, isHovered, ...rest }: HubTabIconPro
   )
 }
 
-/** Teams — `users` */
-export function IconHubTeams({ className, isHovered, ...rest }: HubTabIconProps) {
+/** Player Rooms — live shared screen/session */
+export function IconHubPlayerRooms({ className, isHovered, ...rest }: HubTabIconProps) {
   return (
-    <UsersIcon
+    <SessionsIcon
       className={cn('inline-flex shrink-0', className)}
       isHovered={isHovered}
       size={HUB_TAB_ICON_PX}

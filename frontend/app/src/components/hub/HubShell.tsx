@@ -360,6 +360,10 @@ function HubChrome({
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const { teams: writableMediaTeams } = useWritableTeams('mediaHubFab', pathname === '/media')
+  const { teams: writablePlayerRoomTeams } = useWritableTeams(
+    'playerRoomCreate',
+    pathname === '/player-rooms',
+  )
   const locationSearch = useRouterState({ select: (s) => s.location.search })
   const isTeamsList = pathname === '/teams'
   const isTeamDetail = pathname.startsWith('/teams/') && pathname !== '/teams'
@@ -419,7 +423,8 @@ function HubChrome({
     isCollectionDetail ||
     isSongDetail ||
     isMediaDetail ||
-    (pathname === '/media' && writableMediaTeams.length === 0)
+    (pathname === '/media' && writableMediaTeams.length === 0) ||
+    (pathname === '/player-rooms' && writablePlayerRoomTeams.length === 0)
   const showFooter =
     !isTeamDetail &&
     !isSetlistDetail &&
@@ -1108,6 +1113,8 @@ function HubChrome({
                       void navigate({ to: '/songs', search: { new: '1' } })
                     } else if (pathname === '/media') {
                       void navigate({ to: '/media', search: { new: '1' } })
+                    } else if (pathname === '/player-rooms') {
+                      void navigate({ to: '/player-rooms', search: { new: '1' } })
                     }
                   }}
                   className={cn(
@@ -1128,6 +1135,8 @@ function HubChrome({
                             ? t('hub.createSongAria')
                             : pathname === '/media'
                               ? t('media.actions.createAria')
+                            : pathname === '/player-rooms'
+                              ? t('playerRooms.createAria')
                             : t('hub.createAria')
                   }
                 >

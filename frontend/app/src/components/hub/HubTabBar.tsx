@@ -5,28 +5,28 @@ import { useTranslation } from 'react-i18next'
 
 import {
   IconHubCollections,
+  IconHubPlayerRooms,
   IconHubSetlists,
   IconHubSongs,
-  IconHubTeams,
 } from '@/components/icons/hub-tab-icons'
 import { HUB_TAB_LABEL_CLASS } from '@/components/hub/hub-list-styles'
 import { cn } from '@/lib/utils'
 
-type HubTabTo = '/collections' | '/songs' | '/setlists' | '/teams'
+type HubTabTo = '/collections' | '/songs' | '/setlists' | '/player-rooms'
 
 const tabs = [
   { to: '/collections' as const, labelKey: 'hub.tabs.collections' as const, Icon: IconHubCollections },
   { to: '/songs' as const, labelKey: 'hub.tabs.songs' as const, Icon: IconHubSongs },
   { to: '/setlists' as const, labelKey: 'hub.tabs.setlists' as const, Icon: IconHubSetlists },
-  { to: '/teams' as const, labelKey: 'hub.tabs.teams' as const, Icon: IconHubTeams },
+  { to: '/player-rooms' as const, labelKey: 'hub.tabs.playerRooms' as const, Icon: IconHubPlayerRooms },
 ] satisfies ReadonlyArray<{
   to: HubTabTo
-  labelKey: 'hub.tabs.collections' | 'hub.tabs.songs' | 'hub.tabs.setlists' | 'hub.tabs.teams'
+  labelKey: 'hub.tabs.collections' | 'hub.tabs.songs' | 'hub.tabs.setlists' | 'hub.tabs.playerRooms'
   Icon: typeof IconHubCollections
 }>
 
-function isTeamsTabActive(pathname: string): boolean {
-  return pathname === '/teams' || pathname.startsWith('/teams/')
+function isPlayerRoomsTabActive(pathname: string): boolean {
+  return pathname === '/player-rooms'
 }
 
 export function HubTabBar() {
@@ -53,7 +53,9 @@ export function HubTabBar() {
     >
       {tabs.map(({ to, labelKey, Icon }) => {
         const active =
-          to === '/teams' ? isTeamsTabActive(pathname) : pathname === to || pathname.startsWith(`${to}/`)
+          to === '/player-rooms'
+            ? isPlayerRoomsTabActive(pathname)
+            : pathname === to || pathname.startsWith(`${to}/`)
         return (
           <Link
             key={to}

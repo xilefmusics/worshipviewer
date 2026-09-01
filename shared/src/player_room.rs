@@ -98,10 +98,12 @@ pub struct PlayerRoomSummary {
     pub id: String,
     pub name: String,
     pub team_id: String,
-    pub source_type: PlayerRoomSourceType,
-    pub source_id: String,
-    pub source_title: String,
+    pub source_type: Option<PlayerRoomSourceType>,
+    pub source_id: Option<String>,
+    pub source_title: Option<String>,
     pub host_email: String,
+    #[serde(default)]
+    pub can_close: bool,
     pub participant_count: usize,
     pub av_occupied: bool,
     pub created_at: DateTime<Utc>,
@@ -129,11 +131,9 @@ fn default_guests_allowed() -> bool {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct CreatePlayerRoom {
-    pub source_type: PlayerRoomSourceType,
-    pub source_id: String,
-    pub host_mode: PlayerRoomMode,
-    pub musical_state: PlayerRoomMusicalState,
-    pub projection: Option<PlayerRoomProjectionPayload>,
+    pub team_id: String,
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]

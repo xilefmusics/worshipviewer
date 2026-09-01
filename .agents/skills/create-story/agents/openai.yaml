@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Story"
+  short_description: "Refine a researched idea into a testable story"
+  default_prompt: "Use $create-story to research this idea, interview me, and turn one valuable slice into an implementation-ready story."

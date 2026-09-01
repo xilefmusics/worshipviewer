@@ -12,15 +12,9 @@ use shared::{
 use tokio::sync::broadcast;
 
 use crate::{
-    auth::{AuthorizationContext, middleware::RequireUser},
+    auth::{AuthorizationContext, context::AuthorizedTeamRole, middleware::RequireUser},
     error::AppError,
-    resources::{
-        blob::service::BlobServiceHandle,
-        collection::service::CollectionServiceHandle,
-        setlist::SetlistServiceHandle,
-        song::service::SongServiceHandle,
-        team::{parse_owner_record_id, thing_record_key},
-    },
+    resources::{blob::service::BlobServiceHandle, team::parse_owner_record_id},
 };
 
 use super::service::{ClientEvent, CreateRoomInput, PlayerRoomService, ServerEvent};
@@ -46,7 +40,20 @@ pub fn scope() -> Scope {
 fn team_ids(ctx: &AuthorizationContext) -> Vec<String> {
     ctx.teams
         .iter()
-        .map(|team| thing_record_key(&team.id))
+        .map(|team| crate::database::record_id_string(&team.id))
+        .collect()
+}
+
+fn closable_team_ids(ctx: &AuthorizationContext) -> Vec<String> {
+    ctx.teams
+        .iter()
+        .filter(|team| {
+            matches!(
+                team.role,
+                AuthorizedTeamRole::Admin | AuthorizedTeamRole::ContentMaintainer
+            )
+        })
+        .map(|team| crate::database::record_id_string(&team.id))
         .collect()
 }
 
@@ -68,7 +75,14 @@ pub async fn list_rooms(
         }
         teams = vec![team.to_string()];
     }
-    let rows = svc.list(&teams, query.q.as_deref()).await?;
+    let rows = svc
+        .list(
+            &teams,
+            query.q.as_deref(),
+            &ctx.user.id,
+            &closable_team_ids(&ctx),
+        )
+        .await?;
     let total = rows.len();
     let start =
         query.page.unwrap_or(0) as usize * query.page_size.unwrap_or(PAGE_SIZE_DEFAULT) as usize;
@@ -87,57 +101,29 @@ pub async fn list_rooms(
 #[post("")]
 pub async fn create_room(
     svc: Data<PlayerRoomService>,
-    song: Data<SongServiceHandle>,
-    collection: Data<CollectionServiceHandle>,
-    setlist: Data<SetlistServiceHandle>,
     ctx: ReqData<AuthorizationContext>,
     body: Json<CreatePlayerRoom>,
 ) -> Result<HttpResponse, AppError> {
     let request = body.into_inner();
-    let (owner, title, player) = match request.source_type {
-        PlayerRoomSourceType::Song => {
-            let resource = song.get_song_for_user(&ctx, &request.source_id).await?;
-            let title = resource
-                .data
-                .titles
-                .first()
-                .cloned()
-                .unwrap_or_else(|| "Untitled".into());
-            let player = song.song_player_for_user(&ctx, &request.source_id).await?;
-            (resource.owner, title, player)
-        }
-        PlayerRoomSourceType::Collection => {
-            let resource = collection
-                .get_collection_for_user(&ctx, &request.source_id)
-                .await?;
-            let player = collection
-                .collection_player_for_user(&ctx, &request.source_id)
-                .await?;
-            (resource.owner, resource.title, player)
-        }
-        PlayerRoomSourceType::Setlist => {
-            let resource = setlist
-                .get_setlist_for_user(&ctx, &request.source_id)
-                .await?;
-            let player = setlist
-                .setlist_player_for_user(&ctx, &request.source_id)
-                .await?;
-            (resource.owner, resource.title, player)
-        }
-    };
-    let owner_record = parse_owner_record_id(&owner)?;
-    if ctx.team_role(&owner_record).is_none() {
-        return Err(AppError::NotFound("source not found".into()));
-    }
+    let owner_record = parse_owner_record_id(&request.team_id)?;
+    ctx.require_write_access_to_owner(&owner_record)?;
     let created = svc
         .create(CreateRoomInput {
-            team_id: thing_record_key(&owner_record),
-            source_title: title,
-            content: (&player).into(),
+            team_id: crate::database::record_id_string(&owner_record),
+            name: request.name,
             host_user_id: ctx.user.id.clone(),
             host_email: ctx.user.email.clone(),
             host_avatar_url: ctx.user.oauth_picture_url.clone(),
-            request,
+            source_type: None,
+            source_id: None,
+            source_title: None,
+            content: PlayerRoomContent {
+                items: Vec::new(),
+                toc: Vec::new(),
+            },
+            host_mode: PlayerRoomMode::Sheet,
+            musical_state: PlayerRoomMusicalState::default(),
+            projection: None,
         })
         .await?;
     Ok(HttpResponse::Created().json(created))
@@ -177,19 +163,15 @@ pub async fn join_room(
     ))
 }
 
-#[utoipa::path(delete, path = "/api/v1/player-rooms/{id}", params(("id" = String, Path), ("X-Player-Room-Credential" = String, Header)), responses((status = 204)), tag = "Player Rooms", security(("SessionCookie" = []), ("SessionToken" = [])))]
+#[utoipa::path(delete, path = "/api/v1/player-rooms/{id}", params(("id" = String, Path)), responses((status = 204)), tag = "Player Rooms", security(("SessionCookie" = []), ("SessionToken" = [])))]
 #[delete("/{id}")]
 pub async fn close_room(
-    req: HttpRequest,
     svc: Data<PlayerRoomService>,
+    ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    let credential = req
-        .headers()
-        .get("X-Player-Room-Credential")
-        .and_then(|v| v.to_str().ok())
-        .ok_or_else(AppError::unauthorized)?;
-    svc.close(&id, credential).await?;
+    svc.close(&id, &ctx.user.id, &team_ids(&ctx), &closable_team_ids(&ctx))
+        .await?;
     Ok(HttpResponse::NoContent().finish())
 }
 

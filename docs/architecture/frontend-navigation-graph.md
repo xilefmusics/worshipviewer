@@ -40,6 +40,7 @@ graph TD
     songDetail["/songs/:id"]
     setlists["/setlists"]
     setlistDetail["/setlists/:id"]
+    playerRooms["/player-rooms"]
     teams["/teams"]
     teamDetail["/teams/:id"]
     sessions["/sessions"]
@@ -104,6 +105,7 @@ graph TD
     setlistDetail -.->|"Key chip"| keyPicker(["Key picker popover"])
 
     %% ---- Teams / Sessions ----
+    playerRooms -.->|"Add FAB"| createPlayerRoomDialog(["Create Player Room dialog"])
     teams -.->|"Add FAB"| createTeamDialog(["Create team"])
     createTeamDialog -->|"Create"| teamDetail
     teams -->|"row click"| teamDetail
@@ -144,6 +146,11 @@ graph TD
     avSlides -.->|"Background"| avBackground(["AV background selector"])
 
     %% ---- Global hub chrome (available on every /_hub/* screen) ----
+    hubTabBar(["Primary hub tabs"])
+    hubTabBar -->|"Collections"| collections
+    hubTabBar -->|"Songs"| songs
+    hubTabBar -->|"Setlists"| setlists
+    hubTabBar -->|"Player Rooms"| playerRooms
     profileMenu -->|"Settings"| settings
     profileMenu -->|"About"| about
     profileMenu -->|"Teams"| teams
@@ -153,6 +160,7 @@ graph TD
     commandPalette -->|"Navigate > Collections"| collections
     commandPalette -->|"Navigate > Songs"| songs
     commandPalette -->|"Navigate > Setlists"| setlists
+    commandPalette -->|"Navigate > Player Rooms"| playerRooms
     commandPalette -->|"Navigate > Settings"| settings
     commandPalette -->|"Navigate > Teams"| teams
     commandPalette -->|"Navigate > Sessions"| sessions
@@ -194,6 +202,7 @@ graph TD
 
 | Node | Type | Source file |
 |------|------|-------------|
+| Primary hub tabs (`hubTabBar`) | panel | `components/hub/HubTabBar.tsx` |
 | Profile menu (`profileMenu`) | overlay | `components/hub/ProfileMenu.tsx` |
 | Command palette (`commandPalette`) | overlay | `components/hub/CommandPalette.tsx` |
 | PWA install help sheet (`pwaInstallSheet`) | overlay | `pwa/PwaInstallProvider.tsx` |
@@ -201,6 +210,7 @@ graph TD
 | Delete item confirmation (`deleteAlert`) | overlay | `components/hub/EntityListView.tsx` |
 | Add song to setlist dialog (`addToSetlist`) | overlay | `components/hub/AddSongToSetlistDialog.tsx` |
 | Create collection dialog (`createCollectionDialog`) | overlay | `components/collections/CreateCollectionDialog.tsx` |
+| Create Player Room dialog (`createPlayerRoomDialog`) | overlay | `components/player-room/CreatePlayerRoomDialog.tsx` |
 | Create setlist dialog (`createSetlistDialog`) | overlay | `components/setlists/CreateSetlistDialog.tsx` |
 | Create team dialog (`createTeamDialog`) | overlay | `components/teams/CreateTeamDialog.tsx` |
 | Song create chooser sheet (`songChooser`) | overlay | `components/songs/SongCreateChooserSheet.tsx` |
@@ -221,10 +231,10 @@ graph TD
 
 ## Notes
 
-- Hub chrome (Profile menu, Command palette) is rendered on every `/_hub/*` screen via `HubShell`; edges from `profileMenu`/`commandPalette` therefore apply from any hub screen.
+- Hub chrome (primary tabs, Profile menu, Command palette) is rendered on every `/_hub/*` screen via `HubShell`; edges from `hubTabBar`/`profileMenu`/`commandPalette` therefore apply from any hub screen.
 - Command palette opens with Cmd/Ctrl+K and only on `pointer:fine` devices.
 - Footer Add FAB is hidden on `/sessions`, `/settings`, and all detail/editor routes.
 - `playerNormal` and `playerAv` are the same `/player` route; the active surface is chosen by the `mode` search param.
-- Player Rooms are opened from the profile menu or a source player. Public invite routes remain outside both authenticated route guards.
+- Player Rooms are opened from the primary hub tabs. Teams remain available from the profile menu and command palette. Authorized team administrators and content maintainers can create an empty room from the Player Rooms hub; public invite routes remain outside both authenticated route guards.
 - Auth: any protected route redirects to `/login?return_to=<path>` when there is no session; an API 401 hard-redirects to `/login`.
 - `SongEditorActionsMenu` exists in the codebase but is not currently wired into `SongEditorScreen`, so it is omitted from the live graph.

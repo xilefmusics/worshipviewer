@@ -16,6 +16,7 @@ Cross-cutting rules used throughout:
 - **Command palette** (⌘K/Ctrl+K) only exists on `pointer:fine` (desktop) devices.
 - **Editors autosave** (no Save button): songs 3000 ms debounce, collections/setlists 750 ms.
 - **Owner picker** in create-collection/setlist dialogs appears only when the user can edit **2+** teams; with 0–1 writable teams `owner` is omitted and the server uses the personal team.
+- **Primary hub tabs** are ordered Collections, Songs, Setlists, and Player Rooms; Teams is available from the profile menu and command palette.
 
 ## Index
 
@@ -858,19 +859,21 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    source["Song / collection / setlist player"] --> start["Start Player Room"]
-    start --> host["Host Sheet or AV surface"]
-    list["Player Rooms hub"] --> chooser["Fixed mode chooser"]
+    list["Player Rooms hub"] --> create["Create room"]
+    create --> teams{"Writable teams"}
+    teams -->|"one"| confirm["Confirm"]
+    teams -->|"multiple"| choose["Choose team"] --> confirm
+    confirm --> empty["Empty host Sheet surface"]
+    list --> chooser["Fixed mode chooser"]
     invite["Public fragment invite"] --> name["Display name"] --> chooser
     chooser --> sheet["Sheet follower"]
     chooser --> av["Single AV host"]
     chooser --> slide["Passive Slide output"]
-    host -->|"item / language / transposition"| sheet
-    host --> av
+    empty --> host["Host controls"]
     av -->|"structured projection"| slide
 ```
 
-All room surfaces show reconnecting without discarding their last snapshot. Player Room discovery is loaded only after navigating to the Player Rooms hub; unrelated legacy hub pages do not poll or prefetch room data. An ended room is terminal and public failures do not reveal team or source data.
+Room creation is online-only and appears only when the user has at least one team where they are an administrator or content maintainer. New rooms have no source content and show a dedicated empty state while preserving host controls. All room surfaces show reconnecting without discarding their last snapshot. Player Room discovery is loaded only after navigating to the Player Rooms hub; unrelated legacy hub pages do not poll or prefetch room data. An ended room is terminal and public failures do not reveal team or source data.
 
 ---
 

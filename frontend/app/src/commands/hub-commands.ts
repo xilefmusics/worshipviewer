@@ -2,6 +2,7 @@ export type HubNavigateTarget =
   | '/collections'
   | '/songs'
   | '/setlists'
+  | '/player-rooms'
   | '/teams'
   | '/sessions'
   | '/settings'
@@ -46,6 +47,13 @@ export const hubNavigateCommands: HubNavigateCommand[] = [
     to: '/setlists',
   },
   {
+    id: 'player-rooms',
+    value: 'nav-player-rooms',
+    labelKey: 'hub.tabs.playerRooms',
+    keywords: ['player rooms', 'player room', 'player-rooms', 'rooms', 'player-räume', 'player räume', 'räume'],
+    to: '/player-rooms',
+  },
+  {
     id: 'settings',
     value: 'nav-settings',
     labelKey: 'hub.profile.settings',
@@ -55,8 +63,8 @@ export const hubNavigateCommands: HubNavigateCommand[] = [
   {
     id: 'teams',
     value: 'nav-teams',
-    labelKey: 'hub.tabs.teams',
-    keywords: ['teams'],
+    labelKey: 'hub.profile.teams',
+    keywords: ['teams', 'team'],
     to: '/teams',
   },
   {

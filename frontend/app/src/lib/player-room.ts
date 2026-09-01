@@ -16,7 +16,7 @@ export type PlayerRoomProjection = {
   next_preview: string | null
 }
 export type PlayerRoomParticipant = { id: string; mode: PlayerRoomMode; hide_chords?: boolean; display_name: string; avatar_url: string | null; anonymous: boolean; connected: boolean; is_host: boolean; is_av_host: boolean }
-export type PlayerRoomSummary = { id: string; name: string; team_id: string; source_type: PlayerRoomSourceType; source_id: string; source_title: string; host_email: string; participant_count: number; av_occupied: boolean; created_at: string }
+export type PlayerRoomSummary = { id: string; name: string; team_id: string; source_type: PlayerRoomSourceType | null; source_id: string | null; source_title: string | null; host_email: string; can_close?: boolean; participant_count: number; av_occupied: boolean; created_at: string }
 export type PlayerRoomSnapshot = PlayerRoomSummary & { content: { items: components['schemas']['Player']['items']; toc: components['schemas']['Player']['toc'] }; musical_state: PlayerRoomMusicalState; projection: PlayerRoomProjection | null; participants: PlayerRoomParticipant[]; revision: number; host_lease_expires_at: string; guests_allowed?: boolean }
 export type PlayerRoomCredentials = { room_id: string; participant_id: string; mode: PlayerRoomMode; resume_credential: string; connection_ticket: string }
 export type CreatedPlayerRoom = { room: PlayerRoomSummary; credentials: PlayerRoomCredentials; invite_secret: string }
@@ -87,7 +87,7 @@ export function readRoomCredentials(roomId: string): PlayerRoomCredentials | nul
 export function saveRoomInvite(roomId: string, secret: string): void { sessionStorage.setItem(inviteKey(roomId), secret) }
 export function readRoomInvite(roomId: string): string | null { return sessionStorage.getItem(inviteKey(roomId)) }
 
-export async function createPlayerRoom(input: { source_type: PlayerRoomSourceType; source_id: string; host_mode: Exclude<PlayerRoomMode, 'slide'>; musical_state: PlayerRoomMusicalState; projection: PlayerRoomProjection | null }): Promise<CreatedPlayerRoom> {
+export async function createPlayerRoom(input: { team_id: string; name?: string }): Promise<CreatedPlayerRoom> {
   console.log('[PlayerRoom HTTP] create', redactPlayerRoomEvent(input))
   const created = await jsonRequest<CreatedPlayerRoom>('/api/v1/player-rooms', { method: 'POST', body: JSON.stringify(input) })
   saveRoomCredentials(created.credentials); saveRoomInvite(created.room.id, created.invite_secret); return created
@@ -102,7 +102,7 @@ export async function joinPlayerRoom(roomId: string, mode: PlayerRoomMode, hideC
 }
 export async function inspectPlayerRoomInvite(inviteSecret: string): Promise<{ room_id: string; name: string; host_email: string; av_occupied: boolean; guests_allowed?: boolean }> { return jsonRequest('/api/v1/player-rooms/invite/inspect', { method: 'POST', body: JSON.stringify({ invite_secret: inviteSecret }) }) }
 export async function joinPlayerRoomInvite(input: { invite_secret: string; display_name: string; mode: PlayerRoomMode; hide_chords?: boolean }): Promise<PlayerRoomCredentials> { const credentials = await jsonRequest<PlayerRoomCredentials>('/api/v1/player-rooms/invite/join', { method: 'POST', body: JSON.stringify({ hide_chords: false, ...input }) }); saveRoomCredentials(credentials); return credentials }
-export async function endPlayerRoom(roomId: string, resumeCredential: string): Promise<void> { const response = await fetch(`${apiBase}/api/v1/player-rooms/${encodeURIComponent(roomId)}`, { method: 'DELETE', credentials: 'include', headers: { 'X-Player-Room-Credential': resumeCredential } }); if (!response.ok) throw new Error('player_room_unavailable') }
+export async function endPlayerRoom(roomId: string): Promise<void> { const response = await fetch(`${apiBase}/api/v1/player-rooms/${encodeURIComponent(roomId)}`, { method: 'DELETE', credentials: 'include' }); if (!response.ok) throw new Error(response.status === 403 ? 'player_room_forbidden' : 'player_room_unavailable') }
 async function reconnectPlayerRoom(credentials: PlayerRoomCredentials): Promise<PlayerRoomCredentials> { const next = await jsonRequest<PlayerRoomCredentials>(`/api/v1/player-rooms/${encodeURIComponent(credentials.room_id)}/reconnect`, { method: 'POST', body: JSON.stringify({ mode: credentials.mode, resume_credential: credentials.resume_credential }) }); saveRoomCredentials(next); return next }
 
 export type RoomConnection = { snapshot: PlayerRoomSnapshot | null; status: 'connecting' | 'connected' | 'reconnecting' | 'ended'; sendMusicalState: (state: PlayerRoomMusicalState) => void; sendProjection: (projection: PlayerRoomProjection) => void; sendGuestsAllowed: (guestsAllowed: boolean) => void; leave: () => void }
@@ -331,12 +331,12 @@ export function useRoomElapsedSeconds(since: string): number {
 }
 
 export function roomSourceTypeLabel(
-  sourceType: PlayerRoomSourceType,
+  sourceType: PlayerRoomSourceType | null,
   t: (key: string) => string,
 ): string {
-  return t(`playerRooms.sourceType.${sourceType}`)
+  return sourceType ? t(`playerRooms.sourceType.${sourceType}`) : t('playerRooms.emptyRoom')
 }
 
-export function playerRoomShortName(room: Pick<PlayerRoomSummary, 'source_title'>): string {
-  return room.source_title
+export function playerRoomShortName(room: Pick<PlayerRoomSummary, 'name'>): string {
+  return room.name
 }

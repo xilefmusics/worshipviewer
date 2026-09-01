@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18next from 'i18next'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { User } from '@/api/session'
 import { ProfileMenu } from '@/components/hub/ProfileMenu'
@@ -11,7 +11,9 @@ import de from '@/i18n/de.json'
 import en from '@/i18n/en.json'
 import { PwaInstallContext } from '@/pwa/pwa-install-context'
 
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }))
+const navigate = vi.hoisted(() => vi.fn())
+
+vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }))
 vi.mock('@/routes/__root', () => ({
   Route: { useRouteContext: () => ({ queryClient: {} }) },
 }))
@@ -21,6 +23,10 @@ const userByRole = (role: User['role']): User => ({
   email: `${role}@example.com`,
   role,
   created_at: '2026-08-31T00:00:00Z',
+})
+
+beforeEach(() => {
+  navigate.mockClear()
 })
 
 async function renderMenu({
@@ -125,5 +131,33 @@ describe('ProfileMenu tutorials link', () => {
 
     expect(flushBeforeLeave).not.toHaveBeenCalled()
     expect(tutorials).toHaveAttribute('target', '_blank')
+  })
+})
+
+describe('ProfileMenu Teams destination', () => {
+  it('places Teams in the former Player Rooms slot without duplicating Player Rooms', async () => {
+    await renderMenu({ canShowInstall: false })
+
+    const menu = screen.getByRole('menu')
+    const items = within(menu).getAllByRole('menuitem')
+    expect(items[0]).toHaveTextContent('Teams')
+    expect(screen.queryByRole('menuitem', { name: /player room/i })).not.toBeInTheDocument()
+  })
+
+  it('navigates to Teams with pointer activation', async () => {
+    const { interaction } = await renderMenu({ canShowInstall: false })
+    const teams = screen.getByRole('menuitem', { name: 'Teams' })
+
+    await interaction.click(teams)
+    expect(navigate).toHaveBeenCalledWith({ to: '/teams' })
+  })
+
+  it('navigates to Teams with keyboard activation', async () => {
+    const { interaction } = await renderMenu({ canShowInstall: false })
+    const teams = screen.getByRole('menuitem', { name: 'Teams' })
+
+    teams.focus()
+    await interaction.keyboard('{Enter}')
+    expect(navigate).toHaveBeenCalledWith({ to: '/teams' })
   })
 })

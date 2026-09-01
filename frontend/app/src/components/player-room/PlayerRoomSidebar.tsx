@@ -17,6 +17,7 @@ type PlayerRoomSidebarProps = {
   status: 'connected' | 'reconnecting' | 'connecting'
   participants: PlayerRoomParticipant[]
   isHost: boolean
+  canClose: boolean
   guestsAllowed: boolean
   onGuestsAllowedChange: (allowed: boolean) => void
   inviteSecret: string | null
@@ -29,6 +30,7 @@ export function PlayerRoomSidebar({
   status,
   participants,
   isHost,
+  canClose,
   guestsAllowed,
   onGuestsAllowedChange,
   inviteSecret,
@@ -99,33 +101,37 @@ export function PlayerRoomSidebar({
         </ul>
       </div>
 
-      {isHost ? (
+      {isHost || canClose ? (
         <div className="flex shrink-0 flex-col gap-2 border-t border-[var(--color-border)] p-3">
-          <label className="flex items-center gap-3 text-sm">
-            <input
-              type="checkbox"
-              className="size-4 shrink-0 accent-[var(--color-primary)]"
-              aria-label={t('playerRooms.allowGuests.label')}
-              checked={guestsAllowed}
-              onChange={(event) => onGuestsAllowedChange(event.target.checked)}
-            />
-            <span>{t('playerRooms.allowGuests.label')}</span>
-          </label>
-          {inviteSecret ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!guestsAllowed}
-              title={!guestsAllowed ? t('playerRooms.allowGuests.copyDisabled') : undefined}
-              onClick={() => {
-                void navigator.clipboard
-                  .writeText(`${window.location.origin}/player-rooms/invite#${inviteSecret}`)
-                  .then(() => toast.success(t('playerRooms.inviteCopied')))
-              }}
-            >
-              {t('playerRooms.copyInvite')}
-            </Button>
+          {isHost ? (
+            <>
+              <label className="flex items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 shrink-0 accent-[var(--color-primary)]"
+                  aria-label={t('playerRooms.allowGuests.label')}
+                  checked={guestsAllowed}
+                  onChange={(event) => onGuestsAllowedChange(event.target.checked)}
+                />
+                <span>{t('playerRooms.allowGuests.label')}</span>
+              </label>
+              {inviteSecret ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!guestsAllowed}
+                  title={!guestsAllowed ? t('playerRooms.allowGuests.copyDisabled') : undefined}
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(`${window.location.origin}/player-rooms/invite#${inviteSecret}`)
+                      .then(() => toast.success(t('playerRooms.inviteCopied')))
+                  }}
+                >
+                  {t('playerRooms.copyInvite')}
+                </Button>
+              ) : null}
+            </>
           ) : null}
           <Button type="button" variant="destructive" size="sm" onClick={onEndRoom}>
             {t('playerRooms.end')}

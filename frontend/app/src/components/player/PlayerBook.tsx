@@ -14,7 +14,6 @@ import { PlayerBookSpread } from '@/components/player/PlayerBookSpread'
 import { PlayerLikeHeartBurst } from '@/components/player/PlayerLikeHeartBurst'
 import { PlayerTocSidebar } from '@/components/player/PlayerTocSidebar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
-import { StartPlayerRoomButton } from '@/components/player-room/StartPlayerRoomButton'
 import { PlayerEditMenu } from '@/components/player/PlayerEditMenu'
 import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
 import { Button } from '@/components/ui/button'
@@ -1193,9 +1192,6 @@ export function PlayerBook({
                   onEditSong={navigateToSongEditor}
                   onEditResource={navigateToResourceEditor}
                 /> : null}
-                {!roomMusicalState ? (
-                  <StartPlayerRoomButton type={type} id={id} mode={mode} player={player} />
-                ) : null}
                 <Button
                   type="button"
                   variant="outline"
