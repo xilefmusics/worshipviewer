@@ -53,6 +53,10 @@ pub struct Settings {
     pub initial_admin_user_email: Option<String>,
     pub initial_admin_user_test_session: bool,
 
+    /// Optional startup demodata scenario, for example `generic`.
+    #[serde(default)]
+    pub demodata: Option<String>,
+
     pub gmail_app_password: String,
     pub gmail_from: String,
 
@@ -145,6 +149,7 @@ impl fmt::Debug for Settings {
             .field("oidc_redirect_url", &self.oidc_redirect_url)
             .field("oidc_scopes", &self.oidc_scopes)
             .field("initial_admin_user_email", &self.initial_admin_user_email)
+            .field("demodata", &self.demodata)
             .field(
                 "initial_admin_user_test_session",
                 &self.initial_admin_user_test_session,
@@ -222,6 +227,7 @@ impl Default for Settings {
             oidc_scopes: vec!["openid".into(), "profile".into(), "email".into()],
             initial_admin_user_email: None,
             initial_admin_user_test_session: false,
+            demodata: None,
             gmail_app_password: String::new(),
             gmail_from: String::new(),
             static_dir: "static".into(),

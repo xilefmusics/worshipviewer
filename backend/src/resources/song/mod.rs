@@ -7,7 +7,7 @@ pub mod service;
 mod surreal_repo;
 
 pub use liked::LikedSongIds;
-pub use model::SongRecord;
+pub use model::{LikeRecord, SongDataField, SongRecord, search_content_from_song_data};
 pub use repository::{SongRepository, SongUpsertOutcome};
 pub use service::{SongService, SongServiceHandle};
 pub use surreal_repo::SurrealSongRepo;

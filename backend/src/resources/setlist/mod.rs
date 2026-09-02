@@ -5,6 +5,7 @@ mod repository;
 pub mod service;
 mod surreal_repo;
 
+pub use model::SetlistRecord;
 pub use repository::SetlistRepository;
 pub use service::{SetlistService, SetlistServiceHandle};
 pub use surreal_repo::SurrealSetlistRepo;

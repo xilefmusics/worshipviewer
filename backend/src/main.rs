@@ -11,6 +11,7 @@ use tracing_actix_web::TracingLogger;
 use backend::auth;
 use backend::auth::oidc;
 use backend::database;
+use backend::demodata;
 use backend::docs;
 use backend::frontend;
 use backend::mail::MailService;
@@ -46,6 +47,9 @@ async fn main() -> AnyResult<()> {
             "refusing to start: initial_admin_user_test_session is enabled under WORSHIP_PRODUCTION or RUST_ENV=production"
         );
     }
+
+    let demodata_scenario = demodata::Scenario::parse(settings.demodata.as_deref())?;
+    demodata::validate_environment(production, demodata_scenario)?;
 
     let static_dir = std::fs::canonicalize(settings.static_dir.as_str())
         .with_context(|| format!("static_dir {:?} could not be resolved", settings.static_dir))?
@@ -86,6 +90,12 @@ async fn main() -> AnyResult<()> {
         oidc::build_clients(&settings)
     )?;
     let oidc_clients_arc = Arc::new(oidc_inner);
+
+    if let Some(scenario) = demodata_scenario {
+        demodata::seed(db.as_ref(), scenario)
+            .await
+            .context("demodata seeding failed")?;
+    }
 
     let user_service = UserServiceHandle::build(db.clone());
     let session_service = SessionServiceHandle::build(db.clone());

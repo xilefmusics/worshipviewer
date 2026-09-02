@@ -8,6 +8,7 @@ mod repository;
 pub mod service;
 mod surreal_repo;
 
+pub use model::CollectionRecord;
 pub use repository::CollectionRepository;
 pub use service::{CollectionService, CollectionServiceHandle};
 pub use surreal_repo::SurrealCollectionRepo;

@@ -5,6 +5,7 @@ pub mod accept;
 pub mod auth;
 pub mod client_attribution;
 pub mod database;
+pub mod demodata;
 pub mod docs;
 pub mod error;
 pub mod expand;
