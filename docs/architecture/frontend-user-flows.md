@@ -16,7 +16,7 @@ Cross-cutting rules used throughout:
 - **Command palette** (⌘K/Ctrl+K) only exists on `pointer:fine` (desktop) devices.
 - **Editors autosave** (no Save button): songs 3000 ms debounce, collections/setlists 750 ms.
 - **Owner picker** in create-collection/setlist dialogs appears only when the user can edit **2+** teams; with 0–1 writable teams `owner` is omitted and the server uses the personal team.
-- **Primary hub tabs** are ordered Collections, Songs, Setlists, and Player Rooms; Teams is available from the profile menu and command palette.
+- **Primary hub tabs** are ordered Collections, Songs, Setlists, and Rooms; Teams is available from the profile menu and command palette.
 
 ## Index
 
@@ -663,7 +663,7 @@ flowchart TD
     av -->|AV settings gear| settings["→ /settings?tab=playerRoles (return context)"]
 ```
 
-TOC/item changes stay on the controller. Deck pages use the same replace command as lyrics; Media is not sent through Player Rooms. Missing `?s` defaults to the shared session.
+TOC/item changes stay on the controller. Deck pages use the same replace command as lyrics; Media is not sent through Rooms. Missing `?s` defaults to the shared session.
 
 ### I4. Uploaded audio/video projection
 
@@ -855,11 +855,11 @@ flowchart TD
 
 > Cross-cutting notes: the command palette and ⌘K-based "insert song" exist only on `pointer:fine` devices. The collection editor has no Add-songs button (⌘K only) and no remove-song action (move/transfer only). `SongEditorActionsMenu` is dead code. Successful **Delete team** does not auto-navigate (no `onRequestClose` wired). Import, Duplicate, Delete, Add-to-setlist, and the Add (+) FAB are all online-only.
 
-### L6. Player Room
+### L6. Room
 
 ```mermaid
 flowchart LR
-    list["Player Rooms hub"] --> create["Create room"]
+    list["Rooms hub"] --> create["Create room"]
     create --> teams{"Writable teams"}
     teams -->|"one"| confirm["Confirm"]
     teams -->|"multiple"| choose["Choose team"] --> confirm
@@ -873,7 +873,7 @@ flowchart LR
     av -->|"structured projection"| slide
 ```
 
-Room creation is online-only and appears only when the user has at least one team where they are an administrator or content maintainer. New rooms have no source content and show a dedicated empty state while preserving host controls. All room surfaces show reconnecting without discarding their last snapshot. Player Room discovery is loaded only after navigating to the Player Rooms hub; unrelated legacy hub pages do not poll or prefetch room data. An ended room is terminal and public failures do not reveal team or source data.
+Room creation is online-only. The Rooms hub can create an independent room, while collection, song, and setlist context menus open the same dialog with a source preselected. Source-backed rooms capture the selected content server-side; the user chooses any writable owning team and may edit the initial source title-based room name. Setlist-backed rooms also prefill the shared next-song queue in setlist order. If no writable team is available, the dialog keeps its normal disabled create state. New independent rooms have no source content and show a dedicated empty state while preserving host controls. All room surfaces show reconnecting without discarding their last snapshot. Room discovery is loaded only after navigating to the Rooms hub; unrelated legacy hub pages do not poll or prefetch room data. An ended room is terminal and public failures do not reveal team or source data.
 
 ---
 

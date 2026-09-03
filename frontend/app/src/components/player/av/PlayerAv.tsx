@@ -1051,7 +1051,7 @@ export function PlayerAv({
               variant="outline"
               size="icon"
               className={playerHeaderIconButtonClass}
-              aria-label={showRoomSidebar ? t('player.av.showAvPanel') : t('playerRooms.togglePanel')}
+              aria-label={showRoomSidebar ? t('player.av.showAvPanel') : t('rooms.togglePanel')}
               aria-pressed={showRoomSidebar}
               onClick={() => setRightPanel((panel) => (panel === 'room' ? 'av' : 'room'))}
             >

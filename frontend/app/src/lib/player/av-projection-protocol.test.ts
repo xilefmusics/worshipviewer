@@ -164,7 +164,7 @@ describe('av-projection-protocol', () => {
     ).toBe(true)
   })
 
-  it('withholds youtube, livestream, and web_page from Player Room payloads', () => {
+  it('withholds youtube, livestream, and web_page from Room payloads', () => {
     for (const content of [
       { type: 'youtube' as const, videoId: 'dQw4w9WgXcQ', canonicalUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
       { type: 'livestream' as const, url: 'https://example.com/live.m3u8', streamType: 'hls' as const },

@@ -4,8 +4,9 @@ import { AudioLinesIcon } from '@/components/icons/lucide-animated/audio-lines-i
 import { LayersIcon } from '@/components/icons/lucide-animated/layers-icon'
 import { ListMusicIcon } from '@/components/icons/lucide-animated/list-music-icon'
 import { PlusIcon } from '@/components/icons/lucide-animated/plus-icon'
-import { SessionsIcon } from '@/components/icons/lucide-animated/sessions-icon'
+import { RoomIcon } from '@/components/icons/lucide-animated/room-icon'
 import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
+import { SessionsIcon } from '@/components/icons/lucide-animated/sessions-icon'
 import { cn } from '@/lib/utils'
 
 /** ~90% of prior 26px; matches scaled hub tab / Neu button chrome. */
@@ -65,10 +66,10 @@ export function IconHubSettings({ className, isHovered, ...rest }: HubTabIconPro
   )
 }
 
-/** Player Rooms — live shared screen/session */
-export function IconHubPlayerRooms({ className, isHovered, ...rest }: HubTabIconProps) {
+/** Rooms — an animated room/door icon */
+export function IconHubRooms({ className, isHovered, ...rest }: HubTabIconProps) {
   return (
-    <SessionsIcon
+    <RoomIcon
       className={cn('inline-flex shrink-0', className)}
       isHovered={isHovered}
       size={HUB_TAB_ICON_PX}

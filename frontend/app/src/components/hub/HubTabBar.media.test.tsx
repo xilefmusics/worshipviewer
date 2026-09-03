@@ -21,15 +21,15 @@ vi.mock('react-i18next', () => ({
           'hub.tabs.collections': 'Collections',
           'hub.tabs.songs': 'Songs',
           'hub.tabs.setlists': 'Setlists',
-          'hub.tabs.playerRooms': 'Rooms',
-          'hub.tabs.aria': 'Library and player rooms',
+          'hub.tabs.rooms': 'Rooms',
+          'hub.tabs.aria': 'Library and rooms',
         },
         de: {
           'hub.tabs.collections': 'Sammlungen',
           'hub.tabs.songs': 'Lieder',
           'hub.tabs.setlists': 'Setlisten',
-          'hub.tabs.playerRooms': 'Räume',
-          'hub.tabs.aria': 'Bibliothek und Player-Räume',
+          'hub.tabs.rooms': 'Räume',
+          'hub.tabs.aria': 'Bibliothek und Räume',
         },
       }[locale] as Record<string, string>)[key] ?? key,
   }),
@@ -59,15 +59,16 @@ describe('Hub primary navigation', () => {
     expect(screen.queryByRole('link', { name: 'Teams' })).not.toBeInTheDocument()
   })
 
-  it('marks Rooms active only on its hub route and uses its distinct screen icon', () => {
+  it('marks Rooms active only on its hub route and uses its animated room icon', () => {
     locale = 'en'
-    pathname = '/player-rooms'
+    pathname = '/rooms'
     render(<HubTabBar />)
 
-    const playerRooms = screen.getByRole('link', { name: 'Rooms' })
-    expect(playerRooms).toHaveAttribute('href', '/player-rooms')
-    expect(playerRooms).toHaveAttribute('aria-current', 'page')
-    expect(playerRooms.querySelector('rect')).toBeInTheDocument()
+    const rooms = screen.getByRole('link', { name: 'Rooms' })
+    expect(rooms).toHaveAttribute('href', '/rooms')
+    expect(rooms).toHaveAttribute('aria-current', 'page')
+    expect(rooms).toHaveTextContent('Rooms')
+    expect(rooms.querySelector('circle')).toBeInTheDocument()
   })
 
   it('keeps the Rooms tab inactive on a team detail route', () => {
@@ -79,11 +80,11 @@ describe('Hub primary navigation', () => {
   })
 
   it.each([
-    ['en' as const, 'Rooms', 'Library and player rooms'],
-    ['de' as const, 'Räume', 'Bibliothek und Player-Räume'],
+    ['en' as const, 'Rooms', 'Library and rooms'],
+    ['de' as const, 'Räume', 'Bibliothek und Räume'],
   ])('uses the localized Rooms label and navigation name in %s', (language, label, ariaLabel) => {
     locale = language
-    pathname = '/player-rooms'
+    pathname = '/rooms'
     render(<HubTabBar />)
 
     expect(screen.getByRole('link', { name: label })).toBeInTheDocument()

@@ -8,7 +8,7 @@ Today **`blob`** supports image MIME types for covers, avatars, and sheet attach
 
 ## Immediate multi-instance realtime fan-out (future epic H-2)
 
-Player Rooms provide the server-authoritative WebSocket player/projection protocol. Active sockets share updates immediately within one backend process and converge through database revisions on their next heartbeat across processes. Shared pub/sub or a database change feed would remove that bounded cross-instance delay; it is not required for correctness.
+Rooms provide the server-authoritative WebSocket player/projection protocol. Active sockets share updates immediately within one backend process and converge through database revisions on their next heartbeat across processes. Shared pub/sub or a database change feed would remove that bounded cross-instance delay; it is not required for correctness.
 
 ## Song links / `song::Link` naming (future epic H-3)
 

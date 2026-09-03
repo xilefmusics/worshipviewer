@@ -19,7 +19,7 @@ pub mod team;
 pub mod media;
 pub mod media_asset;
 pub mod monitoring;
-pub mod player_room;
+pub mod room;
 
 pub mod user;
 pub use user::CreateUser;

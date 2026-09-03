@@ -667,7 +667,7 @@ describe('PlayerAv', () => {
     })
   })
 
-  it('projects a selected deck page as a tagged command and not through Player Rooms', async () => {
+  it('projects a selected deck page as a tagged command and not through Rooms', async () => {
     const user = userEvent.setup()
     const onRoomProjectionChange = vi.fn()
     render(

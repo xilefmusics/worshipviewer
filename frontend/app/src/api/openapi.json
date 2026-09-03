@@ -31,7 +31,7 @@
         ],
         "type": "object"
       },
-      "AddPlayerRoomQueueItem": {
+      "AddRoomQueueItem": {
         "properties": {
           "revision": {
             "format": "int64",
@@ -118,7 +118,7 @@
             ]
           },
           "duration": {
-            "description": "Duration in milliclicks (1000 per ChordPro click in `{chord:\u2026:N}`).",
+            "description": "Duration in milliclicks (1000 per ChordPro click in `{chord:…:N}`).",
             "format": "int32",
             "minimum": 0,
             "type": [
@@ -382,12 +382,28 @@
           }
         ]
       },
-      "CreatePlayerRoom": {
+      "CreateRoom": {
         "properties": {
           "name": {
             "type": [
               "string",
               "null"
+            ]
+          },
+          "source_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RoomSourceType"
+              }
             ]
           },
           "team_id": {
@@ -538,16 +554,16 @@
         ],
         "type": "object"
       },
-      "CreatedPlayerRoom": {
+      "CreatedRoom": {
         "properties": {
           "credentials": {
-            "$ref": "#/components/schemas/PlayerRoomCredentials"
+            "$ref": "#/components/schemas/RoomCredentials"
           },
           "invite_secret": {
             "type": "string"
           },
           "room": {
-            "$ref": "#/components/schemas/PlayerRoomSummary"
+            "$ref": "#/components/schemas/RoomSummary"
           }
         },
         "required": [
@@ -742,7 +758,7 @@
         ],
         "type": "object"
       },
-      "InspectPlayerRoomInvite": {
+      "InspectRoomInvite": {
         "properties": {
           "invite_secret": {
             "type": "string"
@@ -753,13 +769,13 @@
         ],
         "type": "object"
       },
-      "JoinPlayerRoom": {
+      "JoinRoom": {
         "properties": {
           "hide_chords": {
             "type": "boolean"
           },
           "mode": {
-            "$ref": "#/components/schemas/PlayerRoomMode"
+            "$ref": "#/components/schemas/RoomMode"
           },
           "resume_credential": {
             "type": [
@@ -773,7 +789,7 @@
         ],
         "type": "object"
       },
-      "JoinPlayerRoomInvite": {
+      "JoinRoomInvite": {
         "properties": {
           "display_name": {
             "type": "string"
@@ -785,7 +801,7 @@
             "type": "string"
           },
           "mode": {
-            "$ref": "#/components/schemas/PlayerRoomMode"
+            "$ref": "#/components/schemas/RoomMode"
           },
           "resume_credential": {
             "type": [
@@ -1729,7 +1745,7 @@
       },
       "PatchTeam": {
         "additionalProperties": false,
-        "description": "Partial update for a team. Absent fields are left unchanged.\n\n`members` uses three-state semantics:\n- absent \u2192 members list is not modified\n- `null` \u2192 rejected (a team must always have members)\n- `[\u2026]` \u2192 replaces the entire members list",
+        "description": "Partial update for a team. Absent fields are left unchanged.\n\n`members` uses three-state semantics:\n- absent → members list is not modified\n- `null` → rejected (a team must always have members)\n- `[…]` → replaces the entire members list",
         "properties": {
           "cover": {
             "type": [
@@ -1928,487 +1944,6 @@
         ],
         "type": "object"
       },
-      "PlayerRoomContent": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/PlayerItem"
-            },
-            "type": "array"
-          },
-          "toc": {
-            "items": {
-              "$ref": "#/components/schemas/TocItem"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "items",
-          "toc"
-        ],
-        "type": "object"
-      },
-      "PlayerRoomCredentials": {
-        "properties": {
-          "connection_ticket": {
-            "type": "string"
-          },
-          "mode": {
-            "$ref": "#/components/schemas/PlayerRoomMode"
-          },
-          "participant_id": {
-            "type": "string"
-          },
-          "resume_credential": {
-            "type": "string"
-          },
-          "room_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "room_id",
-          "participant_id",
-          "mode",
-          "resume_credential",
-          "connection_ticket"
-        ],
-        "type": "object"
-      },
-      "PlayerRoomInviteInfo": {
-        "properties": {
-          "av_occupied": {
-            "type": "boolean"
-          },
-          "guests_allowed": {
-            "type": "boolean"
-          },
-          "host_email": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "room_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "room_id",
-          "name",
-          "host_email",
-          "av_occupied"
-        ],
-        "type": "object"
-      },
-      "PlayerRoomMode": {
-        "enum": [
-          "sheet",
-          "av",
-          "slide"
-        ],
-        "type": "string"
-      },
-      "PlayerRoomMusicalState": {
-        "properties": {
-          "item_index": {
-            "minimum": 0,
-            "type": "integer"
-          },
-          "language": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "transposition": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "item_index"
-        ],
-        "type": "object"
-      },
-      "PlayerRoomParticipant": {
-        "properties": {
-          "anonymous": {
-            "type": "boolean"
-          },
-          "avatar_url": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "connected": {
-            "type": "boolean"
-          },
-          "display_name": {
-            "type": "string"
-          },
-          "hide_chords": {
-            "type": "boolean"
-          },
-          "id": {
-            "type": "string"
-          },
-          "is_av_host": {
-            "type": "boolean"
-          },
-          "is_host": {
-            "type": "boolean"
-          },
-          "mode": {
-            "$ref": "#/components/schemas/PlayerRoomMode"
-          }
-        },
-        "required": [
-          "id",
-          "mode",
-          "display_name",
-          "anonymous",
-          "connected",
-          "is_host",
-          "is_av_host"
-        ],
-        "type": "object"
-      },
-      "PlayerRoomProjectionPayload": {
-        "properties": {
-          "background_layer": {
-            "type": "object"
-          },
-          "content_layer": {
-            "type": "object"
-          },
-          "content_lines": {
-            "type": [
-              "object",
-              "null"
-            ]
-          },
-          "content_text": {
-            "type": "string"
-          },
-          "item_title": {
-            "type": "string"
-          },
-          "next_preview": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "screen_state": {
-            "type": "string"
-          },
-          "transition": {
-            "type": "object"
-          }
-        },
-        "required": [
-          "content_text",
-          "content_layer",
-          "background_layer",
-          "transition",
-          "screen_state",
-          "item_title"
-        ],
-        "type": "object"
-      },
-      "PlayerRoomQueueItem": {
-        "properties": {
-          "added_by": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "song": {
-            "$ref": "#/components/schemas/PlayerChordsItem"
-          },
-          "song_id": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "song_id",
-          "title",
-          "song",
-          "added_by"
-        ],
-        "type": "object"
-      },
-      "PlayerRoomQueueRevision": {
-        "properties": {
-          "revision": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "revision"
-        ],
-        "type": "object"
-      },
-      "PlayerRoomSnapshot": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/PlayerRoomSummary"
-          },
-          {
-            "properties": {
-              "content": {
-                "$ref": "#/components/schemas/PlayerRoomContent"
-              },
-              "guests_allowed": {
-                "type": "boolean"
-              },
-              "host_lease_expires_at": {
-                "format": "date-time",
-                "type": "string"
-              },
-              "musical_state": {
-                "$ref": "#/components/schemas/PlayerRoomMusicalState"
-              },
-              "participants": {
-                "items": {
-                  "$ref": "#/components/schemas/PlayerRoomParticipant"
-                },
-                "type": "array"
-              },
-              "projection": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/PlayerRoomProjectionPayload"
-                  }
-                ]
-              },
-              "queue": {
-                "items": {
-                  "$ref": "#/components/schemas/PlayerRoomQueueItem"
-                },
-                "type": "array"
-              },
-              "revision": {
-                "format": "int64",
-                "minimum": 0,
-                "type": "integer"
-              }
-            },
-            "required": [
-              "content",
-              "musical_state",
-              "participants",
-              "revision",
-              "host_lease_expires_at"
-            ],
-            "type": "object"
-          }
-        ]
-      },
-      "PlayerRoomSongPool": {
-        "oneOf": [
-          {
-            "properties": {
-              "type": {
-                "enum": [
-                  "open"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "type": "object"
-          },
-          {
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "title": {
-                "type": "string"
-              },
-              "type": {
-                "enum": [
-                  "collection"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "title",
-              "type"
-            ],
-            "type": "object"
-          },
-          {
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "title": {
-                "type": "string"
-              },
-              "type": {
-                "enum": [
-                  "setlist"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "title",
-              "type"
-            ],
-            "type": "object"
-          }
-        ]
-      },
-      "PlayerRoomSongPoolSelection": {
-        "oneOf": [
-          {
-            "properties": {
-              "type": {
-                "enum": [
-                  "open"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type"
-            ],
-            "type": "object"
-          },
-          {
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "type": {
-                "enum": [
-                  "collection"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "type"
-            ],
-            "type": "object"
-          },
-          {
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "type": {
-                "enum": [
-                  "setlist"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "type"
-            ],
-            "type": "object"
-          }
-        ]
-      },
-      "PlayerRoomSourceType": {
-        "enum": [
-          "song",
-          "collection",
-          "setlist"
-        ],
-        "type": "string"
-      },
-      "PlayerRoomSummary": {
-        "properties": {
-          "av_occupied": {
-            "type": "boolean"
-          },
-          "can_close": {
-            "type": "boolean"
-          },
-          "created_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "host_email": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "participant_count": {
-            "minimum": 0,
-            "type": "integer"
-          },
-          "song_pool": {
-            "$ref": "#/components/schemas/PlayerRoomSongPool"
-          },
-          "source_id": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "source_title": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "source_type": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/PlayerRoomSourceType"
-              }
-            ]
-          },
-          "team_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "team_id",
-          "host_email",
-          "participant_count",
-          "av_occupied",
-          "created_at"
-        ],
-        "type": "object"
-      },
       "Problem": {
         "description": "[RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem document (`application/problem+json`).\n\nCanonical error body for HTTP 4xx/5xx responses (Problem Details; obsoletes RFC 7807). Extension members include `code`.",
         "properties": {
@@ -2494,7 +2029,7 @@
         "title": "ProblemDetails",
         "type": "object"
       },
-      "ReorderPlayerRoomQueue": {
+      "ReorderRoomQueue": {
         "properties": {
           "queue_ids": {
             "items": {
@@ -2520,6 +2055,480 @@
           "admin"
         ],
         "type": "string"
+      },
+      "RoomContent": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlayerItem"
+            },
+            "type": "array"
+          },
+          "toc": {
+            "items": {
+              "$ref": "#/components/schemas/TocItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "toc"
+        ],
+        "type": "object"
+      },
+      "RoomCredentials": {
+        "properties": {
+          "connection_ticket": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/RoomMode"
+          },
+          "participant_id": {
+            "type": "string"
+          },
+          "resume_credential": {
+            "type": "string"
+          },
+          "room_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_id",
+          "participant_id",
+          "mode",
+          "resume_credential",
+          "connection_ticket"
+        ],
+        "type": "object"
+      },
+      "RoomInviteInfo": {
+        "properties": {
+          "av_occupied": {
+            "type": "boolean"
+          },
+          "guests_allowed": {
+            "type": "boolean"
+          },
+          "host_email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "room_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_id",
+          "name",
+          "host_email",
+          "av_occupied"
+        ],
+        "type": "object"
+      },
+      "RoomMode": {
+        "enum": [
+          "sheet",
+          "av",
+          "slide"
+        ],
+        "type": "string"
+      },
+      "RoomMusicalState": {
+        "properties": {
+          "item_index": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transposition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "item_index"
+        ],
+        "type": "object"
+      },
+      "RoomParticipant": {
+        "properties": {
+          "anonymous": {
+            "type": "boolean"
+          },
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "hide_chords": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "is_av_host": {
+            "type": "boolean"
+          },
+          "is_host": {
+            "type": "boolean"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/RoomMode"
+          }
+        },
+        "required": [
+          "id",
+          "mode",
+          "display_name",
+          "anonymous",
+          "connected",
+          "is_host",
+          "is_av_host"
+        ],
+        "type": "object"
+      },
+      "RoomProjectionPayload": {
+        "properties": {
+          "background_layer": {
+            "type": "object"
+          },
+          "content_layer": {
+            "type": "object"
+          },
+          "content_lines": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "content_text": {
+            "type": "string"
+          },
+          "item_title": {
+            "type": "string"
+          },
+          "next_preview": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "screen_state": {
+            "type": "string"
+          },
+          "transition": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "content_text",
+          "content_layer",
+          "background_layer",
+          "transition",
+          "screen_state",
+          "item_title"
+        ],
+        "type": "object"
+      },
+      "RoomQueueItem": {
+        "properties": {
+          "added_by": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "song": {
+            "$ref": "#/components/schemas/PlayerChordsItem"
+          },
+          "song_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "upvotes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "song_id",
+          "title",
+          "song",
+          "added_by"
+        ],
+        "type": "object"
+      },
+      "RoomQueueRevision": {
+        "properties": {
+          "revision": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "type": "object"
+      },
+      "RoomSnapshot": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RoomSummary"
+          },
+          {
+            "properties": {
+              "content": {
+                "$ref": "#/components/schemas/RoomContent"
+              },
+              "guests_allowed": {
+                "type": "boolean"
+              },
+              "host_lease_expires_at": {
+                "format": "date-time",
+                "type": "string"
+              },
+              "musical_state": {
+                "$ref": "#/components/schemas/RoomMusicalState"
+              },
+              "participants": {
+                "items": {
+                  "$ref": "#/components/schemas/RoomParticipant"
+                },
+                "type": "array"
+              },
+              "projection": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RoomProjectionPayload"
+                  }
+                ]
+              },
+              "queue": {
+                "items": {
+                  "$ref": "#/components/schemas/RoomQueueItem"
+                },
+                "type": "array"
+              },
+              "revision": {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "voted_queue_ids": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "content",
+              "musical_state",
+              "participants",
+              "revision",
+              "host_lease_expires_at"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "RoomSongPool": {
+        "oneOf": [
+          {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "collection"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "setlist"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "type"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "RoomSongPoolSelection": {
+        "oneOf": [
+          {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "collection"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "setlist"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "RoomSourceType": {
+        "enum": [
+          "song",
+          "collection",
+          "setlist"
+        ],
+        "type": "string"
+      },
+      "RoomSummary": {
+        "properties": {
+          "av_occupied": {
+            "type": "boolean"
+          },
+          "can_close": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "host_email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "open": {
+            "type": "boolean"
+          },
+          "participant_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "song_pool": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RoomSongPool"
+              }
+            ]
+          },
+          "source_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RoomSourceType"
+              }
+            ]
+          },
+          "team_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "team_id",
+          "host_email",
+          "participant_count",
+          "av_occupied",
+          "created_at"
+        ],
+        "type": "object"
       },
       "RootSpellingHint": {
         "description": "Accidental spelling hint from the parsed root token (`#` vs `b`).",
@@ -2751,7 +2760,7 @@
               },
               {
                 "$ref": "#/components/schemas/SimpleChord",
-                "description": "Transposition key for this slot (same `{ \"level\": \u2026 }` object as `Song.data.key`)."
+                "description": "Transposition key for this slot (same `{ \"level\": … }` object as `Song.data.key`)."
               }
             ]
           },
@@ -2788,7 +2797,7 @@
         "description": "Chromatic pitch class (song key, chord root, or slash bass).",
         "properties": {
           "level": {
-            "description": "Pitch class: 0 = C, 1 = C#/Db, \u2026, 11 = B.",
+            "description": "Pitch class: 0 = C, 1 = C#/Db, …, 11 = B.",
             "example": 7,
             "format": "int32",
             "maximum": 11,
@@ -3032,7 +3041,7 @@
               },
               {
                 "$ref": "#/components/schemas/SimpleChord",
-                "description": "Transposition key for this slot (same `{ \"level\": \u2026 }` object as `Song.data.key`)."
+                "description": "Transposition key for this slot (same `{ \"level\": … }` object as `Song.data.key`)."
               }
             ]
           },
@@ -3105,7 +3114,7 @@
             ]
           },
           "sort": {
-            "description": "Sort: comma-separated fields, `-` prefix for descending (e.g. `-id`, `title`, `-id,title`).\nUse `relevance` when searching (`q` non-empty). Legacy tokens (`id_desc`, \u2026) accepted with a warning.",
+            "description": "Sort: comma-separated fields, `-` prefix for descending (e.g. `-id`, `title`, `-id,title`).\nUse `relevance` when searching (`q` non-empty). Legacy tokens (`id_desc`, …) accepted with a warning.",
             "example": "-id",
             "type": [
               "string",
@@ -3328,7 +3337,7 @@
       },
       "TransferCollectionSong": {
         "additionalProperties": false,
-        "description": "Move a song link from this collection into another (`POST \u2026/collections/{id}/songs/{song_id}/transfer`).",
+        "description": "Move a song link from this collection into another (`POST …/collections/{id}/songs/{song_id}/transfer`).",
         "example": {
           "key": {
             "level": 3
@@ -3470,10 +3479,20 @@
         ],
         "type": "object"
       },
-      "UpdatePlayerRoomSongPool": {
+      "UpdateRoomSongPool": {
         "properties": {
+          "open": {
+            "type": "boolean"
+          },
           "pool": {
-            "$ref": "#/components/schemas/PlayerRoomSongPoolSelection"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RoomSongPoolSelection"
+              }
+            ]
           },
           "revision": {
             "format": "int64",
@@ -3482,7 +3501,6 @@
           }
         },
         "required": [
-          "pool",
           "revision"
         ],
         "type": "object"
@@ -3657,7 +3675,7 @@
     }
   },
   "info": {
-    "description": "Versioned REST API under `/api/v1`. Authentication flows live at `/auth/*` (unversioned); clients should treat that split as stable for this major API generation. Public deployment metadata is available at `GET /api/v1/about` (no authentication).\n\n**Breaking 2.0:** See `docs/api-breaking-2-0.md` for migration (`PlayerItem`, `Song.blobs` as link objects, `Session` wire model, `Problem` without `error`, PUT bodies use `Update*` types in the spec).\n\n**Timestamps:** All timestamps are UTC and use RFC 3339 with a `Z` suffix (e.g. `2026-04-18T12:00:00Z`).\n\n**Identifiers:** Resource IDs are opaque printable strings returned by the API; treat them as opaque and do not parse their internal structure.\n\n**References & expand:** Cross-resource links use objects such as `BlobLink` (`{ \"id\": \"\u2026\" }`) instead of bare id strings where noted. Session list/detail responses default to a narrow `user` link (`id` + `email`); pass `expand=user` (comma-separated with other tokens as added) to embed the full `User`. HTTP audit request counts and last-used timestamps for a single user or session are available from `GET .../metrics` routes next to each single-resource user/session endpoint, not on the `User` / `SessionBody` objects themselves.\n\n**JSON naming:** Object keys use `snake_case`. Enum wire values use the casing shown in each schema (broader enum casing standardization is planned).\n\n**Pagination:** List endpoints accept `page` (0-based) and `page_size` (1\u2013500, default 50). Responses include `X-Total-Count` with the total matching rows before pagination and RFC 5988 `Link` headers (relations: first, prev, next, last) where applicable.\n\n**Rate limiting:** Versioned `/api/v1/*` routes use token-bucket limits per client IP (`Retry-After`, `X-RateLimit-*` on **429**; configurable via server settings).\n\n**Errors:** Failed requests return `Content-Type: application/problem+json` ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details, formerly RFC 7807) with a `Problem` body (`type`, `title`, `status`, `code`, optional `detail` / `instance`). Use `detail` for human-readable text; stable machine-readable `code` values include: `unauthorized`, `forbidden`, `not_found`, `invalid_request`, `invalid_page_size`, `media_invalid_url`, `media_unsupported_url`, `payload_too_large`, `conflict`, `too_many_requests`, `not_acceptable`, `precondition_failed`, `internal`. Legacy schemas `ErrorResponse` and `ProblemDetails` remain listed for one release but are deprecated in favor of `Problem`.\n\n**CSRF:** Cookie sessions use `SameSite=Lax`; state-changing methods are `POST`/`PUT`/`PATCH`/`DELETE` (not `GET`). Cross-site simple requests cannot mutate state via cookies under typical browser rules. Browser `fetch` from the SPA uses `credentials: 'include'` on same-origin API calls (see `frontend/app/src/api/client.ts`). API clients using bearer tokens should still avoid exposing tokens to third-party origins.\n\n**Examples:** See schema `example` fields on core DTOs in the components section.",
+    "description": "Versioned REST API under `/api/v1`. Authentication flows live at `/auth/*` (unversioned); clients should treat that split as stable for this major API generation. Public deployment metadata is available at `GET /api/v1/about` (no authentication).\n\n**Breaking 2.0:** See `docs/api-breaking-2-0.md` for migration (`PlayerItem`, `Song.blobs` as link objects, `Session` wire model, `Problem` without `error`, PUT bodies use `Update*` types in the spec).\n\n**Timestamps:** All timestamps are UTC and use RFC 3339 with a `Z` suffix (e.g. `2026-04-18T12:00:00Z`).\n\n**Identifiers:** Resource IDs are opaque printable strings returned by the API; treat them as opaque and do not parse their internal structure.\n\n**References & expand:** Cross-resource links use objects such as `BlobLink` (`{ \"id\": \"…\" }`) instead of bare id strings where noted. Session list/detail responses default to a narrow `user` link (`id` + `email`); pass `expand=user` (comma-separated with other tokens as added) to embed the full `User`. HTTP audit request counts and last-used timestamps for a single user or session are available from `GET .../metrics` routes next to each single-resource user/session endpoint, not on the `User` / `SessionBody` objects themselves.\n\n**JSON naming:** Object keys use `snake_case`. Enum wire values use the casing shown in each schema (broader enum casing standardization is planned).\n\n**Pagination:** List endpoints accept `page` (0-based) and `page_size` (1–500, default 50). Responses include `X-Total-Count` with the total matching rows before pagination and RFC 5988 `Link` headers (relations: first, prev, next, last) where applicable.\n\n**Rate limiting:** Versioned `/api/v1/*` routes use token-bucket limits per client IP (`Retry-After`, `X-RateLimit-*` on **429**; configurable via server settings).\n\n**Errors:** Failed requests return `Content-Type: application/problem+json` ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details, formerly RFC 7807) with a `Problem` body (`type`, `title`, `status`, `code`, optional `detail` / `instance`). Use `detail` for human-readable text; stable machine-readable `code` values include: `unauthorized`, `forbidden`, `not_found`, `invalid_request`, `invalid_page_size`, `media_invalid_url`, `media_unsupported_url`, `payload_too_large`, `conflict`, `too_many_requests`, `not_acceptable`, `precondition_failed`, `internal`. Legacy schemas `ErrorResponse` and `ProblemDetails` remain listed for one release but are deprecated in favor of `Problem`.\n\n**CSRF:** Cookie sessions use `SameSite=Lax`; state-changing methods are `POST`/`PUT`/`PATCH`/`DELETE` (not `GET`). Cross-site simple requests cannot mutate state via cookies under typical browser rules. Browser `fetch` from the SPA uses `credentials: 'include'` on same-origin API calls (see `frontend/app/src/api/client.ts`). API clients using bearer tokens should still avoid exposing tokens to third-party origins.\n\n**Examples:** See schema `example` fields on core DTOs in the components section.",
     "license": {
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
@@ -3707,7 +3725,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
+            "description": "Items per page. Must be 1–500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -4613,7 +4631,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
+            "description": "Items per page. Must be 1–500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -5568,7 +5586,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1\u2013500. Defaults to 50. Omit with `page` for full list.",
+            "description": "Items per page. Must be 1–500. Defaults to 50. Omit with `page` for full list.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -5785,7 +5803,7 @@
         "operationId": "accept_team_invitation",
         "parameters": [
           {
-            "description": "Invitation identifier (deprecated path \u2014 prefer `/api/v1/teams/{team_id}/invitations/{invitation_id}/accept`)",
+            "description": "Invitation identifier (deprecated path — prefer `/api/v1/teams/{team_id}/invitations/{invitation_id}/accept`)",
             "in": "path",
             "name": "invitation_id",
             "required": true,
@@ -5878,7 +5896,7 @@
             }
           },
           {
-            "description": "Items per page (1\u2013500, default 50)",
+            "description": "Items per page (1–500, default 50)",
             "in": "query",
             "name": "page_size",
             "required": false,
@@ -6833,7 +6851,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
+            "description": "Items per page. Must be 1–500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -6964,7 +6982,7 @@
                 }
               }
             },
-            "description": "Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps or YYYY-MM-DD dates. Rates are 0.0\u20131.0."
+            "description": "Daily cached HTTP audit metrics for UTC calendar days touched by inclusive RFC 3339 timestamps or YYYY-MM-DD dates. Rates are 0.0–1.0."
           },
           "400": {
             "content": {
@@ -7030,7 +7048,7 @@
         ]
       }
     },
-    "/api/v1/player-rooms": {
+    "/api/v1/rooms": {
       "get": {
         "operationId": "list_rooms",
         "parameters": [
@@ -7077,7 +7095,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/PlayerRoomSummary"
+                    "$ref": "#/components/schemas/RoomSummary"
                   },
                   "type": "array"
                 }
@@ -7095,7 +7113,7 @@
           }
         ],
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       },
       "post": {
@@ -7104,7 +7122,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreatePlayerRoom"
+                "$ref": "#/components/schemas/CreateRoom"
               }
             }
           },
@@ -7115,7 +7133,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreatedPlayerRoom"
+                  "$ref": "#/components/schemas/CreatedRoom"
                 }
               }
             },
@@ -7131,18 +7149,18 @@
           }
         ],
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
-    "/api/v1/player-rooms/invite/inspect": {
+    "/api/v1/rooms/invite/inspect": {
       "post": {
         "operationId": "inspect_invite",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/InspectPlayerRoomInvite"
+                "$ref": "#/components/schemas/InspectRoomInvite"
               }
             }
           },
@@ -7153,7 +7171,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlayerRoomInviteInfo"
+                  "$ref": "#/components/schemas/RoomInviteInfo"
                 }
               }
             },
@@ -7161,18 +7179,18 @@
           }
         },
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
-    "/api/v1/player-rooms/invite/join": {
+    "/api/v1/rooms/invite/join": {
       "post": {
         "operationId": "join_invite",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/JoinPlayerRoomInvite"
+                "$ref": "#/components/schemas/JoinRoomInvite"
               }
             }
           },
@@ -7183,7 +7201,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlayerRoomCredentials"
+                  "$ref": "#/components/schemas/RoomCredentials"
                 }
               }
             },
@@ -7191,11 +7209,11 @@
           }
         },
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
-    "/api/v1/player-rooms/{id}": {
+    "/api/v1/rooms/{id}": {
       "delete": {
         "operationId": "close_room",
         "parameters": [
@@ -7222,7 +7240,7 @@
           }
         ],
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       },
       "get": {
@@ -7242,7 +7260,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlayerRoomSnapshot"
+                  "$ref": "#/components/schemas/RoomSnapshot"
                 }
               }
             },
@@ -7258,11 +7276,11 @@
           }
         ],
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
-    "/api/v1/player-rooms/{id}/join": {
+    "/api/v1/rooms/{id}/join": {
       "post": {
         "operationId": "join_room",
         "parameters": [
@@ -7279,7 +7297,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/JoinPlayerRoom"
+                "$ref": "#/components/schemas/JoinRoom"
               }
             }
           },
@@ -7290,7 +7308,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlayerRoomCredentials"
+                  "$ref": "#/components/schemas/RoomCredentials"
                 }
               }
             },
@@ -7306,11 +7324,11 @@
           }
         ],
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
-    "/api/v1/player-rooms/{id}/queue": {
+    "/api/v1/rooms/{id}/queue": {
       "post": {
         "operationId": "add_queue_item",
         "parameters": [
@@ -7327,7 +7345,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AddPlayerRoomQueueItem"
+                "$ref": "#/components/schemas/AddRoomQueueItem"
               }
             }
           },
@@ -7387,11 +7405,11 @@
           }
         ],
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
-    "/api/v1/player-rooms/{id}/queue/order": {
+    "/api/v1/rooms/{id}/queue/order": {
       "put": {
         "operationId": "reorder_queue",
         "parameters": [
@@ -7408,7 +7426,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReorderPlayerRoomQueue"
+                "$ref": "#/components/schemas/ReorderRoomQueue"
               }
             }
           },
@@ -7468,11 +7486,11 @@
           }
         ],
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
-    "/api/v1/player-rooms/{id}/queue/{queue_id}": {
+    "/api/v1/rooms/{id}/queue/{queue_id}": {
       "delete": {
         "operationId": "remove_queue_item",
         "parameters": [
@@ -7547,11 +7565,11 @@
           }
         ],
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
-    "/api/v1/player-rooms/{id}/queue/{queue_id}/promote": {
+    "/api/v1/rooms/{id}/queue/{queue_id}/promote": {
       "post": {
         "operationId": "promote_queue_item",
         "parameters": [
@@ -7576,7 +7594,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PlayerRoomQueueRevision"
+                "$ref": "#/components/schemas/RoomQueueRevision"
               }
             }
           },
@@ -7626,11 +7644,11 @@
           }
         ],
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
-    "/api/v1/player-rooms/{id}/reconnect": {
+    "/api/v1/rooms/{id}/reconnect": {
       "post": {
         "operationId": "reconnect_room",
         "parameters": [
@@ -7647,7 +7665,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/JoinPlayerRoom"
+                "$ref": "#/components/schemas/JoinRoom"
               }
             }
           },
@@ -7658,7 +7676,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlayerRoomCredentials"
+                  "$ref": "#/components/schemas/RoomCredentials"
                 }
               }
             },
@@ -7666,11 +7684,11 @@
           }
         },
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
-    "/api/v1/player-rooms/{id}/song-pool": {
+    "/api/v1/rooms/{id}/song-pool": {
       "put": {
         "operationId": "update_song_pool",
         "parameters": [
@@ -7687,7 +7705,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdatePlayerRoomSongPool"
+                "$ref": "#/components/schemas/UpdateRoomSongPool"
               }
             }
           },
@@ -7737,11 +7755,11 @@
           }
         ],
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
-    "/api/v1/player-rooms/{id}/song-pool/songs": {
+    "/api/v1/rooms/{id}/song-pool/songs": {
       "get": {
         "operationId": "get_pool_songs",
         "parameters": [
@@ -7846,11 +7864,11 @@
           }
         ],
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
-    "/api/v1/player-rooms/{room_id}/media/{blob_id}": {
+    "/api/v1/rooms/{room_id}/media/{blob_id}": {
       "get": {
         "operationId": "room_media",
         "parameters": [
@@ -7888,7 +7906,7 @@
           }
         },
         "tags": [
-          "Player Rooms"
+          "Rooms"
         ]
       }
     },
@@ -7911,7 +7929,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
+            "description": "Items per page. Must be 1–500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -8608,7 +8626,7 @@
             }
           },
           {
-            "description": "Hydration mode. `book` (default) omits Media for Book/sheet/offline/Player Room snapshots. `av` includes Ready readable Media as one tagged item per setlist slot.",
+            "description": "Hydration mode. `book` (default) omits Media for Book/sheet/offline/Room snapshots. `av` includes Ready readable Media as one tagged item per setlist slot.",
             "in": "query",
             "name": "view",
             "required": false,
@@ -8730,7 +8748,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1\u2013500. Defaults to 50. Omit with `page` for full list.",
+            "description": "Items per page. Must be 1–500. Defaults to 50. Omit with `page` for full list.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -8843,7 +8861,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
+            "description": "Items per page. Must be 1–500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -8877,7 +8895,7 @@
             }
           },
           {
-            "description": "Sort: JSON:API-style comma-separated keys (`-` = descending), e.g. `-id`, `title`, `relevance` (with `q`). Legacy `id_desc` / \u2026 still accepted.",
+            "description": "Sort: JSON:API-style comma-separated keys (`-` = descending), e.g. `-id`, `title`, `relevance` (with `q`). Legacy `id_desc` / … still accepted.",
             "in": "query",
             "name": "sort",
             "required": false,
@@ -9930,7 +9948,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1\u2013500. Defaults to 50 when omitted.",
+            "description": "Items per page. Must be 1–500. Defaults to 50 when omitted.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -10645,7 +10663,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1\u2013500. Defaults to 50. Omit with `page` for full list.",
+            "description": "Items per page. Must be 1–500. Defaults to 50. Omit with `page` for full list.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -11130,7 +11148,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1\u2013500. Defaults to 50.",
+            "description": "Items per page. Must be 1–500. Defaults to 50.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -11692,7 +11710,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1\u2013500. Defaults to 50 when omitted.",
+            "description": "Items per page. Must be 1–500. Defaults to 50 when omitted.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -12495,7 +12513,7 @@
             }
           },
           {
-            "description": "Items per page. Must be 1\u2013500. Defaults to 50 when omitted.",
+            "description": "Items per page. Must be 1–500. Defaults to 50 when omitted.",
             "example": 50,
             "in": "query",
             "name": "page_size",
@@ -13086,7 +13104,7 @@
         "operationId": "login",
         "parameters": [
           {
-            "description": "Optional same-origin path (`/\u2026`) to use after login. Must start with `/` and must not be `//\u2026` or `/http\u2026`; otherwise it is ignored and the default post-login path is used (see `sanitize_redirect`).",
+            "description": "Optional same-origin path (`/…`) to use after login. Must start with `/` and must not be `//…` or `/http…`; otherwise it is ignored and the default post-login path is used (see `sanitize_redirect`).",
             "in": "query",
             "name": "redirect_to",
             "required": false,
@@ -13361,9 +13379,9 @@
       "description": "Persisted cross-device player sessions, invitations, scoped media, and realtime synchronization.",
       "externalDocs": {
         "description": "Business logic constraints (markdown in repository).",
-        "url": "https://github.com/xilefmusics/worshipviewer/blob/main/docs/business-logic-constraints/player-room.md"
+        "url": "https://github.com/xilefmusics/worshipviewer/blob/main/docs/business-logic-constraints/room.md"
       },
-      "name": "Player Rooms"
+      "name": "Rooms"
     }
   ]
 }

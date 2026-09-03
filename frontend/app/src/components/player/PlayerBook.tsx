@@ -264,6 +264,7 @@ type PlayerBookProps = {
   roomStateRevision?: number
   canControlRoomMusicalState?: boolean
   onRoomMusicalStateChange?: (state: { item_index: number; language: string | null; transposition: string | null }) => void
+  onRoomQueueNext?: () => void
   allowLibraryActions?: boolean
   roomSidebar?: ReactNode
 }
@@ -282,6 +283,7 @@ export function PlayerBook({
   roomStateRevision,
   canControlRoomMusicalState = false,
   onRoomMusicalStateChange,
+  onRoomQueueNext,
   allowLibraryActions = true,
   roomSidebar,
 }: PlayerBookProps) {
@@ -412,9 +414,19 @@ export function PlayerBook({
   const dispatch = useCallback(
     (action: Parameters<typeof nextPlayerState>[1]) => {
       if (navBlocked) return
-      setNav((state) => nextPlayerState(state, action, navConfig))
+      const next = nextPlayerState(nav, action, navConfig)
+      if (
+        action.type === 'next' &&
+        onRoomQueueNext &&
+        next.index === nav.index &&
+        next.pageOffset === nav.pageOffset
+      ) {
+        onRoomQueueNext()
+        return
+      }
+      setNav(next)
     },
-    [navBlocked, navConfig, setNav],
+    [nav, navBlocked, navConfig, onRoomQueueNext, setNav],
   )
 
   usePlayerIndexSearchSync(type, id, nav.index, mode)
@@ -1299,7 +1311,7 @@ export function PlayerBook({
           <AnimatePresence initial={false}>
             {chromeVisible && roomSidebar ? (
               <motion.div
-                key="player-room-sidebar"
+                key="room-sidebar"
                 className="pointer-events-auto absolute inset-y-0 right-0 z-10 flex overflow-hidden"
                 initial={reduceMotion ? false : { x: '100%' }}
                 animate={{ x: 0 }}

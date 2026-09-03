@@ -138,7 +138,7 @@ async fn get_setlist(
     path = "/api/v1/setlists/{id}/player",
     params(
         ("id" = String, Path, description = "Setlist identifier"),
-        ("view" = Option<SetlistPlayerView>, Query, description = "Hydration mode. `book` (default) omits Media for Book/sheet/offline/Player Room snapshots. `av` includes Ready readable Media as one tagged item per setlist slot.")
+        ("view" = Option<SetlistPlayerView>, Query, description = "Hydration mode. `book` (default) omits Media for Book/sheet/offline/Room snapshots. `av` includes Ready readable Media as one tagged item per setlist slot.")
     ),
     responses(
         (status = 200, description = "Return player metadata for a setlist", body = Player),

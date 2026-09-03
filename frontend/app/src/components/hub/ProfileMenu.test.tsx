@@ -135,13 +135,13 @@ describe('ProfileMenu tutorials link', () => {
 })
 
 describe('ProfileMenu Teams destination', () => {
-  it('places Teams in the former Player Rooms slot without duplicating Player Rooms', async () => {
+  it('places Teams in the former Rooms slot without duplicating Rooms', async () => {
     await renderMenu({ canShowInstall: false })
 
     const menu = screen.getByRole('menu')
     const items = within(menu).getAllByRole('menuitem')
     expect(items[0]).toHaveTextContent('Teams')
-    expect(screen.queryByRole('menuitem', { name: /player room/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /room/i })).not.toBeInTheDocument()
   })
 
   it('navigates to Teams with pointer activation', async () => {

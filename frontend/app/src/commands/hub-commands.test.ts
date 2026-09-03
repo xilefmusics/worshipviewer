@@ -3,16 +3,16 @@ import { describe, expect, it } from 'vitest'
 import { hubNavigateCommands } from '@/commands/hub-commands'
 
 describe('hub navigation commands', () => {
-  it('keeps Teams and Player Rooms as unique searchable destinations', () => {
+  it('keeps Teams and Rooms as unique searchable destinations', () => {
     const relevant = hubNavigateCommands.filter((command) =>
-      command.id === 'teams' || command.id === 'player-rooms',
+      command.id === 'teams' || command.id === 'rooms',
     )
 
     expect(relevant).toEqual([
       expect.objectContaining({
-        id: 'player-rooms',
-        labelKey: 'hub.tabs.playerRooms',
-        to: '/player-rooms',
+        id: 'rooms',
+        labelKey: 'hub.tabs.rooms',
+        to: '/rooms',
       }),
       expect.objectContaining({
         id: 'teams',
@@ -21,7 +21,7 @@ describe('hub navigation commands', () => {
       }),
     ])
     expect(relevant[0]?.keywords).toEqual(
-      expect.arrayContaining(['player rooms', 'player-rooms', 'rooms', 'player-räume', 'räume']),
+      expect.arrayContaining(['rooms', 'room', 'räume']),
     )
     expect(relevant[1]?.keywords).toEqual(expect.arrayContaining(['team', 'teams']))
     expect(new Set(relevant.map((command) => command.to)).size).toBe(2)

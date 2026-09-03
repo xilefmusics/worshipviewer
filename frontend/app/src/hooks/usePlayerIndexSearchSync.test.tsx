@@ -25,16 +25,16 @@ function RoomHarness() {
   )
 }
 
-it('keeps player URL state local when mounted on a Player Room route', async () => {
+it('keeps player URL state local when mounted on a Room route', async () => {
   const rootRoute = createRootRoute({ component: Outlet })
   const roomRoute = createRoute({
     getParentRoute: () => rootRoute,
-    path: '/player/room/$roomId',
+    path: '/rooms/$roomId',
     component: RoomHarness,
   })
   const router = createRouter({
     routeTree: rootRoute.addChildren([roomRoute]),
-    history: createMemoryHistory({ initialEntries: ['/player/room/room-1'] }),
+    history: createMemoryHistory({ initialEntries: ['/rooms/room-1'] }),
   })
 
   render(<RouterProvider router={router} />)
@@ -42,5 +42,5 @@ it('keeps player URL state local when mounted on a Player Room route', async () 
   await userEvent.click(mode)
 
   expect(mode).toHaveTextContent('alphabetical')
-  expect(router.state.location.pathname).toBe('/player/room/room-1')
+  expect(router.state.location.pathname).toBe('/rooms/room-1')
 })

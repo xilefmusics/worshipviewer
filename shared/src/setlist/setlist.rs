@@ -55,7 +55,7 @@ impl SetlistItem {
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub enum SetlistPlayerView {
-    /// Book/sheet, text-only, PDF/ZIP, offline, and Player Room snapshots. Media is omitted.
+    /// Book/sheet, text-only, PDF/ZIP, offline, and Room snapshots. Media is omitted.
     #[default]
     Book,
     /// Online AV: Ready readable Media is included as one tagged item per setlist slot.

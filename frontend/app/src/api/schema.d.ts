@@ -389,7 +389,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms": {
+    "/api/v1/rooms": {
         parameters: {
             query?: never;
             header?: never;
@@ -405,7 +405,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms/invite/inspect": {
+    "/api/v1/rooms/invite/inspect": {
         parameters: {
             query?: never;
             header?: never;
@@ -421,7 +421,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms/invite/join": {
+    "/api/v1/rooms/invite/join": {
         parameters: {
             query?: never;
             header?: never;
@@ -437,7 +437,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms/{id}": {
+    "/api/v1/rooms/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -453,7 +453,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms/{id}/join": {
+    "/api/v1/rooms/{id}/join": {
         parameters: {
             query?: never;
             header?: never;
@@ -469,7 +469,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms/{id}/queue": {
+    "/api/v1/rooms/{id}/queue": {
         parameters: {
             query?: never;
             header?: never;
@@ -485,7 +485,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms/{id}/queue/order": {
+    "/api/v1/rooms/{id}/queue/order": {
         parameters: {
             query?: never;
             header?: never;
@@ -501,7 +501,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms/{id}/queue/{queue_id}": {
+    "/api/v1/rooms/{id}/queue/{queue_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -517,7 +517,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms/{id}/queue/{queue_id}/promote": {
+    "/api/v1/rooms/{id}/queue/{queue_id}/promote": {
         parameters: {
             query?: never;
             header?: never;
@@ -533,7 +533,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms/{id}/reconnect": {
+    "/api/v1/rooms/{id}/reconnect": {
         parameters: {
             query?: never;
             header?: never;
@@ -549,7 +549,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms/{id}/song-pool": {
+    "/api/v1/rooms/{id}/song-pool": {
         parameters: {
             query?: never;
             header?: never;
@@ -565,7 +565,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms/{id}/song-pool/songs": {
+    "/api/v1/rooms/{id}/song-pool/songs": {
         parameters: {
             query?: never;
             header?: never;
@@ -581,7 +581,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/player-rooms/{room_id}/media/{blob_id}": {
+    "/api/v1/rooms/{room_id}/media/{blob_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1220,7 +1220,7 @@ export interface components {
             /** @description Semver from `Cargo.toml` at compile time (`CARGO_PKG_VERSION`). */
             version: string;
         };
-        AddPlayerRoomQueueItem: {
+        AddRoomQueueItem: {
             /** Format: int64 */
             revision: number;
             song_id: string;
@@ -1355,8 +1355,10 @@ export interface components {
             type: "spotify";
             url: string;
         };
-        CreatePlayerRoom: {
+        CreateRoom: {
             name?: string | null;
+            source_id?: string | null;
+            source_type?: null | components["schemas"]["RoomSourceType"];
             team_id: string;
         };
         /**
@@ -1426,10 +1428,10 @@ export interface components {
             email: string;
             role?: components["schemas"]["Role"];
         };
-        CreatedPlayerRoom: {
-            credentials: components["schemas"]["PlayerRoomCredentials"];
+        CreatedRoom: {
+            credentials: components["schemas"]["RoomCredentials"];
             invite_secret: string;
-            room: components["schemas"]["PlayerRoomSummary"];
+            room: components["schemas"]["RoomSummary"];
         };
         DuplicateMedia: {
             /** @description Destination team. Omit to keep the source owner. */
@@ -1496,19 +1498,19 @@ export interface components {
             started_at?: string | null;
             subject?: null | components["schemas"]["User"];
         };
-        InspectPlayerRoomInvite: {
+        InspectRoomInvite: {
             invite_secret: string;
         };
-        JoinPlayerRoom: {
+        JoinRoom: {
             hide_chords?: boolean;
-            mode: components["schemas"]["PlayerRoomMode"];
+            mode: components["schemas"]["RoomMode"];
             resume_credential?: string | null;
         };
-        JoinPlayerRoomInvite: {
+        JoinRoomInvite: {
             display_name: string;
             hide_chords?: boolean;
             invite_secret: string;
-            mode: components["schemas"]["PlayerRoomMode"];
+            mode: components["schemas"]["RoomMode"];
             resume_credential?: string | null;
         };
         /**
@@ -1844,118 +1846,6 @@ export interface components {
             id: string;
             title: string;
         };
-        PlayerRoomContent: {
-            items: components["schemas"]["PlayerItem"][];
-            toc: components["schemas"]["TocItem"][];
-        };
-        PlayerRoomCredentials: {
-            connection_ticket: string;
-            mode: components["schemas"]["PlayerRoomMode"];
-            participant_id: string;
-            resume_credential: string;
-            room_id: string;
-        };
-        PlayerRoomInviteInfo: {
-            av_occupied: boolean;
-            guests_allowed?: boolean;
-            host_email: string;
-            name: string;
-            room_id: string;
-        };
-        /** @enum {string} */
-        PlayerRoomMode: "sheet" | "av" | "slide";
-        PlayerRoomMusicalState: {
-            item_index: number;
-            language?: string | null;
-            transposition?: string | null;
-        };
-        PlayerRoomParticipant: {
-            anonymous: boolean;
-            avatar_url?: string | null;
-            connected: boolean;
-            display_name: string;
-            hide_chords?: boolean;
-            id: string;
-            is_av_host: boolean;
-            is_host: boolean;
-            mode: components["schemas"]["PlayerRoomMode"];
-        };
-        PlayerRoomProjectionPayload: {
-            background_layer: Record<string, never>;
-            content_layer: Record<string, never>;
-            content_lines?: Record<string, never> | null;
-            content_text: string;
-            item_title: string;
-            next_preview?: string | null;
-            screen_state: string;
-            transition: Record<string, never>;
-        };
-        PlayerRoomQueueItem: {
-            added_by: string;
-            id: string;
-            song: components["schemas"]["PlayerChordsItem"];
-            song_id: string;
-            title: string;
-        };
-        PlayerRoomQueueRevision: {
-            /** Format: int64 */
-            revision: number;
-        };
-        PlayerRoomSnapshot: components["schemas"]["PlayerRoomSummary"] & {
-            content: components["schemas"]["PlayerRoomContent"];
-            guests_allowed?: boolean;
-            /** Format: date-time */
-            host_lease_expires_at: string;
-            musical_state: components["schemas"]["PlayerRoomMusicalState"];
-            participants: components["schemas"]["PlayerRoomParticipant"][];
-            projection?: null | components["schemas"]["PlayerRoomProjectionPayload"];
-            queue?: components["schemas"]["PlayerRoomQueueItem"][];
-            /** Format: int64 */
-            revision: number;
-        };
-        PlayerRoomSongPool: {
-            /** @enum {string} */
-            type: "open";
-        } | {
-            id: string;
-            title: string;
-            /** @enum {string} */
-            type: "collection";
-        } | {
-            id: string;
-            title: string;
-            /** @enum {string} */
-            type: "setlist";
-        };
-        PlayerRoomSongPoolSelection: {
-            /** @enum {string} */
-            type: "open";
-        } | {
-            id: string;
-            /** @enum {string} */
-            type: "collection";
-        } | {
-            id: string;
-            /** @enum {string} */
-            type: "setlist";
-        };
-        /** @enum {string} */
-        PlayerRoomSourceType: "song" | "collection" | "setlist";
-        PlayerRoomSummary: {
-            av_occupied: boolean;
-            can_close?: boolean;
-            /** Format: date-time */
-            created_at: string;
-            host_email: string;
-            id: string;
-            name: string;
-            participant_count: number;
-            song_pool?: components["schemas"]["PlayerRoomSongPool"];
-            source_id?: string | null;
-            source_title?: string | null;
-            source_type?: null | components["schemas"]["PlayerRoomSourceType"];
-            team_id: string;
-        };
         /**
          * Problem
          * @description [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem document (`application/problem+json`).
@@ -1993,13 +1883,123 @@ export interface components {
             title: string;
             type: string;
         };
-        ReorderPlayerRoomQueue: {
+        ReorderRoomQueue: {
             queue_ids: string[];
             /** Format: int64 */
             revision: number;
         };
         /** @enum {string} */
         Role: "default" | "admin";
+        RoomContent: {
+            items: components["schemas"]["PlayerItem"][];
+            toc: components["schemas"]["TocItem"][];
+        };
+        RoomCredentials: {
+            connection_ticket: string;
+            mode: components["schemas"]["RoomMode"];
+            participant_id: string;
+            resume_credential: string;
+            room_id: string;
+        };
+        RoomInviteInfo: {
+            av_occupied: boolean;
+            guests_allowed?: boolean;
+            host_email: string;
+            name: string;
+            room_id: string;
+        };
+        /** @enum {string} */
+        RoomMode: "sheet" | "av" | "slide";
+        RoomMusicalState: {
+            item_index: number;
+            language?: string | null;
+            transposition?: string | null;
+        };
+        RoomParticipant: {
+            anonymous: boolean;
+            avatar_url?: string | null;
+            connected: boolean;
+            display_name: string;
+            hide_chords?: boolean;
+            id: string;
+            is_av_host: boolean;
+            is_host: boolean;
+            mode: components["schemas"]["RoomMode"];
+        };
+        RoomProjectionPayload: {
+            background_layer: Record<string, never>;
+            content_layer: Record<string, never>;
+            content_lines?: Record<string, never> | null;
+            content_text: string;
+            item_title: string;
+            next_preview?: string | null;
+            screen_state: string;
+            transition: Record<string, never>;
+        };
+        RoomQueueItem: {
+            added_by: string;
+            id: string;
+            song: components["schemas"]["PlayerChordsItem"];
+            song_id: string;
+            title: string;
+            /** Format: int64 */
+            upvotes?: number;
+        };
+        RoomQueueRevision: {
+            /** Format: int64 */
+            revision: number;
+        };
+        RoomSnapshot: components["schemas"]["RoomSummary"] & {
+            content: components["schemas"]["RoomContent"];
+            guests_allowed?: boolean;
+            /** Format: date-time */
+            host_lease_expires_at: string;
+            musical_state: components["schemas"]["RoomMusicalState"];
+            participants: components["schemas"]["RoomParticipant"][];
+            projection?: null | components["schemas"]["RoomProjectionPayload"];
+            queue?: components["schemas"]["RoomQueueItem"][];
+            /** Format: int64 */
+            revision: number;
+            voted_queue_ids?: string[];
+        };
+        RoomSongPool: {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            type: "collection";
+        } | {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            type: "setlist";
+        };
+        RoomSongPoolSelection: {
+            id: string;
+            /** @enum {string} */
+            type: "collection";
+        } | {
+            id: string;
+            /** @enum {string} */
+            type: "setlist";
+        };
+        /** @enum {string} */
+        RoomSourceType: "song" | "collection" | "setlist";
+        RoomSummary: {
+            av_occupied: boolean;
+            can_close?: boolean;
+            /** Format: date-time */
+            created_at: string;
+            host_email: string;
+            id: string;
+            name: string;
+            open?: boolean;
+            participant_count: number;
+            song_pool?: null | components["schemas"]["RoomSongPool"];
+            source_id?: string | null;
+            source_title?: string | null;
+            source_type?: null | components["schemas"]["RoomSourceType"];
+            team_id: string;
+        };
         /**
          * @description Accidental spelling hint from the parsed root token (`#` vs `b`).
          * @enum {string}
@@ -2382,8 +2382,9 @@ export interface components {
             owner?: string | null;
             title: string;
         };
-        UpdatePlayerRoomSongPool: {
-            pool: components["schemas"]["PlayerRoomSongPoolSelection"];
+        UpdateRoomSongPool: {
+            open?: boolean;
+            pool?: null | components["schemas"]["RoomSongPoolSelection"];
             /** Format: int64 */
             revision: number;
         };
@@ -4903,7 +4904,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlayerRoomSummary"][];
+                    "application/json": components["schemas"]["RoomSummary"][];
                 };
             };
         };
@@ -4917,7 +4918,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreatePlayerRoom"];
+                "application/json": components["schemas"]["CreateRoom"];
             };
         };
         responses: {
@@ -4926,7 +4927,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreatedPlayerRoom"];
+                    "application/json": components["schemas"]["CreatedRoom"];
                 };
             };
         };
@@ -4940,7 +4941,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["InspectPlayerRoomInvite"];
+                "application/json": components["schemas"]["InspectRoomInvite"];
             };
         };
         responses: {
@@ -4949,7 +4950,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlayerRoomInviteInfo"];
+                    "application/json": components["schemas"]["RoomInviteInfo"];
                 };
             };
         };
@@ -4963,7 +4964,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["JoinPlayerRoomInvite"];
+                "application/json": components["schemas"]["JoinRoomInvite"];
             };
         };
         responses: {
@@ -4972,7 +4973,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlayerRoomCredentials"];
+                    "application/json": components["schemas"]["RoomCredentials"];
                 };
             };
         };
@@ -4993,7 +4994,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlayerRoomSnapshot"];
+                    "application/json": components["schemas"]["RoomSnapshot"];
                 };
             };
         };
@@ -5028,7 +5029,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["JoinPlayerRoom"];
+                "application/json": components["schemas"]["JoinRoom"];
             };
         };
         responses: {
@@ -5037,7 +5038,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlayerRoomCredentials"];
+                    "application/json": components["schemas"]["RoomCredentials"];
                 };
             };
         };
@@ -5053,7 +5054,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AddPlayerRoomQueueItem"];
+                "application/json": components["schemas"]["AddRoomQueueItem"];
             };
         };
         responses: {
@@ -5108,7 +5109,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReorderPlayerRoomQueue"];
+                "application/json": components["schemas"]["ReorderRoomQueue"];
             };
         };
         responses: {
@@ -5210,7 +5211,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PlayerRoomQueueRevision"];
+                "application/json": components["schemas"]["RoomQueueRevision"];
             };
         };
         responses: {
@@ -5257,7 +5258,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["JoinPlayerRoom"];
+                "application/json": components["schemas"]["JoinRoom"];
             };
         };
         responses: {
@@ -5266,7 +5267,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlayerRoomCredentials"];
+                    "application/json": components["schemas"]["RoomCredentials"];
                 };
             };
         };
@@ -5282,7 +5283,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdatePlayerRoomSongPool"];
+                "application/json": components["schemas"]["UpdateRoomSongPool"];
             };
         };
         responses: {
@@ -5923,7 +5924,7 @@ export interface operations {
     get_setlist_player: {
         parameters: {
             query?: {
-                /** @description Hydration mode. `book` (default) omits Media for Book/sheet/offline/Player Room snapshots. `av` includes Ready readable Media as one tagged item per setlist slot. */
+                /** @description Hydration mode. `book` (default) omits Media for Book/sheet/offline/Room snapshots. `av` includes Ready readable Media as one tagged item per setlist slot. */
                 view?: components["schemas"]["SetlistPlayerView"];
             };
             header?: never;

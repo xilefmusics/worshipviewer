@@ -21,8 +21,9 @@ Central map of Worship Viewer engineering docs. User-facing product copy lives i
 |----------|-------------|
 | [openapi.json](openapi.json) | **Canonical** OpenAPI 3 schema (copies in `backend/` and `frontend/app/src/api/`) |
 | [business-logic-constraints/](business-logic-constraints/) | BLC-* rules per resource |
-| [business-logic-constraints/player-room.md](business-logic-constraints/player-room.md) | Player Room roles, credentials, lifecycle, and realtime protocol |
+| [business-logic-constraints/room.md](business-logic-constraints/room.md) | Room roles, credentials, lifecycle, and realtime protocol |
 | [business-logic-constraints/media.md](business-logic-constraints/media.md) | Media lifecycle, URL normalization, ownership, and ACL rules |
+| [business-logic-constraints/impersonation.md](business-logic-constraints/impersonation.md) | Audited admin impersonation identity, cookie, ACL, and revocation rules |
 | [api-breaking-2-0.md](api-breaking-2-0.md) | API 2.0 migration notes (referenced from OpenAPI) |
 
 ## Data & operations
@@ -41,7 +42,7 @@ Central map of Worship Viewer engineering docs. User-facing product copy lives i
 | Document | Description |
 |----------|-------------|
 | [logging-review.md](logging-review.md) | Canonical log fields and audit event catalog |
-| [architecture/player-room-realtime.md](architecture/player-room-realtime.md) | Player Room HTTP/WebSocket split, revisions, and deployment boundary |
+| [architecture/room-realtime.md](architecture/room-realtime.md) | Room HTTP/WebSocket split, revisions, and deployment boundary |
 | [business-logic-constraints/monitoring.md](business-logic-constraints/monitoring.md) | HTTP audit and admin metrics BLCs |
 
 ## Licensing & third party

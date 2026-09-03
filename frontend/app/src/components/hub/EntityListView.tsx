@@ -21,6 +21,8 @@ import { PlayIcon } from '@/components/icons/play-icon'
 import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
 import { AddSongToSetlistDialog } from '@/components/hub/AddSongToSetlistDialog'
 import { SetlistItemCounts } from '@/components/hub/SetlistItemCounts'
+import { CreateRoomDialog, type RoomSource } from '@/components/room/CreateRoomDialog'
+import { RoomIcon } from '@/components/icons/lucide-animated/room-icon'
 import {
   HUB_LIST_AVATAR_CLASS,
   HUB_LIST_META_CLASS,
@@ -77,8 +79,10 @@ import { readPlayerDefaultMode } from '@/lib/player/player-mode-preference'
 import { emptyEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { useHubViewMode } from '@/hooks/useHubViewMode'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { useWritableTeams } from '@/hooks/useWritableTeams'
 import { resolveCollectionsLayoutMode } from '@/lib/hub-view-mode'
 import { getTeamDisplayName } from '@/lib/team-display-name'
+import { roomSourceType } from '@/lib/room-source'
 import { cn } from '@/lib/utils'
 
 /** Card grid: dense on laptop+ (6 → 8 cols), stays 2 cols on narrow phones. */
@@ -111,10 +115,12 @@ export function EntityListView({ entity }: EntityListViewProps) {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const [pullVisual, setPullVisual] = useState(0)
   const [ptrRefreshing, setPtrRefreshing] = useState(false)
+  const [roomSource, setRoomSource] = useState<RoomSource | null>(null)
   const pullStartRef = useRef<number | null>(null)
   const pullDyRef = useRef(0)
 
   const { viewMode: collectionsViewPreference } = useHubViewMode('collections')
+  const { teams: writableRoomTeams, user: roomUser } = useWritableTeams('roomCreate')
   const isLandscape = useMediaQuery('(orientation: landscape)')
   const viewMode =
     entity === 'collections'
@@ -377,6 +383,7 @@ export function EntityListView({ entity }: EntityListViewProps) {
                   collection={c}
                   onDeleteRequest={setDeleteTarget}
                   networkOnline={networkOnline}
+                  onCreateRoomRequest={(source) => setRoomSource(source)}
                 />
               ) : (
                 <CollectionRow
@@ -384,6 +391,7 @@ export function EntityListView({ entity }: EntityListViewProps) {
                   collection={c}
                   onDeleteRequest={setDeleteTarget}
                   networkOnline={networkOnline}
+                  onCreateRoomRequest={(source) => setRoomSource(source)}
                 />
               ),
             )}
@@ -393,7 +401,13 @@ export function EntityListView({ entity }: EntityListViewProps) {
         {!error && !showSkeleton && items.length > 0 && entity === 'songs' ? (
           <div className="flex flex-col pb-4">
             {(items as Song[]).map((s) => (
-              <SongRow key={s.id} song={s} onDeleteRequest={setDeleteTarget} networkOnline={networkOnline} />
+              <SongRow
+                key={s.id}
+                song={s}
+                onDeleteRequest={setDeleteTarget}
+                networkOnline={networkOnline}
+                onCreateRoomRequest={(source) => setRoomSource(source)}
+              />
             ))}
           </div>
         ) : null}
@@ -406,6 +420,7 @@ export function EntityListView({ entity }: EntityListViewProps) {
                 setlist={sl}
                 onDeleteRequest={setDeleteTarget}
                 networkOnline={networkOnline}
+                onCreateRoomRequest={(source) => setRoomSource(source)}
               />
             ))}
           </div>
@@ -467,6 +482,19 @@ export function EntityListView({ entity }: EntityListViewProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <CreateRoomDialog
+        key={roomSource ? `${roomSource.type}:${roomSource.id}` : 'independent'}
+        open={roomSource != null}
+        onOpenChange={(open) => {
+          if (!open) setRoomSource(null)
+        }}
+        teams={writableRoomTeams}
+        userId={roomUser?.id}
+        source={roomSource}
+        onCreated={(roomId) => {
+          window.location.assign(`/rooms/${encodeURIComponent(roomId)}`)
+        }}
+      />
     </>
   )
 }
@@ -550,6 +578,7 @@ function HubItemContextMenu({
   onDeleteRequest,
   networkOnline,
   hubSong,
+  onCreateRoomRequest,
   children,
 }: {
   entity: HubEntity
@@ -560,6 +589,7 @@ function HubItemContextMenu({
   networkOnline: boolean
   /** When set (songs hub), enables “Add to setlist”. */
   hubSong?: Song
+  onCreateRoomRequest: (source: RoomSource) => void
   children: ReactElement
 }) {
   const { t } = useTranslation()
@@ -569,6 +599,7 @@ function HubItemContextMenu({
   const hideChords = useHideChordsPreference()
   const [editHot, setEditHot] = useState(false)
   const [playHot, setPlayHot] = useState(false)
+  const [createRoomHot, setCreateRoomHot] = useState(false)
   const [addToSetlistHot, setAddToSetlistHot] = useState(false)
   const [duplicateHot, setDuplicateHot] = useState(false)
   const [deleteHot, setDeleteHot] = useState(false)
@@ -776,6 +807,26 @@ function HubItemContextMenu({
             <PlayIcon size={16} className="shrink-0 text-[var(--color-foreground)]" />
             {t('hub.actions.playAv')}
           </ContextMenuItem>
+          <ContextMenuItem
+            className="gap-2"
+            disabled={!networkOnline}
+            title={!networkOnline ? t('hub.createOfflineHint') : undefined}
+            onSelect={() => {
+              if (!networkOnline) return
+              onCreateRoomRequest({
+                type: roomSourceType(entity),
+                id: itemId,
+                title: itemLabel,
+              })
+            }}
+            onMouseEnter={() => setCreateRoomHot(true)}
+            onMouseLeave={() => setCreateRoomHot(false)}
+            onFocus={() => setCreateRoomHot(true)}
+            onBlur={() => setCreateRoomHot(false)}
+          >
+            <RoomIcon isHovered={createRoomHot} size={16} className="shrink-0 text-[var(--color-foreground)]" />
+            {t('rooms.createTitle')}
+          </ContextMenuItem>
           {playerCached ? (
             <ContextMenuItem
               className="gap-2"
@@ -942,10 +993,12 @@ const CollectionCard = memo(function CollectionCard({
   collection,
   onDeleteRequest,
   networkOnline,
+  onCreateRoomRequest,
 }: {
   collection: Collection
   onDeleteRequest: DeleteReq
   networkOnline: boolean
+  onCreateRoomRequest: (source: RoomSource) => void
 }) {
   const reduceMotion = useReducedMotion()
   const { listPointerProps, onClick, onContextMenu, onKeyDown } = useHubListItemPlayerTap(
@@ -962,6 +1015,7 @@ const CollectionCard = memo(function CollectionCard({
       itemSongCount={collection.songs.length}
       onDeleteRequest={onDeleteRequest}
       networkOnline={networkOnline}
+      onCreateRoomRequest={onCreateRoomRequest}
     >
       <motion.div
         className="flex cursor-pointer flex-col gap-1.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] sm:gap-2"
@@ -998,10 +1052,12 @@ const CollectionRow = memo(function CollectionRow({
   collection,
   onDeleteRequest,
   networkOnline,
+  onCreateRoomRequest,
 }: {
   collection: Collection
   onDeleteRequest: DeleteReq
   networkOnline: boolean
+  onCreateRoomRequest: (source: RoomSource) => void
 }) {
   const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
@@ -1019,6 +1075,7 @@ const CollectionRow = memo(function CollectionRow({
       itemSongCount={collection.songs.length}
       onDeleteRequest={onDeleteRequest}
       networkOnline={networkOnline}
+      onCreateRoomRequest={onCreateRoomRequest}
     >
       <motion.div
         className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_INSET_LAST_CLASS)}
@@ -1058,10 +1115,12 @@ const SongRow = memo(function SongRow({
   song,
   onDeleteRequest,
   networkOnline,
+  onCreateRoomRequest,
 }: {
   song: Song
   onDeleteRequest: DeleteReq
   networkOnline: boolean
+  onCreateRoomRequest: (source: RoomSource) => void
 }) {
   const { t } = useTranslation()
   const { data: user } = useSession()
@@ -1086,6 +1145,7 @@ const SongRow = memo(function SongRow({
       onDeleteRequest={onDeleteRequest}
       networkOnline={networkOnline}
       hubSong={song}
+      onCreateRoomRequest={onCreateRoomRequest}
     >
       <motion.div
         className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_BORDER_CLASS)}
@@ -1124,10 +1184,12 @@ const SetlistRow = memo(function SetlistRow({
   setlist,
   onDeleteRequest,
   networkOnline,
+  onCreateRoomRequest,
 }: {
   setlist: Setlist
   onDeleteRequest: DeleteReq
   networkOnline: boolean
+  onCreateRoomRequest: (source: RoomSource) => void
 }) {
   const { t } = useTranslation()
   const { data: user } = useSession()
@@ -1149,6 +1211,7 @@ const SetlistRow = memo(function SetlistRow({
       itemLabel={setlist.title}
       onDeleteRequest={onDeleteRequest}
       networkOnline={networkOnline}
+      onCreateRoomRequest={onCreateRoomRequest}
     >
       <motion.div
         className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_BORDER_CLASS)}

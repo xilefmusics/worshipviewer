@@ -1,4 +1,4 @@
-use super::{blob, collection, media, monitoring, player_room, setlist, song, team, user};
+use super::{blob, collection, media, monitoring, room, setlist, song, team, user};
 use crate::about;
 use crate::auth::middleware::RequireUser;
 use crate::governor_audit::AuditRateLimit429;
@@ -25,7 +25,7 @@ pub fn scope(
         .wrap(Governor::new(&api_governor))
         .wrap(AuditRateLimit429)
         .service(about::get_about)
-        .service(player_room::rest::scope())
+        .service(room::rest::scope())
         .service(
             web::scope("")
                 .wrap(RequireUser)
