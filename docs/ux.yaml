@@ -1,0 +1,21 @@
+pages:
+- name: collections
+  path: /collections
+  dialogs:
+  - name: add
+    type: bottom-drawer
+- name: songs
+  path: /songs
+  dialogs:
+  - name: add
+    type: bottom-drawer
+- name: setlists
+  path: /setlists
+  dialogs:
+  - name: add
+    type: bottom-drawer
+- name: rooms
+  path: /rooms
+  dialogs:
+  - name: add
+    type: bottom-drawer
