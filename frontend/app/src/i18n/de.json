@@ -502,8 +502,10 @@
       "email": "E-Mail",
       "id": "Nutzer-ID",
       "role": "Rolle",
-      "created": "Erstellt"
+      "created": "Erstellt",
+      "actions": "Aktionen"
     },
+    "actionsAria": "Aktionen für {{email}}",
     "roles": {
       "admin": "Admin",
       "default": "Nutzer"
@@ -517,6 +519,11 @@
     "noResultsTitle": "Keine passenden Nutzer",
     "noResultsBody": "Versuche eine andere E-Mail-Adresse oder Nutzer-ID.",
     "clearSearch": "Suche löschen",
+    "impersonate": "Identität übernehmen",
+    "impersonateTitle": "Identität dieses Nutzers übernehmen?",
+    "impersonateBody": "Du handelst anschließend als {{email}} mit den normalen Berechtigungen dieser Person. Ein sichtbarer Hinweis ermöglicht dir, zur Admin-Sitzung zurückzukehren.",
+    "impersonateConfirm": "Identität übernehmen",
+    "impersonateFailed": "Die Identität konnte nicht übernommen werden.",
     "pagination": {
       "range": "{{first}}–{{last}} von {{total}} Nutzern",
       "rangeUnknown": "{{first}}–{{last}} Nutzer",
@@ -1412,6 +1419,10 @@
       "fileRequired": "Wähle eine Datei zum Hochladen.",
       "deckFileType": "Wähle PNG-, JPEG-, SVG- oder PDF-Dateien."
     }
+  },
+  "impersonation": {
+    "banner": "Du handelst als {{email}}.",
+    "stop": "Beenden"
   },
   "sessions": {
     "listTitle": "Aktive Sitzungen",

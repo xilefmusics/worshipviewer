@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -7,9 +7,31 @@ import {
   fetchAdminUsersPage,
   type AdminUser,
 } from '@/api/admin-users'
+import {
+  fetchImpersonationStatus,
+  IMPERSONATION_QUERY_KEY,
+  startImpersonation,
+} from '@/api/impersonation'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useHubSearch } from '@/hooks/useHubSearch'
+import { useOnline } from '@/hooks/use-online'
+import { clearAllLocalData } from '@/lib/clear-local'
 
 function formatCreatedAt(value: string, language: string): string {
   const date = new Date(value)
@@ -26,8 +48,62 @@ function RoleBadge({ role }: { role: AdminUser['role'] }) {
   )
 }
 
+function UserActionsMenu({
+  user,
+  canImpersonate,
+  onImpersonate,
+}: {
+  user: AdminUser
+  canImpersonate: boolean
+  onImpersonate: () => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          aria-label={t('adminUsers.actionsAria', { email: user.email })}
+        >
+          <span aria-hidden="true">•••</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem disabled={!canImpersonate} onSelect={onImpersonate}>
+          {t('adminUsers.impersonate')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function UsersTable({ users }: { users: AdminUser[] }) {
   const { t, i18n } = useTranslation()
+  const online = useOnline()
+  const queryClient = useQueryClient()
+  const capability = useQuery({
+    queryKey: IMPERSONATION_QUERY_KEY,
+    queryFn: fetchImpersonationStatus,
+    staleTime: 30_000,
+    networkMode: 'always',
+  })
+  const canImpersonate = online && capability.data?.enabled === true
+  const [target, setTarget] = useState<AdminUser | null>(null)
+  const impersonate = useMutation({
+    mutationFn: (user: AdminUser) => startImpersonation(user.id),
+    onSuccess: async () => {
+      await clearAllLocalData(queryClient)
+      window.location.assign('/collections')
+    },
+  })
+
+  function start(user: AdminUser) {
+    setTarget(user)
+  }
+
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
@@ -38,6 +114,7 @@ function UsersTable({ users }: { users: AdminUser[] }) {
               <th className="px-5 py-3 font-medium">{t('adminUsers.columns.id')}</th>
               <th className="px-5 py-3 font-medium">{t('adminUsers.columns.role')}</th>
               <th className="px-5 py-3 font-medium">{t('adminUsers.columns.created')}</th>
+              <th className="px-5 py-3 font-medium">{t('adminUsers.columns.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -48,6 +125,9 @@ function UsersTable({ users }: { users: AdminUser[] }) {
                 <td className="px-5 py-4"><RoleBadge role={user.role} /></td>
                 <td className="whitespace-nowrap px-5 py-4 text-[var(--color-muted-foreground)]">
                   <time dateTime={user.created_at}>{formatCreatedAt(user.created_at, i18n.language)}</time>
+                </td>
+                <td className="px-5 py-4">
+                  <UserActionsMenu user={user} canImpersonate={canImpersonate} onImpersonate={() => start(user)} />
                 </td>
               </tr>
             ))}
@@ -71,9 +151,35 @@ function UsersTable({ users }: { users: AdminUser[] }) {
                 <dd><time dateTime={user.created_at}>{formatCreatedAt(user.created_at, i18n.language)}</time></dd>
               </div>
             </dl>
+            <UserActionsMenu user={user} canImpersonate={canImpersonate} onImpersonate={() => start(user)} />
           </li>
         ))}
       </ul>
+      <AlertDialog open={target !== null} onOpenChange={(open) => { if (!open) setTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('adminUsers.impersonateTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('adminUsers.impersonateBody', { email: target?.email ?? '' })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <Button
+              type="button"
+              disabled={!target || impersonate.isPending || !canImpersonate}
+              onClick={() => { if (target) void impersonate.mutateAsync(target) }}
+            >
+              {impersonate.isPending ? t('common.load') : t('adminUsers.impersonateConfirm')}
+            </Button>
+          </AlertDialogFooter>
+          {impersonate.isError ? (
+            <p role="alert" className="text-sm text-[var(--color-destructive)]">
+              {(impersonate.error as Error).message || t('adminUsers.impersonateFailed')}
+            </p>
+          ) : null}
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

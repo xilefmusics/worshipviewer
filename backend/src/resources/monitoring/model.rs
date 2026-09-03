@@ -91,6 +91,10 @@ pub struct HttpAuditRecord {
     #[serde(default)]
     pub user: Option<RecordId>,
     #[serde(default)]
+    pub actor_user: Option<RecordId>,
+    #[serde(default)]
+    pub impersonation: Option<RecordId>,
+    #[serde(default)]
     pub session: Option<RecordId>,
     #[serde(default)]
     pub client_origin: Option<String>,
@@ -110,7 +114,9 @@ impl HttpAuditRecord {
             status_code: self.status_code as i32,
             duration_ms: self.duration_ms as i32,
             user_id: self.user.as_ref().map(record_id_string),
+            actor_user_id: self.actor_user.as_ref().map(record_id_string),
             session_id: self.session.as_ref().map(record_id_string),
+            impersonation_id: self.impersonation.as_ref().map(record_id_string),
             client_origin: self.client_origin.unwrap_or_else(|| "unknown".to_string()),
             client_version: self.client_version,
             created_at: self.created_at.into(),
@@ -130,7 +136,11 @@ pub struct HttpAuditLog {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_user_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub impersonation_id: Option<String>,
     pub client_origin: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub client_version: Option<String>,

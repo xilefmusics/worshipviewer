@@ -45,6 +45,7 @@ import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
 import { SearchIcon } from '@/components/icons/lucide-animated/search-icon'
 import { IconHubPlus } from '@/components/icons/hub-tab-icons'
 import { ProfileMenu } from '@/components/hub/ProfileMenu'
+import { ImpersonationBanner } from '@/components/hub/ImpersonationBanner'
 import { HubScrollContainerRefContext } from '@/context/HubScrollContainerContext'
 import { HubSearchProvider } from '@/context/HubSearchProvider'
 import { useHubSearch } from '@/hooks/useHubSearch'
@@ -609,9 +610,10 @@ function HubChrome({
 
   return (
     <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden">
+      <ImpersonationBanner />
       <header
         className={cn(
-          'fixed left-0 right-0 top-0 z-40 flex justify-center bg-transparent px-3 pt-[calc(0.675rem+env(safe-area-inset-top,0px))]',
+          'shrink-0 flex justify-center bg-transparent px-3 pt-[calc(0.675rem+env(safe-area-inset-top,0px))]',
         )}
       >
         <div className={cn(hubChromeRowClass, hubChromeRowLayoutClass)}>
@@ -1054,7 +1056,7 @@ function HubChrome({
       <main
         ref={mainScrollRef}
         className={cn(
-          'min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pt-[calc(5.5575rem+env(safe-area-inset-top,0px))] [-webkit-overflow-scrolling:touch]',
+          'min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pt-3 [-webkit-overflow-scrolling:touch]',
           showFooter ? HUB_MAIN_FOOTER_SCROLL_PAD_CLASS : 'pb-[calc(1rem+env(safe-area-inset-bottom,0px))]',
         )}
       >

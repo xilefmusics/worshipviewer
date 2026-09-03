@@ -6,6 +6,7 @@ Applies to routes under **`/api/v1`** that require an authenticated user session
 
 - **BLC-AUTH-001:** WHEN a caller uses a route that **requires authentication** without an **`Authorization`** header whose value is interpreted as a **Bearer** session token (**BLC-USER-006**) THEN the API responds **401**.
 - **BLC-AUTH-002:** WHEN **`Authorization: Bearer <token>`** is present but **`<token>`** IS NOT a valid, active session (**missing row**, **expired `expires_at`**, or **revoked**) THEN the API responds **401** before evaluating resource rules that would yield **403** or **404**.
+- **BLC-AUTH-003:** A valid browser `wv_impersonation` cookie is considered only after the primary `sso_session` is authenticated and only when `IMPERSONATION_ENABLED=true`; bearer-token requests ignore it. The resulting subject context follows [impersonation.md](impersonation.md).
 
 ## Relation to sessions
 

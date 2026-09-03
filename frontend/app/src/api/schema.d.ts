@@ -997,6 +997,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{user_id}/impersonation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["start_impersonation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{user_id}/sessions": {
         parameters: {
             query?: never;
@@ -1055,6 +1071,38 @@ export interface paths {
         get: operations["callback"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/impersonation/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["current_impersonation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/impersonation/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["stop_impersonation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1378,6 +1426,7 @@ export interface components {
         FileType: "PNG" | "JPEG" | "SVG";
         /** @description One persisted HTTP request audit row (admin monitoring API). */
         HttpAuditLog: {
+            actor_user_id?: string | null;
             client_origin: string;
             client_version?: string | null;
             /** Format: date-time */
@@ -1385,6 +1434,7 @@ export interface components {
             /** Format: int32 */
             duration_ms: number;
             id: string;
+            impersonation_id?: string | null;
             method: string;
             path: string;
             request_id: string;
@@ -1405,6 +1455,14 @@ export interface components {
             last_used_at?: string | null;
             /** Format: int64 */
             request_count: number;
+        };
+        ImpersonationStatus: {
+            active: boolean;
+            enabled: boolean;
+            impersonation_id?: string | null;
+            /** Format: date-time */
+            started_at?: string | null;
+            subject?: null | components["schemas"]["User"];
         };
         InspectPlayerRoomInvite: {
             invite_secret: string;
@@ -8474,6 +8532,74 @@ export interface operations {
             };
         };
     };
+    start_impersonation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User identifier */
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Starts browser impersonation for the specified user */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpersonationStatus"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Admin role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description User not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Impersonation is disabled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Failed to start impersonation */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     get_sessions_for_user: {
         parameters: {
             query?: {
@@ -8872,6 +8998,44 @@ export interface operations {
                 content: {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
+            };
+        };
+    };
+    current_impersonation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current browser impersonation state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpersonationStatus"];
+                };
+            };
+        };
+    };
+    stop_impersonation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stops browser impersonation and retains the primary login */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

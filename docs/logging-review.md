@@ -18,7 +18,7 @@ See [`backend/src/observability.rs`](../backend/src/observability.rs):
 
 ## 3. PII hygiene
 
-- Do **not** log raw session bearer tokens or OTP codes. Use hashed or truncated identifiers in audit spans.
+- Do **not** log raw session bearer tokens, impersonation credentials, or OTP codes. Use server record ids or hashed/truncated identifiers in audit spans.
 - Hash or omit raw email addresses in debug spans (see `MailService` and startup banner).
 - HTTP audit rows link to user/session records; deleting users clears dangling links (**BLC-MON-003**).
 
@@ -31,7 +31,9 @@ Startup logs include service name, version, optional **`git_commit`** (`GIT_COMM
 | Field | Type | Meaning |
 |-------|------|---------|
 | `request_id` | string | UUID or W3C `traceparent` span id |
-| `user_id` | string | Authenticated user id |
+| `user_id` | string | Effective subject user id |
+| `actor_user_id` | string | Original authenticated user during impersonation |
+| `impersonation_id` | string | Server-side impersonation record id |
 | `session_id` | string | Session being created, validated, or revoked |
 | `team_id` | string | Resolved team context |
 | `route` | string | Matched Actix route pattern |
@@ -57,6 +59,9 @@ Structured audit lines use **`audit = true`** and a stable **`event`** name (`au
 | `audit.auth.logout` | Session revoked |
 | `audit.auth.rate_limit` | Auth endpoint 429 |
 | `audit.api.rate_limit` | `/api/v1` 429 |
+| `audit.impersonation.started` | Admin starts a support session |
+| `audit.impersonation.stopped` | Support session is explicitly stopped or ended by logout |
+| `audit.impersonation.invalidated` | Support session becomes unusable because its actor or subject is gone |
 
 Content mutation audit coverage is tracked separately (see action plan item 3.25).
 

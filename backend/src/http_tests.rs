@@ -336,8 +336,14 @@ fn build_app_with_api_limits(
             max_bytes: 20 * 1024 * 1024,
         }))
         .app_data(cookie_cfg)
+        .app_data(Data::new(test_settings.impersonation_config()))
         .app_data(crate::error::json_config())
         .service(docs::rest::scope(Settings::default()))
+        .service(
+            actix_web::web::scope("/auth")
+                .service(crate::auth::rest::current_impersonation)
+                .service(crate::auth::rest::stop_impersonation),
+        )
         .service(resources::rest::scope(
             20 * 1024 * 1024,
             2 * 1024 * 1024,
@@ -851,8 +857,11 @@ mod api_rate_limit_http {
 #[cfg(test)]
 mod user_admin_gates {
     use super::*;
+    use actix_web::cookie::Cookie;
     use actix_web::http::StatusCode;
+    use actix_web::http::header::SET_COOKIE;
     use serde_json::json;
+    use surrealdb::types::SurrealValue;
 
     async fn make_admin(db: &Arc<Database>, email: &str) -> (User, String) {
         use crate::test_helpers::user_service;
@@ -1075,6 +1084,279 @@ mod user_admin_gates {
             .to_request();
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::CREATED);
+    }
+
+    fn impersonation_settings() -> Settings {
+        Settings {
+            impersonation_enabled: true,
+            ..Settings::default()
+        }
+    }
+
+    fn response_cookie(response: &actix_web::dev::ServiceResponse, name: &str) -> Cookie<'static> {
+        response
+            .headers()
+            .get_all(SET_COOKIE)
+            .filter_map(|value| value.to_str().ok())
+            .filter_map(|value| Cookie::parse(value.to_owned()).ok())
+            .find(|cookie| cookie.name() == name && !cookie.value().is_empty())
+            .map(Cookie::into_owned)
+            .unwrap_or_else(|| panic!("response did not set {name}"))
+    }
+
+    fn response_cookie_any(
+        response: &actix_web::dev::ServiceResponse,
+        name: &str,
+    ) -> Cookie<'static> {
+        response
+            .headers()
+            .get_all(SET_COOKIE)
+            .filter_map(|value| value.to_str().ok())
+            .filter_map(|value| Cookie::parse(value.to_owned()).ok())
+            .find(|cookie| cookie.name() == name)
+            .map(Cookie::into_owned)
+            .unwrap_or_else(|| panic!("response did not include {name}"))
+    }
+
+    /// The support session is server-backed, actor-bound, and applies the target's subject ACL.
+    #[actix_web::test]
+    async fn impersonation_start_subject_context_and_stop() {
+        let db = test_db().await.unwrap();
+        let (admin, admin_token) = make_admin(&db, "imp-admin@test.local").await;
+        let target = create_user(&db, "imp-target@test.local").await.unwrap();
+        let app = test::init_service(build_app_with_api_limits(
+            db.clone(),
+            50,
+            200,
+            Some(impersonation_settings()),
+        ))
+        .await;
+
+        let start = test::TestRequest::post()
+            .uri(&format!("/api/v1/users/{}/impersonation", target.id))
+            .insert_header(("Authorization", format!("Bearer {admin_token}")))
+            .to_request();
+        let start_response = test::call_service(&app, start).await;
+        assert_eq!(start_response.status(), StatusCode::CREATED);
+        let imp_cookie = response_cookie(&start_response, "wv_impersonation");
+        assert!(imp_cookie.http_only().unwrap_or(false));
+        assert_eq!(
+            imp_cookie.same_site(),
+            Some(actix_web::cookie::SameSite::Lax)
+        );
+        let started: serde_json::Value = test::read_body_json(start_response).await;
+        assert_eq!(started["subject"]["id"], target.id);
+
+        let me = test::TestRequest::get()
+            .uri("/api/v1/users/me")
+            .cookie(Cookie::new("sso_session", admin_token.clone()))
+            .cookie(imp_cookie.clone())
+            .to_request();
+        let me_response = test::call_service(&app, me).await;
+        let me_request_id = me_response
+            .headers()
+            .get("x-request-id")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let me_body: serde_json::Value = test::read_body_json(me_response).await;
+        assert_eq!(me_body["id"], target.id);
+
+        #[derive(serde::Deserialize, surrealdb::types::SurrealValue)]
+        struct AuditIdentity {
+            user: Option<surrealdb::types::RecordId>,
+            actor_user: Option<surrealdb::types::RecordId>,
+            impersonation: Option<surrealdb::types::RecordId>,
+        }
+        let mut audit_response = db
+            .db
+            .query(
+                "SELECT user, actor_user, impersonation FROM http_request_audit WHERE request_id = $id LIMIT 1",
+            )
+            .bind(("id", me_request_id))
+            .await
+            .unwrap();
+        let audit: Option<AuditIdentity> = audit_response.take(0).unwrap();
+        let audit = audit.expect("impersonated request audit row");
+        assert_eq!(
+            audit.user.as_ref().map(crate::database::record_id_string),
+            Some(target.id.clone())
+        );
+        assert_eq!(
+            audit
+                .actor_user
+                .as_ref()
+                .map(crate::database::record_id_string),
+            Some(admin.id.clone())
+        );
+        assert_eq!(
+            audit
+                .impersonation
+                .as_ref()
+                .map(crate::database::record_id_string),
+            started["impersonation_id"].as_str().map(str::to_owned)
+        );
+
+        let current = test::TestRequest::get()
+            .uri("/auth/impersonation/current")
+            .cookie(Cookie::new("sso_session", admin_token.clone()))
+            .cookie(imp_cookie.clone())
+            .to_request();
+        let current_body: serde_json::Value = test::call_and_read_body_json(&app, current).await;
+        assert_eq!(current_body["active"], true);
+        assert_eq!(current_body["subject"]["id"], target.id);
+        assert!(current_body.get("credential").is_none());
+
+        // Browser impersonation state never changes a bearer-token request.
+        let bearer_me = test::TestRequest::get()
+            .uri("/api/v1/users/me")
+            .insert_header(("Authorization", format!("Bearer {admin_token}")))
+            .cookie(imp_cookie.clone())
+            .to_request();
+        let bearer_body: serde_json::Value = test::call_and_read_body_json(&app, bearer_me).await;
+        assert_eq!(bearer_body["id"], admin.id);
+
+        let admin_only = test::TestRequest::get()
+            .uri("/api/v1/users")
+            .cookie(Cookie::new("sso_session", admin_token.clone()))
+            .cookie(imp_cookie.clone());
+        assert_eq!(call_status!(app, admin_only), StatusCode::FORBIDDEN);
+
+        let current_session = test::TestRequest::get()
+            .uri("/api/v1/users/me/sessions/current")
+            .cookie(Cookie::new("sso_session", admin_token.clone()))
+            .cookie(imp_cookie.clone());
+        assert_eq!(call_status!(app, current_session), StatusCode::NOT_FOUND);
+
+        let other = create_user(&db, "imp-other-actor@test.local")
+            .await
+            .unwrap();
+        let other_token = create_session_token(&db, other).await.unwrap();
+        let wrong_actor_stop = test::TestRequest::post()
+            .uri("/auth/impersonation/stop")
+            .cookie(Cookie::new("sso_session", other_token))
+            .cookie(imp_cookie.clone())
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, wrong_actor_stop).await.status(),
+            StatusCode::NO_CONTENT
+        );
+        let still_current = test::TestRequest::get()
+            .uri("/auth/impersonation/current")
+            .cookie(Cookie::new("sso_session", admin_token.clone()))
+            .cookie(imp_cookie.clone())
+            .to_request();
+        let still_current_body: serde_json::Value =
+            test::call_and_read_body_json(&app, still_current).await;
+        assert_eq!(still_current_body["active"], true);
+
+        let stop = test::TestRequest::post()
+            .uri("/auth/impersonation/stop")
+            .cookie(Cookie::new("sso_session", admin_token.clone()))
+            .cookie(imp_cookie)
+            .to_request();
+        let stop_response = test::call_service(&app, stop).await;
+        assert_eq!(stop_response.status(), StatusCode::NO_CONTENT);
+        let cleared = response_cookie_any(&stop_response, "wv_impersonation");
+        assert!(cleared.value().is_empty());
+
+        let admin_me = test::TestRequest::get()
+            .uri("/api/v1/users/me")
+            .cookie(Cookie::new("sso_session", admin_token))
+            .to_request();
+        let admin_body: serde_json::Value = test::call_and_read_body_json(&app, admin_me).await;
+        assert_eq!(admin_body["id"], admin.id);
+    }
+
+    #[actix_web::test]
+    async fn impersonation_requires_admin_and_missing_target_is_not_created() {
+        let db = test_db().await.unwrap();
+        let user = create_user(&db, "imp-nonadmin@test.local").await.unwrap();
+        let user_token = create_session_token(&db, user).await.unwrap();
+        let (admin, admin_token) = make_admin(&db, "imp-admin-missing@test.local").await;
+        let app = test::init_service(build_app_with_api_limits(
+            db.clone(),
+            50,
+            200,
+            Some(impersonation_settings()),
+        ))
+        .await;
+
+        let non_admin = test::TestRequest::post()
+            .uri(&format!("/api/v1/users/{}/impersonation", admin.id))
+            .insert_header(("Authorization", format!("Bearer {user_token}")));
+        assert_eq!(call_status!(app, non_admin), StatusCode::FORBIDDEN);
+
+        let missing = test::TestRequest::post()
+            .uri("/api/v1/users/not-a-real-user/impersonation")
+            .insert_header(("Authorization", format!("Bearer {admin_token}")));
+        assert_eq!(call_status!(app, missing), StatusCode::NOT_FOUND);
+    }
+
+    #[actix_web::test]
+    async fn disabled_impersonation_falls_back_to_primary_session_and_clears_cookie() {
+        let db = test_db().await.unwrap();
+        let (admin, admin_token) = make_admin(&db, "imp-admin-disabled@test.local").await;
+        let target = create_user(&db, "imp-target-disabled@test.local")
+            .await
+            .unwrap();
+        let (credential, record) =
+            crate::auth::impersonation::create(&db, &admin_token, &admin.id, &target.id)
+                .await
+                .unwrap();
+        let app = test::init_service(build_app(db.clone())).await;
+
+        let me = test::TestRequest::get()
+            .uri("/api/v1/users/me")
+            .cookie(Cookie::new("sso_session", admin_token))
+            .cookie(Cookie::new("wv_impersonation", credential))
+            .to_request();
+        let response = test::call_service(&app, me).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let clear = response_cookie_any(&response, "wv_impersonation");
+        assert!(clear.value().is_empty());
+        let body: serde_json::Value = test::read_body_json(response).await;
+        assert_eq!(body["id"], admin.id);
+
+        let remaining: Option<crate::auth::impersonation::ImpersonationRecord> =
+            db.db.select(record.id).await.unwrap();
+        assert!(
+            remaining.is_some(),
+            "startup purge owns record invalidation"
+        );
+        crate::auth::impersonation::purge_all(&db).await.unwrap();
+    }
+
+    #[actix_web::test]
+    async fn impersonation_can_target_another_admin_without_changing_acl_rules() {
+        let db = test_db().await.unwrap();
+        let (_actor, actor_token) = make_admin(&db, "imp-admin-actor@test.local").await;
+        let (target, _) = make_admin(&db, "imp-admin-subject@test.local").await;
+        let app = test::init_service(build_app_with_api_limits(
+            db,
+            50,
+            200,
+            Some(impersonation_settings()),
+        ))
+        .await;
+
+        let start = test::TestRequest::post()
+            .uri(&format!("/api/v1/users/{}/impersonation", target.id))
+            .insert_header(("Authorization", format!("Bearer {actor_token}")))
+            .to_request();
+        let start_response = test::call_service(&app, start).await;
+        assert_eq!(start_response.status(), StatusCode::CREATED);
+        let imp_cookie = response_cookie(&start_response, "wv_impersonation");
+        let users = test::TestRequest::get()
+            .uri("/api/v1/users")
+            .cookie(Cookie::new("sso_session", actor_token))
+            .cookie(imp_cookie)
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, users).await.status(),
+            StatusCode::OK
+        );
     }
 }
 

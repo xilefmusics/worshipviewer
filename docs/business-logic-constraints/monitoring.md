@@ -8,6 +8,7 @@
 - **BLC-MON-008:** Each daily metrics entry contains `daily`, `weekly`, and `monthly` rolling windows. User aggregates MUST NOT expose user or session identities; request distribution metrics store only aggregate request counts. Percentiles remain exact nearest-rank calculations derived from the internal duration-frequency and per-user summary data.
 - **BLC-MON-006:** Successful **OTP** and **OIDC** logins produce monitoring/audit records suitable for security review (see `audit_events` tests); failed login attempts SHOULD be auditable where the implementation records them.
 - **BLC-MON-002:** Authenticated `/api/v1/*` requests that pass session validation populate `user` and `session` record links on the audit row; requests without a validated session (or outside `/api/v1`) store **no** user/session links (`NONE`).
+- **BLC-MON-009:** For impersonated requests, `user` remains the effective subject and `session` remains the actor's primary session; `actor_user` and `impersonation` links identify the actor and support-session record separately. Raw impersonation credentials are never persisted.
 - **BLC-MON-003:** When a **user** or **session** row is **deleted**, existing `http_request_audit` rows remain; the corresponding `user` and/or `session` link fields are cleared so no dangling record references remain.
 - **BLC-MON-004:** `GET /api/v1/monitoring/http-audit-logs` is **admin-only**: an authenticated non-admin receives **403**; no session receives **401**.
 

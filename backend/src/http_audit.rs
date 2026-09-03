@@ -24,6 +24,12 @@ use crate::request_id::ApiRequestTarget;
 pub struct AuditSessionId(pub String);
 
 #[derive(Clone)]
+pub struct AuditActorUserId(pub String);
+
+#[derive(Clone)]
+pub struct AuditImpersonationId(pub String);
+
+#[derive(Clone)]
 pub struct HttpAudit {
     db: Data<Database>,
 }
@@ -112,29 +118,48 @@ where
             let outcome = service.call(req).await;
             let duration_ms = started.elapsed().as_millis() as i64;
 
-            let (status_code, user_id, session_id, path_for_row) = match &outcome {
-                Ok(resp) => {
-                    let r = resp.request();
-                    let path = r
-                        .extensions()
-                        .get::<ApiRequestTarget>()
-                        .map(|t| t.0.clone())
-                        .unwrap_or_else(|| api_path.clone());
-                    let user_id = r
-                        .extensions()
-                        .get::<AuthorizationContext>()
-                        .map(|ctx| ctx.user.id.clone());
-                    let session_id = r.extensions().get::<AuditSessionId>().map(|s| s.0.clone());
-                    (resp.status().as_u16() as i64, user_id, session_id, path)
-                }
-                Err(e) => (
-                    actix_web::error::ResponseError::status_code(e.as_response_error()).as_u16()
-                        as i64,
-                    None,
-                    None,
-                    api_path,
-                ),
-            };
+            let (status_code, user_id, session_id, actor_user_id, impersonation_id, path_for_row) =
+                match &outcome {
+                    Ok(resp) => {
+                        let r = resp.request();
+                        let path = r
+                            .extensions()
+                            .get::<ApiRequestTarget>()
+                            .map(|t| t.0.clone())
+                            .unwrap_or_else(|| api_path.clone());
+                        let user_id = r
+                            .extensions()
+                            .get::<AuthorizationContext>()
+                            .map(|ctx| ctx.user.id.clone());
+                        let session_id =
+                            r.extensions().get::<AuditSessionId>().map(|s| s.0.clone());
+                        let actor_user_id = r
+                            .extensions()
+                            .get::<AuditActorUserId>()
+                            .map(|a| a.0.clone());
+                        let impersonation_id = r
+                            .extensions()
+                            .get::<AuditImpersonationId>()
+                            .map(|i| i.0.clone());
+                        (
+                            resp.status().as_u16() as i64,
+                            user_id,
+                            session_id,
+                            actor_user_id,
+                            impersonation_id,
+                            path,
+                        )
+                    }
+                    Err(e) => (
+                        actix_web::error::ResponseError::status_code(e.as_response_error()).as_u16()
+                            as i64,
+                        None,
+                        None,
+                        None,
+                        None,
+                        api_path,
+                    ),
+                };
 
             let db_inner = db_data.clone();
             let row = HttpAuditInsert {
@@ -145,6 +170,8 @@ where
                 duration_ms,
                 user_id,
                 session_id,
+                actor_user_id,
+                impersonation_id,
                 client_origin,
                 client_version,
             };
@@ -173,6 +200,8 @@ struct HttpAuditInsert {
     duration_ms: i64,
     user_id: Option<String>,
     session_id: Option<String>,
+    actor_user_id: Option<String>,
+    impersonation_id: Option<String>,
     client_origin: String,
     client_version: Option<String>,
 }
@@ -210,6 +239,8 @@ async fn insert_row(db: &Database, row: HttpAuditInsert) -> Result<(), surrealdb
          client_origin = $client_origin, \
          client_version = IF $client_version = NONE THEN NONE ELSE $client_version END, \
          user = IF $user_id = NONE THEN NONE ELSE type::record('user', $user_id) END, \
+         actor_user = IF $actor_user_id = NONE THEN NONE ELSE type::record('user', $actor_user_id) END, \
+         impersonation = IF $impersonation_id = NONE THEN NONE ELSE type::record('impersonation_session', $impersonation_id) END, \
          session = IF $session_id = NONE THEN NONE ELSE type::record('session', $session_id) END, \
          created_at = $created_at;\n",
     );
@@ -288,6 +319,8 @@ async fn insert_row(db: &Database, row: HttpAuditInsert) -> Result<(), surrealdb
         .bind(("client_version", row.client_version))
         .bind(("user_id", row.user_id))
         .bind(("session_id", row.session_id))
+        .bind(("actor_user_id", row.actor_user_id))
+        .bind(("impersonation_id", row.impersonation_id))
         .bind(("created_at", created_at_db))
         .await?;
     response.check()?;

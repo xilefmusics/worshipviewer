@@ -76,6 +76,8 @@ impl RootSpanBuilder for WorshipRootSpan {
             method = %request.method(),
             route = %route,
             user_id = tracing::field::Empty,
+            actor_user_id = tracing::field::Empty,
+            impersonation_id = tracing::field::Empty,
             status = tracing::field::Empty,
             latency_ms = tracing::field::Empty,
         )

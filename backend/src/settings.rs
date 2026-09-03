@@ -12,6 +12,13 @@ pub struct CookieConfig {
 }
 
 #[derive(Clone, Debug)]
+pub struct ImpersonationConfig {
+    pub enabled: bool,
+    pub cookie_name: String,
+    pub secure: bool,
+}
+
+#[derive(Clone, Debug)]
 pub struct OtpConfig {
     pub ttl_seconds: u64,
     pub pepper: String,
@@ -29,6 +36,7 @@ pub struct Settings {
     pub cookie_name: String,
     pub cookie_secure: bool,
     pub session_ttl_seconds: u64,
+    pub impersonation_enabled: bool,
 
     pub otp_ttl_seconds: u64,
     pub otp_pepper: String,
@@ -127,6 +135,7 @@ impl fmt::Debug for Settings {
             .field("cookie_name", &self.cookie_name)
             .field("cookie_secure", &self.cookie_secure)
             .field("session_ttl_seconds", &self.session_ttl_seconds)
+            .field("impersonation_enabled", &self.impersonation_enabled)
             .field("otp_ttl_seconds", &self.otp_ttl_seconds)
             .field("otp_pepper", &"<redacted>")
             .field("otp_max_attempts", &self.otp_max_attempts)
@@ -210,6 +219,7 @@ impl Default for Settings {
             cookie_name: "sso_session".into(),
             cookie_secure: false,
             session_ttl_seconds: 31536000,
+            impersonation_enabled: false,
             otp_ttl_seconds: 300,
             otp_pepper: "changeme".into(),
             otp_max_attempts: 5,
@@ -399,6 +409,14 @@ impl Settings {
             secure: self.cookie_secure,
             session_ttl_seconds: self.session_ttl_seconds,
             post_login_path: self.post_login_path.clone(),
+        }
+    }
+
+    pub fn impersonation_config(&self) -> ImpersonationConfig {
+        ImpersonationConfig {
+            enabled: self.impersonation_enabled,
+            cookie_name: "wv_impersonation".into(),
+            secure: self.cookie_secure,
         }
     }
 

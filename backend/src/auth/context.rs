@@ -12,8 +12,12 @@ use crate::resources::team::{public_team_thing, thing_record_key};
 #[derive(Clone, Debug)]
 pub struct AuthorizationContext {
     pub session: AuthorizedSession,
+    /// The user who authenticated the primary credential. This remains stable during impersonation.
+    pub actor: AuthorizedUser,
+    /// The effective user used by normal authorization and resource handlers.
     pub user: AuthorizedUser,
     pub teams: Arc<[AuthorizedTeam]>,
+    pub impersonation: Option<AuthorizedImpersonation>,
 }
 
 #[derive(Clone, Debug)]
@@ -30,6 +34,12 @@ pub struct AuthorizedUser {
     pub oauth_picture_url: Option<String>,
     pub oauth_avatar_blob_id: Option<String>,
     pub avatar_blob_id: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct AuthorizedImpersonation {
+    pub id: String,
+    pub started_at: chrono::DateTime<Utc>,
 }
 
 #[derive(Clone, Debug)]
@@ -141,6 +151,17 @@ impl AuthorizationContext {
             avatar_blob_id: self.user.avatar_blob_id.clone(),
         }
     }
+
+    pub fn with_impersonation(
+        mut self,
+        actor: AuthorizationContext,
+        impersonation: AuthorizedImpersonation,
+    ) -> Self {
+        self.session = actor.session;
+        self.actor = actor.actor;
+        self.impersonation = Some(impersonation);
+        self
+    }
 }
 
 #[derive(Debug, Deserialize, SurrealValue)]
@@ -230,8 +251,10 @@ pub(crate) fn authorization_context_from_parts(
 
     Ok(AuthorizationContext {
         session,
+        actor: user.clone(),
         user,
         teams: authorized_teams.into_boxed_slice().into(),
+        impersonation: None,
     })
 }
 
@@ -296,7 +319,16 @@ mod tests {
                 oauth_avatar_blob_id: None,
                 avatar_blob_id: None,
             },
+            actor: AuthorizedUser {
+                id: user_id.into(),
+                email: "u@test.local".into(),
+                role: UserRole::Default,
+                oauth_picture_url: None,
+                oauth_avatar_blob_id: None,
+                avatar_blob_id: None,
+            },
             teams: teams.into_boxed_slice().into(),
+            impersonation: None,
         }
     }
 

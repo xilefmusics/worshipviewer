@@ -7,6 +7,9 @@ import { renderWithProviders } from '@/test/renderWithProviders'
 
 const mocks = vi.hoisted(() => ({
   fetchPage: vi.fn(),
+  fetchImpersonationStatus: vi.fn(),
+  startImpersonation: vi.fn(),
+  clearAllLocalData: vi.fn(),
   q: '',
   setQInput: vi.fn(),
 }))
@@ -15,6 +18,15 @@ vi.mock('@/api/admin-users', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/api/admin-users')>()
   return { ...original, fetchAdminUsersPage: mocks.fetchPage }
 })
+vi.mock('@/api/impersonation', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@/api/impersonation')>()
+  return {
+    ...original,
+    fetchImpersonationStatus: mocks.fetchImpersonationStatus,
+    startImpersonation: mocks.startImpersonation,
+  }
+})
+vi.mock('@/lib/clear-local', () => ({ clearAllLocalData: mocks.clearAllLocalData }))
 vi.mock('@/hooks/useHubSearch', () => ({
   useHubSearch: () => ({ debouncedQ: mocks.q, setQInput: mocks.setQInput }),
 }))
@@ -30,6 +42,9 @@ beforeEach(() => {
   mocks.q = ''
   mocks.setQInput.mockReset()
   mocks.fetchPage.mockReset().mockResolvedValue({ items: [admin], total: 51 })
+  mocks.fetchImpersonationStatus.mockReset().mockResolvedValue({ enabled: true, active: false })
+  mocks.startImpersonation.mockReset().mockResolvedValue({ enabled: true, active: true })
+  mocks.clearAllLocalData.mockReset().mockResolvedValue(undefined)
 })
 
 describe('AdminUsersView', () => {
@@ -81,5 +96,17 @@ describe('AdminUsersView', () => {
     mocks.fetchPage.mockResolvedValue({ items: [admin], total: 1 })
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findAllByText('admin@example.com')).toHaveLength(2)
+  })
+
+  it('requires confirmation before starting impersonation', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<AdminUsersView />)
+
+    const menus = await screen.findAllByRole('button', { name: 'Actions for admin@example.com' })
+    await user.click(menus[0])
+    await user.click(await screen.findByRole('menuitem', { name: 'Impersonate' }))
+    expect(await screen.findByText('Impersonate this user?')).toBeInTheDocument()
+    expect(screen.getAllByText(/admin@example.com/).length).toBeGreaterThanOrEqual(3)
+    expect(mocks.startImpersonation).not.toHaveBeenCalled()
   })
 })

@@ -21,7 +21,7 @@ use crate::governor_audit::AuditRateLimit429;
 use crate::governor_peer::PeerOrFallbackIpKeyExtractor;
 use crate::mail::MailService;
 use crate::request_id::WorshipRootSpan;
-use crate::settings::{CookieConfig, OtpConfig};
+use crate::settings::{CookieConfig, ImpersonationConfig, OtpConfig};
 use crate::test_helpers::{
     TeamFixture, auth_ctx_for_user, create_user, invitation_service, session_service, team_service,
     test_db, user_service,
@@ -85,6 +85,11 @@ fn build_auth_app(
         .app_data(Data::new(user_service(&db)))
         .app_data(Data::new(session_service(&db)))
         .app_data(cookie_cfg)
+        .app_data(Data::new(ImpersonationConfig {
+            enabled: false,
+            cookie_name: "wv_impersonation".into(),
+            secure: false,
+        }))
         .app_data(otp_cfg)
         .app_data(crate::error::json_config())
         .service(auth_scope_otp_logout(auth_rps, auth_burst))

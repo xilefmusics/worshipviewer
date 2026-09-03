@@ -28,7 +28,9 @@ Use these names on new spans and structured log lines so aggregators and grep st
 | Field | Type | Meaning |
 |-------|------|---------|
 | `request_id` | string | UUID or W3C `traceparent` span id; set on the root HTTP span. |
-| `user_id` | string | Authenticated user id; recorded after session validation. |
+| `user_id` | string | Effective subject user id; recorded after session validation. |
+| `actor_user_id` | string | Original authenticated actor user id during impersonation. |
+| `impersonation_id` | string | Server-side impersonation record id during impersonation. |
 | `session_id` | string | Session id being created, validated, or revoked. |
 | `team_id` | string | Resolved team context for the request or mutation. |
 | `route` | string | Matched Actix route pattern (e.g. `/api/v1/songs/{id}`). |
@@ -119,7 +121,7 @@ and mounts `resources::rest::scope()` under `/api/v1`.
 
 ### 2. `RequireUser` middleware
 
-Extracts the session id from the **`Authorization: Bearer …`** header or session cookie, calls [`load_authorization_context`](../../backend/src/auth/surreal_repo.rs) (single SurrealQL round-trip: session row, user profile slice, and membership-derived team rows). If there is no session row, or `session.expired` is true, the middleware returns **401** — expired sessions are **not** deleted automatically.
+Extracts the session id from the **`Authorization: Bearer …`** header or session cookie, calls [`load_authorization_context`](../../backend/src/auth/surreal_repo.rs) (single SurrealQL round-trip: session row, user profile slice, and membership-derived team rows). Browser requests may then resolve the separate opaque `wv_impersonation` cookie against a record bound to that primary session; bearer requests ignore the cookie. The middleware retains the actor context, loads the subject's teams and ACLs, and records `user_id` as the subject plus `actor_user_id` and `impersonation_id`. If there is no session row, or `session.expired` is true, the middleware returns **401** — expired sessions are **not** deleted automatically.
 
 On success it inserts **`ReqData<AuthorizationContext>`** into request extensions (plus audit/session extensions). **`RequireAdmin`** reads the same type and checks `AuthorizationContext::is_app_admin()`.
 

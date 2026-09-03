@@ -1,11 +1,14 @@
 use super::{CreateUser, User, session};
 use crate::auth::AuthorizationContext;
+use crate::auth::impersonation;
 use crate::auth::middleware::RequireAdmin;
+use crate::database::Database;
 #[allow(unused_imports)]
 use crate::docs::Problem;
 use crate::error::AppError;
 use crate::resources::blob::service::BlobServiceHandle;
 use crate::resources::user::service::UserServiceHandle;
+use crate::settings::ImpersonationConfig;
 use crate::settings::ProfilePictureLimits;
 use actix_web::http::header;
 use actix_web::{
@@ -38,6 +41,7 @@ pub fn scope(avatar_upload_max_bytes: usize) -> Scope {
                 .service(delete_user)
                 .service(get_user_metrics)
                 .service(get_user)
+                .service(start_impersonation)
                 .service(get_users)
                 .service(session::rest::get_sessions_for_user)
                 .service(session::rest::get_session_for_user_metrics)
@@ -225,6 +229,53 @@ async fn get_user(
     id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
     Ok(HttpResponse::Ok().json(svc.get_user(&id).await?))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/users/{user_id}/impersonation",
+    params(("user_id" = String, Path, description = "User identifier")),
+    responses(
+        (status = 201, description = "Starts browser impersonation for the specified user", body = impersonation::ImpersonationStatus),
+        (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
+        (status = 403, description = "Admin role required", body = Problem, content_type = "application/problem+json"),
+        (status = 404, description = "User not found", body = Problem, content_type = "application/problem+json"),
+        (status = 409, description = "Impersonation is disabled", body = Problem, content_type = "application/problem+json"),
+        (status = 500, description = "Failed to start impersonation", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Users",
+    security(("SessionCookie" = []), ("SessionToken" = []))
+)]
+#[post("/{user_id}/impersonation")]
+pub(crate) async fn start_impersonation(
+    db: Data<Database>,
+    user_svc: Data<UserServiceHandle>,
+    impersonation_cfg: Data<ImpersonationConfig>,
+    actor: ReqData<AuthorizationContext>,
+    path: Path<session::rest::UserIdPath>,
+) -> Result<HttpResponse, AppError> {
+    if !impersonation_cfg.enabled {
+        return Err(AppError::Conflict("impersonation is disabled".into()));
+    }
+    let subject = user_svc.get_user(&path.user_id).await?;
+    let (credential, record) = impersonation::create(
+        db.get_ref(),
+        &actor.session.id,
+        &actor.actor.id,
+        &subject.id,
+    )
+    .await?;
+    let status = impersonation::status_from_record(true, &record, subject);
+    crate::audit!(
+        "audit.impersonation.started",
+        impersonation_id = tracing::field::display(&crate::database::record_id_string(&record.id)),
+        actor_user_id = tracing::field::display(&actor.actor.id),
+        subject_user_id = tracing::field::display(&crate::database::record_id_string(&record.subject_user))
+        ; "impersonation started"
+    );
+    Ok(HttpResponse::Created()
+        .cookie(impersonation::new_cookie(&credential, &impersonation_cfg))
+        .json(status))
 }
 
 #[utoipa::path(

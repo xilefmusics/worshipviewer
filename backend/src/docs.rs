@@ -3,6 +3,7 @@ use utoipa::openapi::info::ContactBuilder;
 use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::{Modify, OpenApi};
 
+use crate::auth::impersonation::ImpersonationStatus;
 use crate::settings::Settings;
 use shared::AboutResponse;
 
@@ -139,6 +140,8 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
         crate::auth::otp::rest::otp_request,
         crate::auth::otp::rest::otp_verify,
         crate::auth::rest::logout,
+        crate::auth::rest::current_impersonation,
+        crate::auth::rest::stop_impersonation,
         crate::resources::user::rest::get_users_me_metrics,
         crate::resources::user::rest::get_user_metrics,
         crate::resources::user::rest::get_users_me,
@@ -148,6 +151,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
         crate::resources::user::rest::get_user,
         crate::resources::user::rest::create_user,
         crate::resources::user::rest::delete_user,
+        crate::resources::user::rest::start_impersonation,
         crate::resources::user::session::rest::get_current_session_metrics,
         crate::resources::user::session::rest::get_current_session_for_user,
         crate::resources::user::session::rest::get_sessions_for_current_user,
@@ -246,6 +250,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
             AboutResponse,
             HttpAuditMetrics,
             User,
+            ImpersonationStatus,
             SessionBody,
             SessionUserBody,
             Role,

@@ -7,11 +7,13 @@ use actix_web::{Error, HttpMessage};
 use futures_util::future::LocalBoxFuture;
 
 use super::authorization_bearer;
+use super::impersonation::{self, load_effective_context};
 use super::{AuthorizationContext, load_authorization_context};
 use crate::database::Database;
 use crate::error::AppError;
-use crate::http_audit::AuditSessionId;
+use crate::http_audit::{AuditActorUserId, AuditImpersonationId, AuditSessionId};
 use crate::settings::CookieConfig;
+use crate::settings::ImpersonationConfig;
 use tracing::debug;
 
 #[derive(Clone, Default)]
@@ -62,6 +64,11 @@ where
             .cloned()
             .ok_or_else(|| AppError::Internal("cookie config missing".into()))
             .map_err(Error::from);
+        let impersonation_cfg = req
+            .app_data::<Data<ImpersonationConfig>>()
+            .cloned()
+            .ok_or_else(|| AppError::Internal("impersonation config missing".into()))
+            .map_err(Error::from);
         let service = Rc::clone(&self.service);
 
         Box::pin(async move {
@@ -73,8 +80,14 @@ where
                 Ok(data) => data,
                 Err(err) => return Err(err),
             };
+            let impersonation_cfg = match impersonation_cfg {
+                Ok(data) => data,
+                Err(err) => return Err(err),
+            };
 
-            let session_id = match authorization_bearer(&req).or_else(|| {
+            let bearer_session = authorization_bearer(&req);
+            let from_bearer = bearer_session.is_some();
+            let session_id = match bearer_session.or_else(|| {
                 req.cookie(&cookie_cfg.name)
                     .map(|cookie| cookie.value().to_owned())
             }) {
@@ -99,11 +112,55 @@ where
                 return Err(AppError::unauthorized().into());
             }
 
-            tracing::Span::current().record("user_id", tracing::field::display(&ctx.user.id));
-            req.extensions_mut().insert(AuditSessionId(session_id));
-            req.extensions_mut().insert(ctx);
+            let mut effective_ctx = ctx;
+            let mut clear_impersonation_cookie = false;
+            if !from_bearer && let Some(cookie) = req.cookie(&impersonation_cfg.cookie_name) {
+                if impersonation_cfg.enabled {
+                    match load_effective_context(
+                        db.get_ref(),
+                        effective_ctx.clone(),
+                        cookie.value(),
+                    )
+                    .await
+                    {
+                        Ok(Some((_record, subject_ctx))) => effective_ctx = subject_ctx,
+                        Ok(None) => clear_impersonation_cookie = true,
+                        Err(err) => return Err(err.into()),
+                    }
+                } else {
+                    clear_impersonation_cookie = true;
+                }
+            }
 
-            let response = service.call(req).await?;
+            tracing::Span::current()
+                .record("user_id", tracing::field::display(&effective_ctx.user.id));
+            if let Some(impersonation) = effective_ctx.impersonation.as_ref() {
+                req.extensions_mut()
+                    .insert(AuditActorUserId(effective_ctx.actor.id.clone()));
+                req.extensions_mut()
+                    .insert(AuditImpersonationId(impersonation.id.clone()));
+                tracing::Span::current().record(
+                    "actor_user_id",
+                    tracing::field::display(&effective_ctx.actor.id),
+                );
+                tracing::Span::current().record(
+                    "impersonation_id",
+                    tracing::field::display(&impersonation.id),
+                );
+            }
+            req.extensions_mut().insert(AuditSessionId(session_id));
+            req.extensions_mut().insert(effective_ctx);
+
+            let request_wants_clear = clear_impersonation_cookie;
+            let mut response = service.call(req).await?;
+            if request_wants_clear {
+                response
+                    .response_mut()
+                    .add_cookie(&impersonation::clear_cookie(&impersonation_cfg))
+                    .map_err(|err| {
+                        AppError::Internal(format!("failed to clear impersonation cookie: {err}"))
+                    })?;
+            }
             Ok(response)
         })
     }

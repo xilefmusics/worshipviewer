@@ -8,3 +8,8 @@ Cross-cutting rule for **library** resources (songs, collections, setlists, blob
 - **BLC-ADMIN-002:** Platform **`admin`** does **not** receive **library edit** (mutate) rights on a team’s library **solely** because **`role = admin`** on the user. **PUT**, **PATCH**, **DELETE**, and moves require the same team **library edit** membership as non-admins (`AuthorizationContext::write_teams` / team **`admin`** or **`content_maintainer`** on that team).
 
 Resource-specific wording appears in **BLC-SONG-002**, **BLC-COLL-002**, **BLC-SETL-002**, **BLC-BLOB-002**, **BLC-MEDIA-008–010**, and related **move** rules; this document is the single cross-reference for the invariant.
+
+Audited impersonation preserves this rule: an administrator can act as a
+target only through the target's normal context. See
+[impersonation.md](impersonation.md) for actor/subject separation and
+**BLC-IMP-002/003**.

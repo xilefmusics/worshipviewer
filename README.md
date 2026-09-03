@@ -237,7 +237,7 @@ The hello-world e2e specs **stub `GET /api/v1/users/me` in the browser** (401 = 
 Configuration is driven by environment variables (uppercase names matching the `Settings` struct in [`backend/src/settings.rs`](backend/src/settings.rs), loaded with [`envy`](https://crates.io/crates/envy)). On startup, `Settings::from_env` also loads [`backend/.env`](backend/.env.example) and `.env.local` if they exist (process environment still wins). Copy `.env.example` to `.env` and run `cargo run` from `backend/` — no extra exports required. Highlights:
 
 - **HTTP:** `HOST`, `PORT` (defaults: `127.0.0.1`, `8080`).
-- **Cookies / session:** `POST_LOGIN_PATH`, `COOKIE_NAME`, `COOKIE_SECURE`, `SESSION_TTL_SECONDS`.
+- **Cookies / session:** `POST_LOGIN_PATH`, `COOKIE_NAME`, `COOKIE_SECURE`, `SESSION_TTL_SECONDS`, `IMPERSONATION_ENABLED` (opt-in; defaults to `false`). When enabled, the admin users page can start audited browser support sessions; disabling it at startup invalidates existing records.
 - **OTP email:** `OTP_TTL_SECONDS`, `OTP_PEPPER`, `OTP_MAX_ATTEMPTS`, `OTP_ALLOW_SELF_SIGNUP` (optional override: `WORSHIP_OTP_ALLOW_SELF_SIGNUP`). Outbound mail uses **Gmail SMTP** via `GMAIL_APP_PASSWORD` and `GMAIL_FROM` (see [`backend/src/mail.rs`](backend/src/mail.rs)); empty values are only workable if you never send mail.
 - **OIDC (e.g. Google):** `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URL`, `OIDC_SCOPES`.
 - **Database:** `DB_ADDRESS`, `DB_USERNAME`, `DB_PASSWORD`, `DB_MIGRATION_PATH`.
@@ -248,7 +248,7 @@ The generic fixture uses these synthetic accounts for ACL testing: `platform-adm
 - **Rate limits:** `AUTH_RATE_LIMIT_RPS`, `AUTH_RATE_LIMIT_BURST`, `API_RATE_LIMIT_RPS`, `API_RATE_LIMIT_BURST`.
 - **OpenAPI metadata:** `OPENAPI_CONTACT_EMAIL`, `OPENAPI_IMPRINT_URL`.
 
-For authentication behavior (OTP, sessions, and constraints), see [`docs/business-logic-constraints/authentication.md`](docs/business-logic-constraints/authentication.md).
+For authentication behavior (OTP, sessions, impersonation, and constraints), see [`docs/business-logic-constraints/authentication.md`](docs/business-logic-constraints/authentication.md) and [`docs/business-logic-constraints/impersonation.md`](docs/business-logic-constraints/impersonation.md).
 
 ## Command-line interface (CLI)
 

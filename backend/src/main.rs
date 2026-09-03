@@ -57,6 +57,7 @@ async fn main() -> AnyResult<()> {
         .into_owned();
 
     let cookie_config = Data::new(settings.cookie_config());
+    let impersonation_config = Data::new(settings.impersonation_config());
     let otp_config = Data::new(settings.otp_config());
 
     let mail_service = MailService::new(
@@ -85,6 +86,11 @@ async fn main() -> AnyResult<()> {
             db.migrate(settings.db_migration_path.as_str())
                 .await
                 .context("database migration failed")?;
+            if !settings.impersonation_enabled {
+                backend::auth::impersonation::purge_all(db.as_ref())
+                    .await
+                    .map_err(|e| anyhow::anyhow!("impersonation cleanup failed: {e}"))?;
+            }
             Result::<_, anyhow::Error>::Ok(db)
         },
         oidc::build_clients(&settings)
@@ -156,6 +162,7 @@ async fn main() -> AnyResult<()> {
         port = settings.port,
         cookie_secure = settings.cookie_secure,
         session_ttl_seconds = settings.session_ttl_seconds,
+        impersonation_enabled = settings.impersonation_enabled,
         otp_ttl_seconds = settings.otp_ttl_seconds,
         otp_allow_self_signup = settings.otp_allow_self_signup,
         otp_max_attempts = settings.otp_max_attempts,
@@ -256,6 +263,7 @@ async fn main() -> AnyResult<()> {
             .app_data(Data::new(session_service.clone()))
             .app_data(oidc_clients.clone())
             .app_data(cookie_config.clone())
+            .app_data(impersonation_config.clone())
             .app_data(otp_config.clone())
             .service(auth::rest::scope(
                 settings.auth_rate_limit_rps,

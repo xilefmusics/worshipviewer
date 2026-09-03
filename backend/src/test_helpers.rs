@@ -131,7 +131,16 @@ pub fn auth_ctx_with_teams(user: &User, teams: Vec<AuthorizedTeam>) -> Authoriza
             oauth_avatar_blob_id: user.oauth_avatar_blob_id.clone(),
             avatar_blob_id: user.avatar_blob_id.clone(),
         },
+        actor: AuthorizedUser {
+            id: user.id.clone(),
+            email: user.email.clone(),
+            role: user.role.clone(),
+            oauth_picture_url: user.oauth_picture_url.clone(),
+            oauth_avatar_blob_id: user.oauth_avatar_blob_id.clone(),
+            avatar_blob_id: user.avatar_blob_id.clone(),
+        },
         teams: teams.into_boxed_slice().into(),
+        impersonation: None,
     }
 }
 

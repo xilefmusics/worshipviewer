@@ -502,8 +502,10 @@
       "email": "Email",
       "id": "User ID",
       "role": "Role",
-      "created": "Created"
+      "created": "Created",
+      "actions": "Actions"
     },
+    "actionsAria": "Actions for {{email}}",
     "roles": {
       "admin": "Admin",
       "default": "User"
@@ -517,6 +519,11 @@
     "noResultsTitle": "No matching users",
     "noResultsBody": "Try a different email address or user ID.",
     "clearSearch": "Clear search",
+    "impersonate": "Impersonate",
+    "impersonateTitle": "Impersonate this user?",
+    "impersonateBody": "You will act as {{email}} with their normal permissions. A visible banner will let you stop and return to your admin session.",
+    "impersonateConfirm": "Start impersonation",
+    "impersonateFailed": "Could not start impersonation.",
     "pagination": {
       "range": "Showing {{first}}–{{last}} of {{total}} users",
       "rangeUnknown": "Showing {{first}}–{{last}} users",
@@ -1412,6 +1419,10 @@
       "fileRequired": "Choose a file to upload.",
       "deckFileType": "Choose PNG, JPEG, SVG, or PDF files."
     }
+  },
+  "impersonation": {
+    "banner": "You are impersonating {{email}}.",
+    "stop": "Stop impersonating"
   },
   "sessions": {
     "listTitle": "Active sessions",

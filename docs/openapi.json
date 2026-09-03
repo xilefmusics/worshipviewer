@@ -609,6 +609,12 @@
       "HttpAuditLog": {
         "description": "One persisted HTTP request audit row (admin monitoring API).",
         "properties": {
+          "actor_user_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "client_origin": {
             "type": "string"
           },
@@ -628,6 +634,12 @@
           },
           "id": {
             "type": "string"
+          },
+          "impersonation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "method": {
             "type": "string"
@@ -689,6 +701,44 @@
         },
         "required": [
           "request_count"
+        ],
+        "type": "object"
+      },
+      "ImpersonationStatus": {
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "impersonation_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "active"
         ],
         "type": "object"
       },
@@ -12012,6 +12062,95 @@
         ]
       }
     },
+    "/api/v1/users/{user_id}/impersonation": {
+      "post": {
+        "operationId": "start_impersonation",
+        "parameters": [
+          {
+            "description": "User identifier",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpersonationStatus"
+                }
+              }
+            },
+            "description": "Starts browser impersonation for the specified user"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Admin role required"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "User not found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Impersonation is disabled"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Failed to start impersonation"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Users"
+        ]
+      }
+    },
     "/api/v1/users/{user_id}/sessions": {
       "get": {
         "operationId": "get_sessions_for_user",
@@ -12586,6 +12725,39 @@
               }
             },
             "description": "OIDC provider or database error"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/impersonation/current": {
+      "get": {
+        "operationId": "current_impersonation",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpersonationStatus"
+                }
+              }
+            },
+            "description": "Current browser impersonation state"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/impersonation/stop": {
+      "post": {
+        "operationId": "stop_impersonation",
+        "responses": {
+          "204": {
+            "description": "Stops browser impersonation and retains the primary login"
           }
         },
         "tags": [
