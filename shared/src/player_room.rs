@@ -14,6 +14,31 @@ pub enum PlayerRoomSourceType {
     Setlist,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub enum PlayerRoomSongPool {
+    Open,
+    Collection { id: String, title: String },
+    Setlist { id: String, title: String },
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub enum PlayerRoomSongPoolSelection {
+    Open,
+    Collection { id: String },
+    Setlist { id: String },
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct UpdatePlayerRoomSongPool {
+    pub pool: PlayerRoomSongPoolSelection,
+    pub revision: u64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
@@ -111,6 +136,8 @@ pub struct PlayerRoomSummary {
     pub source_type: Option<PlayerRoomSourceType>,
     pub source_id: Option<String>,
     pub source_title: Option<String>,
+    #[serde(default = "default_song_pool")]
+    pub song_pool: PlayerRoomSongPool,
     pub host_email: String,
     #[serde(default)]
     pub can_close: bool,
@@ -158,6 +185,10 @@ pub struct PlayerRoomQueueRevision {
 
 fn default_guests_allowed() -> bool {
     true
+}
+
+fn default_song_pool() -> PlayerRoomSongPool {
+    PlayerRoomSongPool::Open
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -259,5 +290,46 @@ mod tests {
             panic!("expected chords")
         };
         assert!(!item.song.user_specific_addons.liked);
+    }
+
+    #[test]
+    fn song_pool_values_roundtrip_with_tagged_json() {
+        let pool = PlayerRoomSongPool::Collection {
+            id: "collection-1".into(),
+            title: "Sunday songs".into(),
+        };
+        let json = serde_json::to_string(&pool).expect("song pool JSON");
+        assert_eq!(
+            json,
+            r#"{"type":"collection","id":"collection-1","title":"Sunday songs"}"#
+        );
+        assert_eq!(
+            serde_json::from_str::<PlayerRoomSongPool>(&json).unwrap(),
+            pool
+        );
+
+        let selection = PlayerRoomSongPoolSelection::Setlist {
+            id: "setlist-1".into(),
+        };
+        assert_eq!(
+            serde_json::from_str::<PlayerRoomSongPoolSelection>(
+                r#"{"type":"setlist","id":"setlist-1"}"#
+            )
+            .unwrap(),
+            selection
+        );
+    }
+
+    #[test]
+    fn older_room_summaries_default_to_open_song_pool() {
+        let json = r#"{
+            "id":"room-1","name":"Room","team_id":"team-1",
+            "source_type":null,"source_id":null,"source_title":null,
+            "host_email":"host@example.com","can_close":false,
+            "participant_count":0,"av_occupied":false,
+            "created_at":"2026-01-01T00:00:00Z"
+        }"#;
+        let summary: PlayerRoomSummary = serde_json::from_str(json).unwrap();
+        assert_eq!(summary.song_pool, PlayerRoomSongPool::Open);
     }
 }

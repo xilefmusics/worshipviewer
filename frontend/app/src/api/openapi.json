@@ -2220,6 +2220,122 @@
           }
         ]
       },
+      "PlayerRoomSongPool": {
+        "oneOf": [
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "open"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "collection"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "setlist"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "type"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "PlayerRoomSongPoolSelection": {
+        "oneOf": [
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "open"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "collection"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "setlist"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "PlayerRoomSourceType": {
         "enum": [
           "song",
@@ -2252,6 +2368,9 @@
           "participant_count": {
             "minimum": 0,
             "type": "integer"
+          },
+          "song_pool": {
+            "$ref": "#/components/schemas/PlayerRoomSongPool"
           },
           "source_id": {
             "type": [
@@ -3348,6 +3467,23 @@
         },
         "required": [
           "title"
+        ],
+        "type": "object"
+      },
+      "UpdatePlayerRoomSongPool": {
+        "properties": {
+          "pool": {
+            "$ref": "#/components/schemas/PlayerRoomSongPoolSelection"
+          },
+          "revision": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pool",
+          "revision"
         ],
         "type": "object"
       },
@@ -7529,6 +7665,186 @@
             "description": ""
           }
         },
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
+    "/api/v1/player-rooms/{id}/song-pool": {
+      "put": {
+        "operationId": "update_song_pool",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlayerRoomSongPool"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Player Rooms"
+        ]
+      }
+    },
+    "/api/v1/player-rooms/{id}/song-pool/songs": {
+      "get": {
+        "operationId": "get_pool_songs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Song"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
         "tags": [
           "Player Rooms"
         ]

@@ -16,7 +16,10 @@ use crate::{
     auth::{AuthorizationContext, context::AuthorizedTeamRole, middleware::RequireUser},
     docs::Problem,
     error::AppError,
-    resources::{blob::service::BlobServiceHandle, team::parse_owner_record_id},
+    resources::{
+        blob::service::BlobServiceHandle, collection::service::CollectionServiceHandle,
+        setlist::service::SetlistServiceHandle, team::parse_owner_record_id,
+    },
 };
 
 use super::service::{ClientEvent, CreateRoomInput, PlayerRoomService, ServerEvent};
@@ -35,12 +38,83 @@ pub fn scope() -> Scope {
                 .service(create_room)
                 .service(get_room)
                 .service(join_room)
+                .service(update_song_pool)
+                .service(get_pool_songs)
                 .service(add_queue_item)
                 .service(promote_queue_item)
                 .service(remove_queue_item)
                 .service(reorder_queue)
                 .service(close_room),
         )
+}
+
+#[utoipa::path(
+    put,
+    path = "/api/v1/player-rooms/{id}/song-pool",
+    params(("id" = String, Path)),
+    request_body = UpdatePlayerRoomSongPool,
+    responses((status = 204), (status = 403, body = Problem, content_type = "application/problem+json"), (status = 404, body = Problem, content_type = "application/problem+json"), (status = 409, body = Problem, content_type = "application/problem+json")),
+    tag = "Player Rooms",
+    security(("SessionCookie" = []), ("SessionToken" = []))
+)]
+#[put("/{id}/song-pool")]
+pub async fn update_song_pool(
+    room_svc: Data<PlayerRoomService>,
+    collection_svc: Data<CollectionServiceHandle>,
+    setlist_svc: Data<SetlistServiceHandle>,
+    ctx: ReqData<AuthorizationContext>,
+    id: Path<String>,
+    body: Json<UpdatePlayerRoomSongPool>,
+) -> Result<HttpResponse, AppError> {
+    let request = body.into_inner();
+    let pool = match request.pool {
+        PlayerRoomSongPoolSelection::Open => PlayerRoomSongPool::Open,
+        PlayerRoomSongPoolSelection::Collection { id } => {
+            let source = collection_svc.get_collection_for_user(&ctx, &id).await?;
+            PlayerRoomSongPool::Collection {
+                id: source.id,
+                title: source.title,
+            }
+        }
+        PlayerRoomSongPoolSelection::Setlist { id } => {
+            let source = setlist_svc.get_setlist_for_user(&ctx, &id).await?;
+            PlayerRoomSongPool::Setlist {
+                id: source.id,
+                title: source.title,
+            }
+        }
+    };
+    room_svc
+        .set_song_pool(&id, &ctx.user.id, &team_ids(&ctx), pool, request.revision)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/player-rooms/{id}/song-pool/songs",
+    params(("id" = String, Path), ("page" = Option<u32>, Query), ("page_size" = Option<u32>, Query), ("q" = Option<String>, Query)),
+    responses((status = 200, body = [crate::resources::song::Song]), (status = 400, body = Problem, content_type = "application/problem+json"), (status = 401, body = Problem, content_type = "application/problem+json"), (status = 404, body = Problem, content_type = "application/problem+json"), (status = 409, body = Problem, content_type = "application/problem+json")),
+    tag = "Player Rooms",
+    security(("SessionCookie" = []), ("SessionToken" = []))
+)]
+#[get("/{id}/song-pool/songs")]
+pub async fn get_pool_songs(
+    room_svc: Data<PlayerRoomService>,
+    ctx: ReqData<AuthorizationContext>,
+    id: Path<String>,
+    query: Query<ListQuery>,
+) -> Result<HttpResponse, AppError> {
+    let query = query
+        .into_inner()
+        .validate()
+        .map_err(crate::error::map_list_query_error)?;
+    let (songs, total) = room_svc
+        .pool_songs(&id, &ctx.user.id, &team_ids(&ctx), &query)
+        .await?;
+    Ok(HttpResponse::Ok()
+        .insert_header(("X-Total-Count", total.to_string()))
+        .json(songs))
 }
 
 fn team_ids(ctx: &AuthorizationContext) -> Vec<String> {
@@ -187,9 +261,17 @@ pub async fn add_queue_item(
     body: Json<AddPlayerRoomQueueItem>,
 ) -> Result<HttpResponse, AppError> {
     let request = body.into_inner();
-    let player = song_svc
-        .song_player_for_user(&ctx, &request.song_id)
-        .await?;
+    let player = match room_svc
+        .room_song_player(&id, &ctx.user.id, &team_ids(&ctx), &request.song_id)
+        .await?
+    {
+        Some(player) => player,
+        None => {
+            song_svc
+                .song_player_for_user(&ctx, &request.song_id)
+                .await?
+        }
+    };
     let content = PlayerRoomContent::from(&player);
     let Some(PlayerItem::Chords(song)) = content.items.into_iter().next() else {
         return Err(AppError::invalid_request(

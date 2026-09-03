@@ -33,6 +33,8 @@ pub enum AppError {
     PreconditionFailed,
     #[error("payload too large")]
     PayloadTooLarge,
+    #[error("song pool unavailable")]
+    SongPoolUnavailable,
     #[error("internal error: {0}")]
     Internal(String),
 }
@@ -226,6 +228,7 @@ impl AppError {
             AppError::NotAcceptable(_) => "not_acceptable",
             AppError::PreconditionFailed => "precondition_failed",
             AppError::PayloadTooLarge => "payload_too_large",
+            AppError::SongPoolUnavailable => "song_pool_unavailable",
             AppError::Internal(_) => "internal",
         }
     }
@@ -276,7 +279,7 @@ impl ResponseError for AppError {
             | AppError::MediaUrl { .. }
             | AppError::MediaProcessing { .. }
             | AppError::InvalidPageSize(_) => StatusCode::BAD_REQUEST,
-            AppError::Conflict(_) => StatusCode::CONFLICT,
+            AppError::Conflict(_) | AppError::SongPoolUnavailable => StatusCode::CONFLICT,
             AppError::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
             AppError::NotAcceptable(_) => StatusCode::NOT_ACCEPTABLE,
             AppError::PreconditionFailed => StatusCode::PRECONDITION_FAILED,

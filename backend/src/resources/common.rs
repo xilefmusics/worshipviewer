@@ -309,6 +309,12 @@ pub struct SongLinkRecord {
     language: Option<String>,
 }
 
+impl SongLinkRecord {
+    pub fn id(&self) -> &RecordId {
+        &self.id
+    }
+}
+
 /// DB record for a setlist song reference, including custom flow.
 #[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
 pub struct SetlistSongLinkRecord {

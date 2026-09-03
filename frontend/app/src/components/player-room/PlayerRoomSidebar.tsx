@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { PlayerRoomSongPoolControl } from '@/components/player-room/PlayerRoomSongPoolControl'
 import { PLAYER_TOC_WIDTH_CLASS } from '@/lib/player/player-chrome'
 import {
   formatRoomDuration,
@@ -20,6 +21,9 @@ type PlayerRoomSidebarProps = {
   canClose: boolean
   guestsAllowed: boolean
   onGuestsAllowedChange: (allowed: boolean) => void
+  roomId: string
+  revision: number
+  songPool?: import('@/lib/player-room').PlayerRoomSongPool
   inviteSecret: string | null
   onEndRoom?: () => void
   className?: string
@@ -34,6 +38,9 @@ export function PlayerRoomSidebar({
   canClose,
   guestsAllowed,
   onGuestsAllowedChange,
+  roomId,
+  revision,
+  songPool,
   inviteSecret,
   onEndRoom,
   className,
@@ -72,6 +79,13 @@ export function PlayerRoomSidebar({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
+        <PlayerRoomSongPoolControl
+          roomId={roomId}
+          revision={revision}
+          songPool={songPool}
+          isHost={isHost}
+          className="mb-4 px-2"
+        />
         <p className="px-2 pb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
           {t('playerRooms.participants')}
         </p>

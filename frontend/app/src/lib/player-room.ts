@@ -4,6 +4,8 @@ import type { components } from '@/api/schema'
 
 export type PlayerRoomMode = 'sheet' | 'av' | 'slide'
 export type PlayerRoomSourceType = 'song' | 'collection' | 'setlist'
+export type PlayerRoomSongPool = components['schemas']['PlayerRoomSongPool']
+export type PlayerRoomSongPoolSelection = components['schemas']['PlayerRoomSongPoolSelection']
 export type PlayerRoomMusicalState = { item_index: number; language: string | null; transposition: string | null }
 export type PlayerRoomProjection = {
   content_text: string
@@ -23,7 +25,7 @@ export type PlayerRoomQueueItem = {
   added_by: string
 }
 export type PlayerRoomParticipant = { id: string; mode: PlayerRoomMode; hide_chords?: boolean; display_name: string; avatar_url: string | null; anonymous: boolean; connected: boolean; is_host: boolean; is_av_host: boolean }
-export type PlayerRoomSummary = { id: string; name: string; team_id: string; source_type: PlayerRoomSourceType | null; source_id: string | null; source_title: string | null; host_email: string; can_close?: boolean; participant_count: number; av_occupied: boolean; created_at: string }
+export type PlayerRoomSummary = { id: string; name: string; team_id: string; source_type: PlayerRoomSourceType | null; source_id: string | null; source_title: string | null; song_pool?: PlayerRoomSongPool; host_email: string; can_close?: boolean; participant_count: number; av_occupied: boolean; created_at: string }
 export type PlayerRoomSnapshot = PlayerRoomSummary & { content: { items: components['schemas']['Player']['items']; toc: components['schemas']['Player']['toc'] }; queue: PlayerRoomQueueItem[]; musical_state: PlayerRoomMusicalState; projection: PlayerRoomProjection | null; participants: PlayerRoomParticipant[]; revision: number; host_lease_expires_at: string; guests_allowed?: boolean }
 export type PlayerRoomCredentials = { room_id: string; participant_id: string; mode: PlayerRoomMode; resume_credential: string; connection_ticket: string }
 export type CreatedPlayerRoom = { room: PlayerRoomSummary; credentials: PlayerRoomCredentials; invite_secret: string }
@@ -34,6 +36,7 @@ export type PlayerRoomServerMessage =
   | { type: 'projection_updated'; projection: PlayerRoomProjection; revision: number }
   | { type: 'queue_updated'; queue: PlayerRoomQueueItem[]; revision: number }
   | { type: 'guests_allowed_updated'; guests_allowed: boolean; revision: number }
+  | { type: 'song_pool_updated'; song_pool: PlayerRoomSongPool; revision: number }
   | { type: 'participants_changed'; participants: PlayerRoomParticipant[]; participant_count: number; av_occupied: boolean; revision: number }
   | { type: 'command_accepted'; command_id: string; revision: number }
   | { type: 'command_rejected'; command_id: string; reason: string; revision: number }
@@ -111,6 +114,18 @@ export async function joinPlayerRoom(roomId: string, mode: PlayerRoomMode, hideC
 export async function inspectPlayerRoomInvite(inviteSecret: string): Promise<{ room_id: string; name: string; host_email: string; av_occupied: boolean; guests_allowed?: boolean }> { return jsonRequest('/api/v1/player-rooms/invite/inspect', { method: 'POST', body: JSON.stringify({ invite_secret: inviteSecret }) }) }
 export async function joinPlayerRoomInvite(input: { invite_secret: string; display_name: string; mode: PlayerRoomMode; hide_chords?: boolean }): Promise<PlayerRoomCredentials> { const credentials = await jsonRequest<PlayerRoomCredentials>('/api/v1/player-rooms/invite/join', { method: 'POST', body: JSON.stringify({ hide_chords: false, ...input }) }); saveRoomCredentials(credentials); return credentials }
 export async function endPlayerRoom(roomId: string): Promise<void> { const response = await fetch(`${apiBase}/api/v1/player-rooms/${encodeURIComponent(roomId)}`, { method: 'DELETE', credentials: 'include' }); if (!response.ok) throw new Error(response.status === 403 ? 'player_room_forbidden' : 'player_room_unavailable') }
+export function updatePlayerRoomSongPool(roomId: string, pool: PlayerRoomSongPoolSelection, revision: number): Promise<void> { return roomMutation(`/api/v1/player-rooms/${encodeURIComponent(roomId)}/song-pool`, { method: 'PUT', body: JSON.stringify({ pool, revision }) }) }
+export async function fetchPlayerRoomPoolSongs(roomId: string, query: { page: number; q: string; signal?: AbortSignal }): Promise<{ items: components['schemas']['Song'][]; total: number }> {
+  const params = new URLSearchParams({ page: String(query.page), page_size: '50' })
+  if (query.q.trim()) params.set('q', query.q.trim())
+  const response = await fetch(`${apiBase}/api/v1/player-rooms/${encodeURIComponent(roomId)}/song-pool/songs?${params}`, { credentials: 'include', signal: query.signal })
+  if (!response.ok) {
+    const problem = await response.clone().json().catch(async () => ({ detail: await response.text().catch(() => '') }))
+    const code = problem && typeof problem === 'object' && 'code' in problem ? String(problem.code) : response.status === 409 ? 'song_pool_unavailable' : 'player_room_unavailable'
+    throw new Error(code)
+  }
+  return { items: await response.json() as components['schemas']['Song'][], total: Number(response.headers.get('x-total-count') ?? 0) }
+}
 async function roomMutation(path: string, init: RequestInit): Promise<void> {
   const response = await fetch(`${apiBase}${path}`, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...init.headers } })
   if (!response.ok) {
@@ -169,6 +184,8 @@ export function applyPlayerRoomServerMessage(
       return { snapshot: { ...current, projection: message.projection, revision: message.revision }, needsSnapshot: false }
     case 'guests_allowed_updated':
       return { snapshot: { ...current, guests_allowed: message.guests_allowed, revision: message.revision }, needsSnapshot: false }
+    case 'song_pool_updated':
+      return { snapshot: { ...current, song_pool: message.song_pool, revision: message.revision }, needsSnapshot: false }
     case 'queue_updated':
       return { snapshot: { ...current, queue: message.queue, revision: message.revision }, needsSnapshot: false }
     case 'participants_changed':

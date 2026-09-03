@@ -61,12 +61,15 @@ mod player_room_http {
     use actix_web::{http::StatusCode, test};
     use serde::Deserialize;
     use shared::player_room::{
-        CreatePlayerRoom, CreatedPlayerRoom, PlayerRoomMode, PlayerRoomSnapshot,
+        CreatePlayerRoom, CreatedPlayerRoom, JoinPlayerRoom, PlayerRoomMode, PlayerRoomSnapshot,
+        PlayerRoomSongPool, PlayerRoomSongPoolSelection, UpdatePlayerRoomSongPool,
     };
     use surrealdb::types::SurrealValue;
 
     use crate::http_tests::{build_app, create_session_token};
-    use crate::test_helpers::{TeamFixture, test_db};
+    use crate::test_helpers::{
+        TeamFixture, create_song_with_title, ensure_test_collection, test_db,
+    };
 
     #[actix_web::test]
     async fn admin_and_content_maintainer_create_source_free_team_rooms() {
@@ -236,6 +239,118 @@ mod player_room_http {
         assert_eq!(
             test::call_service(&app, request).await.status(),
             StatusCode::NO_CONTENT
+        );
+    }
+
+    #[actix_web::test]
+    async fn host_can_update_song_pool_and_participants_can_search_it() {
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let host_token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let guest_token = create_session_token(&db, fixture.guest.clone())
+            .await
+            .unwrap();
+        let collection_id = ensure_test_collection(&db, &fixture.writer).await.unwrap();
+        let song = create_song_with_title(&db, &fixture.writer, "Scoped room song")
+            .await
+            .unwrap();
+        let app = test::init_service(build_app(db.clone())).await;
+
+        let request = test::TestRequest::post()
+            .uri("/api/v1/player-rooms")
+            .insert_header(("Authorization", format!("Bearer {host_token}")))
+            .set_json(CreatePlayerRoom {
+                team_id: fixture.shared_team_id,
+                name: Some("Pool room".into()),
+            })
+            .to_request();
+        let created: CreatedPlayerRoom = test::call_and_read_body_json(&app, request).await;
+
+        let request = test::TestRequest::put()
+            .uri(&format!(
+                "/api/v1/player-rooms/{}/song-pool",
+                created.room.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {host_token}")))
+            .set_json(UpdatePlayerRoomSongPool {
+                pool: PlayerRoomSongPoolSelection::Collection {
+                    id: collection_id.clone(),
+                },
+                revision: 1,
+            })
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::NO_CONTENT
+        );
+
+        let request = test::TestRequest::post()
+            .uri(&format!("/api/v1/player-rooms/{}/join", created.room.id))
+            .insert_header(("Authorization", format!("Bearer {guest_token}")))
+            .set_json(JoinPlayerRoom {
+                mode: PlayerRoomMode::Sheet,
+                hide_chords: false,
+                resume_credential: None,
+            })
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::OK
+        );
+
+        let request = test::TestRequest::get()
+            .uri(&format!(
+                "/api/v1/player-rooms/{}/song-pool/songs?q=Scoped",
+                created.room.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {guest_token}")))
+            .to_request();
+        let songs: Vec<shared::song::Song> = test::call_and_read_body_json(&app, request).await;
+        assert_eq!(songs.len(), 1);
+        assert_eq!(songs[0].id, song.id);
+
+        let request = test::TestRequest::put()
+            .uri(&format!(
+                "/api/v1/player-rooms/{}/song-pool",
+                created.room.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {guest_token}")))
+            .set_json(UpdatePlayerRoomSongPool {
+                pool: PlayerRoomSongPoolSelection::Open,
+                revision: 2,
+            })
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::FORBIDDEN
+        );
+
+        let request = test::TestRequest::get()
+            .uri(&format!(
+                "/api/v1/player-rooms/{}/song-pool/songs",
+                created.room.id
+            ))
+            .to_request();
+        use actix_web::dev::Service;
+        let status = match app.call(request).await {
+            Ok(response) => response.status(),
+            Err(error) => error.as_response_error().status_code(),
+        };
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+        let request = test::TestRequest::get()
+            .uri(&format!("/api/v1/player-rooms/{}", created.room.id))
+            .insert_header(("Authorization", format!("Bearer {host_token}")))
+            .to_request();
+        let snapshot: PlayerRoomSnapshot = test::call_and_read_body_json(&app, request).await;
+        assert_eq!(
+            snapshot.summary.song_pool,
+            PlayerRoomSongPool::Collection {
+                id: collection_id,
+                title: "Test".into()
+            }
         );
     }
 }

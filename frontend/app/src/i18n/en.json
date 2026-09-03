@@ -1251,6 +1251,16 @@
       "label": "Allow guests",
       "copyDisabled": "Enable guest access to copy the invite link."
     },
+    "songPool": {
+      "label": "Song pool",
+      "open": "Open library",
+      "collectionOption": "Collection: {{title}}",
+      "setlistOption": "Setlist: {{title}}",
+      "updated": "Song pool updated.",
+      "failed": "Song pool update failed.",
+      "loadFailed": "Could not load song pools.",
+      "unavailable": "This song pool is no longer available. Choose another pool."
+    },
     "participants": "participants",
     "empty": "No active Player Rooms.",
     "avOccupied": "AV occupied",
@@ -1274,6 +1284,7 @@
     "queue": {
       "title": "Next songs",
       "description": "Songs added here are shared with everyone in the room.",
+      "restrictedDescription": "Choose songs from {{title}}.",
       "searchPlaceholder": "Search your songs…",
       "searchAria": "Search songs to add to the queue",
       "empty": "No songs are queued.",

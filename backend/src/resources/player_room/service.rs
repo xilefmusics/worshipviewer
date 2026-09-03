@@ -14,8 +14,10 @@ use surrealdb::types::{Datetime, RecordId, SurrealValue};
 use tokio::sync::{RwLock, broadcast};
 use uuid::Uuid;
 
-use shared::player::{PlayerItem, TocItem};
+use shared::api::ListQuery;
+use shared::player::{Player, PlayerItem, TocItem};
 use shared::player_room::*;
+use shared::song::LinkOwned as SongLinkOwned;
 
 use crate::{
     database::{Database, record_id_string, surreal_take_errors},
@@ -70,6 +72,8 @@ struct RoomRecord {
     source_type: Option<String>,
     source_id: Option<String>,
     source_title: Option<String>,
+    #[serde(default = "default_song_pool_json")]
+    song_pool_json: String,
     name: String,
     host_user_id: Option<String>,
     host_email: String,
@@ -96,6 +100,8 @@ struct RoomSummaryRecord {
     source_type: Option<String>,
     source_id: Option<String>,
     source_title: Option<String>,
+    #[serde(default = "default_song_pool_json")]
+    song_pool_json: String,
     name: String,
     host_user_id: Option<String>,
     host_email: String,
@@ -146,6 +152,7 @@ struct RoomAggregate {
     queue: Vec<PlayerRoomQueueItem>,
     musical_state: PlayerRoomMusicalState,
     projection: Option<PlayerRoomProjectionPayload>,
+    song_pool: PlayerRoomSongPool,
     participants: Vec<ParticipantRecord>,
 }
 
@@ -201,6 +208,10 @@ pub enum ServerEvent {
         guests_allowed: bool,
         revision: u64,
     },
+    SongPoolUpdated {
+        song_pool: PlayerRoomSongPool,
+        revision: u64,
+    },
     ParticipantsChanged {
         participants: Vec<PlayerRoomParticipant>,
         participant_count: usize,
@@ -240,6 +251,10 @@ fn default_guests_allowed() -> bool {
 
 fn default_queue_json() -> String {
     "[]".into()
+}
+
+fn default_song_pool_json() -> String {
+    r#"{"type":"open"}"#.into()
 }
 
 impl PlayerRoomService {
@@ -285,6 +300,16 @@ impl PlayerRoomService {
             Some("setlist") => Ok(Some(PlayerRoomSourceType::Setlist)),
             _ => Err(AppError::database("invalid player-room source type")),
         }
+    }
+
+    fn decode_song_pool(value: &str) -> Result<PlayerRoomSongPool, AppError> {
+        serde_json::from_str(value)
+            .map_err(|e| AppError::internal_from_err("player_room.song_pool.decode", e))
+    }
+
+    fn song_pool_to_json(pool: &PlayerRoomSongPool) -> Result<String, AppError> {
+        serde_json::to_string(pool)
+            .map_err(|e| AppError::internal_from_err("player_room.song_pool.encode", e))
     }
 
     fn mode_to_db(mode: PlayerRoomMode) -> &'static str {
@@ -476,6 +501,7 @@ impl PlayerRoomService {
             source_type: Self::source_type_from_db(room.source_type.as_deref())?,
             source_id: room.source_id.clone(),
             source_title: room.source_title.clone(),
+            song_pool: Self::decode_song_pool(&room.song_pool_json)?,
             host_email: room.host_email.clone(),
             can_close: false,
             participant_count: active.len(),
@@ -527,7 +553,7 @@ impl PlayerRoomService {
             .db
             .query(
                 r#"
-SELECT id, owner, source_type, source_id, source_title, name, host_user_id, host_email,
+SELECT id, owner, source_type, source_id, source_title, song_pool_json, name, host_user_id, host_email,
        musical_state_json, queue_json, projection_json, revision,
        invite_hash, host_participant_id, av_participant_id, media_ids,
        created_at, host_lease_expires_at, closed_at, guests_allowed
@@ -562,12 +588,14 @@ WHERE room = type::record('player_room', $room_id);
             .map(serde_json::from_str)
             .transpose()
             .map_err(|e| AppError::internal_from_err("player_room.projection.decode", e))?;
+        let song_pool = Self::decode_song_pool(&room.song_pool_json)?;
         Ok(Some(RoomAggregate {
             room,
             content,
             queue,
             musical_state,
             projection,
+            song_pool,
             participants,
         }))
     }
@@ -662,6 +690,7 @@ CREATE type::record('player_room', $room_id) CONTENT {
     source_id: $source_id, source_title: $source_title, name: $name,
     host_user_id: $host_user_id, host_email: $host_email, snapshot_json: NONE, state_json: NONE,
     musical_state_json: $musical_json, queue_json: "[]", projection_json: $projection_json,
+    song_pool_json: $song_pool_json,
     revision: 1, invite_hash: $invite_hash, host_participant_id: $participant_id,
     av_participant_id: $av_participant_id, media_ids: $media_ids,
     created_at: $now, host_lease_expires_at: $lease, closed_at: NONE,
@@ -701,6 +730,7 @@ COMMIT TRANSACTION;
             .bind(("snapshot_json", snapshot_json))
             .bind(("musical_json", musical_json))
             .bind(("projection_json", projection_json))
+            .bind(("song_pool_json", default_song_pool_json()))
             .bind(("invite_hash", Self::hash(&invite_secret)))
             .bind(("participant_id", participant_id.clone()))
             .bind((
@@ -729,6 +759,7 @@ COMMIT TRANSACTION;
             source_type: input.source_type,
             source_id: input.source_id,
             source_title: input.source_title,
+            song_pool: PlayerRoomSongPool::Open,
             host_email: input.host_email,
             can_close: true,
             participant_count: 1,
@@ -764,7 +795,7 @@ COMMIT TRANSACTION;
             .db
             .query(
                 r#"
-SELECT id, owner, source_type, source_id, source_title, name, host_email,
+SELECT id, owner, source_type, source_id, source_title, song_pool_json, name, host_email,
        host_user_id, av_participant_id, created_at
 FROM player_room
 WHERE owner IN $owners AND closed_at = NONE
@@ -823,6 +854,7 @@ ORDER BY created_at DESC;
                 source_type: Self::source_type_from_db(room.source_type.as_deref())?,
                 source_id: room.source_id,
                 source_title: room.source_title,
+                song_pool: Self::decode_song_pool(&room.song_pool_json)?,
                 host_email: room.host_email,
                 can_close: room.host_user_id.as_deref() == Some(user_id)
                     || closable_teams.contains(&record_id_string(&room.owner)),
@@ -1231,6 +1263,223 @@ SET revision += 1;
         })
     }
 
+    async fn pool_song_ids(
+        &self,
+        pool: &PlayerRoomSongPool,
+    ) -> Result<Option<Vec<String>>, AppError> {
+        match pool {
+            PlayerRoomSongPool::Open => Ok(None),
+            PlayerRoomSongPool::Collection { id, .. } => {
+                let (table, id) = crate::resources::common::resource_id("collection", id)?;
+                let mut response = self
+                    .db
+                    .db
+                    .query("SELECT owner, songs FROM type::record($table, $id)")
+                    .bind(("table", table))
+                    .bind(("id", id))
+                    .await?;
+                surreal_take_errors("player_room.song_pool.load", &mut response)?;
+                let source = response
+                    .take::<Option<crate::resources::common::SongLinkListRow>>(0)?
+                    .ok_or(AppError::SongPoolUnavailable)?;
+                Ok(Some(
+                    source
+                        .songs
+                        .into_iter()
+                        .map(|link| record_id_string(link.id()))
+                        .collect(),
+                ))
+            }
+            PlayerRoomSongPool::Setlist { id, .. } => {
+                let (table, id) = crate::resources::common::resource_id("setlist", id)?;
+                let mut response = self
+                    .db
+                    .db
+                    .query("SELECT owner, items FROM type::record($table, $id)")
+                    .bind(("table", table))
+                    .bind(("id", id))
+                    .await?;
+                surreal_take_errors("player_room.song_pool.load", &mut response)?;
+                let source = response
+                    .take::<Option<crate::resources::common::SetlistItemListRow>>(0)?
+                    .ok_or(AppError::SongPoolUnavailable)?;
+                Ok(Some(
+                    source
+                        .items
+                        .into_iter()
+                        .filter(|item| item.kind == "song")
+                        .map(|item| record_id_string(&item.id))
+                        .collect(),
+                ))
+            }
+        }
+    }
+
+    async fn song_record_by_id(
+        &self,
+        song_id: &str,
+    ) -> Result<crate::resources::song::SongRecord, AppError> {
+        let record = self
+            .db
+            .db
+            .select(crate::resources::common::resource_id("song", song_id)?)
+            .await?;
+        record.ok_or_else(|| AppError::NotFound("song not found".into()))
+    }
+
+    async fn pool_allows_song(
+        &self,
+        pool: &PlayerRoomSongPool,
+        song_id: &str,
+    ) -> Result<bool, AppError> {
+        let Some(ids) = self.pool_song_ids(pool).await? else {
+            return Ok(true);
+        };
+        Ok(ids.iter().any(|id| id == song_id))
+    }
+
+    pub async fn room_song_player(
+        &self,
+        room_id: &str,
+        user_id: &str,
+        teams: &[String],
+        song_id: &str,
+    ) -> Result<Option<Player>, AppError> {
+        let aggregate = self.load_active_aggregate(room_id).await?;
+        let owner = record_id_string(&aggregate.room.owner);
+        if !teams.contains(&owner) || !Self::participant_is_active_member(&aggregate, user_id) {
+            return Err(AppError::unauthorized());
+        }
+        if matches!(aggregate.song_pool, PlayerRoomSongPool::Open) {
+            return Ok(None);
+        }
+        if !self.pool_allows_song(&aggregate.song_pool, song_id).await? {
+            return Err(AppError::conflict("song_not_in_song_pool"));
+        }
+        let song = self.song_record_by_id(song_id).await?.into_song();
+        Ok(Some(Player::from(SongLinkOwned {
+            song,
+            nr: None,
+            key: None,
+            tempo: None,
+            language: None,
+            flow: None,
+            liked: false,
+        })))
+    }
+
+    pub async fn pool_songs(
+        &self,
+        room_id: &str,
+        user_id: &str,
+        teams: &[String],
+        query: &ListQuery,
+    ) -> Result<(Vec<crate::resources::song::Song>, u64), AppError> {
+        let aggregate = self.load_active_aggregate(room_id).await?;
+        let owner = record_id_string(&aggregate.room.owner);
+        if !teams.contains(&owner) || !Self::participant_is_active_member(&aggregate, user_id) {
+            return Err(AppError::unauthorized());
+        }
+        let ids = self
+            .pool_song_ids(&aggregate.song_pool)
+            .await?
+            .ok_or_else(|| AppError::invalid_request("song pool is open"))?;
+        let record_ids = ids
+            .iter()
+            .map(|id| RecordId::new("song", id.clone()))
+            .collect::<Vec<_>>();
+        let mut response = self
+            .db
+            .db
+            .query("SELECT * FROM $ids")
+            .bind(("ids", record_ids))
+            .await
+            .map_err(|e| {
+                crate::log_and_convert!(AppError::database, "player_room.song_pool.songs", e)
+            })?;
+        surreal_take_errors("player_room.song_pool.songs", &mut response)?;
+        let records = response.take::<Vec<crate::resources::song::SongRecord>>(0)?;
+        let mut by_id = records
+            .into_iter()
+            .map(|record| {
+                let id = record.id.as_ref().map(record_id_string).unwrap_or_default();
+                (id, record.into_song())
+            })
+            .collect::<HashMap<_, _>>();
+        let needle = query.q.as_deref().unwrap_or("").trim().to_lowercase();
+        let songs = ids
+            .into_iter()
+            .filter_map(|id| by_id.remove(&id))
+            .filter(|song| !song.not_a_song)
+            .filter(|song| {
+                needle.is_empty()
+                    || song
+                        .data
+                        .titles
+                        .iter()
+                        .any(|title| title.to_lowercase().contains(&needle))
+            })
+            .collect::<Vec<_>>();
+        let total = songs.len() as u64;
+        let page = query.page.unwrap_or(0) as usize;
+        let page_size = query.page_size.unwrap_or(50) as usize;
+        let start = page.saturating_mul(page_size);
+        let end = start.saturating_add(page_size).min(songs.len());
+        Ok((
+            if start < songs.len() {
+                songs[start..end].to_vec()
+            } else {
+                Vec::new()
+            },
+            total,
+        ))
+    }
+
+    pub async fn set_song_pool(
+        &self,
+        room_id: &str,
+        user_id: &str,
+        teams: &[String],
+        song_pool: PlayerRoomSongPool,
+        revision: u64,
+    ) -> Result<(), AppError> {
+        let aggregate = self.load_active_aggregate(room_id).await?;
+        let owner = record_id_string(&aggregate.room.owner);
+        if !teams.contains(&owner)
+            || Self::host_user_id(&aggregate.room, &aggregate.participants) != Some(user_id)
+        {
+            return Err(AppError::forbidden());
+        }
+        if aggregate.room.revision.max(0) as u64 != revision {
+            return Err(AppError::conflict("revision_conflict"));
+        }
+        if aggregate.song_pool == song_pool {
+            return Ok(());
+        }
+        let encoded = Self::song_pool_to_json(&song_pool)?;
+        let Some(next_revision) = self
+            .update_revision_field(
+                room_id,
+                revision,
+                "song_pool_json = $value",
+                "value",
+                encoded,
+            )
+            .await?
+        else {
+            return Err(AppError::conflict("revision_conflict"));
+        };
+        self.publish(
+            room_id,
+            ServerEvent::SongPoolUpdated {
+                song_pool,
+                revision: next_revision,
+            },
+        )
+        .await;
+        Ok(())
+    }
+
     fn queue_event(aggregate: &RoomAggregate) -> ServerEvent {
         ServerEvent::QueueUpdated {
             queue: aggregate.queue.clone(),
@@ -1256,6 +1505,12 @@ SET revision += 1;
         }
         if Self::queue_contains_song(&aggregate, &item.song_id) {
             return Err(AppError::conflict("song_already_in_room"));
+        }
+        if !self
+            .pool_allows_song(&aggregate.song_pool, &item.song_id)
+            .await?
+        {
+            return Err(AppError::conflict("song_not_in_song_pool"));
         }
 
         let participant_name = aggregate
@@ -1876,6 +2131,7 @@ mod tests {
     use chordlib::types::{Line, Part, Section, Song as SongData};
     use shared::blob::BlobLink;
     use shared::player::{PlayerBlobItem, PlayerChordsItem, PlayerItem};
+    use shared::setlist::{CreateSetlist, SetlistItem, SongLink as SetlistSongLink};
 
     #[derive(Debug, Deserialize, SurrealValue)]
     struct PersistedRoomState {
@@ -2042,6 +2298,173 @@ mod tests {
         assert!(promoted.queue.is_empty());
         assert_eq!(promoted.content.items.len(), 2);
         assert_eq!(promoted.musical_state.item_index, 1);
+    }
+
+    #[tokio::test]
+    async fn song_pool_defaults_open_and_restricted_sources_are_live_and_scoped() {
+        let db = crate::test_helpers::test_db().await.unwrap();
+        let user = crate::test_helpers::create_user(&db, "pool-host@test.local")
+            .await
+            .unwrap();
+        let ctx = crate::test_helpers::auth_ctx_for_user(&db, &user)
+            .await
+            .unwrap();
+        let collection_id = crate::test_helpers::ensure_test_collection(&db, &user)
+            .await
+            .unwrap();
+        let first = crate::test_helpers::create_song_with_title(&db, &user, "Pool first")
+            .await
+            .unwrap();
+        let service = service(db.clone());
+        let created = service
+            .create(CreateRoomInput {
+                team_id: "team-1".into(),
+                name: None,
+                host_user_id: user.id.clone(),
+                host_email: user.email.clone(),
+                host_avatar_url: None,
+                source_type: None,
+                source_id: None,
+                source_title: None,
+                content: PlayerRoomContent {
+                    items: Vec::new(),
+                    toc: Vec::new(),
+                },
+                host_mode: PlayerRoomMode::Sheet,
+                musical_state: PlayerRoomMusicalState::default(),
+                projection: None,
+            })
+            .await
+            .unwrap();
+        assert_eq!(created.room.song_pool, PlayerRoomSongPool::Open);
+
+        let mut events = service.sender(&created.room.id).await.subscribe();
+        service
+            .set_song_pool(
+                &created.room.id,
+                &user.id,
+                &["team-1".into()],
+                PlayerRoomSongPool::Collection {
+                    id: collection_id.clone(),
+                    title: "Songs".into(),
+                },
+                1,
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            events.recv().await.unwrap(),
+            ServerEvent::SongPoolUpdated { revision: 2, .. }
+        ));
+
+        let (songs, total) = service
+            .pool_songs(
+                &created.room.id,
+                &user.id,
+                &["team-1".into()],
+                &ListQuery::default(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(total, 1);
+        assert_eq!(songs[0].id, first.id);
+
+        let second = crate::test_helpers::create_song_with_title(&db, &user, "Pool second")
+            .await
+            .unwrap();
+        let (songs, total) = service
+            .pool_songs(
+                &created.room.id,
+                &user.id,
+                &["team-1".into()],
+                &ListQuery::default(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(total, 2);
+        assert!(songs.iter().any(|song| song.id == second.id));
+
+        let setlist = crate::test_helpers::setlist_service(&db)
+            .create_setlist_for_user(
+                &ctx,
+                CreateSetlist {
+                    owner: None,
+                    title: "Pool setlist".into(),
+                    items: vec![
+                        SetlistItem::Song(SetlistSongLink {
+                            id: first.id.clone(),
+                            ..Default::default()
+                        }),
+                        SetlistItem::Media(shared::setlist::SetlistMediaLink {
+                            id: "media-1".into(),
+                        }),
+                    ],
+                },
+            )
+            .await
+            .unwrap();
+        service
+            .set_song_pool(
+                &created.room.id,
+                &user.id,
+                &["team-1".into()],
+                PlayerRoomSongPool::Setlist {
+                    id: setlist.id,
+                    title: setlist.title,
+                },
+                2,
+            )
+            .await
+            .unwrap();
+        let (songs, total) = service
+            .pool_songs(
+                &created.room.id,
+                &user.id,
+                &["team-1".into()],
+                &ListQuery::default(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(total, 1);
+        assert_eq!(songs[0].id, first.id);
+    }
+
+    #[tokio::test]
+    async fn deleted_song_pool_source_is_not_replaced_with_open() {
+        let db = crate::test_helpers::test_db().await.unwrap();
+        let service = service(db.clone());
+        let created = create_room(&service).await;
+        service
+            .set_song_pool(
+                &created.room.id,
+                "user-1",
+                &["team-1".into()],
+                PlayerRoomSongPool::Collection {
+                    id: "missing-collection".into(),
+                    title: "Missing".into(),
+                },
+                1,
+            )
+            .await
+            .unwrap();
+        let error = service
+            .pool_songs(
+                &created.room.id,
+                "user-1",
+                &["team-1".into()],
+                &ListQuery::default(),
+            )
+            .await
+            .unwrap_err();
+        assert!(matches!(error, AppError::SongPoolUnavailable));
+        let snapshot = service
+            .snapshot_for_participant(&created.room.id, &created.credentials.participant_id)
+            .await
+            .unwrap();
+        assert!(matches!(
+            snapshot.summary.song_pool,
+            PlayerRoomSongPool::Collection { ref id, .. } if id == "missing-collection"
+        ));
     }
 
     #[test]

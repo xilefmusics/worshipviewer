@@ -102,6 +102,9 @@ export function PlayerRoomLivePage({ credentials }: { credentials: PlayerRoomCre
       status={room.status === 'connected' ? 'connected' : 'reconnecting'}
       participants={snapshot.participants}
       isHost={participant.is_host}
+      roomId={snapshot.id}
+      revision={snapshot.revision}
+      songPool={snapshot.song_pool}
       canClose={participant.is_host || snapshot.can_close === true}
       guestsAllowed={snapshot.guests_allowed !== false}
       onGuestsAllowedChange={sendGuestsAllowed}
@@ -124,6 +127,7 @@ export function PlayerRoomLivePage({ credentials }: { credentials: PlayerRoomCre
       revision={snapshot.revision}
       canAdd={!participant.anonymous}
       canManage={participant.is_host}
+      songPool={snapshot.song_pool}
       className="border-r-0"
     />
   )

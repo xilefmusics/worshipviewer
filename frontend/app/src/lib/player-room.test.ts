@@ -146,6 +146,26 @@ describe('player rooms', () => {
     })).toEqual({ snapshot: { ...current, queue, revision: 5 }, needsSnapshot: false })
   })
 
+  it('applies song pool updates as revisioned room deltas', () => {
+    const current = {
+      id: 'r1',
+      song_pool: { type: 'open' },
+      revision: 4,
+    } as unknown as PlayerRoomSnapshot
+    expect(applyPlayerRoomServerMessage(current, {
+      type: 'song_pool_updated',
+      song_pool: { type: 'setlist', id: 'sl1', title: 'Sunday' },
+      revision: 5,
+    })).toEqual({
+      snapshot: {
+        ...current,
+        song_pool: { type: 'setlist', id: 'sl1', title: 'Sunday' },
+        revision: 5,
+      },
+      needsSnapshot: false,
+    })
+  })
+
   it('waits for the matching delta after a command acknowledgement', () => {
     const current = { id: 'r1', revision: 4 } as unknown as PlayerRoomSnapshot
     expect(applyPlayerRoomServerMessage(current, {

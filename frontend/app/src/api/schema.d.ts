@@ -549,6 +549,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/player-rooms/{id}/song-pool": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["update_song_pool"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/player-rooms/{id}/song-pool/songs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_pool_songs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/player-rooms/{room_id}/media/{blob_id}": {
         parameters: {
             query?: never;
@@ -1881,6 +1913,32 @@ export interface components {
             /** Format: int64 */
             revision: number;
         };
+        PlayerRoomSongPool: {
+            /** @enum {string} */
+            type: "open";
+        } | {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            type: "collection";
+        } | {
+            id: string;
+            title: string;
+            /** @enum {string} */
+            type: "setlist";
+        };
+        PlayerRoomSongPoolSelection: {
+            /** @enum {string} */
+            type: "open";
+        } | {
+            id: string;
+            /** @enum {string} */
+            type: "collection";
+        } | {
+            id: string;
+            /** @enum {string} */
+            type: "setlist";
+        };
         /** @enum {string} */
         PlayerRoomSourceType: "song" | "collection" | "setlist";
         PlayerRoomSummary: {
@@ -1892,6 +1950,7 @@ export interface components {
             id: string;
             name: string;
             participant_count: number;
+            song_pool?: components["schemas"]["PlayerRoomSongPool"];
             source_id?: string | null;
             source_title?: string | null;
             source_type?: null | components["schemas"]["PlayerRoomSourceType"];
@@ -2322,6 +2381,11 @@ export interface components {
             content?: null | components["schemas"]["CreateMediaContent"];
             owner?: string | null;
             title: string;
+        };
+        UpdatePlayerRoomSongPool: {
+            pool: components["schemas"]["PlayerRoomSongPoolSelection"];
+            /** Format: int64 */
+            revision: number;
         };
         /** @description Full replacement body for `PUT /api/v1/setlists/{id}`. */
         UpdateSetlist: {
@@ -5203,6 +5267,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlayerRoomCredentials"];
+                };
+            };
+        };
+    };
+    update_song_pool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePlayerRoomSongPool"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_pool_songs: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                q?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Song"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };

@@ -12,6 +12,8 @@ import {
   promotePlayerRoomQueueItem,
   removePlayerRoomQueueItem,
   reorderPlayerRoomQueue,
+  fetchPlayerRoomPoolSongs,
+  type PlayerRoomSongPool,
   type PlayerRoomQueueItem,
 } from '@/lib/player-room'
 import { cn } from '@/lib/utils'
@@ -26,6 +28,7 @@ type Props = {
   revision: number
   canAdd: boolean
   canManage: boolean
+  songPool?: PlayerRoomSongPool
   className?: string
 }
 
@@ -35,6 +38,7 @@ export function PlayerRoomQueuePanel({
   revision,
   canAdd,
   canManage,
+  songPool,
   className,
 }: Props) {
   const { t } = useTranslation()
@@ -43,9 +47,11 @@ export function PlayerRoomQueuePanel({
   const [search, setSearch] = useState('')
   const [pendingId, setPendingId] = useState<string | null>(null)
   const searchQuery = useQuery({
-    queryKey: ['player-room-queue-song-search', search.trim()],
+    queryKey: ['player-room-queue-song-search', roomId, search.trim(), songPool],
     enabled: canAdd && online && search.trim().length > 1,
-    queryFn: ({ signal }) => fetchSongsPage(queryClient, { page: 0, q: search.trim(), signal }),
+    queryFn: ({ signal }) => songPool && songPool.type !== 'open'
+      ? fetchPlayerRoomPoolSongs(roomId, { page: 0, q: search.trim(), signal })
+      : fetchSongsPage(queryClient, { page: 0, q: search.trim(), signal }),
     staleTime: 30_000,
   })
   const queuedSongIds = new Set(queue.map((item) => item.song_id))
@@ -83,7 +89,9 @@ export function PlayerRoomQueuePanel({
       <header className="shrink-0 border-b border-[var(--color-border)] p-3">
         <h2 className="text-sm font-semibold">{t('playerRooms.queue.title')}</h2>
         <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-          {t('playerRooms.queue.description')}
+          {songPool && songPool.type !== 'open'
+            ? t('playerRooms.queue.restrictedDescription', { title: songPool.title })
+            : t('playerRooms.queue.description')}
         </p>
         {canAdd ? (
           <div className="mt-3">
@@ -95,6 +103,13 @@ export function PlayerRoomQueuePanel({
             />
             {searchQuery.isFetching ? (
               <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">{t('common.load')}</p>
+            ) : null}
+            {searchQuery.error ? (
+              <p className="mt-2 text-xs text-[var(--color-destructive)]">
+                {searchQuery.error instanceof Error && searchQuery.error.message === 'song_pool_unavailable'
+                  ? t('playerRooms.songPool.unavailable')
+                  : t('playerRooms.queue.failed')}
+              </p>
             ) : null}
             {searchQuery.data?.items.length ? (
               <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto">

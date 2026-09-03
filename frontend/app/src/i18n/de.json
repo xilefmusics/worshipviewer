@@ -1251,6 +1251,16 @@
       "label": "Gäste erlauben",
       "copyDisabled": "Gästezugang aktivieren, um den Einladungslink zu kopieren."
     },
+    "songPool": {
+      "label": "Song-Pool",
+      "open": "Offene Bibliothek",
+      "collectionOption": "Sammlung: {{title}}",
+      "setlistOption": "Setliste: {{title}}",
+      "updated": "Song-Pool aktualisiert.",
+      "failed": "Song-Pool konnte nicht aktualisiert werden.",
+      "loadFailed": "Song-Pools konnten nicht geladen werden.",
+      "unavailable": "Dieser Song-Pool ist nicht mehr verfügbar. Wähle einen anderen Pool."
+    },
     "participants": "Teilnehmende",
     "empty": "Keine aktiven Player-Räume.",
     "avOccupied": "AV belegt",
@@ -1274,6 +1284,7 @@
     "queue": {
       "title": "Nächste Songs",
       "description": "Hier hinzugefügte Songs werden mit allen im Raum geteilt.",
+      "restrictedDescription": "Wähle Songs aus {{title}}.",
       "searchPlaceholder": "Eigene Songs suchen …",
       "searchAria": "Songs zum Hinzufügen suchen",
       "empty": "Keine Songs in der Warteschlange.",
