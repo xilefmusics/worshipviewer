@@ -1302,6 +1302,7 @@
       "addedBy": "Hinzugefügt von {{name}}",
       "playNext": "Als Nächstes",
       "nextSong": "Nächster Song",
+      "alreadyPlayed": "Bereits gespielt",
       "activate": "{{title}} abspielen (Position {{position}})",
       "promoted": "Song in den aktuellen Player verschoben.",
       "remove": "{{title}} entfernen",

@@ -13,6 +13,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 - Rooms for synchronized Sheet, AV, and Slide participants across devices, including anonymous invite links and reconnecting presence.
 - Three-panel Rooms with a shared next-song queue, authenticated participant song sharing, and host queue management.
 - Host-configurable Room song pools for collections and setlists, with a separate option to allow members to add songs from their wider libraries.
+- Played-state sections in Room queues, with re-upvoted songs returning to the upcoming ranking.
 - `./scripts/verify-ci.sh` — one-shot local run of CI-equivalent checks (fmt, audit, tests, OpenAPI, frontend build).
 - `backend/.cargo/audit.toml` — documents ignored transitive `rsa` advisory (no upstream fix).
 - `pnpm audit` gate in frontend CI; `serialize-javascript` ≥7.0.5 via pnpm overrides.

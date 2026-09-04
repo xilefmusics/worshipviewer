@@ -240,6 +240,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
         crate::resources::room::rest::close_room,
         crate::resources::room::rest::add_queue_item,
         crate::resources::room::rest::promote_queue_item,
+        crate::resources::room::rest::activate_pool_song,
         crate::resources::room::rest::remove_queue_item,
         crate::resources::room::rest::reorder_queue,
         crate::resources::room::rest::inspect_invite,

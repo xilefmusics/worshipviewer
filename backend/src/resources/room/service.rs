@@ -22,6 +22,7 @@ use shared::song::LinkOwned as SongLinkOwned;
 use crate::{
     database::{Database, record_id_string, surreal_take_errors},
     error::AppError,
+    resources::song::LikedSongIds,
 };
 
 const LEASE_SECONDS: i64 = 30;
@@ -561,6 +562,23 @@ impl RoomService {
         queue
     }
 
+    fn rank_queue(queue: &mut [RoomQueueItem]) {
+        queue.sort_by(|left, right| {
+            left.played
+                .cmp(&right.played)
+                .then_with(|| right.upvotes.cmp(&left.upvotes))
+        });
+    }
+
+    fn ranked_queue(
+        queue: &[RoomQueueItem],
+        queue_votes: &HashMap<String, Vec<String>>,
+    ) -> Vec<RoomQueueItem> {
+        let mut queue = Self::queue_with_vote_counts(queue, queue_votes);
+        Self::rank_queue(&mut queue);
+        queue
+    }
+
     fn snapshot(
         aggregate: &RoomAggregate,
         participant_id: Option<&str>,
@@ -574,7 +592,7 @@ impl RoomService {
         Ok(RoomSnapshot {
             summary: Self::summary_from_room(&aggregate.room, &aggregate.participants)?,
             content: aggregate.content.clone(),
-            queue: Self::queue_with_vote_counts(&aggregate.queue, &aggregate.queue_votes),
+            queue: Self::ranked_queue(&aggregate.queue, &aggregate.queue_votes),
             voted_queue_ids: participant_id
                 .map(|id| {
                     let queue_ids = aggregate
@@ -1437,6 +1455,7 @@ SET revision += 1;
                 }),
                 added_by: added_by.to_string(),
                 upvotes: 0,
+                played: false,
             });
         }
         Ok(items)
@@ -1522,11 +1541,14 @@ SET revision += 1;
             .map_err(|e| crate::log_and_convert!(AppError::database, "room.song_pool.songs", e))?;
         surreal_take_errors("room.song_pool.songs", &mut response)?;
         let records = response.take::<Vec<crate::resources::song::SongRecord>>(0)?;
+        let liked_song_ids = self.db.liked_song_ids(user_id).await?;
         let mut by_id = records
             .into_iter()
             .map(|record| {
                 let id = record.id.as_ref().map(record_id_string).unwrap_or_default();
-                (id, record.into_song())
+                let mut song = record.into_song();
+                song.user_specific_addons.liked = liked_song_ids.contains(&id);
+                (id, song)
             })
             .collect::<HashMap<_, _>>();
         let needle = query.q.as_deref().unwrap_or("").trim().to_lowercase();
@@ -1594,14 +1616,17 @@ SET revision += 1;
             Vec::new()
         };
         let queue_changed = !prefilled_queue.is_empty();
-        let mut queue = Self::queue_with_vote_counts(&aggregate.queue, &aggregate.queue_votes);
+        let mut queue = Self::ranked_queue(&aggregate.queue, &aggregate.queue_votes);
+        let prefilled_media_ids = prefilled_queue
+            .iter()
+            .flat_map(Self::queue_media_ids)
+            .collect::<HashSet<_>>();
         queue.extend(prefilled_queue);
+        Self::rank_queue(&mut queue);
         let queue_json = serde_json::to_string(&queue)
             .map_err(|e| AppError::internal_from_err("room.queue.encode", e))?;
         let mut media_ids = aggregate.room.media_ids.clone();
-        for item in queue.iter().skip(aggregate.queue.len()) {
-            media_ids.extend(Self::queue_media_ids(item));
-        }
+        media_ids.extend(prefilled_media_ids);
         media_ids.sort();
         media_ids.dedup();
         let queue_votes_json = serde_json::to_string(&aggregate.queue_votes)
@@ -1654,7 +1679,7 @@ SET revision += 1;
 
     fn queue_event(aggregate: &RoomAggregate) -> ServerEvent {
         ServerEvent::QueueUpdated {
-            queue: Self::queue_with_vote_counts(&aggregate.queue, &aggregate.queue_votes),
+            queue: Self::ranked_queue(&aggregate.queue, &aggregate.queue_votes),
             revision: aggregate.room.revision.max(0) as u64,
         }
     }
@@ -1693,8 +1718,11 @@ SET revision += 1;
             .unwrap_or_else(|| item.added_by.clone());
         let mut item = item;
         item.added_by = participant_name;
-        let mut queue = aggregate.queue.clone();
+        item.played = false;
+        item.upvotes = 0;
+        let mut queue = Self::ranked_queue(&aggregate.queue, &aggregate.queue_votes);
         queue.push(item.clone());
+        Self::rank_queue(&mut queue);
         let queue_json = serde_json::to_string(&queue)
             .map_err(|e| AppError::internal_from_err("room.queue.encode", e))?;
         let mut media_ids = aggregate.room.media_ids.clone();
@@ -1739,7 +1767,7 @@ SET revision += 1;
         if aggregate.room.revision.max(0) as u64 != revision {
             return Err(AppError::conflict("revision_conflict"));
         }
-        let queue = Self::queue_with_vote_counts(&queue, &aggregate.queue_votes);
+        let queue = Self::ranked_queue(&queue, &aggregate.queue_votes);
         let queue_json = serde_json::to_string(&queue)
             .map_err(|e| AppError::internal_from_err("room.queue.encode", e))?;
         let queue_ids = queue
@@ -1794,6 +1822,11 @@ SET revision += 1;
             return Err(AppError::conflict("revision_conflict"));
         }
 
+        let mut queue = aggregate.queue.clone();
+        if upvoted && let Some(item) = queue.iter_mut().find(|item| item.id == queue_id) {
+            item.played = false;
+        }
+
         let mut queue_votes = aggregate.queue_votes.clone();
         let voters = queue_votes.entry(queue_id.to_string()).or_default();
         if upvoted {
@@ -1806,8 +1839,8 @@ SET revision += 1;
                 queue_votes.remove(queue_id);
             }
         }
-        let mut queue = Self::queue_with_vote_counts(&aggregate.queue, &queue_votes);
-        queue.sort_by_key(|item| std::cmp::Reverse(item.upvotes));
+        let mut queue = Self::queue_with_vote_counts(&queue, &queue_votes);
+        Self::rank_queue(&mut queue);
         let queue_json = serde_json::to_string(&queue)
             .map_err(|e| AppError::internal_from_err("room.queue.encode", e))?;
         let queue_votes_json = serde_json::to_string(&queue_votes)
@@ -1885,32 +1918,14 @@ SET revision += 1;
             .await
     }
 
-    pub async fn promote_queue_item(
+    async fn activate_song_from_aggregate(
         &self,
         room_id: &str,
-        user_id: &str,
-        teams: &[String],
-        queue_id: &str,
+        aggregate: RoomAggregate,
+        queue_id: Option<&str>,
+        queue_item: RoomQueueItem,
         revision: u64,
     ) -> Result<(), AppError> {
-        let aggregate = self.load_active_aggregate(room_id).await?;
-        let owner = record_id_string(&aggregate.room.owner);
-        if !teams.contains(&owner)
-            || Self::host_user_id(&aggregate.room, &aggregate.participants) != Some(user_id)
-        {
-            return Err(AppError::forbidden());
-        }
-        if aggregate.room.revision.max(0) as u64 != revision {
-            return Err(AppError::conflict("revision_conflict"));
-        }
-        let Some(queue_item) = aggregate
-            .queue
-            .iter()
-            .find(|item| item.id == queue_id)
-            .cloned()
-        else {
-            return Err(AppError::NotFound("room queue item not found".into()));
-        };
         let (content, item_index) = if let Some(index) = aggregate
             .content
             .toc
@@ -1943,23 +1958,27 @@ SET revision += 1;
         let mut requeued_item = queue_item.clone();
         requeued_item.id = Uuid::new_v4().to_string();
         requeued_item.upvotes = 0;
+        requeued_item.played = true;
         let mut queue = aggregate
             .queue
             .into_iter()
-            .filter(|item| item.id != queue_id)
+            .filter(|item| Some(item.id.as_str()) != queue_id)
+            .chain(std::iter::once(requeued_item))
             .collect::<Vec<_>>();
-        queue.push(requeued_item);
+        Self::rank_queue(&mut queue);
         let content_json = serde_json::to_string(&content)
             .map_err(|e| AppError::internal_from_err("room.snapshot.encode", e))?;
         let queue_json = serde_json::to_string(&queue)
             .map_err(|e| AppError::internal_from_err("room.queue.encode", e))?;
-        let mut queue_votes = aggregate.queue_votes.clone();
-        queue_votes.remove(queue_id);
+        let mut queue_votes = aggregate.queue_votes;
+        if let Some(queue_id) = queue_id {
+            queue_votes.remove(queue_id);
+        }
         let queue_votes_json = serde_json::to_string(&queue_votes)
             .map_err(|e| AppError::internal_from_err("room.queue_votes.encode", e))?;
         let musical_json = serde_json::to_string(&musical_state)
             .map_err(|e| AppError::internal_from_err("room.musical.encode", e))?;
-        let mut media_ids = aggregate.room.media_ids.clone();
+        let mut media_ids = aggregate.room.media_ids;
         media_ids.extend(Self::queue_media_ids(&queue_item));
         media_ids.sort();
         media_ids.dedup();
@@ -2001,6 +2020,94 @@ COMMIT TRANSACTION;
         )
         .await;
         Ok(())
+    }
+
+    pub async fn promote_queue_item(
+        &self,
+        room_id: &str,
+        user_id: &str,
+        teams: &[String],
+        queue_id: &str,
+        revision: u64,
+    ) -> Result<(), AppError> {
+        let aggregate = self.load_active_aggregate(room_id).await?;
+        let owner = record_id_string(&aggregate.room.owner);
+        if !teams.contains(&owner)
+            || Self::host_user_id(&aggregate.room, &aggregate.participants) != Some(user_id)
+        {
+            return Err(AppError::forbidden());
+        }
+        if aggregate.room.revision.max(0) as u64 != revision {
+            return Err(AppError::conflict("revision_conflict"));
+        }
+        let Some(queue_item) = aggregate
+            .queue
+            .iter()
+            .find(|item| item.id == queue_id)
+            .cloned()
+        else {
+            return Err(AppError::NotFound("room queue item not found".into()));
+        };
+        self.activate_song_from_aggregate(room_id, aggregate, Some(queue_id), queue_item, revision)
+            .await
+    }
+
+    pub async fn activate_pool_song(
+        &self,
+        room_id: &str,
+        user_id: &str,
+        teams: &[String],
+        song_id: &str,
+        revision: u64,
+    ) -> Result<(), AppError> {
+        let aggregate = self.load_active_aggregate(room_id).await?;
+        let owner = record_id_string(&aggregate.room.owner);
+        if !teams.contains(&owner)
+            || Self::host_user_id(&aggregate.room, &aggregate.participants) != Some(user_id)
+        {
+            return Err(AppError::forbidden());
+        }
+        if aggregate.room.revision.max(0) as u64 != revision {
+            return Err(AppError::conflict("revision_conflict"));
+        }
+        let Some(pool_ids) = self.pool_song_ids(aggregate.song_pool.as_ref()).await? else {
+            return Err(AppError::conflict("song_pool_not_selected"));
+        };
+        if !pool_ids.iter().any(|id| id == song_id) {
+            return Err(AppError::conflict("song_not_in_song_pool"));
+        }
+        let queued = aggregate
+            .queue
+            .iter()
+            .find(|item| item.song_id == song_id)
+            .cloned();
+        let queue_id = queued.as_ref().map(|item| item.id.clone());
+        let queue_item = if let Some(item) = queued {
+            item
+        } else {
+            let song = self.song_record_by_id(song_id).await?.into_song();
+            RoomQueueItem {
+                id: Uuid::new_v4().to_string(),
+                song_id: song.id.clone(),
+                title: song.data.title().to_string(),
+                song: Box::new(PlayerChordsItem {
+                    song,
+                    language: None,
+                    flow: None,
+                }),
+                added_by: user_id.to_string(),
+                upvotes: 0,
+                played: false,
+            }
+        };
+        self.activate_song_from_aggregate(
+            room_id,
+            aggregate,
+            queue_id.as_deref(),
+            queue_item,
+            revision,
+        )
+        .await
     }
 
     async fn update_revision_field(
@@ -2573,7 +2680,43 @@ mod tests {
             }),
             added_by: "host@example.com".into(),
             upvotes: 0,
+            played: false,
         }
+    }
+
+    #[test]
+    fn queue_ranking_puts_upcoming_items_first_and_preserves_ties() {
+        let mut first = queued_song("first");
+        first.upvotes = 1;
+        let mut second = queued_song("second");
+        second.upvotes = 1;
+        let mut played = queued_song("played");
+        played.played = true;
+        played.upvotes = 1;
+        let mut last = queued_song("last");
+        last.played = true;
+        last.upvotes = 1;
+        let mut queue = vec![first, second, played, last];
+
+        RoomService::rank_queue(&mut queue);
+
+        assert_eq!(
+            queue
+                .iter()
+                .map(|item| item.song_id.as_str())
+                .collect::<Vec<_>>(),
+            ["first", "second", "played", "last"]
+        );
+    }
+
+    #[test]
+    fn legacy_queue_items_default_to_unplayed() {
+        let mut value = serde_json::to_value(queued_song("legacy")).unwrap();
+        value.as_object_mut().unwrap().remove("played");
+
+        let item: RoomQueueItem = serde_json::from_value(value).unwrap();
+
+        assert!(!item.played);
     }
 
     #[tokio::test]
@@ -2619,6 +2762,7 @@ mod tests {
             .unwrap();
         assert_eq!(queued.queue.len(), 2);
         assert_eq!(queued.queue[0].song_id, "song-2");
+        assert!(queued.queue.iter().all(|item| !item.played));
         assert!(
             queued.queue[0]
                 .song
@@ -2627,6 +2771,21 @@ mod tests {
                 .iter()
                 .any(|blob| blob.id == "blob-song-2")
         );
+        service
+            .update_queue_vote(
+                &created.room.id,
+                &created.credentials.participant_id,
+                "queue-song-2",
+                true,
+                queued.revision,
+            )
+            .await
+            .unwrap();
+        let voted = service
+            .snapshot_for_participant(&created.room.id, &created.credentials.participant_id)
+            .await
+            .unwrap();
+        assert_eq!(voted.queue[0].upvotes, 1);
 
         let member = service
             .join_authenticated(
@@ -2678,6 +2837,7 @@ mod tests {
         assert_eq!(promoted.queue[1].song_id, "song-2");
         assert_ne!(promoted.queue[1].id, "queue-song-2");
         assert_eq!(promoted.queue[1].upvotes, 0);
+        assert!(promoted.queue[1].played);
         assert_eq!(promoted.content.items.len(), 2);
         assert_eq!(promoted.musical_state.item_index, 1);
 
@@ -2700,7 +2860,110 @@ mod tests {
         assert_eq!(promoted_again.queue[0].song_id, "song-3");
         assert_eq!(promoted_again.queue[1].song_id, "song-2");
         assert_ne!(promoted_again.queue[1].id, requeued_id);
+        assert!(promoted_again.queue[1].played);
         assert_eq!(promoted_again.content.items.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn upvoting_a_played_item_returns_it_to_the_upcoming_ranking() {
+        let db = crate::test_helpers::test_db().await.unwrap();
+        let service = service(db);
+        let created = create_room(&service).await;
+        service
+            .set_song_pool(
+                &created.room.id,
+                "user-1",
+                &["team-1".into()],
+                None,
+                true,
+                1,
+            )
+            .await
+            .unwrap();
+        service
+            .add_queue_item(
+                &created.room.id,
+                "user-1",
+                &["team-1".into()],
+                queued_song("song-2"),
+                2,
+            )
+            .await
+            .unwrap();
+        service
+            .add_queue_item(
+                &created.room.id,
+                "user-1",
+                &["team-1".into()],
+                queued_song("song-3"),
+                3,
+            )
+            .await
+            .unwrap();
+
+        let before_activation = service
+            .snapshot_for_participant(&created.room.id, &created.credentials.participant_id)
+            .await
+            .unwrap();
+        service
+            .promote_queue_item(
+                &created.room.id,
+                "user-1",
+                &["team-1".into()],
+                "queue-song-2",
+                before_activation.revision,
+            )
+            .await
+            .unwrap();
+
+        let played_snapshot = service
+            .snapshot_for_participant(&created.room.id, &created.credentials.participant_id)
+            .await
+            .unwrap();
+        let played_id = played_snapshot
+            .queue
+            .iter()
+            .find(|item| item.song_id == "song-2")
+            .map(|item| item.id.clone())
+            .unwrap();
+        assert!(played_snapshot.queue[1].played);
+        assert_eq!(played_snapshot.queue[1].upvotes, 0);
+
+        service
+            .update_queue_vote(
+                &created.room.id,
+                &created.credentials.participant_id,
+                &played_id,
+                true,
+                played_snapshot.revision,
+            )
+            .await
+            .unwrap();
+        let upvoted = service
+            .snapshot_for_participant(&created.room.id, &created.credentials.participant_id)
+            .await
+            .unwrap();
+        assert_eq!(upvoted.queue[0].song_id, "song-2");
+        assert!(!upvoted.queue[0].played);
+        assert_eq!(upvoted.queue[0].upvotes, 1);
+
+        service
+            .update_queue_vote(
+                &created.room.id,
+                &created.credentials.participant_id,
+                &played_id,
+                false,
+                upvoted.revision,
+            )
+            .await
+            .unwrap();
+        let unvoted = service
+            .snapshot_for_participant(&created.room.id, &created.credentials.participant_id)
+            .await
+            .unwrap();
+        assert_eq!(unvoted.queue[0].song_id, "song-2");
+        assert!(!unvoted.queue[0].played);
+        assert_eq!(unvoted.queue[0].upvotes, 0);
     }
 
     #[tokio::test]

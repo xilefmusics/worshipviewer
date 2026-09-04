@@ -67,6 +67,10 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
   const snapshot = room.snapshot
   const participant = snapshot?.participants.find((row) => row.id === credentials.participant_id)
   const roomPlayer = useMemo(() => (snapshot ? playerFromRoom(snapshot) : null), [snapshot])
+  const currentSongId = useMemo(() => {
+    const item = snapshot?.content.items[snapshot.musical_state.item_index]
+    return item?.type === 'chords' ? item.song.id : null
+  }, [snapshot])
   const promoteQueueTop = useCallback(() => {
     const first = snapshot?.queue[0]
     if (!first || !participant?.is_host || !snapshot) return
@@ -138,6 +142,7 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
       onVote={sendQueueVote}
       songPool={snapshot.song_pool}
       open={snapshot.open}
+      currentSongId={currentSongId}
       className="border-r-0"
     />
   )

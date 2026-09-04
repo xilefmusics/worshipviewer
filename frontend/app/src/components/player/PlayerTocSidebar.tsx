@@ -1,28 +1,8 @@
 import type { components } from '@/api/schema'
-import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  displayTocEntries,
-  tocDisplayNr,
-  type TocDisplayMode,
-} from '@/lib/player/toc-display'
-import {
-  TocSortAlphabeticalIcon,
-  TocSortLikedIcon,
-  TocSortOrderIcon,
-} from '@/components/icons/toc-sort-icons'
+import { TocSidebar } from '@/components/player/TocSidebar'
 import { usePlayerTocSearchSync } from '@/hooks/usePlayerIndexSearchSync'
-import {
-  buildTocMetadataBySongId,
-  collectTocLanguageFilterOptions,
-  collectTocTagFilterOptions,
-} from '@/lib/player/toc-filters'
-import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
-import { PLAYER_TOC_WIDTH_CLASS } from '@/lib/player/player-chrome'
-import { cn } from '@/lib/utils'
-
-import './player-outline-list.css'
 
 type TocItem = components['schemas']['TocItem']
 type PlayerItem = components['schemas']['PlayerItem']
@@ -35,22 +15,6 @@ type PlayerTocSidebarProps = {
   onSelect: (sourceIdx: number, languageIndex: number | null) => void
 }
 
-const MODES: TocDisplayMode[] = ['order', 'alphabetical', 'liked']
-
-const MODE_ICONS = {
-  order: TocSortOrderIcon,
-  alphabetical: TocSortAlphabeticalIcon,
-  liked: TocSortLikedIcon,
-} as const
-
-/** Sort mode toggles — 20% taller than default p-2 icon buttons (32px → ~38px). */
-const TOC_SORT_BUTTON_CLASS =
-  'flex min-w-0 flex-1 items-center justify-center rounded-md px-[0.6rem] py-[0.7rem] transition-colors'
-
-/** Language/tag chips — match TOC list typography; padding 20% above prior chip sizing. */
-const TOC_FILTER_CHIP_CLASS =
-  'rounded-md px-[0.72rem] py-[0.36rem] text-sm leading-snug font-medium transition-colors'
-
 export function PlayerTocSidebar({
   toc,
   items,
@@ -59,222 +23,33 @@ export function PlayerTocSidebar({
   onSelect,
 }: PlayerTocSidebarProps) {
   const { t } = useTranslation()
-  const tocMultilingualEnabled = useTocMultilingualPreference()
   const {
     mode,
     setMode,
     setLanguageIds,
     activeLanguageIds,
-    toggleLanguageId,
     activeTagIds,
     toggleTagId,
   } = usePlayerTocSearchSync()
-  const [hoveredMode, setHoveredMode] = useState<TocDisplayMode | null>(null)
-
-  const metadataBySongId = useMemo(() => buildTocMetadataBySongId(items), [items])
-  const languageFilters = useMemo(
-    () => collectTocLanguageFilterOptions(metadataBySongId),
-    [metadataBySongId],
-  )
-  const tagFilters = useMemo(
-    () => collectTocTagFilterOptions(metadataBySongId),
-    [metadataBySongId],
-  )
-
-  const visibleLanguageIds = useMemo(() => {
-    const valid = new Set(languageFilters.map((row) => row.id))
-    const filtered = [...activeLanguageIds].filter((id) => valid.has(id))
-    if (!tocMultilingualEnabled) return new Set(filtered)
-    const first = filtered[0]
-    return first ? new Set([first]) : new Set<string>()
-  }, [activeLanguageIds, languageFilters, tocMultilingualEnabled])
-
-  const visibleTagIds = useMemo(() => {
-    const valid = new Set(tagFilters.map((row) => row.id))
-    return new Set([...activeTagIds].filter((id) => valid.has(id)))
-  }, [activeTagIds, tagFilters])
-
-  const entries = useMemo(
-    () =>
-      displayTocEntries(toc, mode, {
-        items,
-        metadataBySongId,
-        activeLanguageIds: visibleLanguageIds,
-        activeTagIds: visibleTagIds,
-        multilingualToc: tocMultilingualEnabled,
-      }),
-    [visibleLanguageIds, visibleTagIds, items, metadataBySongId, mode, toc, tocMultilingualEnabled],
-  )
-
-  const modeLabels: Record<TocDisplayMode, string> = {
-    order: t('player.toc.sortOrder'),
-    alphabetical: t('player.toc.sortAlphabetical'),
-    liked: t('player.toc.sortLiked'),
-  }
-
-  const hasMetadataFilters = languageFilters.length > 0 || tagFilters.length > 0
-  const filtersActive = visibleLanguageIds.size > 0 || visibleTagIds.size > 0
-  const emptyMessage =
-    mode === 'liked' && !filtersActive
-      ? t('player.toc.emptyLiked')
-      : t('player.toc.emptyFiltered')
 
   return (
-    <nav
-      className={cn(
-        'flex h-full min-h-0 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)]',
-        PLAYER_TOC_WIDTH_CLASS,
-      )}
-      aria-label={t('player.toc.title')}
-    >
-      <div className="shrink-0 border-b border-[var(--color-border)] p-2">
-        <div
-          role="radiogroup"
-          aria-label={t('player.toc.sortGroup')}
-          className="flex gap-1"
-        >
-          {MODES.map((value) => {
-            const selected = mode === value
-            const Icon = MODE_ICONS[value]
-            const label = modeLabels[value]
-            const animateIcon = selected || hoveredMode === value
-            return (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                aria-label={label}
-                title={label}
-                className={cn(
-                  TOC_SORT_BUTTON_CLASS,
-                  selected
-                    ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-                    : 'bg-[var(--color-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/80',
-                )}
-                onClick={() => setMode(value)}
-                onMouseEnter={() => setHoveredMode(value)}
-                onMouseLeave={() => setHoveredMode(null)}
-              >
-                <Icon size={16} isHovered={animateIcon} />
-              </button>
-            )
-          })}
-        </div>
-
-        {hasMetadataFilters ? (
-          <div className="mt-2 space-y-2">
-            {languageFilters.length > 0 ? (
-              <div
-                role="group"
-                aria-label={t('player.toc.languageFilterGroup')}
-                className="flex flex-wrap gap-1"
-              >
-                {languageFilters.map((filter) => {
-                  const selected = visibleLanguageIds.has(filter.id)
-                  return (
-                    <button
-                      key={filter.id}
-                      type="button"
-                      aria-pressed={selected}
-                      title={t('player.toc.languageFilterAria', { language: filter.label })}
-                      className={cn(
-                        TOC_FILTER_CHIP_CLASS,
-                        selected
-                          ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-                          : 'bg-[var(--color-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/80',
-                      )}
-                      onClick={() => {
-                        if (tocMultilingualEnabled) {
-                          if (selected && visibleLanguageIds.size === 1) setLanguageIds([])
-                          else setLanguageIds([filter.id])
-                        } else {
-                          toggleLanguageId(filter.id)
-                        }
-                      }}
-                    >
-                      {filter.label}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : null}
-
-            {tagFilters.length > 0 ? (
-              <div
-                role="group"
-                aria-label={t('player.toc.tagFilterGroup')}
-                className="flex flex-wrap gap-1"
-              >
-                {tagFilters.map((filter) => {
-                  const selected = visibleTagIds.has(filter.id)
-                  return (
-                    <button
-                      key={filter.id}
-                      type="button"
-                      aria-pressed={selected}
-                      title={t('player.toc.tagFilterAria', { tag: filter.label })}
-                      className={cn(
-                        TOC_FILTER_CHIP_CLASS,
-                        'max-w-full truncate',
-                        selected
-                          ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-                          : 'bg-[var(--color-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/80',
-                      )}
-                      onClick={() => toggleTagId(filter.id)}
-                    >
-                      {filter.label}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-
-      <ul
-        className="player-outline-list player-outline-list--fill"
-        role="listbox"
-        aria-label={t('player.toc.title')}
-      >
-        {entries.length === 0 ? (
-          <li className="px-2 py-4 text-center text-xs text-[var(--color-muted-foreground)]">
-            {emptyMessage}
-          </li>
-        ) : (
-          entries.map((row) => {
-            const active =
-              row.sourceIdx === currentSourceIdx && row.languageIndex === currentLanguageIndex
-            return (
-              <li key={row.key}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-current={active ? 'true' : undefined}
-                  aria-label={row.title}
-                  className={cn(
-                    'player-outline-list__item',
-                    active && 'player-outline-list__item--selected',
-                  )}
-                  onClick={() => onSelect(row.sourceIdx, row.languageIndex)}
-                >
-                  {row.showNumber ? `${tocDisplayNr(toc, row.sourceIdx)}. ` : ''}
-                  {row.title}
-                  {row.liked ? (
-                    <>
-                      {' '}
-                      <span aria-label={t('player.toc.liked')} className="text-[var(--color-danger)]">
-                        ♥
-                      </span>
-                    </>
-                  ) : null}
-                </button>
-              </li>
-            )
-          })
-        )}
-      </ul>
-    </nav>
+    <TocSidebar
+      toc={toc}
+      items={items}
+      currentSourceIdx={currentSourceIdx}
+      currentLanguageIndex={currentLanguageIndex}
+      onSelect={onSelect}
+      mode={mode}
+      onModeChange={setMode}
+      activeLanguageIds={activeLanguageIds}
+      onLanguageIdsChange={setLanguageIds}
+      activeTagIds={activeTagIds}
+      onTagIdsChange={(ids) => {
+        const next = new Set(ids)
+        for (const id of activeTagIds) if (!next.has(id)) toggleTagId(id)
+        for (const id of next) if (!activeTagIds.has(id)) toggleTagId(id)
+      }}
+      ariaLabel={t('player.toc.title')}
+    />
   )
 }

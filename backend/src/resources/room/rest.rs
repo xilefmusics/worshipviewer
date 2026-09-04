@@ -44,6 +44,7 @@ pub fn scope() -> Scope {
                 .service(get_pool_songs)
                 .service(add_queue_item)
                 .service(promote_queue_item)
+                .service(activate_pool_song)
                 .service(remove_queue_item)
                 .service(reorder_queue)
                 .service(close_room),
@@ -175,6 +176,7 @@ fn queue_from_player(player: &shared::player::Player, added_by: &str) -> Vec<Roo
                 song,
                 added_by: added_by.to_string(),
                 upvotes: 0,
+                played: false,
             })
         })
         .collect()
@@ -409,6 +411,7 @@ pub async fn add_queue_item(
                 song,
                 added_by: ctx.user.email.clone(),
                 upvotes: 0,
+                played: false,
             },
             request.revision,
         )
@@ -434,6 +437,28 @@ pub async fn promote_queue_item(
 ) -> Result<HttpResponse, AppError> {
     let (id, queue_id) = path.into_inner();
     svc.promote_queue_item(&id, &ctx.user.id, &team_ids(&ctx), &queue_id, body.revision)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/rooms/{id}/song-pool/songs/{song_id}/activate",
+    params(("id" = String, Path), ("song_id" = String, Path)),
+    request_body = RoomQueueRevision,
+    responses((status = 204), (status = 403, body = Problem, content_type = "application/problem+json"), (status = 404, body = Problem, content_type = "application/problem+json"), (status = 409, body = Problem, content_type = "application/problem+json")),
+    tag = "Rooms",
+    security(("SessionCookie" = []), ("SessionToken" = []))
+)]
+#[post("/{id}/song-pool/songs/{song_id}/activate")]
+pub async fn activate_pool_song(
+    svc: Data<RoomService>,
+    ctx: ReqData<AuthorizationContext>,
+    path: Path<(String, String)>,
+    body: Json<RoomQueueRevision>,
+) -> Result<HttpResponse, AppError> {
+    let (id, song_id) = path.into_inner();
+    svc.activate_pool_song(&id, &ctx.user.id, &team_ids(&ctx), &song_id, body.revision)
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }

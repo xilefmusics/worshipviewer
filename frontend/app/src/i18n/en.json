@@ -1302,6 +1302,7 @@
       "addedBy": "Added by {{name}}",
       "playNext": "Play next",
       "nextSong": "Next song",
+      "alreadyPlayed": "Already played",
       "activate": "Play {{title}} (position {{position}})",
       "promoted": "Song moved to the current player.",
       "remove": "Remove {{title}}",

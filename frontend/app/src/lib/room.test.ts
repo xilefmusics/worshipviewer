@@ -138,7 +138,7 @@ describe('rooms', () => {
 
   it('applies queue updates as revisioned room deltas', () => {
     const current = { id: 'r1', queue: [], revision: 4 } as unknown as RoomSnapshot
-    const queue = [{ id: 'q1', song_id: 's1', title: 'Song', added_by: 'Alex', upvotes: 0 }]
+    const queue = [{ id: 'q1', song_id: 's1', title: 'Song', added_by: 'Alex', upvotes: 0, played: true }]
     expect(applyRoomServerMessage(current, {
       type: 'queue_updated',
       queue: queue as never,

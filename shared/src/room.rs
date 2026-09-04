@@ -113,6 +113,8 @@ pub struct RoomQueueItem {
     pub added_by: String,
     #[serde(default)]
     pub upvotes: u64,
+    #[serde(default)]
+    pub played: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]

@@ -24,6 +24,7 @@ export type RoomQueueItem = {
   song: Extract<components['schemas']['PlayerItem'], { type: 'chords' }>
   added_by: string
   upvotes: number
+  played?: boolean
 }
 export type RoomParticipant = { id: string; mode: RoomMode; hide_chords?: boolean; display_name: string; avatar_url: string | null; anonymous: boolean; connected: boolean; is_host: boolean; is_av_host: boolean }
 export type RoomSummary = { id: string; name: string; team_id: string; source_type: RoomSourceType | null; source_id: string | null; source_title: string | null; song_pool?: RoomSongPool; open?: boolean; host_email: string; can_close?: boolean; participant_count: number; av_occupied: boolean; created_at: string }
@@ -142,6 +143,7 @@ async function roomMutation(path: string, init: RequestInit): Promise<void> {
 }
 export function addRoomQueueItem(roomId: string, songId: string, revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/queue`, { method: 'POST', body: JSON.stringify({ song_id: songId, revision }) }) }
 export function promoteRoomQueueItem(roomId: string, queueId: string, revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/queue/${encodeURIComponent(queueId)}/promote`, { method: 'POST', body: JSON.stringify({ revision }) }) }
+export function activateRoomPoolSong(roomId: string, songId: string, revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/song-pool/songs/${encodeURIComponent(songId)}/activate`, { method: 'POST', body: JSON.stringify({ revision }) }) }
 export function removeRoomQueueItem(roomId: string, queueId: string, revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/queue/${encodeURIComponent(queueId)}?revision=${encodeURIComponent(revision)}`, { method: 'DELETE' }) }
 export function reorderRoomQueue(roomId: string, queueIds: string[], revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/queue/order`, { method: 'PUT', body: JSON.stringify({ queue_ids: queueIds, revision }) }) }
 async function reconnectRoom(credentials: RoomCredentials): Promise<RoomCredentials> { const next = await jsonRequest<RoomCredentials>(`/api/v1/rooms/${encodeURIComponent(credentials.room_id)}/reconnect`, { method: 'POST', body: JSON.stringify({ mode: credentials.mode, resume_credential: credentials.resume_credential }) }); saveRoomCredentials(next); return next }
