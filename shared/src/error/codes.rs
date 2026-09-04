@@ -16,7 +16,6 @@ pub enum ErrorCode {
     NotAcceptable,
     /// `If-Match` precondition failed (optimistic concurrency).
     PreconditionFailed,
-    SongPoolUnavailable,
     Internal,
 }
 
@@ -34,7 +33,6 @@ impl ErrorCode {
             ErrorCode::TooManyRequests => "too_many_requests",
             ErrorCode::NotAcceptable => "not_acceptable",
             ErrorCode::PreconditionFailed => "precondition_failed",
-            ErrorCode::SongPoolUnavailable => "song_pool_unavailable",
             ErrorCode::Internal => "internal",
         }
     }
@@ -52,7 +50,6 @@ impl ErrorCode {
         "too_many_requests",
         "not_acceptable",
         "precondition_failed",
-        "song_pool_unavailable",
         "internal",
     ];
 }
@@ -86,7 +83,6 @@ mod tests {
             TooManyRequests,
             NotAcceptable,
             PreconditionFailed,
-            SongPoolUnavailable,
             Internal,
         ] {
             assert!(
@@ -113,7 +109,6 @@ mod tests {
                     ErrorCode::TooManyRequests,
                     ErrorCode::NotAcceptable,
                     ErrorCode::PreconditionFailed,
-                    ErrorCode::SongPoolUnavailable,
                     ErrorCode::Internal,
                 ]
                 .into_iter()

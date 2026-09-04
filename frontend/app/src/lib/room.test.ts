@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   applyRoomServerMessage,
   createRoom,
+  fetchRoomQueueLikes,
   playerFromRoom,
   roomShortName,
   readRoomCredentials,
@@ -85,6 +86,14 @@ describe('rooms', () => {
     expect(readRoomCredentials('r1')).toBeNull()
   })
 
+  it('fetches personal likes for the current room queue', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ song_ids: ['s1'] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetch)
+
+    await expect(fetchRoomQueueLikes('r1')).resolves.toEqual({ song_ids: ['s1'] })
+    expect(fetch).toHaveBeenCalledWith('/api/v1/rooms/r1/queue/likes', { credentials: 'include', signal: undefined })
+  })
+
   it('adapts content snapshots without importing host layout state', () => {
     const snapshot = { id: 'r1', name: 'Room', team_id: 't1', source_type: 'song', source_id: 's1', source_title: 'Song', host_email: 'h@example.com', participant_count: 1, av_occupied: false, created_at: new Date().toISOString(), content: { items: [{ type: 'blob', blob_id: 'b1' }], toc: [] }, queue: [], voted_queue_ids: [], musical_state: { item_index: 0, language: null, transposition: null }, projection: null, participants: [], revision: 1, host_lease_expires_at: new Date().toISOString() } as RoomSnapshot
     expect(playerFromRoom(snapshot)).toMatchObject({ index: 0, scroll_type: 'one_page', orientation: 'portrait', items: snapshot.content.items })
@@ -146,22 +155,19 @@ describe('rooms', () => {
     })).toEqual({ snapshot: { ...current, queue, revision: 5, voted_queue_ids: [] }, needsSnapshot: false })
   })
 
-  it('applies song pool updates as revisioned room deltas', () => {
+  it('applies queue access updates as revisioned room deltas', () => {
     const current = {
       id: 'r1',
-      song_pool: null,
       open: true,
       revision: 4,
     } as unknown as RoomSnapshot
     expect(applyRoomServerMessage(current, {
-      type: 'song_pool_updated',
-      song_pool: { type: 'setlist', id: 'sl1', title: 'Sunday' },
+      type: 'queue_access_updated',
       open: false,
       revision: 5,
     })).toEqual({
       snapshot: {
         ...current,
-        song_pool: { type: 'setlist', id: 'sl1', title: 'Sunday' },
         open: false,
         revision: 5,
       },

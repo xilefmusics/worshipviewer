@@ -61,8 +61,8 @@ mod room_http {
     use actix_web::{http::StatusCode, test};
     use serde::Deserialize;
     use shared::room::{
-        AddRoomQueueItem, CreateRoom, CreatedRoom, JoinRoom, RoomMode, RoomQueueRevision,
-        RoomSnapshot, RoomSongPool, RoomSongPoolSelection, RoomSourceType, UpdateRoomSongPool,
+        AddRoomQueueItem, CreateRoom, CreatedRoom, JoinRoom, RoomMode, RoomQueueLikes,
+        RoomQueueRevision, RoomSnapshot, RoomSourceType, UpdateRoomQueueAccess,
     };
     use shared::setlist::{CreateSetlist, SetlistItem, SongLink};
     use surrealdb::types::SurrealValue;
@@ -259,10 +259,9 @@ mod room_http {
         let initial: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
 
         let request = test::TestRequest::put()
-            .uri(&format!("/api/v1/rooms/{}/song-pool", created.room.id))
+            .uri(&format!("/api/v1/rooms/{}/queue-access", created.room.id))
             .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(UpdateRoomSongPool {
-                pool: None,
+            .set_json(UpdateRoomQueueAccess {
                 open: true,
                 revision: initial.revision,
             })
@@ -508,7 +507,7 @@ mod room_http {
     }
 
     #[actix_web::test]
-    async fn host_can_update_song_pool_and_participants_can_search_it() {
+    async fn queue_access_controls_library_additions_and_likes() {
         let db = test_db().await.unwrap();
         let fixture = TeamFixture::build(&db).await.unwrap();
         let host_token = create_session_token(&db, fixture.writer.clone())
@@ -517,7 +516,6 @@ mod room_http {
         let guest_token = create_session_token(&db, fixture.guest.clone())
             .await
             .unwrap();
-        let collection_id = ensure_test_collection(&db, &fixture.writer).await.unwrap();
         let song = create_song_with_title(&db, &fixture.writer, "Scoped room song")
             .await
             .unwrap();
@@ -528,7 +526,7 @@ mod room_http {
             .insert_header(("Authorization", format!("Bearer {host_token}")))
             .set_json(CreateRoom {
                 team_id: fixture.shared_team_id,
-                name: Some("Pool room".into()),
+                name: Some("Queue access room".into()),
                 source_type: None,
                 source_id: None,
             })
@@ -536,20 +534,24 @@ mod room_http {
         let created: CreatedRoom = test::call_and_read_body_json(&app, request).await;
 
         let request = test::TestRequest::put()
-            .uri(&format!("/api/v1/rooms/{}/song-pool", created.room.id))
+            .uri(&format!("/api/v1/rooms/{}/queue-access", created.room.id))
             .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(UpdateRoomSongPool {
-                pool: Some(RoomSongPoolSelection::Collection {
-                    id: collection_id.clone(),
-                }),
-                open: false,
-                revision: 1,
+            .set_json(UpdateRoomQueueAccess {
+                open: true,
+                revision: created.room.open.then_some(1).unwrap_or(1),
             })
             .to_request();
         assert_eq!(
             test::call_service(&app, request).await.status(),
             StatusCode::NO_CONTENT
         );
+
+        let request = test::TestRequest::get()
+            .uri(&format!("/api/v1/rooms/{}", created.room.id))
+            .insert_header(("Authorization", format!("Bearer {host_token}")))
+            .to_request();
+        let opened: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
+        assert!(opened.summary.open);
 
         let request = test::TestRequest::post()
             .uri(&format!("/api/v1/rooms/{}/join", created.room.id))
@@ -566,16 +568,23 @@ mod room_http {
         );
 
         let request = test::TestRequest::get()
-            .uri(&format!(
-                "/api/v1/rooms/{}/song-pool/songs?q=Scoped",
-                created.room.id
-            ))
-            .insert_header(("Authorization", format!("Bearer {guest_token}")))
+            .uri(&format!("/api/v1/rooms/{}", created.room.id))
+            .insert_header(("Authorization", format!("Bearer {host_token}")))
             .to_request();
-        let songs: Vec<shared::song::Song> = test::call_and_read_body_json(&app, request).await;
-        assert_eq!(songs.len(), 1);
-        assert_eq!(songs[0].id, song.id);
-        assert!(!songs[0].user_specific_addons.liked);
+        let opened: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
+
+        let request = test::TestRequest::post()
+            .uri(&format!("/api/v1/rooms/{}/queue", created.room.id))
+            .insert_header(("Authorization", format!("Bearer {host_token}")))
+            .set_json(AddRoomQueueItem {
+                song_id: song.id.clone(),
+                revision: opened.revision,
+            })
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::NO_CONTENT
+        );
 
         let request = test::TestRequest::put()
             .uri(&format!("/api/v1/songs/{}/like", song.id))
@@ -587,39 +596,30 @@ mod room_http {
         );
 
         let request = test::TestRequest::get()
-            .uri(&format!(
-                "/api/v1/rooms/{}/song-pool/songs",
-                created.room.id
-            ))
+            .uri(&format!("/api/v1/rooms/{}/queue/likes", created.room.id))
             .insert_header(("Authorization", format!("Bearer {host_token}")))
             .to_request();
-        let songs: Vec<shared::song::Song> = test::call_and_read_body_json(&app, request).await;
-        assert!(songs[0].user_specific_addons.liked);
+        let likes: RoomQueueLikes = test::call_and_read_body_json(&app, request).await;
+        assert_eq!(likes.song_ids, vec![song.id.clone()]);
 
         let request = test::TestRequest::get()
-            .uri(&format!(
-                "/api/v1/rooms/{}/song-pool/songs",
-                created.room.id
-            ))
+            .uri(&format!("/api/v1/rooms/{}/queue/likes", created.room.id))
             .insert_header(("Authorization", format!("Bearer {guest_token}")))
             .to_request();
-        let songs: Vec<shared::song::Song> = test::call_and_read_body_json(&app, request).await;
-        assert!(!songs[0].user_specific_addons.liked);
+        let likes: RoomQueueLikes = test::call_and_read_body_json(&app, request).await;
+        assert!(likes.song_ids.is_empty());
 
         let request = test::TestRequest::get()
             .uri(&format!("/api/v1/rooms/{}", created.room.id))
             .insert_header(("Authorization", format!("Bearer {host_token}")))
             .to_request();
         let snapshot: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-        let queue_id = snapshot.queue[0].id.clone();
 
-        let request = test::TestRequest::post()
-            .uri(&format!(
-                "/api/v1/rooms/{}/song-pool/songs/{}/activate",
-                created.room.id, song.id
-            ))
+        let request = test::TestRequest::put()
+            .uri(&format!("/api/v1/rooms/{}/queue-access", created.room.id))
             .insert_header(("Authorization", format!("Bearer {guest_token}")))
-            .set_json(RoomQueueRevision {
+            .set_json(UpdateRoomQueueAccess {
+                open: false,
                 revision: snapshot.revision,
             })
             .to_request();
@@ -628,13 +628,11 @@ mod room_http {
             StatusCode::FORBIDDEN
         );
 
-        let request = test::TestRequest::post()
-            .uri(&format!(
-                "/api/v1/rooms/{}/song-pool/songs/{}/activate",
-                created.room.id, song.id
-            ))
+        let request = test::TestRequest::put()
+            .uri(&format!("/api/v1/rooms/{}/queue-access", created.room.id))
             .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(RoomQueueRevision {
+            .set_json(UpdateRoomQueueAccess {
+                open: false,
                 revision: snapshot.revision,
             })
             .to_request();
@@ -643,85 +641,18 @@ mod room_http {
             StatusCode::NO_CONTENT
         );
 
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .to_request();
-        let activated: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-        assert_eq!(activated.musical_state.item_index, 0);
-        assert_eq!(activated.queue.len(), 1);
-        assert_ne!(activated.queue[0].id, queue_id);
-
         let request = test::TestRequest::post()
-            .uri(&format!(
-                "/api/v1/rooms/{}/song-pool/songs/not-in-pool/activate",
-                created.room.id
-            ))
+            .uri(&format!("/api/v1/rooms/{}/queue", created.room.id))
             .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(RoomQueueRevision {
-                revision: activated.revision,
+            .set_json(AddRoomQueueItem {
+                song_id: "disabled-song".into(),
+                revision: snapshot.revision + 1,
             })
             .to_request();
         assert_eq!(
             test::call_service(&app, request).await.status(),
             StatusCode::CONFLICT
         );
-
-        let request = test::TestRequest::post()
-            .uri(&format!(
-                "/api/v1/rooms/{}/song-pool/songs/{}/activate",
-                created.room.id, song.id
-            ))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(RoomQueueRevision {
-                revision: activated.revision - 1,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::CONFLICT
-        );
-
-        let request = test::TestRequest::put()
-            .uri(&format!("/api/v1/rooms/{}/song-pool", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {guest_token}")))
-            .set_json(UpdateRoomSongPool {
-                pool: None,
-                open: true,
-                revision: 2,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::FORBIDDEN
-        );
-
-        let request = test::TestRequest::get()
-            .uri(&format!(
-                "/api/v1/rooms/{}/song-pool/songs",
-                created.room.id
-            ))
-            .to_request();
-        use actix_web::dev::Service;
-        let status = match app.call(request).await {
-            Ok(response) => response.status(),
-            Err(error) => error.as_response_error().status_code(),
-        };
-        assert_eq!(status, StatusCode::UNAUTHORIZED);
-
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .to_request();
-        let snapshot: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-        assert_eq!(
-            snapshot.summary.song_pool,
-            Some(RoomSongPool::Collection {
-                id: collection_id,
-                title: "Test".into()
-            })
-        );
-        assert!(!snapshot.summary.open);
     }
 }
 

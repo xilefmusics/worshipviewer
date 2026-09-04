@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { RoomSongPoolControl } from '@/components/room/RoomSongPoolControl'
+import { RoomQueueAccessControl } from '@/components/room/RoomQueueAccessControl'
 import { PLAYER_TOC_WIDTH_CLASS } from '@/lib/player/player-chrome'
 import {
   formatRoomDuration,
@@ -23,7 +23,6 @@ type RoomSidebarProps = {
   onGuestsAllowedChange: (allowed: boolean) => void
   roomId: string
   revision: number
-  songPool?: import('@/lib/room').RoomSongPool
   open?: boolean
   inviteSecret: string | null
   onEndRoom?: () => void
@@ -41,7 +40,6 @@ export function RoomSidebar({
   onGuestsAllowedChange,
   roomId,
   revision,
-  songPool,
   open,
   inviteSecret,
   onEndRoom,
@@ -81,10 +79,9 @@ export function RoomSidebar({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
-        <RoomSongPoolControl
+        <RoomQueueAccessControl
           roomId={roomId}
           revision={revision}
-          songPool={songPool}
           open={open}
           isHost={isHost}
           className="mb-4 px-2"

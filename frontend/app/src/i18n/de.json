@@ -1253,20 +1253,15 @@
       "label": "Gäste erlauben",
       "copyDisabled": "Gästezugang aktivieren, um den Einladungslink zu kopieren."
     },
-    "songPool": {
-      "label": "Song-Pool",
-      "open": "Songs außerhalb dieses Pools erlauben",
-      "openDescription": "Mitglieder können auch Songs aus ihrer Bibliothek hinzufügen.",
-      "restrictedDescription": "Mitglieder können nur Songs aus diesem Pool hinzufügen.",
-      "none": "Kein Song-Pool ausgewählt",
-      "selectType": "Sammlung oder Setliste auswählen",
-      "select": "Song-Pool auswählen",
-      "collectionType": "Sammlung",
-      "setlistType": "Setliste",
-      "updated": "Song-Pool aktualisiert.",
-      "failed": "Song-Pool konnte nicht aktualisiert werden.",
-      "loadFailed": "Song-Pools konnten nicht geladen werden.",
-      "unavailable": "Dieser Song-Pool ist nicht mehr verfügbar. Wähle einen anderen Pool."
+    "queueAccess": {
+      "label": "Warteschlangenzugriff",
+      "allow": "Mitgliedern das Hinzufügen von Songs erlauben",
+      "allowed": "Mitglieder können Songs hinzufügen",
+      "disabled": "Neue Songs können nicht hinzugefügt werden",
+      "allowedDescription": "Mitglieder können Songs aus der Bibliothek hinzufügen.",
+      "disabledDescription": "Neue Bibliotheks-Songs sind deaktiviert. Vorhandene Songs bleiben verfügbar.",
+      "updated": "Warteschlangenzugriff aktualisiert.",
+      "failed": "Warteschlangenzugriff konnte nicht aktualisiert werden."
     },
     "participants": "Teilnehmende",
     "empty": "Keine aktiven Räume.",
@@ -1291,8 +1286,6 @@
     "queue": {
       "title": "Nächste Songs",
       "description": "Hier hinzugefügte Songs werden mit allen im Raum geteilt.",
-      "restrictedDescription": "Wähle Songs aus {{title}}.",
-      "noPoolDescription": "Wähle vor dem Hinzufügen einen Song-Pool aus.",
       "searchPlaceholder": "Eigene Songs suchen …",
       "searchAria": "Songs zum Hinzufügen suchen",
       "empty": "Keine Songs in der Warteschlange.",

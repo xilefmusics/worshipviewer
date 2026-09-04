@@ -2284,6 +2284,20 @@
         ],
         "type": "object"
       },
+      "RoomQueueLikes": {
+        "properties": {
+          "song_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "song_ids"
+        ],
+        "type": "object"
+      },
       "RoomQueueRevision": {
         "properties": {
           "revision": {
@@ -2362,94 +2376,6 @@
           }
         ]
       },
-      "RoomSongPool": {
-        "oneOf": [
-          {
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "title": {
-                "type": "string"
-              },
-              "type": {
-                "enum": [
-                  "collection"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "title",
-              "type"
-            ],
-            "type": "object"
-          },
-          {
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "title": {
-                "type": "string"
-              },
-              "type": {
-                "enum": [
-                  "setlist"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "title",
-              "type"
-            ],
-            "type": "object"
-          }
-        ]
-      },
-      "RoomSongPoolSelection": {
-        "oneOf": [
-          {
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "type": {
-                "enum": [
-                  "collection"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "type"
-            ],
-            "type": "object"
-          },
-          {
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "type": {
-                "enum": [
-                  "setlist"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "id",
-              "type"
-            ],
-            "type": "object"
-          }
-        ]
-      },
       "RoomSourceType": {
         "enum": [
           "song",
@@ -2485,16 +2411,6 @@
           "participant_count": {
             "minimum": 0,
             "type": "integer"
-          },
-          "song_pool": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/RoomSongPool"
-              }
-            ]
           },
           "source_id": {
             "type": [
@@ -3482,20 +3398,10 @@
         ],
         "type": "object"
       },
-      "UpdateRoomSongPool": {
+      "UpdateRoomQueueAccess": {
         "properties": {
           "open": {
             "type": "boolean"
-          },
-          "pool": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/RoomSongPoolSelection"
-              }
-            ]
           },
           "revision": {
             "format": "int64",
@@ -3504,6 +3410,7 @@
           }
         },
         "required": [
+          "open",
           "revision"
         ],
         "type": "object"
@@ -7412,6 +7319,135 @@
         ]
       }
     },
+    "/api/v1/rooms/{id}/queue-access": {
+      "put": {
+        "operationId": "update_queue_access",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoomQueueAccess"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Rooms"
+        ]
+      }
+    },
+    "/api/v1/rooms/{id}/queue/likes": {
+      "get": {
+        "operationId": "get_queue_likes",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomQueueLikes"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Rooms"
+        ]
+      }
+    },
     "/api/v1/rooms/{id}/queue/order": {
       "put": {
         "operationId": "reorder_queue",
@@ -7686,265 +7722,6 @@
             "description": ""
           }
         },
-        "tags": [
-          "Rooms"
-        ]
-      }
-    },
-    "/api/v1/rooms/{id}/song-pool": {
-      "put": {
-        "operationId": "update_song_pool",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateRoomSongPool"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": ""
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": ""
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          },
-          {
-            "SessionToken": []
-          }
-        ],
-        "tags": [
-          "Rooms"
-        ]
-      }
-    },
-    "/api/v1/rooms/{id}/song-pool/songs": {
-      "get": {
-        "operationId": "get_pool_songs",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "required": false,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "page_size",
-            "required": false,
-            "schema": {
-              "format": "int32",
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "q",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/Song"
-                  },
-                  "type": "array"
-                }
-              }
-            },
-            "description": ""
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": ""
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": ""
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": ""
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          },
-          {
-            "SessionToken": []
-          }
-        ],
-        "tags": [
-          "Rooms"
-        ]
-      }
-    },
-    "/api/v1/rooms/{id}/song-pool/songs/{song_id}/activate": {
-      "post": {
-        "operationId": "activate_pool_song",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "song_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RoomQueueRevision"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": ""
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": ""
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": ""
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          },
-          {
-            "SessionToken": []
-          }
-        ],
         "tags": [
           "Rooms"
         ]

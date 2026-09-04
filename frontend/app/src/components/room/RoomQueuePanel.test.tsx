@@ -6,9 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { components } from '@/api/schema'
 import { RoomQueuePanel } from '@/components/room/RoomQueuePanel'
 import {
-  activateRoomPoolSong,
   addRoomQueueItem,
-  fetchRoomPoolSongs,
+  fetchRoomQueueLikes,
   promoteRoomQueueItem,
   type RoomQueueItem,
 } from '@/lib/room'
@@ -32,9 +31,8 @@ vi.mock('@/lib/room', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/room')>()
   return {
     ...actual,
-    activateRoomPoolSong: vi.fn().mockResolvedValue(undefined),
     addRoomQueueItem: vi.fn().mockResolvedValue(undefined),
-    fetchRoomPoolSongs: vi.fn(),
+    fetchRoomQueueLikes: vi.fn().mockResolvedValue({ song_ids: [] }),
     promoteRoomQueueItem: vi.fn().mockResolvedValue(undefined),
   }
 })
@@ -103,6 +101,13 @@ describe('RoomQueuePanel', () => {
     expect(onVote).toHaveBeenCalledWith('q1', true)
   })
 
+  it('does not offer a personal Liked mode to anonymous guests', () => {
+    renderPanel({ canAdd: false })
+
+    expect(screen.queryByRole('radio', { name: 'player.toc.sortLiked' })).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'player.toc.sortAlphabetical' })).toBeInTheDocument()
+  })
+
   it('separates played songs in order mode and still allows them to be upvoted', () => {
     const onVote = vi.fn()
     const mixedQueue = [
@@ -166,43 +171,24 @@ describe('RoomQueuePanel', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 
-  it('shows the complete pool in alphabetical and liked modes', async () => {
-    vi.mocked(fetchRoomPoolSongs).mockResolvedValue({
-      items: [song('s1', 'Zion'), song('s3', 'Anchor', true)],
-      total: 2,
-    })
+  it('sorts the current queue alphabetically, including played songs', async () => {
     renderPanel({
       canAdd: true,
-      songPool: { type: 'collection', id: 'pool-1', title: 'Pool' },
       queue: queue.map((item, index) => ({ ...item, played: index === 1 })),
     })
 
-    await waitFor(() => expect(screen.getByRole('option', { name: 'rooms.queue.activate Anchor 1' })).toBeInTheDocument())
     await fireEvent.click(screen.getByRole('radio', { name: 'player.toc.sortAlphabetical' }))
     expect(screen.queryByRole('separator')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('option').map((row) => row.textContent?.trim())).toEqual(['2. Anchor ♥', '1. Zion'])
+    expect(screen.getAllByRole('option').map((row) => row.textContent?.trim())).toEqual(['1. Anchor', '2. Grace'])
+  })
+
+  it('filters the current queue to songs liked by the current user', async () => {
+    vi.mocked(fetchRoomQueueLikes).mockResolvedValue({ song_ids: ['s1'] })
+    renderPanel({ canAdd: true })
 
     await fireEvent.click(screen.getByRole('radio', { name: 'player.toc.sortLiked' }))
     expect(screen.queryByRole('separator')).not.toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'rooms.queue.activate Anchor 2' })).toHaveTextContent('Anchor')
-    expect(screen.queryByText('Zion')).not.toBeInTheDocument()
-  })
-
-  it('lets the host activate a pool song that is not currently queued', async () => {
-    vi.mocked(fetchRoomPoolSongs).mockResolvedValue({
-      items: [song('s1', 'Anchor'), song('s3', 'Pool Only')],
-      total: 2,
-    })
-    renderPanel({
-      canAdd: true,
-      canManage: true,
-      songPool: { type: 'collection', id: 'pool-1', title: 'Pool' },
-    })
-
-    await waitFor(() => expect(screen.getByRole('option', { name: 'rooms.queue.activate Pool Only 3' })).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('option', { name: 'rooms.queue.activate Pool Only 3' }))
-
-    await waitFor(() => expect(activateRoomPoolSong).toHaveBeenCalledWith('room-1', 's3', 4))
-    expect(promoteRoomQueueItem).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByRole('option', { name: 'rooms.queue.activate Anchor 1' })).toHaveTextContent('Anchor'))
+    expect(screen.queryByText('Grace')).not.toBeInTheDocument()
   })
 })

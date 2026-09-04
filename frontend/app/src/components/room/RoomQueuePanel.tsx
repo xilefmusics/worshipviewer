@@ -1,5 +1,5 @@
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -8,14 +8,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { TocSidebar } from '@/components/player/TocSidebar'
 import { useOnline } from '@/hooks/use-online'
-import { getNextPageIndex } from '@/lib/list-pagination'
 import {
-  activateRoomPoolSong,
   addRoomQueueItem,
-  fetchRoomPoolSongs,
+  fetchRoomQueueLikes,
   promoteRoomQueueItem,
   type RoomQueueItem,
-  type RoomSongPool,
 } from '@/lib/room'
 import type { TocDisplayMode } from '@/lib/player/toc-display'
 import type { components } from '@/api/schema'
@@ -29,7 +26,6 @@ type Props = {
   canAdd: boolean
   canManage: boolean
   onVote: (queueId: string, upvoted: boolean) => void
-  songPool?: RoomSongPool
   open?: boolean
   currentSongId?: string | null
   className?: string
@@ -41,10 +37,6 @@ type QueueDisplaySong = { id: string; song: Song; liked: boolean; title: string;
 
 function songTitle(song: Song): string {
   return song.data.titles?.find((title) => title.trim()) ?? song.id
-}
-
-function itemForSong(song: Song): PlayerItem {
-  return { type: 'chords', song: { ...song }, language: null, flow: null }
 }
 
 function tocForSong(song: Song, index: number): TocItem {
@@ -74,7 +66,6 @@ export function RoomQueuePanel({
   canAdd,
   canManage,
   onVote,
-  songPool,
   open = false,
   currentSongId,
   className,
@@ -94,61 +85,24 @@ export function RoomQueuePanel({
     queryFn: ({ signal }) => fetchSongsPage(queryClient, { page: 0, q: search.trim(), signal }),
     staleTime: 30_000,
   })
-  const poolQuery = useInfiniteQuery({
-    queryKey: ['room-song-pool-songs', roomId, songPool?.type, songPool?.id],
-    enabled: canAdd && online && songPool != null,
-    initialPageParam: 0,
+  const queueLikesQuery = useQuery({
+    queryKey: ['room-queue-liked-song-ids', roomId, queue.map((item) => item.song_id).join(',')],
+    enabled: canAdd && online && queue.length > 0,
     staleTime: 30_000,
-    queryFn: ({ pageParam, signal }) => fetchRoomPoolSongs(roomId, { page: pageParam as number, q: '', signal }),
-    getNextPageParam: (_last, allPages) => getNextPageIndex(allPages),
+    queryFn: ({ signal }) => fetchRoomQueueLikes(roomId, { signal }),
   })
-  const { fetchNextPage, hasNextPage, isFetchingNextPage } = poolQuery
-
-  useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage) void fetchNextPage()
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage])
-
-  const poolSongs = useMemo(() => (poolQuery.data?.pages ?? []).flatMap((page) => page.items), [poolQuery.data?.pages])
-  const likedBySongId = useMemo(() => new Map(poolSongs.map((song) => [song.id, song.user_specific_addons.liked])), [poolSongs])
+  const likedSongIds = useMemo(() => new Set(queueLikesQuery.data?.song_ids ?? []), [queueLikesQuery.data?.song_ids])
   const queuedBySongId = useMemo(() => new Map(queue.map((item) => [item.song_id, item])), [queue])
   const queuedSongIds = useMemo(() => new Set(queue.map((item) => item.song_id)), [queue])
-  const orderSongs = useMemo(() => {
-    const queuedSongs: QueueDisplaySong[] = queue.map((item) => ({
+  const visibleSongs = useMemo(() => queue.map((item): QueueDisplaySong => ({
       id: item.song_id,
       song: item.song.song,
-      liked: likedBySongId.get(item.song_id) ?? false,
+      liked: likedSongIds.has(item.song_id),
       title: item.title,
       played: item.played === true,
-    }))
-    const seen = new Set(queuedSongs.map((song) => song.id))
-    const poolOnly: QueueDisplaySong[] = []
-    for (const song of poolSongs) {
-      if (seen.has(song.id)) continue
-      seen.add(song.id)
-      poolOnly.push({ id: song.id, song, liked: song.user_specific_addons.liked, title: songTitle(song), played: false })
-    }
-    return [
-      ...queuedSongs.filter((song) => !song.played),
-      ...poolOnly,
-      ...queuedSongs.filter((song) => song.played),
-    ]
-  }, [likedBySongId, poolSongs, queue])
-  const poolModeSongs = useMemo(
-    () => poolSongs.map((song) => ({
-      id: song.id,
-      song,
-      liked: song.user_specific_addons.liked,
-      title: songTitle(song),
-      played: queuedBySongId.get(song.id)?.played === true,
-    })),
-    [poolSongs, queuedBySongId],
-  )
-  const visibleSongs = mode === 'order' ? orderSongs : poolModeSongs
+    })), [likedSongIds, queue])
   const toc = useMemo(() => visibleSongs.map((song, index) => tocForSong({ ...song.song, user_specific_addons: { ...song.song.user_specific_addons, liked: song.liked } }, index)), [visibleSongs])
-  const items = useMemo(() => visibleSongs.map((song) => {
-    const queued = queuedBySongId.get(song.id)
-    return queued ? itemForQueue(queued, song.liked) : itemForSong({ ...song.song, user_specific_addons: { ...song.song.user_specific_addons, liked: song.liked } })
-  }), [queuedBySongId, visibleSongs])
+  const items = useMemo(() => visibleSongs.map((song) => itemForQueue(queuedBySongId.get(song.id)!, song.liked)), [queuedBySongId, visibleSongs])
   const votedIds = useMemo(() => new Set(votedQueueIds), [votedQueueIds])
 
   const runMutation = async (id: string, action: () => Promise<void>, successKey: string) => {
@@ -169,11 +123,10 @@ export function RoomQueuePanel({
     onVote(item.id, !votedIds.has(item.id))
   }
 
-  const showPoolStatus = poolQuery.isFetching || Boolean(poolQuery.error)
-  const footer = canAdd && (open || showPoolStatus) ? (
+  const footer = canAdd && open ? (
     <div className="relative shrink-0 border-t border-[var(--color-border)] p-2">
-      {poolQuery.isFetching || searchQuery.isFetching ? <p className="mb-2 px-2 text-xs text-[var(--color-muted-foreground)]">{t('common.load')}</p> : null}
-      {poolQuery.error || searchQuery.error ? <p className="mb-2 px-2 text-xs text-[var(--color-destructive)]">{t('rooms.queue.failed')}</p> : null}
+      {searchQuery.isFetching ? <p className="mb-2 px-2 text-xs text-[var(--color-muted-foreground)]">{t('common.load')}</p> : null}
+      {searchQuery.error ? <p className="mb-2 px-2 text-xs text-[var(--color-destructive)]">{t('rooms.queue.failed')}</p> : null}
       {searchQuery.data?.items.length ? (
         <ul className="mb-2 max-h-48 space-y-1 overflow-y-auto">
           {searchQuery.data.items.filter((song) => !song.not_a_song).map((song) => {
@@ -199,6 +152,7 @@ export function RoomQueuePanel({
       items={items}
       mode={mode}
       onModeChange={setMode}
+      displayModes={canAdd ? undefined : ['order', 'alphabetical']}
       activeLanguageIds={activeLanguageIds}
       onLanguageIdsChange={(ids) => setActiveLanguageIds(new Set(ids))}
       activeTagIds={activeTagIds}
@@ -208,9 +162,7 @@ export function RoomQueuePanel({
         const songId = toc[sourceIdx]?.id
         if (!songId) return
         const queued = queuedBySongId.get(songId)
-        void runMutation(songId, () => queued
-          ? promoteRoomQueueItem(roomId, queued.id, revision)
-          : activateRoomPoolSong(roomId, songId, revision), 'rooms.queue.promoted')
+        if (queued) void runMutation(songId, () => promoteRoomQueueItem(roomId, queued.id, revision), 'rooms.queue.promoted')
       }}
       currentLanguageIndex={null}
       isEntryActive={(entry) => toc[entry.sourceIdx]?.id === currentSongId}
@@ -249,7 +201,7 @@ export function RoomQueuePanel({
           </button>
         )
       }}
-      emptyMessage={mode === 'order' && !songPool && queue.length === 0 ? t('rooms.queue.empty') : undefined}
+      emptyMessage={mode === 'order' && queue.length === 0 ? t('rooms.queue.empty') : undefined}
       footer={footer}
       className={className}
       ariaLabel={t('rooms.queue.title')}

@@ -12,7 +12,6 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 - Two Zeltlager background presets for AV-mode lyric projection.
 - Rooms for synchronized Sheet, AV, and Slide participants across devices, including anonymous invite links and reconnecting presence.
 - Three-panel Rooms with a shared next-song queue, authenticated participant song sharing, and host queue management.
-- Host-configurable Room song pools for collections and setlists, with a separate option to allow members to add songs from their wider libraries.
 - Played-state sections in Room queues, with re-upvoted songs returning to the upcoming ranking.
 - `./scripts/verify-ci.sh` — one-shot local run of CI-equivalent checks (fmt, audit, tests, OpenAPI, frontend build).
 - `backend/.cargo/audit.toml` — documents ignored transitive `rsa` advisory (no upstream fix).
@@ -25,6 +24,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Changed
 
+- Room queue browsing now uses the current queue for order, A–Z, and personal Liked views; hosts control whether members may add new library songs.
 - `openapi-sync.mjs` resolves canonical OpenAPI from repo root (`docs/openapi.json`).
 - Backend CI `cargo audit` runs per-crate (`cd … && cargo audit`) — compatible with cargo-audit 0.22+.
 - OpenAPI Problem type documentation references [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) (successor to RFC 7807).

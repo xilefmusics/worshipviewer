@@ -1253,20 +1253,15 @@
       "label": "Allow guests",
       "copyDisabled": "Enable guest access to copy the invite link."
     },
-    "songPool": {
-      "label": "Song pool",
-      "open": "Allow songs outside this pool",
-      "openDescription": "Members can also add songs from their library.",
-      "restrictedDescription": "Members can add songs from this pool only.",
-      "none": "No song pool selected",
-      "selectType": "Select Collection or Setlist",
-      "select": "Select a song pool",
-      "collectionType": "Collection",
-      "setlistType": "Setlist",
-      "updated": "Song pool updated.",
-      "failed": "Song pool update failed.",
-      "loadFailed": "Could not load song pools.",
-      "unavailable": "This song pool is no longer available. Choose another pool."
+    "queueAccess": {
+      "label": "Queue access",
+      "allow": "Allow members to add songs",
+      "allowed": "Members can add songs",
+      "disabled": "New additions are disabled",
+      "allowedDescription": "Members can add songs from the library.",
+      "disabledDescription": "New library additions are disabled. Existing queue songs remain available.",
+      "updated": "Queue access updated.",
+      "failed": "Queue access update failed."
     },
     "participants": "participants",
     "empty": "No active Rooms.",
@@ -1291,8 +1286,6 @@
     "queue": {
       "title": "Next songs",
       "description": "Songs added here are shared with everyone in the room.",
-      "restrictedDescription": "Choose songs from {{title}}.",
-      "noPoolDescription": "Select a song pool before adding songs.",
       "searchPlaceholder": "Search your songs…",
       "searchAria": "Search songs to add to the queue",
       "empty": "No songs are queued.",

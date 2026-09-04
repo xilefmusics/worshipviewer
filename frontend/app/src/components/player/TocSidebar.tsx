@@ -22,6 +22,7 @@ export type TocSidebarProps = {
   onSelect: (sourceIdx: number, languageIndex: number | null) => void
   mode: TocDisplayMode
   onModeChange: (mode: TocDisplayMode) => void
+  displayModes?: readonly TocDisplayMode[]
   activeLanguageIds: ReadonlySet<string>
   onLanguageIdsChange: (ids: readonly string[]) => void
   activeTagIds: ReadonlySet<string>
@@ -49,6 +50,7 @@ export function TocSidebar({
   onSelect,
   mode,
   onModeChange,
+  displayModes,
   activeLanguageIds,
   onLanguageIdsChange,
   activeTagIds,
@@ -104,7 +106,7 @@ export function TocSidebar({
     >
       <div className="shrink-0 border-b border-[var(--color-border)] p-2">
         <div role="radiogroup" aria-label={t('player.toc.sortGroup')} className="flex gap-1">
-          {MODES.map((value) => {
+          {(displayModes ?? MODES).map((value) => {
             const selected = mode === value
             const Icon = MODE_ICONS[value]
             return (

@@ -4,8 +4,6 @@ import type { components } from '@/api/schema'
 
 export type RoomMode = 'sheet' | 'av' | 'slide'
 export type RoomSourceType = 'song' | 'collection' | 'setlist'
-export type RoomSongPool = components['schemas']['RoomSongPool']
-export type RoomSongPoolSelection = components['schemas']['RoomSongPoolSelection']
 export type RoomMusicalState = { item_index: number; language: string | null; transposition: string | null }
 export type RoomProjection = {
   content_text: string
@@ -27,7 +25,7 @@ export type RoomQueueItem = {
   played?: boolean
 }
 export type RoomParticipant = { id: string; mode: RoomMode; hide_chords?: boolean; display_name: string; avatar_url: string | null; anonymous: boolean; connected: boolean; is_host: boolean; is_av_host: boolean }
-export type RoomSummary = { id: string; name: string; team_id: string; source_type: RoomSourceType | null; source_id: string | null; source_title: string | null; song_pool?: RoomSongPool; open?: boolean; host_email: string; can_close?: boolean; participant_count: number; av_occupied: boolean; created_at: string }
+export type RoomSummary = { id: string; name: string; team_id: string; source_type: RoomSourceType | null; source_id: string | null; source_title: string | null; open?: boolean; host_email: string; can_close?: boolean; participant_count: number; av_occupied: boolean; created_at: string }
 export type RoomSnapshot = RoomSummary & { content: { items: components['schemas']['Player']['items']; toc: components['schemas']['Player']['toc'] }; queue: RoomQueueItem[]; voted_queue_ids: string[]; musical_state: RoomMusicalState; projection: RoomProjection | null; participants: RoomParticipant[]; revision: number; host_lease_expires_at: string; guests_allowed?: boolean }
 export type RoomCredentials = { room_id: string; participant_id: string; mode: RoomMode; resume_credential: string; connection_ticket: string }
 export type CreatedRoom = { room: RoomSummary; credentials: RoomCredentials; invite_secret: string }
@@ -38,7 +36,7 @@ export type RoomServerMessage =
   | { type: 'projection_updated'; projection: RoomProjection; revision: number }
   | { type: 'queue_updated'; queue: RoomQueueItem[]; revision: number }
   | { type: 'guests_allowed_updated'; guests_allowed: boolean; revision: number }
-  | { type: 'song_pool_updated'; song_pool: RoomSongPool | null; open: boolean; revision: number }
+  | { type: 'queue_access_updated'; open: boolean; revision: number }
   | { type: 'participants_changed'; participants: RoomParticipant[]; participant_count: number; av_occupied: boolean; revision: number }
   | { type: 'command_accepted'; command_id: string; revision: number; queue_id?: string; upvoted?: boolean }
   | { type: 'command_rejected'; command_id: string; reason: string; revision: number }
@@ -121,17 +119,15 @@ export async function joinRoom(roomId: string, mode: RoomMode, hideChords = fals
 export async function inspectRoomInvite(inviteSecret: string): Promise<{ room_id: string; name: string; host_email: string; av_occupied: boolean; guests_allowed?: boolean }> { return jsonRequest('/api/v1/rooms/invite/inspect', { method: 'POST', body: JSON.stringify({ invite_secret: inviteSecret }) }) }
 export async function joinRoomInvite(input: { invite_secret: string; display_name: string; mode: RoomMode; hide_chords?: boolean }): Promise<RoomCredentials> { const credentials = await jsonRequest<RoomCredentials>('/api/v1/rooms/invite/join', { method: 'POST', body: JSON.stringify({ hide_chords: false, ...input }) }); saveRoomCredentials(credentials); return credentials }
 export async function endRoom(roomId: string): Promise<void> { const response = await fetch(`${apiBase}/api/v1/rooms/${encodeURIComponent(roomId)}`, { method: 'DELETE', credentials: 'include' }); if (!response.ok) throw new Error(response.status === 403 ? 'room_forbidden' : 'room_unavailable') }
-export function updateRoomSongPool(roomId: string, pool: RoomSongPoolSelection | null, open: boolean, revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/song-pool`, { method: 'PUT', body: JSON.stringify({ pool, open, revision }) }) }
-export async function fetchRoomPoolSongs(roomId: string, query: { page: number; q: string; signal?: AbortSignal }): Promise<{ items: components['schemas']['Song'][]; total: number }> {
-  const params = new URLSearchParams({ page: String(query.page), page_size: '50' })
-  if (query.q.trim()) params.set('q', query.q.trim())
-  const response = await fetch(`${apiBase}/api/v1/rooms/${encodeURIComponent(roomId)}/song-pool/songs?${params}`, { credentials: 'include', signal: query.signal })
+export function updateRoomQueueAccess(roomId: string, open: boolean, revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/queue-access`, { method: 'PUT', body: JSON.stringify({ open, revision }) }) }
+export async function fetchRoomQueueLikes(roomId: string, options: { signal?: AbortSignal } = {}): Promise<{ song_ids: string[] }> {
+  const response = await fetch(`${apiBase}/api/v1/rooms/${encodeURIComponent(roomId)}/queue/likes`, { credentials: 'include', signal: options.signal })
   if (!response.ok) {
     const problem = await response.clone().json().catch(async () => ({ detail: await response.text().catch(() => '') }))
-    const code = problem && typeof problem === 'object' && 'code' in problem ? String(problem.code) : response.status === 409 ? 'song_pool_unavailable' : 'room_unavailable'
+    const code = problem && typeof problem === 'object' && 'code' in problem ? String(problem.code) : 'room_unavailable'
     throw new Error(code)
   }
-  return { items: await response.json() as components['schemas']['Song'][], total: Number(response.headers.get('x-total-count') ?? 0) }
+  return await response.json() as { song_ids: string[] }
 }
 async function roomMutation(path: string, init: RequestInit): Promise<void> {
   const response = await fetch(`${apiBase}${path}`, { credentials: 'include', ...init, headers: { 'Content-Type': 'application/json', ...init.headers } })
@@ -143,7 +139,6 @@ async function roomMutation(path: string, init: RequestInit): Promise<void> {
 }
 export function addRoomQueueItem(roomId: string, songId: string, revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/queue`, { method: 'POST', body: JSON.stringify({ song_id: songId, revision }) }) }
 export function promoteRoomQueueItem(roomId: string, queueId: string, revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/queue/${encodeURIComponent(queueId)}/promote`, { method: 'POST', body: JSON.stringify({ revision }) }) }
-export function activateRoomPoolSong(roomId: string, songId: string, revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/song-pool/songs/${encodeURIComponent(songId)}/activate`, { method: 'POST', body: JSON.stringify({ revision }) }) }
 export function removeRoomQueueItem(roomId: string, queueId: string, revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/queue/${encodeURIComponent(queueId)}?revision=${encodeURIComponent(revision)}`, { method: 'DELETE' }) }
 export function reorderRoomQueue(roomId: string, queueIds: string[], revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/queue/order`, { method: 'PUT', body: JSON.stringify({ queue_ids: queueIds, revision }) }) }
 async function reconnectRoom(credentials: RoomCredentials): Promise<RoomCredentials> { const next = await jsonRequest<RoomCredentials>(`/api/v1/rooms/${encodeURIComponent(credentials.room_id)}/reconnect`, { method: 'POST', body: JSON.stringify({ mode: credentials.mode, resume_credential: credentials.resume_credential }) }); saveRoomCredentials(next); return next }
@@ -208,8 +203,8 @@ export function applyRoomServerMessage(
       return { snapshot: { ...current, projection: message.projection, revision: message.revision }, needsSnapshot: false }
     case 'guests_allowed_updated':
       return { snapshot: { ...current, guests_allowed: message.guests_allowed, revision: message.revision }, needsSnapshot: false }
-    case 'song_pool_updated':
-      return { snapshot: { ...current, song_pool: message.song_pool ?? undefined, open: message.open, revision: message.revision }, needsSnapshot: false }
+    case 'queue_access_updated':
+      return { snapshot: { ...current, open: message.open, revision: message.revision }, needsSnapshot: false }
     case 'queue_updated':
       return {
         snapshot: {

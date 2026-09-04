@@ -14,32 +14,6 @@ pub enum RoomSourceType {
     Setlist,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(tag = "type", rename_all = "snake_case")]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub enum RoomSongPool {
-    Collection { id: String, title: String },
-    Setlist { id: String, title: String },
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(tag = "type", rename_all = "snake_case")]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub enum RoomSongPoolSelection {
-    Collection { id: String },
-    Setlist { id: String },
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct UpdateRoomSongPool {
-    #[serde(default)]
-    pub pool: Option<RoomSongPoolSelection>,
-    #[serde(default = "default_song_pool_open")]
-    pub open: bool,
-    pub revision: u64,
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
@@ -117,6 +91,12 @@ pub struct RoomQueueItem {
     pub played: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct RoomQueueLikes {
+    pub song_ids: Vec<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct RoomParticipant {
@@ -141,9 +121,7 @@ pub struct RoomSummary {
     pub source_type: Option<RoomSourceType>,
     pub source_id: Option<String>,
     pub source_title: Option<String>,
-    #[serde(default)]
-    pub song_pool: Option<RoomSongPool>,
-    #[serde(default = "default_song_pool_open")]
+    #[serde(default = "default_room_open")]
     pub open: bool,
     pub host_email: String,
     #[serde(default)]
@@ -179,6 +157,13 @@ pub struct AddRoomQueueItem {
     pub revision: u64,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct UpdateRoomQueueAccess {
+    pub open: bool,
+    pub revision: u64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct ReorderRoomQueue {
@@ -196,7 +181,7 @@ fn default_guests_allowed() -> bool {
     true
 }
 
-fn default_song_pool_open() -> bool {
+fn default_room_open() -> bool {
     true
 }
 
@@ -306,30 +291,7 @@ mod tests {
     }
 
     #[test]
-    fn song_pool_values_roundtrip_with_tagged_json() {
-        let pool = RoomSongPool::Collection {
-            id: "collection-1".into(),
-            title: "Sunday songs".into(),
-        };
-        let json = serde_json::to_string(&pool).expect("song pool JSON");
-        assert_eq!(
-            json,
-            r#"{"type":"collection","id":"collection-1","title":"Sunday songs"}"#
-        );
-        assert_eq!(serde_json::from_str::<RoomSongPool>(&json).unwrap(), pool);
-
-        let selection = RoomSongPoolSelection::Setlist {
-            id: "setlist-1".into(),
-        };
-        assert_eq!(
-            serde_json::from_str::<RoomSongPoolSelection>(r#"{"type":"setlist","id":"setlist-1"}"#)
-                .unwrap(),
-            selection
-        );
-    }
-
-    #[test]
-    fn older_room_summaries_default_to_open_song_pool() {
+    fn older_room_summaries_default_to_open_queue_access() {
         let json = r#"{
             "id":"room-1","name":"Room","team_id":"team-1",
             "source_type":null,"source_id":null,"source_title":null,
@@ -338,7 +300,6 @@ mod tests {
             "created_at":"2026-01-01T00:00:00Z"
         }"#;
         let summary: RoomSummary = serde_json::from_str(json).unwrap();
-        assert_eq!(summary.song_pool, None);
         assert!(summary.open);
     }
 }

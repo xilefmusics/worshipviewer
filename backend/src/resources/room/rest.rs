@@ -40,11 +40,10 @@ pub fn scope() -> Scope {
                 .service(create_room)
                 .service(get_room)
                 .service(join_room)
-                .service(update_song_pool)
-                .service(get_pool_songs)
+                .service(update_queue_access)
+                .service(get_queue_likes)
                 .service(add_queue_item)
                 .service(promote_queue_item)
-                .service(activate_pool_song)
                 .service(remove_queue_item)
                 .service(reorder_queue)
                 .service(close_room),
@@ -53,46 +52,26 @@ pub fn scope() -> Scope {
 
 #[utoipa::path(
     put,
-    path = "/api/v1/rooms/{id}/song-pool",
+    path = "/api/v1/rooms/{id}/queue-access",
     params(("id" = String, Path)),
-    request_body = UpdateRoomSongPool,
+    request_body = UpdateRoomQueueAccess,
     responses((status = 204), (status = 403, body = Problem, content_type = "application/problem+json"), (status = 404, body = Problem, content_type = "application/problem+json"), (status = 409, body = Problem, content_type = "application/problem+json")),
     tag = "Rooms",
     security(("SessionCookie" = []), ("SessionToken" = []))
 )]
-#[put("/{id}/song-pool")]
-pub async fn update_song_pool(
+#[put("/{id}/queue-access")]
+pub async fn update_queue_access(
     room_svc: Data<RoomService>,
-    collection_svc: Data<CollectionServiceHandle>,
-    setlist_svc: Data<SetlistServiceHandle>,
     ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
-    body: Json<UpdateRoomSongPool>,
+    body: Json<UpdateRoomQueueAccess>,
 ) -> Result<HttpResponse, AppError> {
     let request = body.into_inner();
-    let pool = match request.pool {
-        None => None,
-        Some(RoomSongPoolSelection::Collection { id }) => {
-            let source = collection_svc.get_collection_for_user(&ctx, &id).await?;
-            Some(RoomSongPool::Collection {
-                id: source.id,
-                title: source.title,
-            })
-        }
-        Some(RoomSongPoolSelection::Setlist { id }) => {
-            let source = setlist_svc.get_setlist_for_user(&ctx, &id).await?;
-            Some(RoomSongPool::Setlist {
-                id: source.id,
-                title: source.title,
-            })
-        }
-    };
     room_svc
-        .set_song_pool(
+        .set_queue_access(
             &id,
             &ctx.user.id,
             &team_ids(&ctx),
-            pool,
             request.open,
             request.revision,
         )
@@ -102,29 +81,23 @@ pub async fn update_song_pool(
 
 #[utoipa::path(
     get,
-    path = "/api/v1/rooms/{id}/song-pool/songs",
-    params(("id" = String, Path), ("page" = Option<u32>, Query), ("page_size" = Option<u32>, Query), ("q" = Option<String>, Query)),
-    responses((status = 200, body = [crate::resources::song::Song]), (status = 400, body = Problem, content_type = "application/problem+json"), (status = 401, body = Problem, content_type = "application/problem+json"), (status = 404, body = Problem, content_type = "application/problem+json"), (status = 409, body = Problem, content_type = "application/problem+json")),
+    path = "/api/v1/rooms/{id}/queue/likes",
+    params(("id" = String, Path)),
+    responses((status = 200, body = RoomQueueLikes), (status = 401, body = Problem, content_type = "application/problem+json"), (status = 404, body = Problem, content_type = "application/problem+json")),
     tag = "Rooms",
     security(("SessionCookie" = []), ("SessionToken" = []))
 )]
-#[get("/{id}/song-pool/songs")]
-pub async fn get_pool_songs(
+#[get("/{id}/queue/likes")]
+pub async fn get_queue_likes(
     room_svc: Data<RoomService>,
     ctx: ReqData<AuthorizationContext>,
     id: Path<String>,
-    query: Query<ListQuery>,
 ) -> Result<HttpResponse, AppError> {
-    let query = query
-        .into_inner()
-        .validate()
-        .map_err(crate::error::map_list_query_error)?;
-    let (songs, total) = room_svc
-        .pool_songs(&id, &ctx.user.id, &team_ids(&ctx), &query)
-        .await?;
-    Ok(HttpResponse::Ok()
-        .insert_header(("X-Total-Count", total.to_string()))
-        .json(songs))
+    Ok(HttpResponse::Ok().json(
+        room_svc
+            .queue_likes(&id, &ctx.user.id, &team_ids(&ctx))
+            .await?,
+    ))
 }
 
 fn team_ids(ctx: &AuthorizationContext) -> Vec<String> {
@@ -375,17 +348,12 @@ pub async fn add_queue_item(
     body: Json<AddRoomQueueItem>,
 ) -> Result<HttpResponse, AppError> {
     let request = body.into_inner();
-    let player = match room_svc
-        .room_song_player(&id, &ctx.user.id, &team_ids(&ctx), &request.song_id)
-        .await?
-    {
-        Some(player) => player,
-        None => {
-            song_svc
-                .song_player_for_user(&ctx, &request.song_id)
-                .await?
-        }
-    };
+    room_svc
+        .ensure_queue_additions_allowed(&id, &ctx.user.id, &team_ids(&ctx))
+        .await?;
+    let player = song_svc
+        .song_player_for_user(&ctx, &request.song_id)
+        .await?;
     let content = RoomContent::from(&player);
     let Some(PlayerItem::Chords(song)) = content.items.into_iter().next() else {
         return Err(AppError::invalid_request(
@@ -437,28 +405,6 @@ pub async fn promote_queue_item(
 ) -> Result<HttpResponse, AppError> {
     let (id, queue_id) = path.into_inner();
     svc.promote_queue_item(&id, &ctx.user.id, &team_ids(&ctx), &queue_id, body.revision)
-        .await?;
-    Ok(HttpResponse::NoContent().finish())
-}
-
-#[utoipa::path(
-    post,
-    path = "/api/v1/rooms/{id}/song-pool/songs/{song_id}/activate",
-    params(("id" = String, Path), ("song_id" = String, Path)),
-    request_body = RoomQueueRevision,
-    responses((status = 204), (status = 403, body = Problem, content_type = "application/problem+json"), (status = 404, body = Problem, content_type = "application/problem+json"), (status = 409, body = Problem, content_type = "application/problem+json")),
-    tag = "Rooms",
-    security(("SessionCookie" = []), ("SessionToken" = []))
-)]
-#[post("/{id}/song-pool/songs/{song_id}/activate")]
-pub async fn activate_pool_song(
-    svc: Data<RoomService>,
-    ctx: ReqData<AuthorizationContext>,
-    path: Path<(String, String)>,
-    body: Json<RoomQueueRevision>,
-) -> Result<HttpResponse, AppError> {
-    let (id, song_id) = path.into_inner();
-    svc.activate_pool_song(&id, &ctx.user.id, &team_ids(&ctx), &song_id, body.revision)
         .await?;
     Ok(HttpResponse::NoContent().finish())
 }

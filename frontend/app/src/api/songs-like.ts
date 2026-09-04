@@ -50,6 +50,7 @@ function reconcileCachedLike(queryClient: QueryClient, songId: string, liked: bo
         }
       : song,
   )
+  void queryClient.invalidateQueries({ queryKey: ['room-queue-liked-song-ids'] })
 }
 
 function problemTitle(status: number, body: unknown): string {

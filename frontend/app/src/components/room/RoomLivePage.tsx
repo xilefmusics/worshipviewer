@@ -114,7 +114,6 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
       isHost={participant.is_host}
       roomId={snapshot.id}
       revision={snapshot.revision}
-      songPool={snapshot.song_pool}
       open={snapshot.open}
       canClose={participant.is_host || snapshot.can_close === true}
       guestsAllowed={snapshot.guests_allowed !== false}
@@ -140,7 +139,6 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
       canAdd={!participant.anonymous}
       canManage={participant.is_host}
       onVote={sendQueueVote}
-      songPool={snapshot.song_pool}
       open={snapshot.open}
       currentSongId={currentSongId}
       className="border-r-0"
