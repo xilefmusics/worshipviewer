@@ -6,6 +6,13 @@ import { CreateRoomDialog } from '@/components/room/CreateRoomDialog'
 
 const createRoom = vi.fn()
 let online = true
+const LAST_OWNER_LS = 'wv.roomCreate.lastOwnerTeamId'
+const localStorageState = new Map<string, string>()
+const localStorageMock = {
+  getItem: (key: string) => localStorageState.get(key) ?? null,
+  setItem: (key: string, value: string) => localStorageState.set(key, value),
+  removeItem: (key: string) => localStorageState.delete(key),
+}
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -16,12 +23,15 @@ vi.mock('@/lib/room', () => ({
 }))
 vi.mock('@/lib/team-display-name', () => ({
   getTeamDisplayName: (team: Team) => team.name,
+  isPersonalTeamName: (name: string) => name.trim().toLowerCase() === 'personal',
 }))
 
 const team = (id: string, name: string) => ({ id, name, members: [] }) as unknown as Team
 
 beforeEach(() => {
   online = true
+  localStorageState.clear()
+  vi.stubGlobal('localStorage', localStorageMock)
   createRoom.mockReset().mockResolvedValue({ room: { id: 'room-1' } })
 })
 
@@ -40,14 +50,34 @@ describe('CreateRoomDialog', () => {
 
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     const nameInput = screen.getByRole('textbox', { name: 'rooms.nameLabel' })
-    const generatedName = nameInput.getAttribute('placeholder')
-    expect(generatedName).toMatch(/^[A-Za-z]+ [A-Za-z]+$/)
+    expect(nameInput).toHaveAttribute('placeholder', 'rooms.namePlaceholder')
+    fireEvent.change(nameInput, { target: { value: 'Sunday Worship' } })
     fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
 
     await waitFor(() =>
-      expect(createRoom).toHaveBeenCalledWith({ team_id: 'team-1', name: generatedName }),
+      expect(createRoom).toHaveBeenCalledWith({ team_id: 'team-1', name: 'Sunday Worship' }),
     )
     expect(onCreated).toHaveBeenCalledWith('room-1')
+  })
+
+  it('requires a non-blank room name before creating', async () => {
+    render(
+      <CreateRoomDialog
+        open
+        onOpenChange={vi.fn()}
+        teams={[team('team-1', 'One')]}
+        userId="user-1"
+        onCreated={vi.fn()}
+      />,
+    )
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'rooms.nameLabel' }), {
+      target: { value: '   ' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('rooms.nameRequired')
+    expect(createRoom).not.toHaveBeenCalled()
   })
 
   it('uses a custom room name when one is entered', async () => {
@@ -97,7 +127,7 @@ describe('CreateRoomDialog', () => {
     )
   })
 
-  it('requires an explicit choice when multiple writable teams are available', () => {
+  it('defaults to the first team when multiple writable teams are available', () => {
     render(
       <CreateRoomDialog
         open
@@ -108,8 +138,45 @@ describe('CreateRoomDialog', () => {
       />,
     )
 
-    expect(screen.getByRole('combobox')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'rooms.createSubmit' })).toBeDisabled()
+    expect(screen.getByRole('combobox')).toHaveTextContent('One')
+    expect(screen.getByRole('button', { name: 'rooms.createSubmit' })).toBeEnabled()
+  })
+
+  it('prefers the personal team and remembers the last selected team', async () => {
+    const onCreated = vi.fn()
+    const { rerender } = render(
+      <CreateRoomDialog
+        open
+        onOpenChange={vi.fn()}
+        teams={[team('team-1', 'One'), team('team-2', 'Personal')]}
+        userId="user-1"
+        onCreated={onCreated}
+      />,
+    )
+
+    expect(screen.getByRole('combobox')).toHaveTextContent('Personal')
+    fireEvent.change(screen.getByRole('textbox', { name: 'rooms.nameLabel' }), {
+      target: { value: 'Sunday Worship' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
+    await waitFor(() =>
+      expect(createRoom).toHaveBeenCalledWith({ team_id: 'team-2', name: 'Sunday Worship' }),
+    )
+    expect(localStorageMock.getItem(LAST_OWNER_LS)).toBe('team-2')
+    expect(onCreated).toHaveBeenCalledWith('room-1')
+
+    localStorageMock.setItem(LAST_OWNER_LS, 'team-1')
+    rerender(
+      <CreateRoomDialog
+        open
+        onOpenChange={vi.fn()}
+        teams={[team('team-1', 'One'), team('team-2', 'Personal')]}
+        userId="user-1"
+        onCreated={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('combobox')).toHaveTextContent('One')
   })
 
   it('keeps creation unavailable while offline', () => {
@@ -139,9 +206,81 @@ describe('CreateRoomDialog', () => {
       />,
     )
 
+    fireEvent.change(screen.getByRole('textbox', { name: 'rooms.nameLabel' }), {
+      target: { value: 'Sunday Worship' },
+    })
     fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('rooms.createFailedAction')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('shows a pending state while creating and keeps cancel available', () => {
+    createRoom.mockReturnValue(new Promise(() => {}))
+    const onOpenChange = vi.fn()
+    render(
+      <CreateRoomDialog
+        open
+        onOpenChange={onOpenChange}
+        teams={[team('team-1', 'One')]}
+        userId="user-1"
+        onCreated={vi.fn()}
+      />,
+    )
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'rooms.nameLabel' }), {
+      target: { value: 'Sunday Worship' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
+
+    expect(screen.getByRole('button', { name: 'common.load' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'teams.dialogCancel' })).toBeEnabled()
+  })
+
+  it('dismisses from the drag handle and snaps back for a short drag', () => {
+    const onOpenChange = vi.fn()
+    render(
+      <CreateRoomDialog
+        open
+        onOpenChange={onOpenChange}
+        teams={[team('team-1', 'One')]}
+        userId="user-1"
+        onCreated={vi.fn()}
+      />,
+    )
+
+    const handle = screen.getByRole('dialog').querySelector('div[style*="touch-action"]')
+    expect(handle).not.toBeNull()
+    const dragHandle = handle as HTMLDivElement
+    dragHandle.setPointerCapture = vi.fn()
+    fireEvent.pointerDown(dragHandle, { pointerId: 1, clientY: 100 })
+    fireEvent.pointerMove(dragHandle, { pointerId: 1, clientY: 180 })
+    fireEvent.pointerUp(dragHandle, { pointerId: 1, clientY: 180 })
+    expect(onOpenChange).not.toHaveBeenCalled()
+
+    fireEvent.pointerDown(dragHandle, { pointerId: 2, clientY: 100 })
+    fireEvent.pointerMove(dragHandle, { pointerId: 2, clientY: 200 })
+    fireEvent.pointerUp(dragHandle, { pointerId: 2, clientY: 200 })
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('resets the edited name when cancelled', () => {
+    const onOpenChange = vi.fn()
+    render(
+      <CreateRoomDialog
+        open
+        onOpenChange={onOpenChange}
+        teams={[team('team-1', 'One')]}
+        userId="user-1"
+        onCreated={vi.fn()}
+      />,
+    )
+
+    const nameInput = screen.getByRole('textbox', { name: 'rooms.nameLabel' })
+    fireEvent.change(nameInput, { target: { value: 'Sunday Worship' } })
+    fireEvent.click(screen.getByRole('button', { name: 'teams.dialogCancel' }))
+
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(nameInput).toHaveValue('')
   })
 })
