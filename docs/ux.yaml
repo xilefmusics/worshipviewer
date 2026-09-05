@@ -19,3 +19,21 @@ pages:
   dialogs:
   - name: add
     type: bottom-drawer
+- name: player
+  path: /player
+  states:
+  - name: overlay-closed
+    default: true
+  - name: overlay-opened
+
+transitions:
+  - name: play-song
+    origin: 
+      page: songs
+      context: song-id
+    destination: 
+      page: player
+      params:
+        type: song
+        id: {{ context.song-id }}
+        mode: normal

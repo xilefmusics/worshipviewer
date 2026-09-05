@@ -7,6 +7,9 @@ import { RoomLivePage } from '@/components/room/RoomLivePage'
 const useRoom = vi.fn()
 const registerRoomMedia = vi.fn()
 let slideViewProps: Record<string, unknown> | null = null
+let playerBookProps: Record<string, unknown> | null = null
+let playerAvProps: Record<string, unknown> | null = null
+let isPhoneViewport = false
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -21,6 +24,10 @@ vi.mock('@/lib/room-media', () => ({
   registerRoomMedia: (...args: unknown[]) => registerRoomMedia(...args),
 }))
 
+vi.mock('@/hooks/useMediaQuery', () => ({
+  useIsPhoneWidth: () => isPhoneViewport,
+}))
+
 vi.mock('@/components/room/RoomSidebar', () => ({
   RoomSidebar: () => <aside data-testid="room-sidebar" />,
 }))
@@ -30,11 +37,17 @@ vi.mock('@/components/room/RoomQueuePanel', () => ({
 }))
 
 vi.mock('@/components/player/PlayerBook', () => ({
-  PlayerBook: () => <div data-testid="player-book" />,
+  PlayerBook: (props: Record<string, unknown>) => {
+    playerBookProps = props
+    return <div data-testid="player-book" />
+  },
 }))
 
 vi.mock('@/components/player/av/PlayerAv', () => ({
-  PlayerAv: () => <div data-testid="player-av" />,
+  PlayerAv: (props: Record<string, unknown>) => {
+    playerAvProps = props
+    return <div data-testid="player-av" />
+  },
 }))
 
 vi.mock('@/components/player/av/AvSlideView', () => ({
@@ -112,6 +125,9 @@ function mockRoom(snapshot: RoomSnapshot) {
 
 beforeEach(() => {
   slideViewProps = null
+  playerBookProps = null
+  playerAvProps = null
+  isPhoneViewport = false
   useRoom.mockReset()
   registerRoomMedia.mockReset().mockReturnValue(vi.fn())
 })
@@ -126,6 +142,16 @@ describe('RoomLivePage slide mode', () => {
     expect(screen.queryByText('common.load')).not.toBeInTheDocument()
     expect(screen.getByTestId('room-sidebar')).toBeInTheDocument()
     expect(screen.getByTestId('room-queue')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'rooms.panel.queue' })).toHaveClass(
+      'md:absolute',
+      'w-[13.31rem]',
+      'sm:w-[16.94rem]',
+    )
+    expect(screen.getByRole('region', { name: 'rooms.panel.details' })).toHaveClass(
+      'md:absolute',
+      'w-[13.31rem]',
+      'sm:w-[16.94rem]',
+    )
     expect(screen.queryByTestId('slide-view')).not.toBeInTheDocument()
   })
 
@@ -158,6 +184,59 @@ describe('RoomLivePage slide mode', () => {
   })
 })
 
+describe('RoomLivePage responsive player layout', () => {
+  it('uses the full PlayerBook chrome with room sidebars on desktop', () => {
+    mockRoom(snapshotWithProjection(null))
+
+    render(<RoomLivePage credentials={{ ...credentials, mode: 'sheet' }} />)
+
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+    expect(screen.getByTestId('player-book')).toBeInTheDocument()
+    expect(playerBookProps).toEqual(expect.objectContaining({
+      tocSidebar: expect.anything(),
+      roomSidebar: expect.anything(),
+    }))
+    expect(playerBookProps).not.toHaveProperty('embedded')
+  })
+
+  it('keeps the three-panel shell on mobile', () => {
+    isPhoneViewport = true
+    mockRoom(snapshotWithProjection(null))
+
+    render(<RoomLivePage credentials={{ ...credentials, mode: 'sheet' }} />)
+
+    expect(screen.getByRole('tablist', { name: 'rooms.panels' })).toBeInTheDocument()
+    expect(playerBookProps).toEqual(expect.objectContaining({ embedded: true }))
+    expect(playerBookProps).not.toHaveProperty('tocSidebar')
+    expect(playerBookProps).not.toHaveProperty('roomSidebar')
+  })
+
+  it('keeps AV in the three-panel shell on mobile', () => {
+    isPhoneViewport = true
+    mockRoom(snapshotWithProjection(null))
+
+    render(<RoomLivePage credentials={{ ...credentials, mode: 'av' }} />)
+
+    expect(screen.getByRole('tablist', { name: 'rooms.panels' })).toBeInTheDocument()
+    expect(playerAvProps).toEqual(expect.objectContaining({ embedded: true }))
+    expect(playerAvProps).not.toHaveProperty('tocSidebar')
+    expect(playerAvProps).not.toHaveProperty('roomSidebar')
+  })
+
+  it('passes the queue sidebar through to the desktop AV player', () => {
+    mockRoom(snapshotWithProjection(null))
+
+    render(<RoomLivePage credentials={{ ...credentials, mode: 'av' }} />)
+
+    expect(screen.getByTestId('player-av')).toBeInTheDocument()
+    expect(playerAvProps).toEqual(expect.objectContaining({
+      tocSidebar: expect.anything(),
+      roomSidebar: expect.anything(),
+    }))
+    expect(playerAvProps).not.toHaveProperty('embedded')
+  })
+})
+
 describe('RoomLivePage empty room', () => {
   it('renders a purposeful Sheet empty state with host controls reachable', () => {
     const emptySnapshot = snapshotWithProjection(null)
@@ -176,6 +255,8 @@ describe('RoomLivePage empty room', () => {
 
     expect(screen.getByText('rooms.emptyRoomTitle')).toBeInTheDocument()
     expect(screen.getByTestId('room-sidebar')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'rooms.panel.queue' })).toHaveClass('md:absolute')
+    expect(screen.getByRole('region', { name: 'rooms.panel.details' })).toHaveClass('md:absolute')
     expect(screen.queryByTestId('player-book')).not.toBeInTheDocument()
     expect(screen.queryByText('common.load')).not.toBeInTheDocument()
   })

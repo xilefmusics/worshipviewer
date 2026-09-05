@@ -75,6 +75,7 @@ import {
 } from '@/lib/player/player-view-state'
 import {
   PLAYER_HEADER_ICON_SIZE,
+  PLAYER_TOC_WIDTH_CLASS,
   PLAYER_TOC_WIDTH_PX,
   playerHeaderIconButtonClass,
   playerHeaderIconClass,
@@ -266,6 +267,7 @@ type PlayerBookProps = {
   onRoomMusicalStateChange?: (state: { item_index: number; language: string | null; transposition: string | null }) => void
   onRoomQueueNext?: () => void
   allowLibraryActions?: boolean
+  tocSidebar?: ReactNode
   roomSidebar?: ReactNode
 }
 
@@ -285,6 +287,7 @@ export function PlayerBook({
   onRoomMusicalStateChange,
   onRoomQueueNext,
   allowLibraryActions = true,
+  tocSidebar,
   roomSidebar,
 }: PlayerBookProps) {
   const { t } = useTranslation()
@@ -303,7 +306,7 @@ export function PlayerBook({
   const chromeTransition = reduceMotion ? { duration: 0 } : { duration: 0.22, ease: PLAYER_CHROME_EASE }
   const [keyPopoverOpen, setKeyPopoverOpen] = useState(false)
   const [languagePopoverOpen, setLanguagePopoverOpen] = useState(false)
-  const [chromeVisible, setChromeVisible] = useState(() => roomSidebar != null)
+  const [chromeVisible, setChromeVisible] = useState(() => tocSidebar != null || roomSidebar != null)
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const pinchStartRef = useRef<{ distance: number; fontScale: number } | null>(null)
@@ -406,7 +409,7 @@ export function PlayerBook({
     [player.toc, likedBySongId],
   )
   const tocRow = tocEntryForIndex(displayToc, nav.index)
-  const showToc = !embedded && displayToc.length > 0
+  const showToc = !embedded && (tocSidebar != null || displayToc.length > 0)
   const showChordsControls = hasChordsItems(player.items)
   const evicted = useSetlistEvictionWatch(type === 'setlist' ? id : undefined, type === 'setlist')
   const navBlocked = evicted || Boolean(roomMusicalState && !canControlRoomMusicalState)
@@ -1291,19 +1294,24 @@ export function PlayerBook({
             {chromeVisible && showToc ? (
               <motion.div
                 key="player-chrome-toc"
-                className="pointer-events-auto absolute inset-y-0 left-0 z-10 flex overflow-hidden"
+                className={cn(
+                  'pointer-events-auto absolute inset-y-0 left-0 z-10 flex overflow-hidden',
+                  tocSidebar ? PLAYER_TOC_WIDTH_CLASS : undefined,
+                )}
                 initial={reduceMotion ? false : { x: '-100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={chromeTransition}
               >
-                <PlayerTocSidebar
-                  toc={displayToc}
-                  items={player.items}
-                  currentSourceIdx={nav.index}
-                  currentLanguageIndex={currentLanguageIndex}
-                  onSelect={handleTocSelect}
-                />
+                {tocSidebar ?? (
+                  <PlayerTocSidebar
+                    toc={displayToc}
+                    items={player.items}
+                    currentSourceIdx={nav.index}
+                    currentLanguageIndex={currentLanguageIndex}
+                    onSelect={handleTocSelect}
+                  />
+                )}
               </motion.div>
             ) : null}
           </AnimatePresence>

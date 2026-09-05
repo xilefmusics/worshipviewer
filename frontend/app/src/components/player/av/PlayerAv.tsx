@@ -131,6 +131,7 @@ type PlayerAvProps = {
   onRoomMusicalStateChange?: (state: { item_index: number; language: string | null; transposition: string | null }) => void
   onRoomProjectionChange?: (payload: import('@/lib/player/av-preferences').AvProjectionPayload) => void
   allowLibraryActions?: boolean
+  tocSidebar?: ReactNode
   backToOverride?: '/media'
   backAriaKeyOverride?: string
   watchSetlistEviction?: boolean
@@ -183,6 +184,7 @@ export function PlayerAv({
   onRoomMusicalStateChange,
   onRoomProjectionChange,
   allowLibraryActions = true,
+  tocSidebar,
   backToOverride,
   backAriaKeyOverride,
   watchSetlistEviction = true,
@@ -208,7 +210,7 @@ export function PlayerAv({
     const startSlide = initialIndex != null ? 0 : saved.slideIndex
     return { ...saved, itemIndex: startItem, slideIndex: startSlide }
   })
-  const [tocVisible] = useState(!embedded)
+  const tocVisible = !embedded
   const [rightPanel, setRightPanel] = useState<'av' | 'room'>(() => (roomSidebar ? 'room' : 'av'))
   const [languagePopoverOpen, setLanguagePopoverOpen] = useState(false)
   const resolveLanguageIndexForItem = useCallback(
@@ -240,7 +242,7 @@ export function PlayerAv({
     resourceTitle || tocRow?.title,
     resolveLanguageIndexForItem,
   )
-  const showToc = !embedded && player.toc.length > 0
+  const showToc = !embedded && (tocSidebar != null || player.toc.length > 0)
   const containsMedia = player.items.some((item) => item.type === 'media')
   const watchSetlistMirrorEviction =
     type === 'setlist' && watchSetlistEviction && !containsMedia
@@ -1082,19 +1084,21 @@ export function PlayerAv({
 
       <div className="player-av__body flex min-h-0 flex-1">
         {tocVisible && showToc ? (
-          <div className="player-av__toc shrink-0">
-            <PlayerTocSidebar
-              toc={player.toc}
-              items={player.items}
-              currentSourceIdx={session.itemIndex}
-              currentLanguageIndex={currentLanguageIndex}
-              onSelect={(idx, languageIndex) => {
-                if (tocMultilingualEnabled && languageIndex != null) {
-                  setViewState((state) => setLanguageForItem(state, idx, languageIndex))
-                }
-                goToItem(idx)
-              }}
-            />
+          <div className={cn('player-av__toc shrink-0', tocSidebar ? PLAYER_TOC_WIDTH_CLASS : undefined)}>
+            {tocSidebar ?? (
+              <PlayerTocSidebar
+                toc={player.toc}
+                items={player.items}
+                currentSourceIdx={session.itemIndex}
+                currentLanguageIndex={currentLanguageIndex}
+                onSelect={(idx, languageIndex) => {
+                  if (tocMultilingualEnabled && languageIndex != null) {
+                    setViewState((state) => setLanguageForItem(state, idx, languageIndex))
+                  }
+                  goToItem(idx)
+                }}
+              />
+            )}
           </div>
         ) : null}
 

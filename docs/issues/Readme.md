@@ -83,4 +83,5 @@ and stored in `[ideas/](ideas/)`.
 - cleanup config
 - internal feedback
 - update all dependencies
+- better config to run multiple versions
 

@@ -7,6 +7,8 @@ import { AvSlideView } from '@/components/player/av/AvSlideView'
 import { RoomSidebar } from '@/components/room/RoomSidebar'
 import { RoomQueuePanel } from '@/components/room/RoomQueuePanel'
 import { RoomThreePanelShell } from '@/components/room/RoomThreePanelShell'
+import { useIsPhoneWidth } from '@/hooks/useMediaQuery'
+import { PLAYER_TOC_WIDTH_CLASS } from '@/lib/player/player-chrome'
 import {
   endRoom,
   playerFromRoom,
@@ -58,6 +60,7 @@ function SlideModeShell({ projection }: { projection: RoomProjection | null }) {
 
 export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) {
   const { t } = useTranslation()
+  const isPhoneViewport = useIsPhoneWidth()
   const room = useRoom(credentials)
   const { sendProjection, sendGuestsAllowed, sendQueueVote } = room
   const sendRoomProjection = useCallback(
@@ -126,7 +129,7 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
             }
           : undefined
       }
-      className="w-full border-l-0"
+      className={isPhoneViewport ? 'w-full border-l-0' : `${PLAYER_TOC_WIDTH_CLASS} border-l-0`}
     />
   )
 
@@ -141,7 +144,7 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
       onVote={sendQueueVote}
       open={snapshot.open}
       currentSongId={currentSongId}
-      className="border-r-0"
+      className="w-full min-w-0 border-r-0"
     />
   )
 
@@ -151,6 +154,7 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
         queue={queuePanel}
         player={<SlideModeShell projection={snapshot.projection} />}
         details={roomDetails}
+        desktopOverlay={!isPhoneViewport}
       />
     )
   }
@@ -161,13 +165,14 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
         queue={queuePanel}
         player={
           <section className="flex h-full min-w-0 flex-col items-center justify-center p-6 text-center">
-          <h1 className="text-xl font-semibold">{t('rooms.emptyRoomTitle')}</h1>
-          <p className="mt-2 max-w-md text-sm text-[var(--color-muted-foreground)]">
-            {t('rooms.emptyRoomDescription')}
-          </p>
+            <h1 className="text-xl font-semibold">{t('rooms.emptyRoomTitle')}</h1>
+            <p className="mt-2 max-w-md text-sm text-[var(--color-muted-foreground)]">
+              {t('rooms.emptyRoomDescription')}
+            </p>
           </section>
         }
         details={roomDetails}
+        desktopOverlay={!isPhoneViewport}
       />
     )
   }
@@ -189,14 +194,24 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
 
   const player = credentials.mode === 'av' ? (
     <PlayerAv
+      key={`room-av-${isPhoneViewport ? 'embedded' : 'desktop'}`}
       {...shared}
-      embedded
+      {...(isPhoneViewport ? { embedded: true } : { tocSidebar: queuePanel, roomSidebar: roomDetails })}
       canControlRoomProjection={participant.is_av_host}
       onRoomProjectionChange={sendRoomProjection}
     />
   ) : (
-    <PlayerBook {...shared} embedded mode="normal" />
+    <PlayerBook
+      key={`room-book-${isPhoneViewport ? 'embedded' : 'desktop'}`}
+      {...shared}
+      {...(isPhoneViewport ? { embedded: true } : { tocSidebar: queuePanel, roomSidebar: roomDetails })}
+      mode="normal"
+    />
   )
 
-  return <RoomThreePanelShell queue={queuePanel} player={player} details={roomDetails} />
+  return isPhoneViewport ? (
+    <RoomThreePanelShell queue={queuePanel} player={player} details={roomDetails} />
+  ) : (
+    player
+  )
 }
