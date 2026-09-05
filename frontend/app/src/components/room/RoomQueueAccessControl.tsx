@@ -33,25 +33,17 @@ export function RoomQueueAccessControl({ roomId, revision, open = false, isHost,
   if (!isHost) {
     return (
       <div className={className}>
-        <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
-          {t('rooms.queueAccess.label')}
-        </p>
-        <p className="mt-1 text-sm">
+        <span className="text-sm">{t('rooms.queueAccess.shortLabel')}</span>
+        <span className="ml-3 text-sm text-[var(--color-muted-foreground)]">
           {open ? t('rooms.queueAccess.allowed') : t('rooms.queueAccess.disabled')}
-        </p>
-        <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-          {open ? t('rooms.queueAccess.allowedDescription') : t('rooms.queueAccess.disabledDescription')}
-        </p>
+        </span>
       </div>
     )
   }
 
   return (
     <div className={className}>
-      <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
-        {t('rooms.queueAccess.label')}
-      </p>
-      <label className="mt-2 flex items-center gap-3 text-sm">
+      <label className="flex items-center gap-3 text-sm">
         <input
           type="checkbox"
           className="size-4 shrink-0 accent-[var(--color-primary)]"
@@ -60,11 +52,8 @@ export function RoomQueueAccessControl({ roomId, revision, open = false, isHost,
           disabled={pending || !online}
           onChange={(event) => void changeOpen(event.target.checked)}
         />
-        <span>{t('rooms.queueAccess.allow')}</span>
+        <span>{t('rooms.queueAccess.shortLabel')}</span>
       </label>
-      <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-        {open ? t('rooms.queueAccess.allowedDescription') : t('rooms.queueAccess.disabledDescription')}
-      </p>
     </div>
   )
 }

@@ -1,8 +1,19 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { Button } from '@/components/ui/button'
 import { RoomQueueAccessControl } from '@/components/room/RoomQueueAccessControl'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import { PLAYER_TOC_WIDTH_CLASS } from '@/lib/player/player-chrome'
 import {
   formatRoomDuration,
@@ -21,6 +32,8 @@ type RoomSidebarProps = {
   canClose: boolean
   guestsAllowed: boolean
   onGuestsAllowedChange: (allowed: boolean) => void
+  locked: boolean
+  onRoomLockedChange: (locked: boolean) => void
   roomId: string
   revision: number
   open?: boolean
@@ -38,6 +51,8 @@ export function RoomSidebar({
   canClose,
   guestsAllowed,
   onGuestsAllowedChange,
+  locked,
+  onRoomLockedChange,
   roomId,
   revision,
   open,
@@ -48,6 +63,7 @@ export function RoomSidebar({
   const { t } = useTranslation()
   const elapsedSeconds = useRoomElapsedSeconds(createdAt)
   const durationLabel = formatRoomDuration(elapsedSeconds)
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false)
   const statusLabel =
     status === 'connected' ? t('rooms.connected') : t('rooms.reconnecting')
 
@@ -79,13 +95,6 @@ export function RoomSidebar({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
-        <RoomQueueAccessControl
-          roomId={roomId}
-          revision={revision}
-          open={open}
-          isHost={isHost}
-          className="mb-4 px-2"
-        />
         <p className="px-2 pb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
           {t('rooms.participants')}
         </p>
@@ -121,6 +130,22 @@ export function RoomSidebar({
         <div className="flex shrink-0 flex-col gap-2 border-t border-[var(--color-border)] p-3">
           {isHost ? (
             <>
+              <RoomQueueAccessControl
+                roomId={roomId}
+                revision={revision}
+                open={open}
+                isHost={isHost}
+              />
+              <label className="flex items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 shrink-0 accent-[var(--color-primary)]"
+                  aria-label={t('rooms.lockRoom.label')}
+                  checked={locked}
+                  onChange={(event) => onRoomLockedChange(event.target.checked)}
+                />
+                <span>{t('rooms.lockRoom.label')}</span>
+              </label>
               <label className="flex items-center gap-3 text-sm">
                 <input
                   type="checkbox"
@@ -149,11 +174,28 @@ export function RoomSidebar({
               ) : null}
             </>
           ) : null}
-          <Button type="button" variant="destructive" size="sm" onClick={onEndRoom}>
+          <Button type="button" variant="destructive" size="sm" onClick={() => setCloseDialogOpen(true)}>
             {t('rooms.end')}
           </Button>
         </div>
       ) : null}
+      <AlertDialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('rooms.closeConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('rooms.closeConfirmDescription')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-[var(--color-danger)] text-white hover:bg-[var(--color-danger)]/90"
+              onClick={onEndRoom}
+            >
+              {t('rooms.closeConfirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   )
 }

@@ -89,6 +89,7 @@ function snapshotWithProjection(
     participant_count: 1,
     av_occupied: true,
     created_at: new Date().toISOString(),
+    locked: false,
     content: { items: [{ type: 'blob', blob_id: 'blob-1' }], toc: [] },
     queue: [],
     voted_queue_ids: [],
@@ -118,6 +119,7 @@ function mockRoom(snapshot: RoomSnapshot) {
     sendMusicalState: vi.fn(),
     sendProjection: vi.fn(),
     sendGuestsAllowed: vi.fn(),
+    sendRoomLocked: vi.fn(),
     sendQueueVote: vi.fn(),
     leave: vi.fn(),
   })

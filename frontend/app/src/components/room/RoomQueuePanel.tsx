@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { fetchSongsPage, type Song } from '@/api/list-fetch'
+import { PlusIcon } from '@/components/icons/lucide-animated/plus-icon'
+import { SearchIcon } from '@/components/icons/lucide-animated/search-icon'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { TocSidebar } from '@/components/player/TocSidebar'
@@ -74,6 +76,7 @@ export function RoomQueuePanel({
   const queryClient = useQueryClient()
   const online = useOnline()
   const [search, setSearch] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [pendingVote, setPendingVote] = useState<{ id: string; revision: number } | null>(null)
   const [mode, setMode] = useState<TocDisplayMode>('order')
@@ -134,15 +137,44 @@ export function RoomQueuePanel({
             return (
               <li key={song.id} className="flex items-center gap-2 rounded-md bg-[var(--color-muted)] px-2 py-1.5">
                 <span className="min-w-0 flex-1 truncate text-xs">{songTitle(song)}</span>
-                <Button type="button" size="sm" variant="outline" disabled={duplicate || pendingId === song.id} onClick={() => void runMutation(song.id, () => addRoomQueueItem(roomId, song.id, revision), 'rooms.queue.added')}>
-                  {duplicate ? t('rooms.queue.queued') : t('rooms.queue.add')}
-                </Button>
+                {duplicate ? (
+                  <Button type="button" size="sm" variant="outline" disabled>
+                    {t('rooms.queue.queued')}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    disabled={pendingId === song.id}
+                    title={t('rooms.queue.add')}
+                    aria-label={t('rooms.queue.add')}
+                    onClick={() => void runMutation(song.id, () => addRoomQueueItem(roomId, song.id, revision), 'rooms.queue.added')}
+                  >
+                    <PlusIcon size={18} />
+                  </Button>
+                )}
               </li>
             )
           })}
         </ul>
       ) : null}
-      <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('rooms.queue.searchPlaceholder')} aria-label={t('rooms.queue.searchAria')} />
+      <div className="relative">
+        <SearchIcon
+          size={18}
+          isHovered={searchFocused}
+          className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[var(--color-muted-foreground)]"
+        />
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
+          placeholder={t('rooms.queue.searchPlaceholder')}
+          aria-label={t('rooms.queue.searchAria')}
+          className="pl-8"
+        />
+      </div>
     </div>
   ) : null
 

@@ -2115,6 +2115,9 @@
           "host_email": {
             "type": "string"
           },
+          "locked": {
+            "type": "boolean"
+          },
           "name": {
             "type": "string"
           },
@@ -2327,6 +2330,9 @@
               "host_lease_expires_at": {
                 "format": "date-time",
                 "type": "string"
+              },
+              "locked": {
+                "type": "boolean"
               },
               "musical_state": {
                 "$ref": "#/components/schemas/RoomMusicalState"

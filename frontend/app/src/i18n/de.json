@@ -1229,10 +1229,22 @@
     "nameRequired": "Bitte einen Raumnamen eingeben.",
     "teamLabel": "Team",
     "teamPlaceholder": "Team auswählen",
+    "songPool": {
+      "typeLabel": "Songpool-Typ",
+      "typePlaceholder": "Pool-Typ auswählen",
+      "collectionType": "Sammlung",
+      "setlistType": "Setliste",
+      "sourceLabel": "Songpool",
+      "sourcePlaceholder": "Songpool auswählen",
+      "loadFailed": "Songpools konnten nicht geladen werden."
+    },
     "emptyRoom": "Leerer Raum",
     "emptyRoomTitle": "Dieser Raum ist bereit",
     "emptyRoomDescription": "Dieser Raum enthält noch keine Inhalte. Du kannst weiterhin Teilnehmende einladen oder den Raum schließen.",
     "end": "Schließen",
+    "closeConfirmTitle": "Diesen Raum schließen?",
+    "closeConfirmDescription": "Alle werden getrennt und dieser Raum ist danach nicht mehr verfügbar.",
+    "closeConfirm": "Raum schließen",
     "copyInvite": "Einladung kopieren",
     "inviteCopied": "Einladungslink kopiert",
     "togglePanel": "Raum",
@@ -1252,12 +1264,17 @@
     "guestBadge": "(Gast)",
     "guestsNotAllowed": "Dieser Raum nimmt derzeit keine neuen Gäste auf.",
     "allowGuests": {
-      "label": "Gäste erlauben",
-      "copyDisabled": "Gästezugang aktivieren, um den Einladungslink zu kopieren."
+      "label": "Nicht authentifizierte Gäste erlauben",
+      "copyDisabled": "Nicht authentifizierten Gästezugang aktivieren, um den Einladungslink zu kopieren."
     },
+    "lockRoom": {
+      "label": "Raum sperren"
+    },
+    "roomLocked": "Dieser Raum ist gesperrt und nimmt keine neuen Teilnehmenden auf.",
     "queueAccess": {
       "label": "Warteschlangenzugriff",
       "allow": "Mitgliedern das Hinzufügen von Songs erlauben",
+      "shortLabel": "Hinzufügen von Songs erlauben",
       "allowed": "Mitglieder können Songs hinzufügen",
       "disabled": "Neue Songs können nicht hinzugefügt werden",
       "allowedDescription": "Mitglieder können Songs aus der Bibliothek hinzufügen.",

@@ -136,6 +136,8 @@ pub struct RoomSummary {
 pub struct RoomSnapshot {
     #[serde(flatten)]
     pub summary: RoomSummary,
+    #[serde(default)]
+    pub locked: bool,
     pub content: RoomContent,
     #[serde(default)]
     pub queue: Vec<RoomQueueItem>,
@@ -232,6 +234,8 @@ pub struct RoomInviteInfo {
     pub av_occupied: bool,
     #[serde(default = "default_guests_allowed")]
     pub guests_allowed: bool,
+    #[serde(default)]
+    pub locked: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]

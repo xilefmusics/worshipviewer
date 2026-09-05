@@ -61,8 +61,9 @@ mod room_http {
     use actix_web::{http::StatusCode, test};
     use serde::Deserialize;
     use shared::room::{
-        AddRoomQueueItem, CreateRoom, CreatedRoom, JoinRoom, RoomMode, RoomQueueLikes,
-        RoomQueueRevision, RoomSnapshot, RoomSourceType, UpdateRoomQueueAccess,
+        AddRoomQueueItem, CreateRoom, CreatedRoom, InspectRoomInvite, JoinRoom, JoinRoomInvite,
+        RoomInviteInfo, RoomMode, RoomQueueLikes, RoomQueueRevision, RoomSnapshot, RoomSourceType,
+        UpdateRoomQueueAccess,
     };
     use shared::setlist::{CreateSetlist, SetlistItem, SongLink};
     use surrealdb::types::SurrealValue;
@@ -225,7 +226,7 @@ mod room_http {
     }
 
     #[actix_web::test]
-    async fn promoting_a_queue_item_requeues_it_at_the_bottom() {
+    async fn promoting_a_queue_item_keeps_the_selected_song_upcoming() {
         let db = test_db().await.unwrap();
         let fixture = TeamFixture::build(&db).await.unwrap();
         let host_token = create_session_token(&db, fixture.writer.clone())
@@ -342,7 +343,7 @@ mod room_http {
         assert_eq!(promoted.queue[1].song_id, song.id);
         assert_ne!(promoted.queue[1].id, first_queue_id);
         assert_eq!(promoted.queue[1].upvotes, 0);
-        assert!(promoted.queue[1].played);
+        assert!(!promoted.queue[1].played);
     }
 
     #[actix_web::test]
@@ -503,6 +504,77 @@ mod room_http {
         assert_eq!(
             test::call_service(&app, request).await.status(),
             StatusCode::NO_CONTENT
+        );
+    }
+
+    #[actix_web::test]
+    async fn locked_rooms_reject_new_joins_and_report_the_lock_in_invites() {
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let host_token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let member_token = create_session_token(&db, fixture.guest.clone())
+            .await
+            .unwrap();
+        let app = test::init_service(build_app(db.clone())).await;
+
+        let request = test::TestRequest::post()
+            .uri("/api/v1/rooms")
+            .insert_header(("Authorization", format!("Bearer {host_token}")))
+            .set_json(CreateRoom {
+                team_id: fixture.shared_team_id.clone(),
+                name: Some("Locked room".into()),
+                source_type: None,
+                source_id: None,
+            })
+            .to_request();
+        let created: CreatedRoom = test::call_and_read_body_json(&app, request).await;
+
+        db.db
+            .query("UPDATE type::record('player_room', $room_id) SET locked = true")
+            .bind(("room_id", created.room.id.clone()))
+            .await
+            .unwrap()
+            .check()
+            .unwrap();
+
+        let request = test::TestRequest::post()
+            .uri(&format!("/api/v1/rooms/{}/join", created.room.id))
+            .insert_header(("Authorization", format!("Bearer {member_token}")))
+            .set_json(JoinRoom {
+                mode: RoomMode::Sheet,
+                hide_chords: false,
+                resume_credential: None,
+            })
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::CONFLICT
+        );
+
+        let request = test::TestRequest::post()
+            .uri("/api/v1/rooms/invite/inspect")
+            .set_json(InspectRoomInvite {
+                invite_secret: created.invite_secret.clone(),
+            })
+            .to_request();
+        let info: RoomInviteInfo = test::call_and_read_body_json(&app, request).await;
+        assert!(info.locked);
+
+        let request = test::TestRequest::post()
+            .uri("/api/v1/rooms/invite/join")
+            .set_json(JoinRoomInvite {
+                invite_secret: created.invite_secret,
+                display_name: "Guest".into(),
+                mode: RoomMode::Sheet,
+                hide_chords: false,
+                resume_credential: None,
+            })
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::CONFLICT
         );
     }
 

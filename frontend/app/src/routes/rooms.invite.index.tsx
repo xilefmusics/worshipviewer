@@ -21,6 +21,7 @@ function InviteRoute() {
     host_email: string
     av_occupied: boolean
     guests_allowed?: boolean
+    locked?: boolean
   } | null>(null)
   const [ended, setEnded] = useState(() => !window.location.hash.slice(1))
   const [name, setName] = useState(randomRoomGuestDisplayName)
@@ -46,6 +47,16 @@ function InviteRoute() {
   }
 
   const guestsAllowed = info.guests_allowed !== false
+
+  if (info.locked) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-6 text-center">
+        <h1 className="text-2xl font-semibold">{info.name}</h1>
+        <p className="text-sm text-[var(--color-muted-foreground)]">{info.host_email}</p>
+        <p className="text-sm text-[var(--color-muted-foreground)]">{t('rooms.roomLocked')}</p>
+      </main>
+    )
+  }
 
   if (!guestsAllowed) {
     return (

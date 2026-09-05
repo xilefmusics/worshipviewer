@@ -1905,6 +1905,7 @@ export interface components {
             av_occupied: boolean;
             guests_allowed?: boolean;
             host_email: string;
+            locked?: boolean;
             name: string;
             room_id: string;
         };
@@ -1958,6 +1959,7 @@ export interface components {
             guests_allowed?: boolean;
             /** Format: date-time */
             host_lease_expires_at: string;
+            locked?: boolean;
             musical_state: components["schemas"]["RoomMusicalState"];
             participants: components["schemas"]["RoomParticipant"][];
             projection?: null | components["schemas"]["RoomProjectionPayload"];

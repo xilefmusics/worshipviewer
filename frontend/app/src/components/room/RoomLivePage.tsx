@@ -62,7 +62,7 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
   const { t } = useTranslation()
   const isPhoneViewport = useIsPhoneWidth()
   const room = useRoom(credentials)
-  const { sendProjection, sendGuestsAllowed, sendQueueVote } = room
+  const { sendProjection, sendGuestsAllowed, sendRoomLocked, sendQueueVote } = room
   const sendRoomProjection = useCallback(
     (payload: AvProjectionPayload) => sendProjection(projectionToWire(payload)),
     [sendProjection],
@@ -121,6 +121,8 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
       canClose={participant.is_host || snapshot.can_close === true}
       guestsAllowed={snapshot.guests_allowed !== false}
       onGuestsAllowedChange={sendGuestsAllowed}
+      locked={snapshot.locked === true}
+      onRoomLockedChange={sendRoomLocked}
       inviteSecret={participant.is_host ? readRoomInvite(snapshot.id) : null}
       onEndRoom={
         participant.is_host || snapshot.can_close

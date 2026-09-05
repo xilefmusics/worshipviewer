@@ -1,14 +1,17 @@
 import * as Dialog from '@radix-ui/react-dialog'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { fetchCollectionsPage, fetchSetlistsPage } from '@/api/list-fetch'
 import type { Team } from '@/api/teams-sessions-fetch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOnline } from '@/hooks/use-online'
 import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
+import { getNextPageIndex } from '@/lib/list-pagination'
 import { createRoom, type RoomSourceType } from '@/lib/room'
 import { getTeamDisplayName, isPersonalTeamName } from '@/lib/team-display-name'
 import { cn } from '@/lib/utils'
@@ -43,6 +46,107 @@ function sourceRoomName(source: RoomSource | null | undefined): string {
   return source?.title.trim().slice(0, 80) ?? ''
 }
 
+type RoomPoolType = Extract<RoomSourceType, 'collection' | 'setlist'>
+
+function SongPoolPicker({
+  open,
+  online,
+  poolType,
+  poolId,
+  onPoolTypeChange,
+  onPoolIdChange,
+}: {
+  open: boolean
+  online: boolean
+  poolType: RoomPoolType | ''
+  poolId: string
+  onPoolTypeChange: (value: RoomPoolType | '') => void
+  onPoolIdChange: (value: string) => void
+}) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const poolQuery = useInfiniteQuery({
+    queryKey: ['room-create-song-pool', poolType],
+    initialPageParam: 0,
+    enabled: open && online && Boolean(poolType),
+    queryFn: async ({ pageParam, signal }) => {
+      const args = { page: pageParam as number, q: '', signal }
+      const page = poolType === 'collection'
+        ? fetchCollectionsPage(queryClient, args)
+        : fetchSetlistsPage(queryClient, args)
+      const result = await page
+      return {
+        items: result.items.map((pool) => ({ id: pool.id, title: pool.title })),
+        total: result.total,
+      }
+    },
+    getNextPageParam: (_last, allPages) => getNextPageIndex(allPages),
+  })
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isError,
+    isFetchingNextPage,
+    isPending,
+  } = poolQuery
+
+  useEffect(() => {
+    if (!open || !online || !poolType || !hasNextPage || isFetchingNextPage) return
+    void fetchNextPage()
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, online, open, poolType])
+
+  const pools = useMemo(
+    () => data?.pages.flatMap((page) => page.items) ?? [],
+    [data?.pages],
+  )
+
+  return (
+    <div className="grid gap-1.5 text-sm font-medium">
+      <label htmlFor="room-create-song-pool-type">{t('rooms.songPool.typeLabel')}</label>
+      <Select
+        value={poolType}
+        onValueChange={(value) => {
+          if (value !== 'collection' && value !== 'setlist') return
+          onPoolTypeChange(value)
+          onPoolIdChange('')
+        }}
+      >
+        <SelectTrigger id="room-create-song-pool-type" className="font-normal">
+          <SelectValue placeholder={t('rooms.songPool.typePlaceholder')} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="collection">{t('rooms.songPool.collectionType')}</SelectItem>
+          <SelectItem value="setlist">{t('rooms.songPool.setlistType')}</SelectItem>
+        </SelectContent>
+      </Select>
+      <label htmlFor="room-create-song-pool">{t('rooms.songPool.sourceLabel')}</label>
+      <Select
+        value={poolId || undefined}
+        onValueChange={onPoolIdChange}
+        disabled={!poolType || isPending || isError}
+      >
+        <SelectTrigger id="room-create-song-pool" className="font-normal">
+          <SelectValue placeholder={t('rooms.songPool.sourcePlaceholder')} />
+        </SelectTrigger>
+        <SelectContent>
+          {pools.map((pool) => (
+            <SelectItem key={pool.id} value={pool.id}>
+              {pool.title}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {isPending || isFetchingNextPage ? (
+        <p className="text-xs font-normal text-[var(--color-muted-foreground)]">{t('common.load')}</p>
+      ) : null}
+      {isError ? (
+        <p className="text-xs font-normal text-[var(--color-danger)]">{t('rooms.songPool.loadFailed')}</p>
+      ) : null}
+    </div>
+  )
+}
+
 export function CreateRoomDialog({ open, onOpenChange, teams, userId, onCreated, source = null }: Props) {
   const { t } = useTranslation()
   const shouldReduceMotion = useReducedMotion()
@@ -55,6 +159,8 @@ export function CreateRoomDialog({ open, onOpenChange, teams, userId, onCreated,
   const pointerStartY = useRef<number | null>(null)
   const showOwnerPicker = teams.length > 1
   const [ownerPick, setOwnerPick] = useState<string | null>(null)
+  const [poolType, setPoolType] = useState<RoomPoolType | ''>('')
+  const [poolId, setPoolId] = useState('')
 
   const defaultOwnerId = useMemo(() => {
     if (!open || !userId) return ''
@@ -79,6 +185,8 @@ export function CreateRoomDialog({ open, onOpenChange, teams, userId, onCreated,
       setDragOffset(0)
       setIsDragging(false)
       pointerStartY.current = null
+      setPoolType('')
+      setPoolId('')
     }
     onOpenChange(nextOpen)
   }
@@ -168,6 +276,16 @@ export function CreateRoomDialog({ open, onOpenChange, teams, userId, onCreated,
                       maxLength={80}
                       autoComplete="off"
                     />
+                    {!source ? (
+                      <SongPoolPicker
+                        open={open}
+                        online={online}
+                        poolType={poolType}
+                        poolId={poolId}
+                        onPoolTypeChange={setPoolType}
+                        onPoolIdChange={setPoolId}
+                      />
+                    ) : null}
                     {showOwnerPicker ? (
                       <div className="grid gap-1.5 text-sm font-medium">
                         <label htmlFor="room-create-team">{t('rooms.teamLabel')}</label>
@@ -208,11 +326,13 @@ export function CreateRoomDialog({ open, onOpenChange, teams, userId, onCreated,
                         if (!ownerId) return
                         setError(null)
                         setPending(true)
+                        const selectedSource =
+                          source ?? (poolType && poolId ? { type: poolType, id: poolId } : null)
                         void createRoom({
                           team_id: ownerId,
                           name: trimmedName,
-                          ...(source
-                            ? { source_type: source.type, source_id: source.id }
+                          ...(selectedSource
+                            ? { source_type: selectedSource.type, source_id: selectedSource.id }
                             : {}),
                         })
                           .then((created) => {

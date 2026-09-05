@@ -92,6 +92,8 @@ struct RoomRecord {
     closed_at: Option<Datetime>,
     #[serde(default = "default_guests_allowed")]
     guests_allowed: bool,
+    #[serde(default)]
+    locked: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, SurrealValue)]
@@ -185,6 +187,10 @@ pub enum ClientEvent {
         command_id: String,
         guests_allowed: bool,
     },
+    UpdateRoomLocked {
+        command_id: String,
+        locked: bool,
+    },
     UpdateQueueVote {
         command_id: String,
         queue_id: String,
@@ -219,6 +225,10 @@ pub enum ServerEvent {
     },
     GuestsAllowedUpdated {
         guests_allowed: bool,
+        revision: u64,
+    },
+    RoomLockedUpdated {
+        locked: bool,
         revision: u64,
     },
     QueueAccessUpdated {
@@ -559,6 +569,7 @@ impl RoomService {
             .collect::<Result<Vec<_>, _>>()?;
         Ok(RoomSnapshot {
             summary: Self::summary_from_room(&aggregate.room, &aggregate.participants)?,
+            locked: aggregate.room.locked,
             content: aggregate.content.clone(),
             queue: Self::ranked_queue(&aggregate.queue, &aggregate.queue_votes),
             voted_queue_ids: participant_id
@@ -614,7 +625,7 @@ impl RoomService {
 SELECT id, owner, source_type, source_id, source_title, name, host_user_id, host_email,
        musical_state_json, queue_json, queue_votes_json, projection_json, revision, open,
        invite_hash, host_participant_id, av_participant_id, media_ids,
-       created_at, host_lease_expires_at, closed_at, guests_allowed
+       created_at, host_lease_expires_at, closed_at, guests_allowed, locked
 FROM ONLY type::record('player_room', $room_id);
 SELECT content_json FROM ONLY type::record('player_room_snapshot', $room_id);
 SELECT participant_id, user_id, display_name, avatar_url, anonymous, mode,
@@ -760,7 +771,7 @@ CREATE type::record('player_room', $room_id) CONTENT {
     revision: 1, invite_hash: $invite_hash, host_participant_id: $participant_id,
     av_participant_id: $av_participant_id, media_ids: $media_ids,
     created_at: $now, host_lease_expires_at: $lease, closed_at: NONE,
-    guests_allowed: true
+    guests_allowed: true, locked: false
 };
 CREATE type::record('player_room_snapshot', $room_id) CONTENT {
     room: type::record('player_room', $room_id), content_json: $snapshot_json
@@ -1008,6 +1019,9 @@ ORDER BY created_at DESC;
                     && user_id.is_none_or(|user_id| participant.user_id.as_deref() == Some(user_id))
             })
         });
+        if aggregate.room.locked && resumed.is_none() {
+            return Err(AppError::conflict("room_locked"));
+        }
         let (participant_id, resume_credential, is_new) = if let Some(participant) = resumed {
             if Self::mode_from_db(&participant.mode)? != mode {
                 return Err(AppError::conflict(
@@ -1122,6 +1136,7 @@ COMMIT TRANSACTION;
             host_email: summary.host_email,
             av_occupied: summary.av_occupied,
             guests_allowed: aggregate.room.guests_allowed,
+            locked: aggregate.room.locked,
         })
     }
 
@@ -1688,14 +1703,28 @@ SET revision += 1;
             transposition: None,
         };
         Self::validate_state(&content, &musical_state)?;
+        let current_song_id = aggregate
+            .content
+            .items
+            .get(aggregate.musical_state.item_index)
+            .and_then(|item| match item {
+                PlayerItem::Chords(song) => Some(song.song.id.clone()),
+                _ => None,
+            });
         let mut requeued_item = queue_item.clone();
         requeued_item.id = Uuid::new_v4().to_string();
         requeued_item.upvotes = 0;
-        requeued_item.played = true;
+        requeued_item.played = false;
         let mut queue = aggregate
             .queue
             .into_iter()
             .filter(|item| Some(item.id.as_str()) != queue_id)
+            .map(|mut item| {
+                if current_song_id.as_deref() == Some(item.song_id.as_str()) {
+                    item.played = true;
+                }
+                item
+            })
             .chain(std::iter::once(requeued_item))
             .collect::<Vec<_>>();
         Self::rank_queue(&mut queue);
@@ -2086,6 +2115,59 @@ SET revision += 1,
                     room_id,
                     ServerEvent::GuestsAllowedUpdated {
                         guests_allowed,
+                        revision: next_revision,
+                    },
+                )
+                .await;
+                Ok(Some(ServerEvent::CommandAccepted {
+                    command_id,
+                    revision: next_revision,
+                    queue_id: None,
+                    upvoted: None,
+                }))
+            }
+            ClientEvent::UpdateRoomLocked { command_id, locked } => {
+                let participant = aggregate
+                    .participants
+                    .iter()
+                    .find(|participant| participant.participant_id == participant_id)
+                    .expect("participant was checked above");
+                if !Self::participant_is_host(&aggregate.room, participant) {
+                    return Ok(Some(ServerEvent::CommandRejected {
+                        command_id,
+                        reason: "room_host_required".into(),
+                        revision,
+                    }));
+                }
+                if aggregate.room.locked == locked {
+                    return Ok(Some(ServerEvent::CommandAccepted {
+                        command_id,
+                        revision,
+                        queue_id: None,
+                        upvoted: None,
+                    }));
+                }
+                let Some(next_revision) = self
+                    .update_revision_field(
+                        room_id,
+                        revision,
+                        "locked = type::bool($value)",
+                        "value",
+                        locked.to_string(),
+                    )
+                    .await?
+                else {
+                    let current = self.load_active_aggregate(room_id).await?;
+                    return Ok(Some(ServerEvent::CommandRejected {
+                        command_id,
+                        reason: "revision_conflict".into(),
+                        revision: current.room.revision.max(0) as u64,
+                    }));
+                };
+                self.publish(
+                    room_id,
+                    ServerEvent::RoomLockedUpdated {
+                        locked,
                         revision: next_revision,
                     },
                 )
@@ -2504,7 +2586,7 @@ mod tests {
         assert_eq!(promoted.queue[1].song_id, "song-2");
         assert_ne!(promoted.queue[1].id, "queue-song-2");
         assert_eq!(promoted.queue[1].upvotes, 0);
-        assert!(promoted.queue[1].played);
+        assert!(!promoted.queue[1].played);
         assert_eq!(promoted.content.items.len(), 2);
         assert_eq!(promoted.musical_state.item_index, 1);
 
@@ -2527,15 +2609,133 @@ mod tests {
         assert_eq!(promoted_again.queue[0].song_id, "song-3");
         assert_eq!(promoted_again.queue[1].song_id, "song-2");
         assert_ne!(promoted_again.queue[1].id, requeued_id);
-        assert!(promoted_again.queue[1].played);
+        assert!(!promoted_again.queue[1].played);
         assert_eq!(promoted_again.content.items.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn activating_the_next_queue_item_marks_the_previous_item_played() {
+        let db = crate::test_helpers::test_db().await.unwrap();
+        let service = service(db);
+        let current = queued_song("song-1");
+        let next = queued_song("song-2");
+        let created = service
+            .create(CreateRoomInput {
+                team_id: "team-1".into(),
+                name: Some("Room".into()),
+                host_user_id: "user-1".into(),
+                host_email: "host@example.com".into(),
+                host_avatar_url: None,
+                source_type: Some(RoomSourceType::Setlist),
+                source_id: Some("setlist-1".into()),
+                source_title: Some("Setlist".into()),
+                content: RoomContent {
+                    items: vec![PlayerItem::Chords(current.song.clone())],
+                    toc: vec![TocItem {
+                        idx: 0,
+                        title: current.title.clone(),
+                        id: Some(current.song_id.clone()),
+                        nr: "1".into(),
+                        liked: false,
+                    }],
+                },
+                initial_queue: vec![current.clone(), next.clone()],
+                host_mode: RoomMode::Sheet,
+                musical_state: RoomMusicalState::default(),
+                projection: None,
+            })
+            .await
+            .unwrap();
+        let before = service
+            .snapshot_for_participant(&created.room.id, &created.credentials.participant_id)
+            .await
+            .unwrap();
+
+        service
+            .promote_queue_item(
+                &created.room.id,
+                "user-1",
+                &["team-1".into()],
+                &current.id,
+                before.revision,
+            )
+            .await
+            .unwrap();
+        let same_song = service
+            .snapshot_for_participant(&created.room.id, &created.credentials.participant_id)
+            .await
+            .unwrap();
+        assert!(
+            !same_song
+                .queue
+                .iter()
+                .find(|item| item.song_id == current.song_id)
+                .unwrap()
+                .played
+        );
+
+        service
+            .promote_queue_item(
+                &created.room.id,
+                "user-1",
+                &["team-1".into()],
+                &next.id,
+                same_song.revision,
+            )
+            .await
+            .unwrap();
+
+        let after = service
+            .snapshot_for_participant(&created.room.id, &created.credentials.participant_id)
+            .await
+            .unwrap();
+        let previous = after
+            .queue
+            .iter()
+            .find(|item| item.song_id == current.song_id)
+            .unwrap();
+        let selected = after
+            .queue
+            .iter()
+            .find(|item| item.song_id == next.song_id)
+            .unwrap();
+        assert!(previous.played);
+        assert!(!selected.played);
+        assert_eq!(after.musical_state.item_index, 1);
     }
 
     #[tokio::test]
     async fn upvoting_a_played_item_returns_it_to_the_upcoming_ranking() {
         let db = crate::test_helpers::test_db().await.unwrap();
         let service = service(db);
-        let created = create_room(&service).await;
+        let current = queued_song("song-1");
+        let created = service
+            .create(CreateRoomInput {
+                team_id: "team-1".into(),
+                name: Some("Room".into()),
+                host_user_id: "user-1".into(),
+                host_email: "host@example.com".into(),
+                host_avatar_url: None,
+                source_type: Some(RoomSourceType::Setlist),
+                source_id: Some("setlist-1".into()),
+                source_title: Some("Setlist".into()),
+                content: RoomContent {
+                    items: vec![PlayerItem::Chords(current.song.clone())],
+                    toc: vec![TocItem {
+                        idx: 0,
+                        title: current.title.clone(),
+                        id: Some(current.song_id.clone()),
+                        nr: "1".into(),
+                        liked: false,
+                    }],
+                },
+                initial_queue: vec![current],
+                host_mode: RoomMode::Sheet,
+                musical_state: RoomMusicalState::default(),
+                projection: None,
+            })
+            .await
+            .unwrap();
         service
             .set_queue_access(&created.room.id, "user-1", &["team-1".into()], true, 1)
             .await
@@ -2583,11 +2783,17 @@ mod tests {
         let played_id = played_snapshot
             .queue
             .iter()
-            .find(|item| item.song_id == "song-2")
+            .find(|item| item.song_id == "song-1")
             .map(|item| item.id.clone())
             .unwrap();
-        assert!(played_snapshot.queue[1].played);
-        assert_eq!(played_snapshot.queue[1].upvotes, 0);
+        assert!(
+            played_snapshot
+                .queue
+                .iter()
+                .find(|item| item.song_id == "song-1")
+                .unwrap()
+                .played
+        );
 
         service
             .update_queue_vote(
@@ -2603,7 +2809,7 @@ mod tests {
             .snapshot_for_participant(&created.room.id, &created.credentials.participant_id)
             .await
             .unwrap();
-        assert_eq!(upvoted.queue[0].song_id, "song-2");
+        assert_eq!(upvoted.queue[0].song_id, "song-1");
         assert!(!upvoted.queue[0].played);
         assert_eq!(upvoted.queue[0].upvotes, 1);
 
@@ -2621,7 +2827,7 @@ mod tests {
             .snapshot_for_participant(&created.room.id, &created.credentials.participant_id)
             .await
             .unwrap();
-        assert_eq!(unvoted.queue[0].song_id, "song-2");
+        assert_eq!(unvoted.queue[0].song_id, "song-1");
         assert!(!unvoted.queue[0].played);
         assert_eq!(unvoted.queue[0].upvotes, 0);
     }
@@ -2787,6 +2993,100 @@ mod tests {
                 .await,
             Err(AppError::Forbidden)
         ));
+    }
+
+    #[tokio::test]
+    async fn room_lock_blocks_new_joins_and_publishes_a_delta() {
+        let db = crate::test_helpers::test_db().await.unwrap();
+        let service = service(db);
+        let created = create_room(&service).await;
+        let mut events = service.sender(&created.room.id).await.subscribe();
+
+        let accepted = service
+            .command(
+                &created.room.id,
+                &created.credentials.participant_id,
+                ClientEvent::UpdateRoomLocked {
+                    command_id: "lock-room".into(),
+                    locked: true,
+                },
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            accepted,
+            Some(ServerEvent::CommandAccepted { .. })
+        ));
+        assert!(matches!(
+            events.recv().await.unwrap(),
+            ServerEvent::RoomLockedUpdated { locked: true, .. }
+        ));
+
+        let snapshot = service
+            .snapshot_for_participant(&created.room.id, &created.credentials.participant_id)
+            .await
+            .unwrap();
+        assert!(snapshot.locked);
+        assert!(matches!(
+            service
+                .join_authenticated(
+                    &created.room.id,
+                    "user-2",
+                    "member@example.com",
+                    None,
+                    RoomMode::Sheet,
+                    false,
+                    None,
+                    &["team-1".into()],
+                )
+                .await,
+            Err(AppError::Conflict(reason)) if reason == "room_locked"
+        ));
+        assert!(
+            service
+                .inspect_invite(&created.invite_secret)
+                .await
+                .unwrap()
+                .locked
+        );
+
+        service
+            .reconnect(&created.room.id, &created.credentials.resume_credential)
+            .await
+            .unwrap();
+
+        let accepted = service
+            .command(
+                &created.room.id,
+                &created.credentials.participant_id,
+                ClientEvent::UpdateRoomLocked {
+                    command_id: "unlock-room".into(),
+                    locked: false,
+                },
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            accepted,
+            Some(ServerEvent::CommandAccepted { .. })
+        ));
+        assert!(matches!(
+            events.recv().await.unwrap(),
+            ServerEvent::RoomLockedUpdated { locked: false, .. }
+        ));
+        service
+            .join_authenticated(
+                &created.room.id,
+                "user-2",
+                "member@example.com",
+                None,
+                RoomMode::Sheet,
+                false,
+                None,
+                &["team-1".into()],
+            )
+            .await
+            .unwrap();
     }
 
     #[tokio::test]

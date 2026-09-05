@@ -29,8 +29,9 @@ describe('RoomQueueAccessControl', () => {
       <RoomQueueAccessControl roomId="room-1" revision={4} open={false} isHost={false} />,
     )
 
-    expect(screen.getByText('rooms.queueAccess.label')).toBeInTheDocument()
+    expect(screen.getByText('rooms.queueAccess.shortLabel')).toBeInTheDocument()
     expect(screen.getByText('rooms.queueAccess.disabled')).toBeInTheDocument()
+    expect(screen.queryByText('rooms.queueAccess.disabledDescription')).not.toBeInTheDocument()
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
   })
 
@@ -40,6 +41,8 @@ describe('RoomQueueAccessControl', () => {
     )
 
     const checkbox = screen.getByRole('checkbox', { name: 'rooms.queueAccess.allow' })
+    expect(screen.getByText('rooms.queueAccess.shortLabel')).toBeInTheDocument()
+    expect(screen.queryByText('rooms.queueAccess.allowedDescription')).not.toBeInTheDocument()
     expect(checkbox).not.toBeChecked()
     fireEvent.click(checkbox)
 

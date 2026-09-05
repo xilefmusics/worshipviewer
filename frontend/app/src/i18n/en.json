@@ -1229,10 +1229,22 @@
     "nameRequired": "Enter a room name.",
     "teamLabel": "Team",
     "teamPlaceholder": "Choose a team",
+    "songPool": {
+      "typeLabel": "Song pool type",
+      "typePlaceholder": "Choose a pool type",
+      "collectionType": "Collection",
+      "setlistType": "Setlist",
+      "sourceLabel": "Song pool",
+      "sourcePlaceholder": "Choose a song pool",
+      "loadFailed": "Could not load song pools."
+    },
     "emptyRoom": "Empty room",
     "emptyRoomTitle": "This Room is ready",
     "emptyRoomDescription": "There is no content in this room yet. You can still invite participants or close the room.",
     "end": "Close",
+    "closeConfirmTitle": "Close this room?",
+    "closeConfirmDescription": "Everyone will be disconnected and this room will no longer be available.",
+    "closeConfirm": "Close room",
     "copyInvite": "Copy invite",
     "inviteCopied": "Invite link copied",
     "togglePanel": "Room",
@@ -1252,12 +1264,17 @@
     "guestBadge": "(Guest)",
     "guestsNotAllowed": "This room is not accepting new guests.",
     "allowGuests": {
-      "label": "Allow guests",
-      "copyDisabled": "Enable guest access to copy the invite link."
+      "label": "Allow unauthenticated guests",
+      "copyDisabled": "Enable unauthenticated guest access to copy the invite link."
     },
+    "lockRoom": {
+      "label": "Lock room"
+    },
+    "roomLocked": "This room is locked and not accepting new participants.",
     "queueAccess": {
       "label": "Queue access",
       "allow": "Allow members to add songs",
+      "shortLabel": "Allow song additions",
       "allowed": "Members can add songs",
       "disabled": "New additions are disabled",
       "allowedDescription": "Members can add songs from the library.",

@@ -1,10 +1,14 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { fireEvent, render as renderTestingLibrary, screen, waitFor } from '@testing-library/react'
+import type { ReactElement, ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Team } from '@/api/teams-sessions-fetch'
 import { CreateRoomDialog } from '@/components/room/CreateRoomDialog'
 
 const createRoom = vi.fn()
+const fetchCollectionsPage = vi.fn()
+const fetchSetlistsPage = vi.fn()
 let online = true
 const LAST_OWNER_LS = 'wv.roomCreate.lastOwnerTeamId'
 const localStorageState = new Map<string, string>()
@@ -21,6 +25,10 @@ vi.mock('@/hooks/use-online', () => ({ useOnline: () => online }))
 vi.mock('@/lib/room', () => ({
   createRoom: (...args: unknown[]) => createRoom(...args),
 }))
+vi.mock('@/api/list-fetch', () => ({
+  fetchCollectionsPage: (...args: unknown[]) => fetchCollectionsPage(...args),
+  fetchSetlistsPage: (...args: unknown[]) => fetchSetlistsPage(...args),
+}))
 vi.mock('@/lib/team-display-name', () => ({
   getTeamDisplayName: (team: Team) => team.name,
   isPersonalTeamName: (name: string) => name.trim().toLowerCase() === 'personal',
@@ -28,11 +36,23 @@ vi.mock('@/lib/team-display-name', () => ({
 
 const team = (id: string, name: string) => ({ id, name, members: [] }) as unknown as Team
 
+function render(ui: ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return renderTestingLibrary(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    ),
+  })
+}
+
 beforeEach(() => {
   online = true
   localStorageState.clear()
   vi.stubGlobal('localStorage', localStorageMock)
+  Element.prototype.scrollIntoView = vi.fn()
   createRoom.mockReset().mockResolvedValue({ room: { id: 'room-1' } })
+  fetchCollectionsPage.mockReset().mockResolvedValue({ items: [], total: 0 })
+  fetchSetlistsPage.mockReset().mockResolvedValue({ items: [], total: 0 })
 })
 
 describe('CreateRoomDialog', () => {
@@ -48,7 +68,7 @@ describe('CreateRoomDialog', () => {
       />,
     )
 
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'rooms.songPool.typeLabel' })).toBeInTheDocument()
     const nameInput = screen.getByRole('textbox', { name: 'rooms.nameLabel' })
     expect(nameInput).toHaveAttribute('placeholder', 'rooms.namePlaceholder')
     fireEvent.change(nameInput, { target: { value: 'Sunday Worship' } })
@@ -115,12 +135,50 @@ describe('CreateRoomDialog', () => {
 
     const nameInput = screen.getByRole('textbox', { name: 'rooms.nameLabel' })
     expect(nameInput).toHaveValue('Sunday Set')
+    expect(screen.queryByRole('combobox', { name: 'rooms.songPool.typeLabel' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
 
     await waitFor(() =>
       expect(createRoom).toHaveBeenCalledWith({
         team_id: 'team-1',
         name: 'Sunday Set',
+        source_type: 'collection',
+        source_id: 'collection-1',
+      }),
+    )
+  })
+
+  it('passes a selected collection as the song pool for an independent room', async () => {
+    fetchCollectionsPage.mockResolvedValue({
+      items: [{ id: 'collection-1', title: 'Sunday songs' }],
+      total: 1,
+    })
+    render(
+      <CreateRoomDialog
+        open
+        onOpenChange={vi.fn()}
+        teams={[team('team-1', 'One')]}
+        userId="user-1"
+        onCreated={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'rooms.songPool.typeLabel' }))
+    fireEvent.click(await screen.findByRole('option', { name: 'rooms.songPool.collectionType' }))
+    const poolSelect = await screen.findByRole('combobox', { name: 'rooms.songPool.sourceLabel' })
+    await waitFor(() => expect(poolSelect).toBeEnabled())
+    fireEvent.click(poolSelect)
+    fireEvent.click(await screen.findByRole('option', { name: 'Sunday songs' }))
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'rooms.nameLabel' }), {
+      target: { value: 'Sunday Worship' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
+
+    await waitFor(() =>
+      expect(createRoom).toHaveBeenCalledWith({
+        team_id: 'team-1',
+        name: 'Sunday Worship',
         source_type: 'collection',
         source_id: 'collection-1',
       }),
@@ -138,7 +196,7 @@ describe('CreateRoomDialog', () => {
       />,
     )
 
-    expect(screen.getByRole('combobox')).toHaveTextContent('One')
+    expect(screen.getByRole('combobox', { name: 'rooms.teamLabel' })).toHaveTextContent('One')
     expect(screen.getByRole('button', { name: 'rooms.createSubmit' })).toBeEnabled()
   })
 
@@ -154,7 +212,7 @@ describe('CreateRoomDialog', () => {
       />,
     )
 
-    expect(screen.getByRole('combobox')).toHaveTextContent('Personal')
+    expect(screen.getByRole('combobox', { name: 'rooms.teamLabel' })).toHaveTextContent('Personal')
     fireEvent.change(screen.getByRole('textbox', { name: 'rooms.nameLabel' }), {
       target: { value: 'Sunday Worship' },
     })
@@ -176,7 +234,7 @@ describe('CreateRoomDialog', () => {
       />,
     )
 
-    expect(screen.getByRole('combobox')).toHaveTextContent('One')
+    expect(screen.getByRole('combobox', { name: 'rooms.teamLabel' })).toHaveTextContent('One')
   })
 
   it('keeps creation unavailable while offline', () => {

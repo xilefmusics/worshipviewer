@@ -26,7 +26,7 @@ export type RoomQueueItem = {
 }
 export type RoomParticipant = { id: string; mode: RoomMode; hide_chords?: boolean; display_name: string; avatar_url: string | null; anonymous: boolean; connected: boolean; is_host: boolean; is_av_host: boolean }
 export type RoomSummary = { id: string; name: string; team_id: string; source_type: RoomSourceType | null; source_id: string | null; source_title: string | null; open?: boolean; host_email: string; can_close?: boolean; participant_count: number; av_occupied: boolean; created_at: string }
-export type RoomSnapshot = RoomSummary & { content: { items: components['schemas']['Player']['items']; toc: components['schemas']['Player']['toc'] }; queue: RoomQueueItem[]; voted_queue_ids: string[]; musical_state: RoomMusicalState; projection: RoomProjection | null; participants: RoomParticipant[]; revision: number; host_lease_expires_at: string; guests_allowed?: boolean }
+export type RoomSnapshot = RoomSummary & { locked?: boolean; content: { items: components['schemas']['Player']['items']; toc: components['schemas']['Player']['toc'] }; queue: RoomQueueItem[]; voted_queue_ids: string[]; musical_state: RoomMusicalState; projection: RoomProjection | null; participants: RoomParticipant[]; revision: number; host_lease_expires_at: string; guests_allowed?: boolean }
 export type RoomCredentials = { room_id: string; participant_id: string; mode: RoomMode; resume_credential: string; connection_ticket: string }
 export type CreatedRoom = { room: RoomSummary; credentials: RoomCredentials; invite_secret: string }
 export type RoomServerMessage =
@@ -36,6 +36,7 @@ export type RoomServerMessage =
   | { type: 'projection_updated'; projection: RoomProjection; revision: number }
   | { type: 'queue_updated'; queue: RoomQueueItem[]; revision: number }
   | { type: 'guests_allowed_updated'; guests_allowed: boolean; revision: number }
+  | { type: 'room_locked_updated'; locked: boolean; revision: number }
   | { type: 'queue_access_updated'; open: boolean; revision: number }
   | { type: 'participants_changed'; participants: RoomParticipant[]; participant_count: number; av_occupied: boolean; revision: number }
   | { type: 'command_accepted'; command_id: string; revision: number; queue_id?: string; upvoted?: boolean }
@@ -116,7 +117,7 @@ export async function listRooms(params: { page: number; q?: string; team?: strin
 export async function joinRoom(roomId: string, mode: RoomMode, hideChords = false): Promise<RoomCredentials> {
   const previous = readRoomCredentials(roomId); const credentials = await jsonRequest<RoomCredentials>(`/api/v1/rooms/${encodeURIComponent(roomId)}/join`, { method: 'POST', body: JSON.stringify({ mode, hide_chords: hideChords, resume_credential: previous?.mode === mode ? previous.resume_credential : null }) }); saveRoomCredentials(credentials); return credentials
 }
-export async function inspectRoomInvite(inviteSecret: string): Promise<{ room_id: string; name: string; host_email: string; av_occupied: boolean; guests_allowed?: boolean }> { return jsonRequest('/api/v1/rooms/invite/inspect', { method: 'POST', body: JSON.stringify({ invite_secret: inviteSecret }) }) }
+export async function inspectRoomInvite(inviteSecret: string): Promise<{ room_id: string; name: string; host_email: string; av_occupied: boolean; guests_allowed?: boolean; locked?: boolean }> { return jsonRequest('/api/v1/rooms/invite/inspect', { method: 'POST', body: JSON.stringify({ invite_secret: inviteSecret }) }) }
 export async function joinRoomInvite(input: { invite_secret: string; display_name: string; mode: RoomMode; hide_chords?: boolean }): Promise<RoomCredentials> { const credentials = await jsonRequest<RoomCredentials>('/api/v1/rooms/invite/join', { method: 'POST', body: JSON.stringify({ hide_chords: false, ...input }) }); saveRoomCredentials(credentials); return credentials }
 export async function endRoom(roomId: string): Promise<void> { const response = await fetch(`${apiBase}/api/v1/rooms/${encodeURIComponent(roomId)}`, { method: 'DELETE', credentials: 'include' }); if (!response.ok) throw new Error(response.status === 403 ? 'room_forbidden' : 'room_unavailable') }
 export function updateRoomQueueAccess(roomId: string, open: boolean, revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/queue-access`, { method: 'PUT', body: JSON.stringify({ open, revision }) }) }
@@ -143,7 +144,7 @@ export function removeRoomQueueItem(roomId: string, queueId: string, revision: n
 export function reorderRoomQueue(roomId: string, queueIds: string[], revision: number): Promise<void> { return roomMutation(`/api/v1/rooms/${encodeURIComponent(roomId)}/queue/order`, { method: 'PUT', body: JSON.stringify({ queue_ids: queueIds, revision }) }) }
 async function reconnectRoom(credentials: RoomCredentials): Promise<RoomCredentials> { const next = await jsonRequest<RoomCredentials>(`/api/v1/rooms/${encodeURIComponent(credentials.room_id)}/reconnect`, { method: 'POST', body: JSON.stringify({ mode: credentials.mode, resume_credential: credentials.resume_credential }) }); saveRoomCredentials(next); return next }
 
-export type RoomConnection = { snapshot: RoomSnapshot | null; status: 'connecting' | 'connected' | 'reconnecting' | 'ended'; sendMusicalState: (state: RoomMusicalState) => void; sendProjection: (projection: RoomProjection) => void; sendGuestsAllowed: (guestsAllowed: boolean) => void; sendQueueVote: (queueId: string, upvoted: boolean) => void; leave: () => void }
+export type RoomConnection = { snapshot: RoomSnapshot | null; status: 'connecting' | 'connected' | 'reconnecting' | 'ended'; sendMusicalState: (state: RoomMusicalState) => void; sendProjection: (projection: RoomProjection) => void; sendGuestsAllowed: (guestsAllowed: boolean) => void; sendRoomLocked: (locked: boolean) => void; sendQueueVote: (queueId: string, upvoted: boolean) => void; leave: () => void }
 
 export function applyRoomServerMessage(
   current: RoomSnapshot | null,
@@ -203,6 +204,8 @@ export function applyRoomServerMessage(
       return { snapshot: { ...current, projection: message.projection, revision: message.revision }, needsSnapshot: false }
     case 'guests_allowed_updated':
       return { snapshot: { ...current, guests_allowed: message.guests_allowed, revision: message.revision }, needsSnapshot: false }
+    case 'room_locked_updated':
+      return { snapshot: { ...current, locked: message.locked, revision: message.revision }, needsSnapshot: false }
     case 'queue_access_updated':
       return { snapshot: { ...current, open: message.open, revision: message.revision }, needsSnapshot: false }
     case 'queue_updated':
@@ -349,6 +352,11 @@ export function useRoom(credentials: RoomCredentials | null): RoomConnection {
       send({ type: 'update_guests_allowed', command_id: crypto.randomUUID(), guests_allowed }),
     [send],
   )
+  const sendRoomLocked = useCallback(
+    (locked: boolean) =>
+      send({ type: 'update_room_locked', command_id: crypto.randomUUID(), locked }),
+    [send],
+  )
   const sendQueueVote = useCallback(
     (queue_id: string, upvoted: boolean) =>
       send({
@@ -365,7 +373,7 @@ export function useRoom(credentials: RoomCredentials | null): RoomConnection {
     closedRef.current = true
     socketRef.current?.close()
   }, [send])
-  return { snapshot, status, sendMusicalState, sendProjection, sendGuestsAllowed, sendQueueVote, leave }
+  return { snapshot, status, sendMusicalState, sendProjection, sendGuestsAllowed, sendRoomLocked, sendQueueVote, leave }
 }
 
 export function playerFromRoom(snapshot: RoomSnapshot): components['schemas']['Player'] { return { items: snapshot.content.items, toc: snapshot.content.toc, scroll_type: 'one_page', scroll_type_cache_other_orientation: 'book', orientation: 'portrait', between_items: false, index: snapshot.musical_state.item_index } }
