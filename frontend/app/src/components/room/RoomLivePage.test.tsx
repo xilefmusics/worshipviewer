@@ -205,7 +205,7 @@ describe('RoomLivePage responsive player layout', () => {
 
     render(<RoomLivePage credentials={{ ...credentials, mode: 'sheet' }} />)
 
-    expect(screen.getByRole('tablist', { name: 'rooms.panels' })).toBeInTheDocument()
+    expect(screen.queryByRole('tablist', { name: 'rooms.panels' })).not.toBeInTheDocument()
     expect(playerBookProps).toEqual(expect.objectContaining({ embedded: true }))
     expect(playerBookProps).not.toHaveProperty('tocSidebar')
     expect(playerBookProps).not.toHaveProperty('roomSidebar')
@@ -217,7 +217,7 @@ describe('RoomLivePage responsive player layout', () => {
 
     render(<RoomLivePage credentials={{ ...credentials, mode: 'av' }} />)
 
-    expect(screen.getByRole('tablist', { name: 'rooms.panels' })).toBeInTheDocument()
+    expect(screen.queryByRole('tablist', { name: 'rooms.panels' })).not.toBeInTheDocument()
     expect(playerAvProps).toEqual(expect.objectContaining({ embedded: true }))
     expect(playerAvProps).not.toHaveProperty('tocSidebar')
     expect(playerAvProps).not.toHaveProperty('roomSidebar')
