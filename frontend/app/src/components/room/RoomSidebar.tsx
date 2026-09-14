@@ -17,9 +17,9 @@ import { Button } from '@/components/ui/button'
 import { PLAYER_TOC_WIDTH_CLASS } from '@/lib/player/player-chrome'
 import {
   formatRoomDuration,
-  participantModeLabel,
+  sessionModeLabel,
   useRoomElapsedSeconds,
-  type RoomParticipant,
+  type RoomSession,
 } from '@/lib/room'
 import { cn } from '@/lib/utils'
 
@@ -27,16 +27,16 @@ type RoomSidebarProps = {
   name: string
   createdAt: string
   status: 'connected' | 'reconnecting' | 'connecting'
-  participants: RoomParticipant[]
+  sessions: RoomSession[]
   isHost: boolean
   canClose: boolean
-  guestsAllowed: boolean
-  onGuestsAllowedChange: (allowed: boolean) => void
-  locked: boolean
-  onRoomLockedChange: (locked: boolean) => void
+  guestAccessAllowed: boolean
+  onGuestAccessAllowedChange: (allowed: boolean) => void
+  newJoinsLocked: boolean
+  onNewJoinsLockedChange: (newJoinsLocked: boolean) => void
   roomId: string
   revision: number
-  open?: boolean
+  queueAdditionsAllowed?: boolean
   inviteSecret: string | null
   onEndRoom?: () => void
   className?: string
@@ -46,16 +46,16 @@ export function RoomSidebar({
   name,
   createdAt,
   status,
-  participants,
+  sessions,
   isHost,
   canClose,
-  guestsAllowed,
-  onGuestsAllowedChange,
-  locked,
-  onRoomLockedChange,
+  guestAccessAllowed,
+  onGuestAccessAllowedChange,
+  newJoinsLocked,
+  onNewJoinsLockedChange,
   roomId,
   revision,
-  open,
+  queueAdditionsAllowed,
   inviteSecret,
   onEndRoom,
   className,
@@ -90,26 +90,26 @@ export function RoomSidebar({
             {statusLabel}
           </span>
           <span aria-hidden>·</span>
-          <span>{participants.length}</span>
+          <span>{sessions.length}</span>
         </p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
         <p className="px-2 pb-2 text-xs font-medium uppercase tracking-wide text-[var(--color-muted-foreground)]">
-          {t('rooms.participants')}
+          {t('rooms.sessions')}
         </p>
         <ul className="space-y-1">
-          {participants.map((participant) => (
+          {sessions.map((session) => (
             <li
-              key={participant.id}
+              key={session.id}
               className={cn(
                 'rounded-md px-2 py-2',
-                !participant.connected && 'opacity-60',
+                !session.connected && 'opacity-60',
               )}
             >
               <p className="truncate text-sm font-medium">
-                {participant.display_name}
-                {participant.anonymous ? (
+                {session.display_name}
+                {session.anonymous ? (
                   <span className="font-normal text-[var(--color-muted-foreground)]">
                     {' '}
                     {t('rooms.guestBadge')}
@@ -117,9 +117,9 @@ export function RoomSidebar({
                 ) : null}
               </p>
               <p className="text-xs text-[var(--color-muted-foreground)]">
-                {participantModeLabel(participant, t)}
-                {participant.is_host ? ` · ${t('rooms.host')}` : null}
-                {participant.is_av_host ? ` · ${t('rooms.avHost')}` : null}
+                {sessionModeLabel(session, t)}
+                {session.is_host ? ` · ${t('rooms.host')}` : null}
+                {session.is_av_host ? ` · ${t('rooms.avHost')}` : null}
               </p>
             </li>
           ))}
@@ -133,7 +133,7 @@ export function RoomSidebar({
               <RoomQueueAccessControl
                 roomId={roomId}
                 revision={revision}
-                open={open}
+                queueAdditionsAllowed={queueAdditionsAllowed}
                 isHost={isHost}
               />
               <label className="flex items-center gap-3 text-sm">
@@ -141,8 +141,8 @@ export function RoomSidebar({
                   type="checkbox"
                   className="size-4 shrink-0 accent-[var(--color-primary)]"
                   aria-label={t('rooms.lockRoom.label')}
-                  checked={locked}
-                  onChange={(event) => onRoomLockedChange(event.target.checked)}
+                  checked={newJoinsLocked}
+                  onChange={(event) => onNewJoinsLockedChange(event.target.checked)}
                 />
                 <span>{t('rooms.lockRoom.label')}</span>
               </label>
@@ -151,8 +151,8 @@ export function RoomSidebar({
                   type="checkbox"
                   className="size-4 shrink-0 accent-[var(--color-primary)]"
                   aria-label={t('rooms.allowGuests.label')}
-                  checked={guestsAllowed}
-                  onChange={(event) => onGuestsAllowedChange(event.target.checked)}
+                  checked={guestAccessAllowed}
+                  onChange={(event) => onGuestAccessAllowedChange(event.target.checked)}
                 />
                 <span>{t('rooms.allowGuests.label')}</span>
               </label>
@@ -161,8 +161,8 @@ export function RoomSidebar({
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={!guestsAllowed}
-                  title={!guestsAllowed ? t('rooms.allowGuests.copyDisabled') : undefined}
+                  disabled={!guestAccessAllowed}
+                  title={!guestAccessAllowed ? t('rooms.allowGuests.copyDisabled') : undefined}
                   onClick={() => {
                     void navigator.clipboard
                       .writeText(`${window.location.origin}/rooms/invite#${inviteSecret}`)

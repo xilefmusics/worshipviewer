@@ -427,6 +427,8 @@ mod tests {
                     | Some("20260907130000_rooms_chord_only.surql")
                     | Some("20260907140000_remove_player_room_source_metadata.surql")
                     | Some("20260907150000_player_room_id_links.surql")
+                    | Some("20260907160000_rename_player_room_boolean_fields.surql")
+                    | Some("20260907190000_merge_player_room_participants_into_sessions.surql")
             ) {
                 continue;
             }
@@ -463,7 +465,20 @@ mod tests {
             .expect("create legacy room")
             .check()
             .expect("legacy room state");
-
+        db.db
+            .query(
+                "CREATE type::record('player_room_participant', 'legacy-room:participant') CONTENT {
+                    room: type::record('player_room', 'legacy-room'), participant_id: 'participant',
+                    user_id: 'legacy-user', display_name: 'Legacy Host', avatar_url: NONE,
+                    anonymous: false, mode: 'sheet', hide_chords: false,
+                    resume_hash: 'legacy-resume', connected: false,
+                    lease_expires_at: time::now() - 1s, joined_at: time::now()
+                };",
+            )
+            .await
+            .expect("create legacy participant")
+            .check()
+            .expect("legacy participant state");
         let current_path = migration_path.to_str().expect("current path");
         db.migrate(current_path).await.expect("current migrations");
         let mut response = db
@@ -476,20 +491,24 @@ mod tests {
         assert!(room.get("source_type").is_none());
         assert!(room.get("source_id").is_none());
         assert!(room.get("source_title").is_none());
-        assert_eq!(room["open"], true);
-        assert_eq!(room["locked"], false);
+        assert_eq!(room["queue_additions_allowed"], true);
+        assert_eq!(room["new_joins_locked"], false);
         assert_eq!(room["queue_json"], "[]");
         assert_eq!(room["queue_votes_json"], "{}");
         assert!(room.get("media_ids").is_none());
         assert!(room.get("snapshot_json").is_none());
         assert!(room.get("state_json").is_none());
-        assert_eq!(room["guests_allowed"], true);
+        assert_eq!(room["guest_access_allowed"], true);
+        assert!(room.get("open").is_none());
+        assert!(room.get("locked").is_none());
+        assert!(room.get("guests_allowed").is_none());
         assert!(room["closed_at"].is_null());
+        assert!(room.get("host_lease_expires_at").is_none());
+        assert!(room.get("host_user_id").is_none());
         #[derive(Deserialize, SurrealValue)]
         struct RoomLinks {
-            host_user_id: Option<RecordId>,
-            host_participant_id: RecordId,
-            av_participant_id: Option<RecordId>,
+            host_session_id: RecordId,
+            av_session_id: Option<RecordId>,
         }
         let links: RoomLinks = db
             .db
@@ -498,23 +517,43 @@ mod tests {
             .expect("decode migrated room links")
             .expect("migrated room links");
         assert_eq!(
-            record_id_string(links.host_user_id.as_ref().expect("host user link")),
-            "legacy-user"
-        );
-        assert_eq!(
-            record_id_string(&links.host_participant_id),
+            record_id_string(&links.host_session_id),
             "legacy-room:participant"
         );
         assert_eq!(
-            record_id_string(
-                links
-                    .av_participant_id
-                    .as_ref()
-                    .expect("av participant link")
-            ),
+            record_id_string(links.av_session_id.as_ref().expect("av participant link")),
             "legacy-room:participant"
         );
         assert!(room.get("song_pool_json").is_none());
+
+        let mut response = db
+            .db
+            .query(
+                "SELECT session_id, user_id, mode, resume_hash, connected FROM player_room_session WHERE room = type::record('player_room', 'legacy-room')",
+            )
+            .await
+            .expect("read migrated room sessions");
+        let sessions: Vec<serde_json::Value> = response.take(0).expect("decode migrated sessions");
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0]["session_id"], "participant");
+        assert_eq!(sessions[0]["user_id"].as_str(), Some("user:`legacy-user`"));
+        assert_eq!(sessions[0]["mode"], "sheet");
+        assert_eq!(sessions[0]["resume_hash"], "legacy-resume");
+        assert_eq!(sessions[0]["connected"], false);
+
+        let mut response = db
+            .db
+            .query("INFO FOR DB")
+            .await
+            .expect("inspect migrated tables");
+        let info: surrealdb_types::Value = response.take(0).expect("decode migrated tables");
+        let info = serde_json::to_value(info).expect("serialize migrated tables");
+        assert!(
+            !info["Object"]["tables"]["Object"]
+                .as_object()
+                .unwrap()
+                .contains_key("player_room_participant")
+        );
 
         let mut response = db
             .db

@@ -70,7 +70,7 @@ function renderPanel(overrides: Partial<ComponentProps<typeof RoomQueuePanel>> =
         canAdd={false}
         canManage={false}
         onVote={vi.fn()}
-        open={false}
+        queueAdditionsAllowed={false}
         {...overrides}
       />
     </QueryClientProvider>,
@@ -150,8 +150,8 @@ describe('RoomQueuePanel', () => {
     expect(addRoomQueueItem).not.toHaveBeenCalled()
   })
 
-  it('only shows the bottom library search for open rooms', () => {
-    const { rerender } = renderPanel({ canAdd: true, open: true })
+  it('only shows the bottom library search when queue additions are allowed', () => {
+    const { rerender } = renderPanel({ canAdd: true, queueAdditionsAllowed: true })
     expect(screen.getByRole('textbox', { name: 'rooms.queue.searchAria' })).toBeInTheDocument()
 
     rerender(
@@ -164,7 +164,7 @@ describe('RoomQueuePanel', () => {
           canAdd
           canManage={false}
           onVote={vi.fn()}
-          open={false}
+          queueAdditionsAllowed={false}
         />
       </QueryClientProvider>,
     )

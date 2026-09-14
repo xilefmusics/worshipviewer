@@ -1265,6 +1265,7 @@
       "failed": "Warteschlangenzugriff konnte nicht aktualisiert werden."
     },
     "participants": "Teilnehmende",
+    "sessions": "Sitzungen",
     "empty": "Keine aktiven Räume.",
     "avOccupied": "AV belegt",
     "avFree": "AV verfügbar",
@@ -1272,6 +1273,7 @@
     "footerJoinAria": "Raum beitreten: {{title}}",
     "modeChooserLabel": "Beitrittsmodus",
     "listParticipants": "{{count}} Teilnehmende",
+    "listSessions": "{{count}} Sitzungen",
     "sourceType": {
       "song": "Song",
       "collection": "Sammlung",

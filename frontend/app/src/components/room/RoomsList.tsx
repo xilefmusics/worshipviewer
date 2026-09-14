@@ -62,7 +62,7 @@ function RoomListRow({
           <p className={cn(HUB_LIST_SUBTITLE_CLASS, 'min-w-0 flex-1 truncate')}>
             {room.host_email}
             {' · '}
-            {t('rooms.listParticipants', { count: room.participant_count })}
+            {t('rooms.listSessions', { count: room.session_count })}
           </p>
           <time
             dateTime={`PT${elapsedSeconds}S`}

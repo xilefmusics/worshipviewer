@@ -39,9 +39,8 @@ use shared::player::{
 };
 use shared::room::{
     CreateRoom, CreatedRoom, InspectRoomInvite, JoinRoom, JoinRoomInvite, RoomContent,
-    RoomCredentials, RoomInviteInfo, RoomMode, RoomMusicalState, RoomParticipant,
-    RoomProjectionPayload, RoomQueueLikes, RoomSnapshot, RoomSourceType, RoomSummary,
-    UpdateRoomQueueAccess,
+    RoomCredentials, RoomInviteInfo, RoomMode, RoomMusicalState, RoomProjectionPayload,
+    RoomQueueLikes, RoomSession, RoomSnapshot, RoomSourceType, RoomSummary, UpdateRoomQueueAccess,
 };
 use shared::setlist::{
     SetlistItem, SetlistMediaLink, SetlistPlayerView, SongLink as SetlistSongLink,
@@ -330,7 +329,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
             RoomContent,
             RoomMusicalState,
             RoomProjectionPayload,
-            RoomParticipant,
+            RoomSession,
             RoomSummary,
             RoomSnapshot,
             CreateRoom,

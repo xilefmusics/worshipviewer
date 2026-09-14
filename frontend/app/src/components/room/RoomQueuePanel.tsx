@@ -28,7 +28,7 @@ type Props = {
   canAdd: boolean
   canManage: boolean
   onVote: (queueId: string, upvoted: boolean) => void
-  open?: boolean
+  queueAdditionsAllowed?: boolean
   currentSongId?: string | null
   className?: string
 }
@@ -68,7 +68,7 @@ export function RoomQueuePanel({
   canAdd,
   canManage,
   onVote,
-  open = false,
+  queueAdditionsAllowed = false,
   currentSongId,
   className,
 }: Props) {
@@ -83,8 +83,8 @@ export function RoomQueuePanel({
   const [activeLanguageIds, setActiveLanguageIds] = useState<Set<string>>(new Set())
   const [activeTagIds, setActiveTagIds] = useState<Set<string>>(new Set())
   const searchQuery = useQuery({
-    queryKey: ['room-queue-song-search', roomId, search.trim(), open],
-    enabled: canAdd && open && online && search.trim().length > 1,
+    queryKey: ['room-queue-song-search', roomId, search.trim(), queueAdditionsAllowed],
+    enabled: canAdd && queueAdditionsAllowed && online && search.trim().length > 1,
     queryFn: ({ signal }) => fetchSongsPage(queryClient, { page: 0, q: search.trim(), signal }),
     staleTime: 30_000,
   })
@@ -126,7 +126,7 @@ export function RoomQueuePanel({
     onVote(item.id, !votedIds.has(item.id))
   }
 
-  const footer = canAdd && open ? (
+  const footer = canAdd && queueAdditionsAllowed ? (
     <div className="relative shrink-0 border-t border-[var(--color-border)] p-2">
       {searchQuery.isFetching ? <p className="mb-2 px-2 text-xs text-[var(--color-muted-foreground)]">{t('common.load')}</p> : null}
       {searchQuery.error ? <p className="mb-2 px-2 text-xs text-[var(--color-destructive)]">{t('rooms.queue.failed')}</p> : null}

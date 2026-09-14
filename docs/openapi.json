@@ -2085,19 +2085,19 @@
           "mode": {
             "$ref": "#/components/schemas/RoomMode"
           },
-          "participant_id": {
-            "type": "string"
-          },
           "resume_credential": {
             "type": "string"
           },
           "room_id": {
             "type": "string"
+          },
+          "session_id": {
+            "type": "string"
           }
         },
         "required": [
           "room_id",
-          "participant_id",
+          "session_id",
           "mode",
           "resume_credential",
           "connection_ticket"
@@ -2109,17 +2109,17 @@
           "av_occupied": {
             "type": "boolean"
           },
-          "guests_allowed": {
+          "guest_access_allowed": {
             "type": "boolean"
           },
           "host_email": {
             "type": "string"
           },
-          "locked": {
-            "type": "boolean"
-          },
           "name": {
             "type": "string"
+          },
+          "new_joins_locked": {
+            "type": "boolean"
           },
           "room_id": {
             "type": "string"
@@ -2165,50 +2165,6 @@
         },
         "required": [
           "item_index"
-        ],
-        "type": "object"
-      },
-      "RoomParticipant": {
-        "properties": {
-          "anonymous": {
-            "type": "boolean"
-          },
-          "avatar_url": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "connected": {
-            "type": "boolean"
-          },
-          "display_name": {
-            "type": "string"
-          },
-          "hide_chords": {
-            "type": "boolean"
-          },
-          "id": {
-            "type": "string"
-          },
-          "is_av_host": {
-            "type": "boolean"
-          },
-          "is_host": {
-            "type": "boolean"
-          },
-          "mode": {
-            "$ref": "#/components/schemas/RoomMode"
-          }
-        },
-        "required": [
-          "id",
-          "mode",
-          "display_name",
-          "anonymous",
-          "connected",
-          "is_host",
-          "is_av_host"
         ],
         "type": "object"
       },
@@ -2317,6 +2273,50 @@
         ],
         "type": "object"
       },
+      "RoomSession": {
+        "properties": {
+          "anonymous": {
+            "type": "boolean"
+          },
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "hide_chords": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "is_av_host": {
+            "type": "boolean"
+          },
+          "is_host": {
+            "type": "boolean"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/RoomMode"
+          }
+        },
+        "required": [
+          "id",
+          "mode",
+          "display_name",
+          "anonymous",
+          "connected",
+          "is_host",
+          "is_av_host"
+        ],
+        "type": "object"
+      },
       "RoomSnapshot": {
         "allOf": [
           {
@@ -2327,24 +2327,18 @@
               "content": {
                 "$ref": "#/components/schemas/RoomContent"
               },
-              "guests_allowed": {
+              "guest_access_allowed": {
                 "type": "boolean"
               },
               "host_lease_expires_at": {
                 "format": "date-time",
                 "type": "string"
               },
-              "locked": {
-                "type": "boolean"
-              },
               "musical_state": {
                 "$ref": "#/components/schemas/RoomMusicalState"
               },
-              "participants": {
-                "items": {
-                  "$ref": "#/components/schemas/RoomParticipant"
-                },
-                "type": "array"
+              "new_joins_locked": {
+                "type": "boolean"
               },
               "projection": {
                 "oneOf": [
@@ -2367,6 +2361,12 @@
                 "minimum": 0,
                 "type": "integer"
               },
+              "sessions": {
+                "items": {
+                  "$ref": "#/components/schemas/RoomSession"
+                },
+                "type": "array"
+              },
               "voted_queue_ids": {
                 "items": {
                   "type": "string"
@@ -2377,7 +2377,7 @@
             "required": [
               "content",
               "musical_state",
-              "participants",
+              "sessions",
               "revision",
               "host_lease_expires_at"
             ],
@@ -2414,10 +2414,10 @@
           "name": {
             "type": "string"
           },
-          "open": {
+          "queue_additions_allowed": {
             "type": "boolean"
           },
-          "participant_count": {
+          "session_count": {
             "minimum": 0,
             "type": "integer"
           },
@@ -2430,7 +2430,7 @@
           "name",
           "team_id",
           "host_email",
-          "participant_count",
+          "session_count",
           "av_occupied",
           "created_at"
         ],
@@ -3387,7 +3387,7 @@
       },
       "UpdateRoomQueueAccess": {
         "properties": {
-          "open": {
+          "queue_additions_allowed": {
             "type": "boolean"
           },
           "revision": {
@@ -3397,7 +3397,7 @@
           }
         },
         "required": [
-          "open",
+          "queue_additions_allowed",
           "revision"
         ],
         "type": "object"

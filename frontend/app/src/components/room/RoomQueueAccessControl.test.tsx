@@ -26,7 +26,7 @@ beforeEach(() => {
 describe('RoomQueueAccessControl', () => {
   it('shows queue access read-only to non-host participants', () => {
     renderWithProviders(
-      <RoomQueueAccessControl roomId="room-1" revision={4} open={false} isHost={false} />,
+      <RoomQueueAccessControl roomId="room-1" revision={4} queueAdditionsAllowed={false} isHost={false} />,
     )
 
     expect(screen.getByText('rooms.queueAccess.shortLabel')).toBeInTheDocument()
@@ -37,7 +37,7 @@ describe('RoomQueueAccessControl', () => {
 
   it('lets the host toggle queue access', async () => {
     renderWithProviders(
-      <RoomQueueAccessControl roomId="room-1" revision={4} open={false} isHost />,
+      <RoomQueueAccessControl roomId="room-1" revision={4} queueAdditionsAllowed={false} isHost />,
     )
 
     const checkbox = screen.getByRole('checkbox', { name: 'rooms.queueAccess.allow' })

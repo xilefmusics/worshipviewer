@@ -61,13 +61,13 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
   const { t } = useTranslation()
   const isPhoneViewport = useIsPhoneWidth()
   const room = useRoom(credentials)
-  const { sendProjection, sendGuestsAllowed, sendRoomLocked, sendQueueVote } = room
+  const { sendProjection, sendGuestAccessAllowed, sendNewJoinsLocked, sendQueueVote } = room
   const sendRoomProjection = useCallback(
     (payload: AvProjectionPayload) => sendProjection(projectionToWire(payload)),
     [sendProjection],
   )
   const snapshot = room.snapshot
-  const participant = snapshot?.participants.find((row) => row.id === credentials.participant_id)
+  const session = snapshot?.sessions.find((row) => row.id === credentials.session_id)
   const roomPlayer = useMemo(() => (snapshot ? playerFromRoom(snapshot) : null), [snapshot])
   const currentSongId = useMemo(() => {
     if (!snapshot?.musical_state.started) return null
@@ -76,9 +76,9 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
   }, [snapshot])
   const promoteQueueTop = useCallback(() => {
     const first = snapshot?.queue[0]
-    if (!first || !participant?.is_host || !snapshot) return
+    if (!first || !session?.is_host || !snapshot) return
     void promoteRoomQueueItem(snapshot.id, first.id, snapshot.revision)
-  }, [participant?.is_host, snapshot])
+  }, [session?.is_host, snapshot])
   if (room.status === 'ended') {
     return (
       <main className="flex min-h-dvh items-center justify-center p-6 text-center">
@@ -87,7 +87,7 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
     )
   }
 
-  if (!snapshot || !roomPlayer || !participant) {
+  if (!snapshot || !roomPlayer || !session) {
     return (
       <main className="flex min-h-dvh items-center justify-center p-6">
         {room.status === 'reconnecting' ? t('rooms.reconnecting') : t('common.load')}
@@ -100,19 +100,19 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
       name={roomShortName(snapshot)}
       createdAt={snapshot.created_at}
       status={room.status === 'connected' ? 'connected' : 'reconnecting'}
-      participants={snapshot.participants}
-      isHost={participant.is_host}
+      sessions={snapshot.sessions}
+      isHost={session.is_host}
       roomId={snapshot.id}
       revision={snapshot.revision}
-      open={snapshot.open}
-      canClose={participant.is_host || snapshot.can_close === true}
-      guestsAllowed={snapshot.guests_allowed !== false}
-      onGuestsAllowedChange={sendGuestsAllowed}
-      locked={snapshot.locked === true}
-      onRoomLockedChange={sendRoomLocked}
-      inviteSecret={participant.is_host ? readRoomInvite(snapshot.id) : null}
+      queueAdditionsAllowed={snapshot.queue_additions_allowed}
+      canClose={session.is_host || snapshot.can_close === true}
+      guestAccessAllowed={snapshot.guest_access_allowed !== false}
+      onGuestAccessAllowedChange={sendGuestAccessAllowed}
+      newJoinsLocked={snapshot.new_joins_locked === true}
+      onNewJoinsLockedChange={sendNewJoinsLocked}
+      inviteSecret={session.is_host ? readRoomInvite(snapshot.id) : null}
       onEndRoom={
-        participant.is_host || snapshot.can_close
+        session.is_host || snapshot.can_close
           ? () => {
               void endRoom(snapshot.id)
             }
@@ -128,10 +128,10 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
       queue={snapshot.queue}
       revision={snapshot.revision}
       votedQueueIds={snapshot.voted_queue_ids ?? []}
-      canAdd={!participant.anonymous}
-      canManage={participant.is_host}
+      canAdd={!session.anonymous}
+      canManage={session.is_host}
       onVote={sendQueueVote}
-      open={snapshot.open}
+      queueAdditionsAllowed={snapshot.queue_additions_allowed}
       currentSongId={currentSongId}
       className="w-full min-w-0 border-r-0"
     />
@@ -176,9 +176,9 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
     resourceTitle: snapshot.name,
     roomMusicalState: snapshot.musical_state,
     roomStateRevision: snapshot.revision,
-    canControlRoomMusicalState: participant.is_host,
+    canControlRoomMusicalState: session.is_host,
     onRoomMusicalStateChange: room.sendMusicalState,
-    onRoomQueueNext: participant.is_host ? promoteQueueTop : undefined,
+    onRoomQueueNext: session.is_host ? promoteQueueTop : undefined,
   }
 
   const player = credentials.mode === 'av' ? (
@@ -186,7 +186,7 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
       key={`room-av-${isPhoneViewport ? 'embedded' : 'desktop'}`}
       {...shared}
       {...(isPhoneViewport ? { embedded: true } : { tocSidebar: queuePanel, roomSidebar: roomDetails })}
-      canControlRoomProjection={participant.is_av_host}
+      canControlRoomProjection={session.is_av_host}
       onRoomProjectionChange={sendRoomProjection}
     />
   ) : (
