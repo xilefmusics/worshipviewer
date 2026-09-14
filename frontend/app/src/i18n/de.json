@@ -582,7 +582,7 @@
     },
     "tocMultilingual": {
       "label": "Mehrsprachige Liedtitel im Inhaltsverzeichnis erweitern",
-      "description": "Zeigt im Inhaltsverzeichnis bei aktivem Sprachfilter den passenden übersetzten Titel. Die Erweiterung für A–Z und Favoriten folgt später."
+      "description": "Verwendet mehrsprachiges Verhalten im Inhaltsverzeichnis für Reihenfolge und Favoriten. Die A–Z-Ansicht listet immer jeden nicht leeren übersetzten Titel."
     },
     "avBilingual": {
       "label": "Zweisprachige AV-Texte",

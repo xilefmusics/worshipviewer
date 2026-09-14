@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 
 import { TocSidebar } from '@/components/player/TocSidebar'
 import { usePlayerTocSearchSync } from '@/hooks/usePlayerIndexSearchSync'
+import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
 
 type TocItem = components['schemas']['TocItem']
 type PlayerItem = components['schemas']['PlayerItem']
@@ -23,6 +24,7 @@ export function PlayerTocSidebar({
   onSelect,
 }: PlayerTocSidebarProps) {
   const { t } = useTranslation()
+  const multilingual = useTocMultilingualPreference()
   const {
     mode,
     setMode,
@@ -31,6 +33,7 @@ export function PlayerTocSidebar({
     activeTagIds,
     toggleTagId,
   } = usePlayerTocSearchSync()
+  const languageAwareSelection = multilingual || mode === 'alphabetical'
 
   return (
     <TocSidebar
@@ -38,7 +41,10 @@ export function PlayerTocSidebar({
       items={items}
       currentSourceIdx={currentSourceIdx}
       currentLanguageIndex={currentLanguageIndex}
-      onSelect={onSelect}
+      onSelect={(sourceIdx, languageIndex) =>
+        onSelect(sourceIdx, languageAwareSelection ? languageIndex : null)
+      }
+      expandAlphabeticalTranslations
       mode={mode}
       onModeChange={setMode}
       activeLanguageIds={activeLanguageIds}

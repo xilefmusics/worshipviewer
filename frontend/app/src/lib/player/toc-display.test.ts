@@ -116,6 +116,14 @@ describe('displayTocEntries', () => {
     expect(new Set(entries.map((row) => row.key)).size).toBe(entries.length)
   })
 
+  it('restricts alphabetical expansion to the selected language', () => {
+    const entries = displayEntries('alphabetical', true, new Set(['de']))
+    expect(entries.map((row) => row.title)).toEqual(['Anker', 'Anker', 'PDF'])
+    expect(entries.map((row) => row.sourceIdx)).toEqual([0, 4, 2])
+    expect(entries.map((row) => row.languageIndex)).toEqual([1, 1, null])
+    expect(entries.every((row) => !row.showNumber)).toBe(true)
+  })
+
   it('keeps liked fan-out in source order and preserves hearts', () => {
     const entries = displayEntries('liked', true)
     expect(entries.map((row) => row.title)).toEqual(['Anchor', 'Anker', 'Cedar', 'Cypress', 'Anchor', 'Anker'])

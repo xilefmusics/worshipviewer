@@ -87,7 +87,6 @@ beforeEach(() => {
 
 describe('PlayerTocSidebar', () => {
   it('passes source index and language index when a translated alphabetical row is selected', async () => {
-    tocMultilingualEnabled = true
     tocMode = 'alphabetical'
     const onSelect = vi.fn()
 
@@ -100,6 +99,11 @@ describe('PlayerTocSidebar', () => {
         onSelect={onSelect}
       />,
     )
+
+    expect(screen.getAllByRole('option').map((row) => row.textContent?.trim())).toEqual([
+      'Anchor',
+      'Anker',
+    ])
 
     await userEvent.click(screen.getByRole('option', { name: 'Anker' }))
 

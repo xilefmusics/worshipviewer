@@ -24,7 +24,6 @@ import { useIsPhoneWidth, useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerLayoutPreference } from '@/hooks/usePlayerScrollPreference'
 import { useOnline } from '@/hooks/use-online'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
-import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
 import { useResolvedSongWithFlow } from '@/lib/player/apply-song-flow'
 import { getChordEngine } from '@/lib/chord-engine'
 import { chordFormatToRepresentation, writeChordFormatPreference } from '@/lib/chord-format'
@@ -316,8 +315,6 @@ export function PlayerBook({
   const [likeBurstKey, setLikeBurstKey] = useState(0)
   const [likeBurstActive, setLikeBurstActive] = useState(false)
   const [likeBurstLiked, setLikeBurstLiked] = useState(true)
-  const tocMultilingualEnabled = useTocMultilingualPreference()
-
   const [viewState, setViewState] = useState<PlayerViewState>(() => readPlayerViewState(type, id))
   const serverLikes = useMemo(() => initialLikedBySongId(player), [player])
   const likeScope = `${type}:${id}`
@@ -636,12 +633,12 @@ export function PlayerBook({
   const handleTocSelect = useCallback(
     (sourceIdx: number, languageIndex: number | null) => {
       if (navBlocked) return
-      if (tocMultilingualEnabled && languageIndex != null) {
+      if (languageIndex != null) {
         setViewState((state) => setLanguageForItem(state, sourceIdx, languageIndex))
       }
       dispatch({ type: 'jump', index: sourceIdx })
     },
-    [dispatch, navBlocked, setViewState, tocMultilingualEnabled],
+    [dispatch, navBlocked, setViewState],
   )
 
   const playerReturnContext = useMemo(
