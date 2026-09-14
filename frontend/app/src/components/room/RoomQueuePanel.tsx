@@ -108,11 +108,11 @@ export function RoomQueuePanel({
   const items = useMemo(() => visibleSongs.map((song) => itemForQueue(queuedBySongId.get(song.id)!, song.liked)), [queuedBySongId, visibleSongs])
   const votedIds = useMemo(() => new Set(votedQueueIds), [votedQueueIds])
 
-  const runMutation = async (id: string, action: () => Promise<void>, successKey: string) => {
+  const runMutation = async (id: string, action: () => Promise<void>, successKey?: string) => {
     setPendingId(id)
     try {
       await action()
-      toast.success(t(successKey))
+      if (successKey) toast.success(t(successKey))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('rooms.queue.failed'))
     } finally {
@@ -194,7 +194,7 @@ export function RoomQueuePanel({
         const songId = toc[sourceIdx]?.id
         if (!songId) return
         const queued = queuedBySongId.get(songId)
-        if (queued) void runMutation(songId, () => promoteRoomQueueItem(roomId, queued.id, revision), 'rooms.queue.promoted')
+        if (queued) void runMutation(songId, () => promoteRoomQueueItem(roomId, queued.id, revision))
       }}
       currentLanguageIndex={null}
       isEntryActive={(entry) => toc[entry.sourceIdx]?.id === currentSongId}

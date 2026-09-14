@@ -173,6 +173,8 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
     initialIndex: snapshot.musical_state.item_index,
     allowNetworkFetch: true,
     allowLibraryActions: false,
+    backToOverride: '/rooms' as const,
+    backAriaKeyOverride: 'rooms.backToList',
     resourceTitle: snapshot.name,
     roomMusicalState: snapshot.musical_state,
     roomStateRevision: snapshot.revision,

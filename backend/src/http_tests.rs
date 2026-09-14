@@ -512,7 +512,7 @@ mod room_http {
         let admin_token = create_session_token(&db, fixture.admin_user.clone())
             .await
             .unwrap();
-        let app = test::init_service(build_app(db)).await;
+        let app = test::init_service(build_app(db.clone())).await;
 
         let request = test::TestRequest::post()
             .uri("/api/v1/rooms")
@@ -543,6 +543,31 @@ mod room_http {
             test::call_service(&app, request).await.status(),
             StatusCode::NO_CONTENT
         );
+
+        let mut response = db
+            .db
+            .query(
+                "SELECT count() AS count FROM player_room WHERE id = type::record('player_room', $room_id) GROUP ALL;
+                 SELECT count() AS count FROM player_room_snapshot WHERE room = type::record('player_room', $room_id) GROUP ALL;
+                 SELECT count() AS count FROM player_room_session WHERE room = type::record('player_room', $room_id) GROUP ALL;",
+            )
+            .bind(("room_id", created.room.id.clone()))
+            .await
+            .unwrap();
+        #[derive(Deserialize, SurrealValue)]
+        struct CountRow {
+            count: i64,
+        }
+        for statement in 0..3 {
+            assert_eq!(
+                response
+                    .take::<Vec<CountRow>>(statement)
+                    .unwrap()
+                    .first()
+                    .map_or(0, |row| row.count),
+                0
+            );
+        }
 
         let request = test::TestRequest::delete()
             .uri(&format!("/api/v1/rooms/{}", created.room.id))

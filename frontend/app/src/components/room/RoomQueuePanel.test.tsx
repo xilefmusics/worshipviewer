@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
 
 import type { components } from '@/api/schema'
 import { RoomQueuePanel } from '@/components/room/RoomQueuePanel'
@@ -17,6 +18,10 @@ vi.mock('react-i18next', () => ({
     t: (key: string, options?: Record<string, unknown>) =>
       options ? `${key} ${Object.values(options).join(' ')}` : key,
   }),
+}))
+
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
 }))
 
 vi.mock('@/hooks/use-online', () => ({
@@ -148,6 +153,7 @@ describe('RoomQueuePanel', () => {
     expect(promoteRoomQueueItem).toHaveBeenNthCalledWith(2, 'room-1', 'q2', 4)
     expect(screen.queryByRole('button', { name: 'rooms.queue.remove Grace' })).not.toBeInTheDocument()
     expect(addRoomQueueItem).not.toHaveBeenCalled()
+    expect(toast.success).not.toHaveBeenCalled()
   })
 
   it('only shows the bottom library search when queue additions are allowed', () => {

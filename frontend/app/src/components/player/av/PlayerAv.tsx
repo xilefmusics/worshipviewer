@@ -120,6 +120,7 @@ type PlayerAvProps = {
   initialIndex?: number
   allowNetworkFetch: boolean
   embedded?: boolean
+  backToOverride?: '/rooms' | '/media'
   resourceTitle?: string
   deletedReconciled?: boolean
   roomMusicalState?: { item_index: number; started: boolean; language: string | null; transposition: string | null }
@@ -130,7 +131,6 @@ type PlayerAvProps = {
   onRoomProjectionChange?: (payload: import('@/lib/player/av-preferences').AvProjectionPayload) => void
   allowLibraryActions?: boolean
   tocSidebar?: ReactNode
-  backToOverride?: '/media'
   backAriaKeyOverride?: string
   roomSidebar?: ReactNode
 }
@@ -173,6 +173,7 @@ export function PlayerAv({
   player,
   initialIndex,
   embedded = false,
+  backToOverride,
   resourceTitle,
   roomMusicalState,
   roomStateRevision,
@@ -182,7 +183,6 @@ export function PlayerAv({
   onRoomProjectionChange,
   allowLibraryActions = true,
   tocSidebar,
-  backToOverride,
   backAriaKeyOverride,
   roomSidebar,
 }: PlayerAvProps) {

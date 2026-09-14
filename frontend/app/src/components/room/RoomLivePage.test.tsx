@@ -195,6 +195,8 @@ describe('RoomLivePage responsive player layout', () => {
     expect(playerBookProps).toEqual(expect.objectContaining({
       tocSidebar: expect.anything(),
       roomSidebar: expect.anything(),
+      backToOverride: '/rooms',
+      backAriaKeyOverride: 'rooms.backToList',
     }))
     expect(playerBookProps).not.toHaveProperty('embedded')
     expect(roomQueuePanelProps).toMatchObject({ currentSongId: null })
@@ -233,6 +235,8 @@ describe('RoomLivePage responsive player layout', () => {
     expect(playerAvProps).toEqual(expect.objectContaining({
       tocSidebar: expect.anything(),
       roomSidebar: expect.anything(),
+      backToOverride: '/rooms',
+      backAriaKeyOverride: 'rooms.backToList',
     }))
     expect(playerAvProps).not.toHaveProperty('embedded')
   })
