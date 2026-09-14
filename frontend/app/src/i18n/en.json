@@ -582,7 +582,7 @@
     },
     "tocMultilingual": {
       "label": "Expand multilingual song titles in the TOC",
-      "description": "Use the matching translated title in the table of contents when a language filter is active. Alphabetical and liked expansion will come later."
+      "description": "Use multilingual TOC behavior in order and liked views. Alphabetical view always lists every non-empty translated title."
     },
     "avBilingual": {
       "label": "Bilingual AV lyrics",

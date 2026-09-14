@@ -23,6 +23,7 @@ export type TocSidebarProps = {
   mode: TocDisplayMode
   onModeChange: (mode: TocDisplayMode) => void
   displayModes?: readonly TocDisplayMode[]
+  expandAlphabeticalTranslations?: boolean
   activeLanguageIds: ReadonlySet<string>
   onLanguageIdsChange: (ids: readonly string[]) => void
   activeTagIds: ReadonlySet<string>
@@ -51,6 +52,7 @@ export function TocSidebar({
   mode,
   onModeChange,
   displayModes,
+  expandAlphabeticalTranslations = false,
   activeLanguageIds,
   onLanguageIdsChange,
   activeTagIds,
@@ -66,6 +68,7 @@ export function TocSidebar({
 }: TocSidebarProps) {
   const { t } = useTranslation()
   const multilingual = useTocMultilingualPreference()
+  const multilingualEntries = multilingual || (expandAlphabeticalTranslations && mode === 'alphabetical')
   const [hoveredMode, setHoveredMode] = useState<TocDisplayMode | null>(null)
   const metadata = useMemo(() => buildTocMetadataBySongId(items), [items])
   const languages = useMemo(() => collectTocLanguageFilterOptions(metadata), [metadata])
@@ -73,9 +76,9 @@ export function TocSidebar({
   const visibleLanguages = useMemo(() => {
     const valid = new Set(languages.map((row) => row.id))
     const selected = [...activeLanguageIds].filter((id) => valid.has(id))
-    if (!multilingual) return new Set(selected)
+    if (!multilingualEntries) return new Set(selected)
     return selected[0] ? new Set([selected[0]]) : new Set<string>()
-  }, [activeLanguageIds, languages, multilingual])
+  }, [activeLanguageIds, languages, multilingualEntries])
   const visibleTags = useMemo(() => {
     const valid = new Set(tags.map((row) => row.id))
     return new Set([...activeTagIds].filter((id) => valid.has(id)))
@@ -86,9 +89,9 @@ export function TocSidebar({
       metadataBySongId: metadata,
       activeLanguageIds: visibleLanguages,
       activeTagIds: visibleTags,
-      multilingualToc: multilingual,
+      multilingualToc: multilingualEntries,
     }),
-    [items, metadata, mode, toc, visibleLanguages, visibleTags, multilingual],
+    [items, metadata, mode, toc, visibleLanguages, visibleTags, multilingualEntries],
   )
   const labels: Record<TocDisplayMode, string> = {
     order: t('player.toc.sortOrder'),
@@ -141,7 +144,7 @@ export function TocSidebar({
                       title={t('player.toc.languageFilterAria', { language: filter.label })}
                       className={cn(TOC_FILTER_CHIP_CLASS, selected ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'bg-[var(--color-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/80')}
                       onClick={() => {
-                        if (multilingual) onLanguageIdsChange(selected && visibleLanguages.size === 1 ? [] : [filter.id])
+                        if (multilingualEntries) onLanguageIdsChange(selected && visibleLanguages.size === 1 ? [] : [filter.id])
                         else {
                           const next = new Set(activeLanguageIds)
                           if (next.has(filter.id)) next.delete(filter.id)

@@ -20,7 +20,6 @@ import { Button } from '@/components/ui/button'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
-import { useTocMultilingualPreference } from '@/hooks/useTocMultilingualPreference'
 import { useAvBilingualPreference } from '@/hooks/useAvBilingualPreference'
 import { useResolvedPlayerItemChordData } from '@/lib/player/apply-song-flow'
 import {
@@ -190,7 +189,6 @@ export function PlayerAv({
   const { t } = useTranslation()
   const navigate = useNavigate()
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
-  const tocMultilingualEnabled = useTocMultilingualPreference()
   const bilingualEnabled = useAvBilingualPreference()
   const [prefs, setPrefs] = useState<AvPreferences>(() => readAvPreferences())
   const [viewState, setViewState] = useState<PlayerViewState>(() => readPlayerViewState(type, id))
@@ -1077,7 +1075,7 @@ export function PlayerAv({
                 currentSourceIdx={session.itemIndex}
                 currentLanguageIndex={currentLanguageIndex}
                 onSelect={(idx, languageIndex) => {
-                  if (tocMultilingualEnabled && languageIndex != null) {
+                  if (languageIndex != null) {
                     setViewState((state) => setLanguageForItem(state, idx, languageIndex))
                   }
                   goToItem(idx)
