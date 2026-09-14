@@ -346,10 +346,8 @@ async fn release_migration_lock(db: &Surreal<Any>, holder: &str) {
 mod tests {
     use std::fs;
 
-    use surrealdb::types::RecordId;
-
     use super::*;
-    use crate::database::{Database, record_id_string};
+    use crate::database::Database;
 
     async fn assert_demodata_seed_table_absent(db: &Database) {
         let mut response = db.db.query("INFO FOR DB").await.expect("inspect tables");
@@ -425,7 +423,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn room_migrations_backfill_v1_rooms_and_remove_legacy_fields() {
+    async fn room_migration_invalidates_legacy_rooms_and_removes_snapshot_table() {
         let address = format!("mem://{}", uuid::Uuid::new_v4());
         let db = Database::connect(&address, "test", "test", None, None)
             .await
@@ -446,6 +444,7 @@ mod tests {
                     | Some("20260907150000_player_room_id_links.surql")
                     | Some("20260907160000_rename_player_room_boolean_fields.surql")
                     | Some("20260907190000_merge_player_room_participants_into_sessions.surql")
+                    | Some("20260914120000_inline_room_content_and_queue_refs.surql")
             ) {
                 continue;
             }
@@ -502,46 +501,9 @@ mod tests {
             .db
             .query("SELECT * FROM type::record('player_room', 'legacy-room')")
             .await
-            .expect("read migrated room");
-        let rows: Vec<serde_json::Value> = response.take(0).expect("decode migrated room");
-        let room = rows.first().expect("migrated room row");
-        assert!(room.get("source_type").is_none());
-        assert!(room.get("source_id").is_none());
-        assert!(room.get("source_title").is_none());
-        assert_eq!(room["queue_additions_allowed"], true);
-        assert_eq!(room["new_joins_locked"], false);
-        assert_eq!(room["queue_json"], "[]");
-        assert_eq!(room["queue_votes_json"], "{}");
-        assert!(room.get("media_ids").is_none());
-        assert!(room.get("snapshot_json").is_none());
-        assert!(room.get("state_json").is_none());
-        assert_eq!(room["guest_access_allowed"], true);
-        assert!(room.get("open").is_none());
-        assert!(room.get("locked").is_none());
-        assert!(room.get("guests_allowed").is_none());
-        assert!(room["closed_at"].is_null());
-        assert!(room.get("host_lease_expires_at").is_none());
-        assert!(room.get("host_user_id").is_none());
-        #[derive(Deserialize, SurrealValue)]
-        struct RoomLinks {
-            host_session_id: RecordId,
-            av_session_id: Option<RecordId>,
-        }
-        let links: RoomLinks = db
-            .db
-            .select(("player_room", "legacy-room"))
-            .await
-            .expect("decode migrated room links")
-            .expect("migrated room links");
-        assert_eq!(
-            record_id_string(&links.host_session_id),
-            "legacy-room:participant"
-        );
-        assert_eq!(
-            record_id_string(links.av_session_id.as_ref().expect("av participant link")),
-            "legacy-room:participant"
-        );
-        assert!(room.get("song_pool_json").is_none());
+            .expect("read invalidated room");
+        let rooms: Vec<serde_json::Value> = response.take(0).expect("decode invalidated room");
+        assert!(rooms.is_empty());
 
         let mut response = db
             .db
@@ -549,14 +511,10 @@ mod tests {
                 "SELECT session_id, user_id, mode, resume_hash, connected FROM player_room_session WHERE room = type::record('player_room', 'legacy-room')",
             )
             .await
-            .expect("read migrated room sessions");
-        let sessions: Vec<serde_json::Value> = response.take(0).expect("decode migrated sessions");
-        assert_eq!(sessions.len(), 1);
-        assert_eq!(sessions[0]["session_id"], "participant");
-        assert_eq!(sessions[0]["user_id"].as_str(), Some("user:`legacy-user`"));
-        assert_eq!(sessions[0]["mode"], "sheet");
-        assert_eq!(sessions[0]["resume_hash"], "legacy-resume");
-        assert_eq!(sessions[0]["connected"], false);
+            .expect("read invalidated room sessions");
+        let sessions: Vec<serde_json::Value> =
+            response.take(0).expect("decode invalidated room sessions");
+        assert!(sessions.is_empty());
 
         let mut response = db
             .db
@@ -570,6 +528,12 @@ mod tests {
                 .as_object()
                 .unwrap()
                 .contains_key("player_room_participant")
+        );
+        assert!(
+            !info["Object"]["tables"]["Object"]
+                .as_object()
+                .unwrap()
+                .contains_key("player_room_snapshot")
         );
 
         let mut response = db
@@ -587,6 +551,7 @@ mod tests {
         assert!(!fields.contains_key("source_type"));
         assert!(!fields.contains_key("source_id"));
         assert!(!fields.contains_key("source_title"));
+        assert!(fields.contains_key("content_json"));
     }
 
     #[tokio::test]

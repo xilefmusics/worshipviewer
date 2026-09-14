@@ -14,7 +14,7 @@ use surrealdb::types::{Datetime, RecordId, SurrealValue};
 use tokio::sync::{RwLock, broadcast};
 use uuid::Uuid;
 
-use shared::player::TocItem;
+use shared::player::{PlayerChordsItem, TocItem};
 use shared::room::*;
 
 use crate::{
@@ -72,6 +72,7 @@ struct RoomRecord {
     queue_additions_allowed: bool,
     name: String,
     host_email: String,
+    content_json: String,
     musical_state_json: String,
     #[serde(default = "default_queue_json")]
     queue_json: String,
@@ -122,11 +123,6 @@ struct SessionRecord {
     connection_generation: String,
     user_email: Option<String>,
     user_avatar_url: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, SurrealValue)]
-struct SnapshotRecord {
-    content_json: String,
 }
 
 #[derive(Debug, Clone, Deserialize, SurrealValue)]
@@ -220,6 +216,17 @@ pub enum ServerEvent {
         revision: u64,
     },
     QueueUpdated {
+        queue: Vec<RoomQueueItem>,
+        revision: u64,
+    },
+    ContentItemAdded {
+        item: Box<PlayerChordsItem>,
+        toc: TocItem,
+        queue: Vec<RoomQueueItem>,
+        revision: u64,
+    },
+    PlaybackUpdated {
+        musical_state: RoomMusicalState,
         queue: Vec<RoomQueueItem>,
         revision: u64,
     },
@@ -392,8 +399,30 @@ impl RoomService {
         }
     }
 
-    fn normalize_queue_item(item: &mut RoomQueueItem) {
-        *item.song = RoomContent::normalize_song((*item.song).clone());
+    fn content_index(content: &RoomContent, song_id: &str) -> Option<usize> {
+        content
+            .items
+            .iter()
+            .position(|item| item.song.id == song_id)
+    }
+
+    fn content_toc(content: &RoomContent, item_index: usize, song_id: &str) -> TocItem {
+        content
+            .toc
+            .iter()
+            .find(|toc| toc.idx == item_index)
+            .cloned()
+            .unwrap_or_else(|| TocItem {
+                idx: item_index,
+                title: content
+                    .items
+                    .get(item_index)
+                    .map(|item| item.song.data.title().to_string())
+                    .unwrap_or_else(|| song_id.to_string()),
+                id: Some(song_id.to_string()),
+                nr: String::new(),
+                liked: false,
+            })
     }
 
     fn validate_projection(projection: &RoomProjectionPayload) -> Result<(), AppError> {
@@ -583,12 +612,11 @@ impl RoomService {
             .db
             .query(
                 r#"
-SELECT id, owner, name, host_email,
+SELECT id, owner, name, host_email, content_json,
        musical_state_json, queue_json, queue_votes_json, projection_json, revision, queue_additions_allowed,
        invite_hash, host_session_id, av_session_id,
        created_at, closed_at, guest_access_allowed, new_joins_locked
 FROM ONLY type::record('player_room', $room_id);
-SELECT content_json FROM ONLY type::record('player_room_snapshot', $room_id);
 SELECT id, session_id, user_id, guest_display_name, mode, hide_chords, resume_hash,
        ticket_hash, expires_at, consumed_at, connected, lease_expires_at,
        joined_at, connection_generation,
@@ -604,21 +632,22 @@ WHERE room = type::record('player_room', $room_id);
         let Some(room) = response.take::<Option<RoomRecord>>(0)? else {
             return Ok(None);
         };
-        let snapshot = response
-            .take::<Option<SnapshotRecord>>(1)?
-            .ok_or_else(|| AppError::Internal("room snapshot is missing".into()))?;
-        let sessions = response.take::<Vec<SessionRecord>>(2)?;
-        let mut content: RoomContent = serde_json::from_str(&snapshot.content_json)
-            .map_err(|e| AppError::internal_from_err("room.snapshot.decode", e))?;
+        let sessions = response.take::<Vec<SessionRecord>>(1)?;
+        let mut content: RoomContent = serde_json::from_str(&room.content_json)
+            .map_err(|e| AppError::internal_from_err("room.content.decode", e))?;
         for item in &mut content.items {
             *item = RoomContent::normalize_song(item.clone());
         }
         let musical_state = serde_json::from_str(&room.musical_state_json)
             .map_err(|e| AppError::internal_from_err("room.musical.decode", e))?;
-        let mut queue: Vec<RoomQueueItem> = serde_json::from_str(&room.queue_json)
+        let queue: Vec<RoomQueueItem> = serde_json::from_str(&room.queue_json)
             .map_err(|e| AppError::internal_from_err("room.queue.decode", e))?;
-        for item in &mut queue {
-            Self::normalize_queue_item(item);
+        if queue.iter().any(|item| {
+            item.song_id.trim().is_empty() || Self::content_index(&content, &item.song_id).is_none()
+        }) {
+            return Err(AppError::Internal(
+                "room queue references missing room content".into(),
+            ));
         }
         let queue_votes = serde_json::from_str(&room.queue_votes_json)
             .map_err(|e| AppError::internal_from_err("room.queue_votes.decode", e))?;
@@ -676,8 +705,14 @@ WHERE room = type::record('player_room', $room_id);
         for item in &mut input.content.items {
             *item = RoomContent::normalize_song(item.clone());
         }
-        for item in &mut input.initial_queue {
-            Self::normalize_queue_item(item);
+        if input
+            .initial_queue
+            .iter()
+            .any(|item| Self::content_index(&input.content, &item.song_id).is_none())
+        {
+            return Err(AppError::invalid_request(
+                "room queue item references missing room content",
+            ));
         }
         Self::normalize_initial_language(&input.content, &mut input.musical_state);
         if !input.content.items.is_empty() {
@@ -704,8 +739,8 @@ WHERE room = type::record('player_room', $room_id);
         let resume_credential = Self::secret()?;
         let connection_ticket = Self::secret()?;
         let lease = now + Duration::seconds(LEASE_SECONDS);
-        let snapshot_json = serde_json::to_string(&input.content)
-            .map_err(|e| AppError::internal_from_err("room.snapshot.encode", e))?;
+        let content_json = serde_json::to_string(&input.content)
+            .map_err(|e| AppError::internal_from_err("room.content.encode", e))?;
         let queue_json = serde_json::to_string(&input.initial_queue)
             .map_err(|e| AppError::internal_from_err("room.queue.encode", e))?;
         let musical_json = serde_json::to_string(&input.musical_state)
@@ -735,15 +770,13 @@ BEGIN TRANSACTION;
 CREATE type::record('player_room', $room_id) CONTENT {
     owner: type::record('team', $team_id), name: $name,
     host_email: $host_email,
+    content_json: $content_json,
     musical_state_json: $musical_json, queue_json: $queue_json, queue_votes_json: "{}", projection_json: $projection_json,
     queue_additions_allowed: false,
     revision: 1, invite_hash: $invite_hash, host_session_id: $host_session_id,
     av_session_id: $av_session_id,
     created_at: $now, closed_at: NONE,
     guest_access_allowed: false, new_joins_locked: false
-};
-CREATE type::record('player_room_snapshot', $room_id) CONTENT {
-    room: type::record('player_room', $room_id), content_json: $snapshot_json
 };
 CREATE type::record('player_room_session', $session_row_id) CONTENT {
     room: type::record('player_room', $room_id), session_id: $session_id, user_id: $user_id,
@@ -760,7 +793,7 @@ COMMIT TRANSACTION;
             .bind(("team_id", input.team_id.clone()))
             .bind(("name", name.clone()))
             .bind(("host_email", input.host_email.clone()))
-            .bind(("snapshot_json", snapshot_json))
+            .bind(("content_json", content_json))
             .bind(("queue_json", queue_json))
             .bind(("musical_json", musical_json))
             .bind(("projection_json", projection_json))
@@ -1178,9 +1211,6 @@ BEGIN TRANSACTION;
 DELETE player_room_session
 WHERE room = type::record('player_room', $room_id)
 RETURN NONE;
-DELETE player_room_snapshot
-WHERE room = type::record('player_room', $room_id)
-RETURN NONE;
 DELETE type::record('player_room', $room_id) RETURN BEFORE;
 COMMIT TRANSACTION;
 "#,
@@ -1408,7 +1438,8 @@ SET revision += 1;
         room_id: &str,
         user_id: &str,
         teams: &[String],
-        item: RoomQueueItem,
+        mut item: RoomQueueItem,
+        content_item: PlayerChordsItem,
         revision: u64,
     ) -> Result<(), AppError> {
         let aggregate = self.load_active_aggregate(room_id).await?;
@@ -1419,14 +1450,29 @@ SET revision += 1;
         if !aggregate.room.queue_additions_allowed {
             return Err(AppError::conflict("room_queue_additions_disabled"));
         }
-        let mut item = item;
-        Self::normalize_queue_item(&mut item);
-        if item.song_id.trim().is_empty() || item.song.song.id != item.song_id {
+        if item.song_id.trim().is_empty() || content_item.song.id != item.song_id {
             return Err(AppError::invalid_request("invalid room queue song"));
         }
         if Self::queue_contains_song(&aggregate, &item.song_id) {
             return Err(AppError::conflict("song_already_in_queue"));
         }
+
+        let mut content = aggregate.content.clone();
+        let content_index = if let Some(index) = Self::content_index(&content, &item.song_id) {
+            index
+        } else {
+            let content_item = RoomContent::normalize_song(content_item);
+            let index = content.items.len();
+            content.items.push(content_item);
+            content.toc.push(TocItem {
+                idx: index,
+                title: content.items[index].song.data.title().to_string(),
+                id: Some(item.song_id.clone()),
+                nr: String::new(),
+                liked: false,
+            });
+            index
+        };
 
         let participant_name = aggregate
             .sessions
@@ -1442,15 +1488,18 @@ SET revision += 1;
         let mut queue = Self::ranked_queue(&aggregate.queue, &aggregate.queue_votes);
         queue.push(item.clone());
         Self::rank_queue(&mut queue);
+        let content_json = serde_json::to_string(&content)
+            .map_err(|e| AppError::internal_from_err("room.content.encode", e))?;
         let queue_json = serde_json::to_string(&queue)
             .map_err(|e| AppError::internal_from_err("room.queue.encode", e))?;
         let mut response = self
             .db
             .db
             .query(
-                "UPDATE type::record('player_room', $room_id) SET queue_json = $queue_json, revision += 1 WHERE revision = $revision AND closed_at = NONE RETURN AFTER",
+                "UPDATE type::record('player_room', $room_id) SET content_json = $content_json, queue_json = $queue_json, revision += 1 WHERE revision = $revision AND closed_at = NONE RETURN AFTER",
             )
             .bind(("room_id", room_id.to_string()))
+            .bind(("content_json", content_json))
             .bind(("queue_json", queue_json))
             .bind(("revision", revision))
             .await?;
@@ -1459,7 +1508,20 @@ SET revision += 1;
             return Err(AppError::conflict("revision_conflict"));
         }
         let refreshed = self.load_active_aggregate(room_id).await?;
-        self.publish(room_id, Self::queue_event(&refreshed)).await;
+        if aggregate.content.items.len() == refreshed.content.items.len() {
+            self.publish(room_id, Self::queue_event(&refreshed)).await;
+        } else {
+            self.publish(
+                room_id,
+                ServerEvent::ContentItemAdded {
+                    item: Box::new(refreshed.content.items[content_index].clone()),
+                    toc: Self::content_toc(&refreshed.content, content_index, &item.song_id),
+                    queue: Self::ranked_queue(&refreshed.queue, &refreshed.queue_votes),
+                    revision: refreshed.room.revision.max(0) as u64,
+                },
+            )
+            .await;
+        }
         Ok(())
     }
 
@@ -1642,27 +1704,10 @@ SET revision += 1;
         queue_item: RoomQueueItem,
         revision: u64,
     ) -> Result<(), AppError> {
-        let (content, item_index) = if let Some(index) = aggregate
-            .content
-            .toc
-            .iter()
-            .find(|toc| toc.id.as_deref() == Some(queue_item.song_id.as_str()))
-            .map(|toc| toc.idx)
-        {
-            (aggregate.content.clone(), index)
-        } else {
-            let mut content = aggregate.content.clone();
-            let item_index = content.items.len();
-            content.items.push((*queue_item.song).clone());
-            content.toc.push(TocItem {
-                idx: item_index,
-                title: queue_item.title.clone(),
-                id: Some(queue_item.song_id.clone()),
-                nr: String::new(),
-                liked: false,
-            });
-            (content, item_index)
-        };
+        let content = aggregate.content.clone();
+        let item_index = Self::content_index(&content, &queue_item.song_id).ok_or_else(|| {
+            AppError::Internal("room queue references missing room content".into())
+        })?;
         let musical_state = RoomMusicalState {
             item_index,
             started: true,
@@ -1704,8 +1749,6 @@ SET revision += 1;
             .chain(std::iter::once(requeued_item))
             .collect::<Vec<_>>();
         Self::rank_queue(&mut queue);
-        let content_json = serde_json::to_string(&content)
-            .map_err(|e| AppError::internal_from_err("room.snapshot.encode", e))?;
         let queue_json = serde_json::to_string(&queue)
             .map_err(|e| AppError::internal_from_err("room.queue.encode", e))?;
         let mut queue_votes = aggregate.queue_votes;
@@ -1724,9 +1767,6 @@ UPDATE type::record('player_room', $room_id)
 SET queue_json = $queue_json, queue_votes_json = $queue_votes_json, musical_state_json = $musical_json,
     revision += 1
 WHERE revision = $revision AND closed_at = NONE RETURN AFTER;
-UPDATE type::record('player_room_snapshot', $room_id)
-SET content_json = $content_json
-WHERE (SELECT VALUE revision FROM ONLY type::record('player_room', $room_id)) = $next_revision;
 COMMIT TRANSACTION;
 "#,
             )
@@ -1734,9 +1774,7 @@ COMMIT TRANSACTION;
             .bind(("queue_json", queue_json))
             .bind(("queue_votes_json", queue_votes_json))
             .bind(("musical_json", musical_json))
-            .bind(("content_json", content_json))
             .bind(("revision", revision))
-            .bind(("next_revision", revision + 1))
             .await?;
         surreal_take_errors("room.queue.promote", &mut response)?;
         let refreshed = self.load_active_aggregate(room_id).await?;
@@ -1745,8 +1783,10 @@ COMMIT TRANSACTION;
         }
         self.publish(
             room_id,
-            ServerEvent::Snapshot {
-                snapshot: Box::new(Self::snapshot(&refreshed, None)?),
+            ServerEvent::PlaybackUpdated {
+                musical_state: refreshed.musical_state,
+                queue: Self::ranked_queue(&refreshed.queue, &refreshed.queue_votes),
+                revision: refreshed.room.revision.max(0) as u64,
             },
         )
         .await;
@@ -2281,6 +2321,11 @@ mod tests {
         revision: i64,
     }
 
+    #[derive(Debug, Deserialize, SurrealValue)]
+    struct PersistedContent {
+        content_json: String,
+    }
+
     fn service(db: Arc<Database>) -> RoomService {
         RoomService::new(db)
     }
@@ -2324,14 +2369,14 @@ mod tests {
         let mut response = db
             .db
             .query(
-                "SELECT content_json FROM type::record('player_room_snapshot', $room_id); SELECT musical_state_json, projection_json, revision FROM type::record('player_room', $room_id)",
+                "SELECT content_json FROM type::record('player_room', $room_id); SELECT musical_state_json, projection_json, revision FROM type::record('player_room', $room_id)",
             )
             .bind(("room_id", room_id.to_string()))
             .await
             .unwrap();
         surreal_take_errors("room.test.persisted_state", &mut response).unwrap();
         let snapshot = response
-            .take::<Vec<SnapshotRecord>>(0)
+            .take::<Vec<PersistedContent>>(0)
             .unwrap()
             .into_iter()
             .next()
@@ -2361,6 +2406,7 @@ mod tests {
                 "user-1",
                 &["team-1".into()],
                 queued_song("song-2"),
+                queued_content("song-2"),
                 2,
             )
             .await
@@ -2371,7 +2417,7 @@ mod tests {
             .await
             .unwrap();
         assert!(snapshot.content.items[0].song.blobs.is_empty());
-        assert!(snapshot.queue[0].song.song.blobs.is_empty());
+        assert!(snapshot.content.items[1].song.blobs.is_empty());
 
         let mut response = db
             .db
@@ -2384,6 +2430,7 @@ mod tests {
         assert!(row.get("media_ids").is_none());
         assert!(row.get("snapshot_json").is_none());
         assert!(row.get("state_json").is_none());
+        assert!(row.get("content_json").is_some());
     }
 
     #[tokio::test]
@@ -2470,26 +2517,28 @@ mod tests {
         ));
     }
 
+    fn queued_content(id: &str) -> PlayerChordsItem {
+        PlayerChordsItem {
+            song: shared::song::Song {
+                id: id.into(),
+                data: SongData {
+                    titles: vec![format!("Song {id}")],
+                    ..SongData::default()
+                },
+                blobs: vec![BlobLink {
+                    id: format!("blob-{id}"),
+                }],
+                ..shared::song::Song::default()
+            },
+            language: None,
+            flow: None,
+        }
+    }
+
     fn queued_song(id: &str) -> RoomQueueItem {
         RoomQueueItem {
             id: format!("queue-{id}"),
             song_id: id.into(),
-            title: format!("Song {id}"),
-            song: Box::new(PlayerChordsItem {
-                song: shared::song::Song {
-                    id: id.into(),
-                    data: SongData {
-                        titles: vec![format!("Song {id}")],
-                        ..SongData::default()
-                    },
-                    blobs: vec![BlobLink {
-                        id: format!("blob-{id}"),
-                    }],
-                    ..shared::song::Song::default()
-                },
-                language: None,
-                flow: None,
-            }),
             added_by: "host@example.com".into(),
             upvotes: 0,
             played: false,
@@ -2531,6 +2580,103 @@ mod tests {
         assert!(!item.played);
     }
 
+    #[test]
+    fn queue_serialization_contains_only_references_and_metadata() {
+        let value = serde_json::to_value(queued_song("song-1")).unwrap();
+        let object = value.as_object().expect("queue item object");
+
+        assert_eq!(object.len(), 5);
+        assert!(object.contains_key("id"));
+        assert!(object.contains_key("song_id"));
+        assert!(object.contains_key("added_by"));
+        assert!(object.contains_key("upvotes"));
+        assert!(object.contains_key("played"));
+        assert!(!object.contains_key("song"));
+        assert!(!object.contains_key("title"));
+    }
+
+    #[test]
+    fn duplicate_content_ids_resolve_to_the_first_item() {
+        let content = RoomContent {
+            items: vec![
+                queued_content("duplicate"),
+                queued_content("duplicate"),
+                queued_content("other"),
+            ],
+            toc: vec![],
+        };
+
+        assert_eq!(RoomService::content_index(&content, "duplicate"), Some(0));
+        assert_eq!(RoomService::content_index(&content, "other"), Some(2));
+    }
+
+    #[tokio::test]
+    async fn queue_additions_reuse_content_and_emit_lightweight_deltas() {
+        let db = crate::test_helpers::test_db().await.unwrap();
+        let service = service(db);
+        let created = create_room(&service).await;
+        service
+            .set_queue_access(&created.room.id, "user-1", &["team-1".into()], true, 1)
+            .await
+            .unwrap();
+        let mut events = service.sender(&created.room.id).await.subscribe();
+
+        service
+            .add_queue_item(
+                &created.room.id,
+                "user-1",
+                &["team-1".into()],
+                queued_song("song-1"),
+                queued_content("song-1"),
+                2,
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            events.recv().await.unwrap(),
+            ServerEvent::QueueUpdated { .. }
+        ));
+        let reused = service
+            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .await
+            .unwrap();
+        assert_eq!(reused.content.items.len(), 1);
+        assert_eq!(reused.content.items[0].song.data.title(), "Song");
+        assert_eq!(reused.queue[0].song_id, "song-1");
+
+        service
+            .add_queue_item(
+                &created.room.id,
+                "user-1",
+                &["team-1".into()],
+                queued_song("song-2"),
+                queued_content("song-2"),
+                reused.revision,
+            )
+            .await
+            .unwrap();
+        let event = events.recv().await.unwrap();
+        match event {
+            ServerEvent::ContentItemAdded {
+                item, toc, queue, ..
+            } => {
+                assert_eq!(item.song.id, "song-2");
+                assert_eq!(toc.idx, 1);
+                assert_eq!(queue.len(), 2);
+                let encoded = serde_json::to_value(&queue[1]).unwrap();
+                assert!(encoded.get("song").is_none());
+                assert!(encoded.get("title").is_none());
+            }
+            other => panic!("expected content item event, got {other:?}"),
+        }
+        let appended = service
+            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .await
+            .unwrap();
+        assert_eq!(appended.content.items.len(), 2);
+        assert_eq!(appended.queue.len(), 2);
+    }
+
     #[tokio::test]
     async fn authenticated_members_can_queue_and_only_the_host_can_promote() {
         let db = crate::test_helpers::test_db().await.unwrap();
@@ -2547,6 +2693,7 @@ mod tests {
                 "user-1",
                 &["team-1".into()],
                 queued_song("song-2"),
+                queued_content("song-2"),
                 2,
             )
             .await
@@ -2557,6 +2704,7 @@ mod tests {
                 "user-1",
                 &["team-1".into()],
                 queued_song("song-3"),
+                queued_content("song-3"),
                 3,
             )
             .await
@@ -2568,7 +2716,7 @@ mod tests {
         assert_eq!(queued.queue.len(), 2);
         assert_eq!(queued.queue[0].song_id, "song-2");
         assert!(queued.queue.iter().all(|item| !item.played));
-        assert!(queued.queue[0].song.song.blobs.is_empty());
+        assert!(queued.content.items[1].song.blobs.is_empty());
         service
             .update_queue_vote(
                 &created.room.id,
@@ -2616,6 +2764,7 @@ mod tests {
                 .is_err()
         );
 
+        let mut events = service.sender(&created.room.id).await.subscribe();
         service
             .promote_queue_item(
                 &created.room.id,
@@ -2626,6 +2775,10 @@ mod tests {
             )
             .await
             .unwrap();
+        assert!(matches!(
+            events.recv().await.unwrap(),
+            ServerEvent::PlaybackUpdated { .. }
+        ));
         let promoted = service
             .snapshot_for_session(&member.room_id, &member.session_id)
             .await
@@ -2636,7 +2789,7 @@ mod tests {
         assert_ne!(promoted.queue[1].id, "queue-song-2");
         assert_eq!(promoted.queue[1].upvotes, 0);
         assert!(!promoted.queue[1].played);
-        assert_eq!(promoted.content.items.len(), 2);
+        assert_eq!(promoted.content.items.len(), 3);
         assert_eq!(promoted.musical_state.item_index, 1);
 
         let requeued_id = promoted.queue[1].id.clone();
@@ -2659,7 +2812,7 @@ mod tests {
         assert_eq!(promoted_again.queue[1].song_id, "song-2");
         assert_ne!(promoted_again.queue[1].id, requeued_id);
         assert!(!promoted_again.queue[1].played);
-        assert_eq!(promoted_again.content.items.len(), 2);
+        assert_eq!(promoted_again.content.items.len(), 3);
     }
 
     #[tokio::test]
@@ -2675,10 +2828,10 @@ mod tests {
                 host_user_id: "user-1".into(),
                 host_email: "host@example.com".into(),
                 content: RoomContent {
-                    items: vec![(*current.song).clone()],
+                    items: vec![queued_content("song-1"), queued_content("song-2")],
                     toc: vec![TocItem {
                         idx: 0,
-                        title: current.title.clone(),
+                        title: "Song song-1".into(),
                         id: Some(current.song_id.clone()),
                         nr: "1".into(),
                         liked: false,
@@ -2795,10 +2948,10 @@ mod tests {
                 host_user_id: "user-1".into(),
                 host_email: "host@example.com".into(),
                 content: RoomContent {
-                    items: vec![(*first.song).clone()],
+                    items: vec![queued_content("song-1"), queued_content("song-3")],
                     toc: vec![TocItem {
                         idx: 0,
-                        title: first.title.clone(),
+                        title: "Song song-1".into(),
                         id: Some(first.song_id.clone()),
                         nr: "1".into(),
                         liked: false,
@@ -2855,10 +3008,10 @@ mod tests {
                 host_user_id: "user-1".into(),
                 host_email: "host@example.com".into(),
                 content: RoomContent {
-                    items: vec![(*current.song).clone()],
+                    items: vec![queued_content("song-1")],
                     toc: vec![TocItem {
                         idx: 0,
-                        title: current.title.clone(),
+                        title: "Song song-1".into(),
                         id: Some(current.song_id.clone()),
                         nr: "1".into(),
                         liked: false,
@@ -2884,6 +3037,7 @@ mod tests {
                 "user-1",
                 &["team-1".into()],
                 queued_song("song-2"),
+                queued_content("song-2"),
                 2,
             )
             .await
@@ -2894,6 +3048,7 @@ mod tests {
                 "user-1",
                 &["team-1".into()],
                 queued_song("song-3"),
+                queued_content("song-3"),
                 3,
             )
             .await
@@ -2985,6 +3140,7 @@ mod tests {
                 "user-1",
                 &["team-1".into()],
                 queued_song("song-2"),
+                queued_content("song-2"),
                 2,
             )
             .await
@@ -2995,6 +3151,7 @@ mod tests {
                 "user-1",
                 &["team-1".into()],
                 queued_song("song-3"),
+                queued_content("song-3"),
                 3,
             )
             .await
@@ -3260,6 +3417,7 @@ mod tests {
                     "user-1",
                     &["team-1".into()],
                     queued_song("song-2"),
+                    queued_content("song-2"),
                     1,
                 )
                 .await,
@@ -3282,6 +3440,7 @@ mod tests {
                 "user-1",
                 &["team-1".into()],
                 queued_song("song-2"),
+                queued_content("song-2"),
                 2,
             )
             .await

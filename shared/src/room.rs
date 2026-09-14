@@ -106,8 +106,6 @@ pub struct RoomProjectionPayload {
 pub struct RoomQueueItem {
     pub id: String,
     pub song_id: String,
-    pub title: String,
-    pub song: Box<PlayerChordsItem>,
     pub added_by: String,
     #[serde(default)]
     pub upvotes: u64,

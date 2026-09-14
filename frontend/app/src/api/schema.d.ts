@@ -1915,9 +1915,7 @@ export interface components {
             added_by: string;
             id: string;
             played?: boolean;
-            song: components["schemas"]["PlayerChordsItem"];
             song_id: string;
-            title: string;
             /** Format: int64 */
             upvotes?: number;
         };
