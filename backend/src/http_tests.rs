@@ -264,8 +264,8 @@ mod room_http {
                 assert_eq!(snapshot.content.toc[0].idx, 0);
                 assert_eq!(snapshot.queue.len(), 1);
                 assert_eq!(snapshot.queue[0].song_id, song.id);
-                assert_eq!(snapshot.queue[0].title, "Room source song");
-                assert!(snapshot.queue[0].song.song.blobs.is_empty());
+                assert_eq!(snapshot.content.toc[0].title, "Room source song");
+                assert!(snapshot.content.items[0].song.blobs.is_empty());
             } else {
                 assert!(snapshot.queue.is_empty());
             }
@@ -548,7 +548,6 @@ mod room_http {
             .db
             .query(
                 "SELECT count() AS count FROM player_room WHERE id = type::record('player_room', $room_id) GROUP ALL;
-                 SELECT count() AS count FROM player_room_snapshot WHERE room = type::record('player_room', $room_id) GROUP ALL;
                  SELECT count() AS count FROM player_room_session WHERE room = type::record('player_room', $room_id) GROUP ALL;",
             )
             .bind(("room_id", created.room.id.clone()))
@@ -558,7 +557,7 @@ mod room_http {
         struct CountRow {
             count: i64,
         }
-        for statement in 0..3 {
+        for statement in 0..2 {
             assert_eq!(
                 response
                     .take::<Vec<CountRow>>(statement)

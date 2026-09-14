@@ -14,6 +14,8 @@ import {
   addRoomQueueItem,
   fetchRoomQueueLikes,
   promoteRoomQueueItem,
+  type RoomContent,
+  type RoomChordItem,
   type RoomQueueItem,
 } from '@/lib/room'
 import type { TocDisplayMode } from '@/lib/player/toc-display'
@@ -22,6 +24,7 @@ import { cn } from '@/lib/utils'
 
 type Props = {
   roomId: string
+  content: RoomContent
   queue: RoomQueueItem[]
   revision: number
   votedQueueIds: string[]
@@ -35,33 +38,34 @@ type Props = {
 
 type PlayerItem = components['schemas']['PlayerItem']
 type TocItem = components['schemas']['TocItem']
-type QueueDisplaySong = { id: string; song: Song; liked: boolean; title: string; played: boolean }
+type QueueDisplaySong = { id: string; song: Song; language: RoomChordItem['language']; flow: RoomChordItem['flow']; liked: boolean; title: string; played: boolean }
 
 function songTitle(song: Song): string {
   return song.data.titles?.find((title) => title.trim()) ?? song.id
 }
 
-function tocForSong(song: Song, index: number): TocItem {
+function tocForSong(song: QueueDisplaySong, index: number): TocItem {
   return {
     idx: index,
     nr: String(index + 1),
-    title: songTitle(song),
+    title: song.title,
     id: song.id,
-    liked: song.user_specific_addons.liked,
+    liked: song.liked,
   }
 }
 
-function itemForQueue(queueItem: RoomQueueItem, liked: boolean): PlayerItem {
+function itemForQueue(song: QueueDisplaySong): PlayerItem {
   return {
     type: 'chords',
-    song: { ...queueItem.song.song, user_specific_addons: { ...queueItem.song.song.user_specific_addons, liked } },
-    language: queueItem.song.language,
-    flow: queueItem.song.flow,
+    song: { ...song.song, user_specific_addons: { ...song.song.user_specific_addons, liked: song.liked } },
+    language: song.language,
+    flow: song.flow,
   }
 }
 
 export function RoomQueuePanel({
   roomId,
+  content,
   queue,
   revision,
   votedQueueIds,
@@ -97,15 +101,22 @@ export function RoomQueuePanel({
   const likedSongIds = useMemo(() => new Set(queueLikesQuery.data?.song_ids ?? []), [queueLikesQuery.data?.song_ids])
   const queuedBySongId = useMemo(() => new Map(queue.map((item) => [item.song_id, item])), [queue])
   const queuedSongIds = useMemo(() => new Set(queue.map((item) => item.song_id)), [queue])
-  const visibleSongs = useMemo(() => queue.map((item): QueueDisplaySong => ({
+  const visibleSongs = useMemo(() => queue.flatMap((item): QueueDisplaySong[] => {
+    const contentIndex = content.items.findIndex((contentItem) => contentItem.song.id === item.song_id)
+    const contentItem = content.items[contentIndex]
+    if (!contentItem) return []
+    return [{
       id: item.song_id,
-      song: item.song.song,
+      song: contentItem.song,
+      language: contentItem.language,
+      flow: contentItem.flow,
       liked: likedSongIds.has(item.song_id),
-      title: item.title,
+      title: content.toc.find((toc) => toc.idx === contentIndex)?.title ?? songTitle(contentItem.song),
       played: item.played === true,
-    })), [likedSongIds, queue])
-  const toc = useMemo(() => visibleSongs.map((song, index) => tocForSong({ ...song.song, user_specific_addons: { ...song.song.user_specific_addons, liked: song.liked } }, index)), [visibleSongs])
-  const items = useMemo(() => visibleSongs.map((song) => itemForQueue(queuedBySongId.get(song.id)!, song.liked)), [queuedBySongId, visibleSongs])
+    }]
+  }), [content, likedSongIds, queue])
+  const toc = useMemo(() => visibleSongs.map(tocForSong), [visibleSongs])
+  const items = useMemo(() => visibleSongs.map(itemForQueue), [visibleSongs])
   const votedIds = useMemo(() => new Set(votedQueueIds), [votedQueueIds])
 
   const runMutation = async (id: string, action: () => Promise<void>, successKey?: string) => {

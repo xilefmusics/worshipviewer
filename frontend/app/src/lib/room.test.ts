@@ -10,6 +10,7 @@ import {
   readRoomInvite,
   redactRoomEvent,
   saveRoomCredentials,
+  type RoomChordItem,
   type RoomSnapshot,
 } from '@/lib/room'
 
@@ -172,13 +173,64 @@ describe('rooms', () => {
   })
 
   it('applies queue updates as revisioned room deltas', () => {
-    const current = { id: 'r1', queue: [], revision: 4 } as unknown as RoomSnapshot
-    const queue = [{ id: 'q1', song_id: 's1', title: 'Song', added_by: 'Alex', upvotes: 0, played: true }]
+    const content = { items: [], toc: [] }
+    const current = { id: 'r1', content, queue: [], revision: 4 } as unknown as RoomSnapshot
+    const queue = [{ id: 'q1', song_id: 's1', added_by: 'Alex', upvotes: 0, played: true }]
     expect(applyRoomServerMessage(current, {
       type: 'queue_updated',
       queue: queue as never,
       revision: 5,
     })).toEqual({ snapshot: { ...current, queue, revision: 5, voted_queue_ids: [] }, needsSnapshot: false })
+    expect(applyRoomServerMessage(current, {
+      type: 'queue_updated',
+      queue: queue as never,
+      revision: 5,
+    }).snapshot?.content).toBe(content)
+  })
+
+  it('appends one content item and replaces the lightweight queue on content additions', () => {
+    const existing = { song: { id: 's1' }, language: null, flow: null } as RoomChordItem
+    const added = { song: { id: 's2' }, language: 'de', flow: null } as RoomChordItem
+    const current = {
+      id: 'r1',
+      content: { items: [existing], toc: [{ idx: 0, nr: '1', title: 'First', id: 's1', liked: false }] },
+      queue: [],
+      voted_queue_ids: [],
+      revision: 4,
+    } as unknown as RoomSnapshot
+    const queue = [{ id: 'q1', song_id: 's2', added_by: 'Alex', upvotes: 0, played: false }]
+    const result = applyRoomServerMessage(current, {
+      type: 'content_item_added',
+      item: added,
+      toc: { idx: 1, nr: '', title: 'Second', id: 's2', liked: false },
+      queue,
+      revision: 5,
+    })
+
+    expect(result.needsSnapshot).toBe(false)
+    expect(result.snapshot?.content.items).toEqual([existing, added])
+    expect(result.snapshot?.content.toc).toHaveLength(2)
+    expect(result.snapshot?.queue).toEqual(queue)
+    expect(result.snapshot?.revision).toBe(5)
+  })
+
+  it('updates musical state and queue from a playback update', () => {
+    const content = { items: [], toc: [] }
+    const current = { id: 'r1', content, queue: [], revision: 4 } as unknown as RoomSnapshot
+    const queue = [{ id: 'q1', song_id: 's1', added_by: 'Alex', upvotes: 0, played: false }]
+    const musicalState = { item_index: 1, started: true, language: null, transposition: '2' }
+    const result = applyRoomServerMessage(current, {
+      type: 'playback_updated',
+      musical_state: musicalState,
+      queue,
+      revision: 5,
+    })
+
+    expect(result).toEqual({
+      snapshot: { ...current, musical_state: musicalState, queue, revision: 5, voted_queue_ids: [] },
+      needsSnapshot: false,
+    })
+    expect(result.snapshot?.content).toBe(content)
   })
 
   it('applies queue access updates as revisioned room deltas', () => {

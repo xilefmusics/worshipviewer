@@ -10,6 +10,7 @@ import {
   addRoomQueueItem,
   fetchRoomQueueLikes,
   promoteRoomQueueItem,
+  type RoomContent,
   type RoomQueueItem,
 } from '@/lib/room'
 
@@ -59,25 +60,38 @@ function song(
 }
 
 const queue = [
-  { id: 'q1', song_id: 's1', title: 'Anchor', added_by: 'Alex', upvotes: 0, played: false, song: { song: song('s1', 'Anchor'), language: null, flow: null } },
-  { id: 'q2', song_id: 's2', title: 'Grace', added_by: 'Sam', upvotes: 2, played: false, song: { song: song('s2', 'Grace'), language: null, flow: null } },
-] as RoomQueueItem[]
+  { id: 'q1', song_id: 's1', added_by: 'Alex', upvotes: 0, played: false },
+  { id: 'q2', song_id: 's2', added_by: 'Sam', upvotes: 2, played: false },
+] satisfies RoomQueueItem[]
+
+const content: RoomContent = {
+  items: [
+    { song: song('s1', 'Anchor'), language: null, flow: null },
+    { song: song('s2', 'Grace'), language: null, flow: null },
+  ],
+  toc: [
+    { idx: 0, nr: '1', title: 'Anchor', id: 's1', liked: false },
+    { idx: 1, nr: '2', title: 'Grace', id: 's2', liked: false },
+  ],
+}
 
 function renderPanel(overrides: Partial<ComponentProps<typeof RoomQueuePanel>> = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const props: ComponentProps<typeof RoomQueuePanel> = {
+    roomId: 'room-1',
+    content,
+    queue,
+    revision: 4,
+    votedQueueIds: ['q2'],
+    canAdd: false,
+    canManage: false,
+    onVote: vi.fn(),
+    queueAdditionsAllowed: false,
+    ...overrides,
+  }
   return render(
     <QueryClientProvider client={client}>
-      <RoomQueuePanel
-        roomId="room-1"
-        queue={queue}
-        revision={4}
-        votedQueueIds={['q2']}
-        canAdd={false}
-        canManage={false}
-        onVote={vi.fn()}
-        queueAdditionsAllowed={false}
-        {...overrides}
-      />
+      <RoomQueuePanel {...props} />
     </QueryClientProvider>,
   )
 }
@@ -95,6 +109,17 @@ describe('RoomQueuePanel', () => {
     expect(screen.getByText('2')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'rooms.queue.removeUpvote Grace' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('resolves queue titles from room content', () => {
+    renderPanel({
+      content: {
+        ...content,
+        toc: content.toc.map((item, index) => index === 0 ? { ...item, title: 'Content Anchor' } : item),
+      },
+    })
+
+    expect(screen.getByRole('option', { name: 'rooms.queue.activate Content Anchor 1' })).toHaveTextContent('1. Content Anchor')
   })
 
   it('toggles a participant vote without requiring queue-management access', () => {
@@ -129,11 +154,14 @@ describe('RoomQueuePanel', () => {
   })
 
   it('removes the separator when filtering leaves only one playback section', () => {
-    const filteredQueue = [
-      { ...queue[0], song: { ...queue[0].song, song: song('s1', 'Anchor', false, { languages: ['en'] }) }, played: false },
-      { ...queue[1], song: { ...queue[1].song, song: song('s2', 'Grace', false, { languages: ['de'] }) }, played: true },
-    ]
-    renderPanel({ queue: filteredQueue, votedQueueIds: [] })
+    const filteredContent: RoomContent = {
+      ...content,
+      items: [
+        { ...content.items[0], song: song('s1', 'Anchor', false, { languages: ['en'] }) },
+        { ...content.items[1], song: song('s2', 'Grace', false, { languages: ['de'] }) },
+      ],
+    }
+    renderPanel({ content: filteredContent, queue: queue.map((item, index) => ({ ...item, played: index === 1 })), votedQueueIds: [] })
 
     expect(screen.getByRole('separator', { name: 'rooms.queue.alreadyPlayed' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'de' }))
@@ -164,6 +192,7 @@ describe('RoomQueuePanel', () => {
       <QueryClientProvider client={new QueryClient()}>
         <RoomQueuePanel
           roomId="room-1"
+          content={content}
           queue={queue}
           revision={4}
           votedQueueIds={[]}

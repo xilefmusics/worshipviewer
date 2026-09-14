@@ -16,10 +16,11 @@ export type RoomProjection = {
   next_preview: string | null
 }
 export type RoomChordItem = components['schemas']['PlayerChordsItem']
+export type RoomContent = components['schemas']['RoomContent']
 export type RoomQueueItem = components['schemas']['RoomQueueItem']
 export type RoomSession = { id: string; mode: RoomMode; hide_chords?: boolean; display_name: string; avatar_url: string | null; anonymous: boolean; connected: boolean; is_host: boolean; is_av_host: boolean }
 export type RoomSummary = { id: string; name: string; team_id: string; queue_additions_allowed?: boolean; host_email: string; can_close?: boolean; session_count: number; av_occupied: boolean; created_at: string }
-export type RoomSnapshot = RoomSummary & { new_joins_locked?: boolean; content: { items: RoomChordItem[]; toc: components['schemas']['Player']['toc'] }; queue: RoomQueueItem[]; voted_queue_ids: string[]; musical_state: RoomMusicalState; projection: RoomProjection | null; sessions: RoomSession[]; revision: number; host_lease_expires_at: string; guest_access_allowed?: boolean }
+export type RoomSnapshot = RoomSummary & { new_joins_locked?: boolean; content: RoomContent; queue: RoomQueueItem[]; voted_queue_ids: string[]; musical_state: RoomMusicalState; projection: RoomProjection | null; sessions: RoomSession[]; revision: number; host_lease_expires_at: string; guest_access_allowed?: boolean }
 export type RoomCredentials = { room_id: string; session_id: string; mode: RoomMode; resume_credential: string; connection_ticket: string }
 export type CreatedRoom = { room: RoomSummary; credentials: RoomCredentials; invite_secret: string }
 export type RoomServerMessage =
@@ -28,6 +29,8 @@ export type RoomServerMessage =
   | { type: 'musical_state_updated'; musical_state: RoomMusicalState; revision: number }
   | { type: 'projection_updated'; projection: RoomProjection; revision: number }
   | { type: 'queue_updated'; queue: RoomQueueItem[]; revision: number }
+  | { type: 'content_item_added'; item: RoomChordItem; toc: components['schemas']['TocItem']; queue: RoomQueueItem[]; revision: number }
+  | { type: 'playback_updated'; musical_state: RoomMusicalState; queue: RoomQueueItem[]; revision: number }
   | { type: 'guests_allowed_updated'; guest_access_allowed: boolean; revision: number }
   | { type: 'room_locked_updated'; new_joins_locked: boolean; revision: number }
   | { type: 'queue_access_updated'; queue_additions_allowed: boolean; revision: number }
@@ -219,6 +222,31 @@ export function applyRoomServerMessage(
       return {
         snapshot: {
           ...current,
+          queue: message.queue,
+          voted_queue_ids: (current.voted_queue_ids ?? []).filter((id) => message.queue.some((item) => item.id === id)),
+          revision: message.revision,
+        },
+        needsSnapshot: false,
+      }
+    case 'content_item_added':
+      return {
+        snapshot: {
+          ...current,
+          content: {
+            items: [...current.content.items, message.item],
+            toc: [...current.content.toc, message.toc],
+          },
+          queue: message.queue,
+          voted_queue_ids: (current.voted_queue_ids ?? []).filter((id) => message.queue.some((item) => item.id === id)),
+          revision: message.revision,
+        },
+        needsSnapshot: false,
+      }
+    case 'playback_updated':
+      return {
+        snapshot: {
+          ...current,
+          musical_state: message.musical_state,
           queue: message.queue,
           voted_queue_ids: (current.voted_queue_ids ?? []).filter((id) => message.queue.some((item) => item.id === id)),
           revision: message.revision,

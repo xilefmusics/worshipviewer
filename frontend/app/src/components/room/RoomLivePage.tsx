@@ -125,6 +125,7 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
   const queuePanel = (
     <RoomQueuePanel
       roomId={snapshot.id}
+      content={snapshot.content}
       queue={snapshot.queue}
       revision={snapshot.revision}
       votedQueueIds={snapshot.voted_queue_ids ?? []}

@@ -8,7 +8,6 @@ use actix_web::{
 use futures_util::StreamExt;
 use shared::{
     api::{ListQuery, PAGE_SIZE_DEFAULT},
-    player::PlayerItem,
     room::*,
 };
 use tokio::sync::broadcast;
@@ -118,32 +117,20 @@ fn closable_team_ids(ctx: &AuthorizationContext) -> Vec<String> {
         .collect()
 }
 
-fn queue_from_player(player: &shared::player::Player, added_by: &str) -> Vec<RoomQueueItem> {
+fn queue_from_content(content: &RoomContent, added_by: &str) -> Vec<RoomQueueItem> {
     let mut seen = HashSet::new();
-    player
-        .items()
+    content
+        .items
         .iter()
         .enumerate()
         .filter_map(|(index, item)| {
-            let PlayerItem::Chords(song) = item else {
-                return None;
-            };
-            let song_id = song.song.id.clone();
+            let song_id = item.song.id.clone();
             if song_id.trim().is_empty() || !seen.insert(song_id.clone()) {
                 return None;
             }
-            let title = player
-                .toc()
-                .iter()
-                .find(|toc| toc.idx == index)
-                .map(|toc| toc.title.clone())
-                .unwrap_or_else(|| song.song.data.title().to_string());
-            let song = Box::new(RoomContent::normalize_song((**song).clone()));
             Some(RoomQueueItem {
                 id: format!("source-{index}-{song_id}"),
                 song_id,
-                title,
-                song,
                 added_by: added_by.to_string(),
                 upvotes: 0,
                 played: false,
@@ -234,9 +221,10 @@ pub async fn create_room(
                 let player = setlist_svc
                     .setlist_player_for_user(&ctx, &source_id)
                     .await?;
+                let content = RoomContent::from(&player);
                 (
-                    RoomContent::from(&player),
-                    queue_from_player(&player, &ctx.user.email),
+                    content.clone(),
+                    queue_from_content(&content, &ctx.user.email),
                 )
             }
         },
@@ -333,7 +321,6 @@ pub async fn add_queue_item(
         ));
     }
     let song_id = song.song.id.clone();
-    let title = song.song.data.title().to_string();
     room_svc
         .add_queue_item(
             &id,
@@ -342,12 +329,11 @@ pub async fn add_queue_item(
             RoomQueueItem {
                 id: uuid::Uuid::new_v4().to_string(),
                 song_id,
-                title,
-                song: Box::new(song),
                 added_by: ctx.user.email.clone(),
                 upvotes: 0,
                 played: false,
             },
+            song,
             request.revision,
         )
         .await?;

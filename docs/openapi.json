@@ -2222,13 +2222,7 @@
           "played": {
             "type": "boolean"
           },
-          "song": {
-            "$ref": "#/components/schemas/PlayerChordsItem"
-          },
           "song_id": {
-            "type": "string"
-          },
-          "title": {
             "type": "string"
           },
           "upvotes": {
@@ -2240,8 +2234,6 @@
         "required": [
           "id",
           "song_id",
-          "title",
-          "song",
           "added_by"
         ],
         "type": "object"
