@@ -655,7 +655,7 @@ WHERE room = type::record('player_room', $room_id);
             .db
             .db
             .query(
-                "CREATE type::record('player_room_ticket', $id) CONTENT { room: type::record('player_room', $room_id), participant_id: $participant_id, ticket_hash: $ticket_hash, expires_at: $expires_at, consumed_at: NONE }",
+                "CREATE type::record('player_room_session', $id) CONTENT { room: type::record('player_room', $room_id), participant_id: $participant_id, ticket_hash: $ticket_hash, expires_at: $expires_at, consumed_at: NONE }",
             )
             .bind(("id", Uuid::new_v4().to_string()))
             .bind(("room_id", room_id.to_string()))
@@ -747,7 +747,7 @@ CREATE type::record('player_room_participant', $participant_row_id) CONTENT {
     resume_hash: $resume_hash, connected: false, lease_expires_at: $lease,
     joined_at: $now
 };
-CREATE type::record('player_room_ticket', $ticket_id) CONTENT {
+CREATE type::record('player_room_session', $ticket_id) CONTENT {
     room: type::record('player_room', $room_id), participant_id: $participant_id,
     ticket_hash: $ticket_hash, expires_at: $ticket_expires_at, consumed_at: NONE
 };
@@ -1019,7 +1019,7 @@ UPDATE type::record('player_room', $room_id)
 SET revision += 1,
     host_user_id = IF host_user_id = NONE THEN $host_user_id ELSE host_user_id END,
     av_participant_id = IF $claim_av THEN $participant_record_id ELSE av_participant_id END;
-CREATE type::record('player_room_ticket', $ticket_id) CONTENT {
+CREATE type::record('player_room_session', $ticket_id) CONTENT {
     room: type::record('player_room', $room_id), participant_id: $participant_id,
     ticket_hash: $ticket_hash, expires_at: $ticket_expires_at, consumed_at: NONE
 };
@@ -1201,7 +1201,7 @@ COMMIT TRANSACTION;
             .db
             .db
             .query(
-                "UPDATE player_room_ticket SET consumed_at = time::now() WHERE ticket_hash = $hash AND consumed_at = NONE AND expires_at > time::now() RETURN BEFORE",
+                "UPDATE player_room_session SET consumed_at = time::now() WHERE ticket_hash = $hash AND consumed_at = NONE AND expires_at > time::now() RETURN BEFORE",
             )
             .bind(("hash", Self::hash(secret)))
             .await?;
