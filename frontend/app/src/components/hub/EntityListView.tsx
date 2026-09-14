@@ -32,6 +32,7 @@ import {
   HubActionSeparator,
   HubActionsDrawer,
 } from '@/components/hub/HubActionsDrawer'
+import { OfflineCachedIndicator } from '@/components/hub/OfflineCachedIndicator'
 import { SetlistItemCounts } from '@/components/hub/SetlistItemCounts'
 import { CreateRoomDialog, type RoomSource } from '@/components/room/CreateRoomDialog'
 import {
@@ -588,11 +589,13 @@ function HubItemActionsMenu({
 
   const playType = hubEntityToPlayerType(entity)
   const [playerCached, setPlayerCached] = useState(false)
+  const playerCacheRevision = useRef(0)
   useEffect(() => {
     let cancelled = false
+    const revision = playerCacheRevision.current
     void import('@/lib/offline/player-mirror-cache').then(({ isPlayerMirrored }) =>
       isPlayerMirrored(playType, itemId).then((v) => {
-        if (!cancelled) setPlayerCached(v)
+        if (!cancelled && revision === playerCacheRevision.current) setPlayerCached(v)
       }),
     )
     return () => {
@@ -677,6 +680,7 @@ function HubItemActionsMenu({
     const result = await downloadPlayerForOffline(playType, itemId, { title: itemLabel })
     toast.dismiss(toastId)
     if ('ok' in result && result.ok) {
+      playerCacheRevision.current += 1
       setPlayerCached(true)
       if (result.evicted) {
         toast.success(t('hub.actions.saveOfflineSuccess'), {
@@ -696,21 +700,24 @@ function HubItemActionsMenu({
 
   const onRemoveOffline = useCallback(async () => {
     await removeOfflinePlayerCopy(playType, itemId)
+    playerCacheRevision.current += 1
     setPlayerCached(false)
     toast.success(t('hub.actions.removeOfflineSuccess'))
   }, [itemId, playType, t])
 
   return (
     <>
-      <HubActionsDrawer
-        title={itemLabel}
-        triggerAriaLabel={t('hub.actions.menuAria', { title: itemLabel })}
-        triggerClassName={
-          variant === 'card'
-            ? 'size-8 rounded-full bg-[var(--color-surface)]/80 text-[var(--color-foreground)] shadow-sm backdrop-blur-sm hover:bg-[var(--color-surface)]'
-            : undefined
-        }
-      >
+      <div className="flex items-center gap-1">
+        <OfflineCachedIndicator visible={playerCached} />
+        <HubActionsDrawer
+          title={itemLabel}
+          triggerAriaLabel={t('hub.actions.menuAria', { title: itemLabel })}
+          triggerClassName={
+            variant === 'card'
+              ? 'size-8 rounded-full bg-[var(--color-surface)]/80 text-[var(--color-foreground)] shadow-sm backdrop-blur-sm hover:bg-[var(--color-surface)]'
+              : undefined
+          }
+        >
             <div role="group" aria-label={t('hub.actions.general')}>
               <div className="px-2 pb-1 text-xs font-semibold text-[var(--color-muted-foreground)]">
                 {t('hub.actions.general')}
@@ -899,7 +906,8 @@ function HubItemActionsMenu({
               <TrashIcon isHovered={itemHot === 'delete'} size={16} className="shrink-0" />
               {t('hub.actions.delete')}
             </HubActionItem>
-      </HubActionsDrawer>
+        </HubActionsDrawer>
+      </div>
       {showAddToSetlist && hubSong ? (
         <AddSongToSetlistDialog open={addToSetlistOpen} onOpenChange={setAddToSetlistOpen} song={hubSong} />
       ) : null}
