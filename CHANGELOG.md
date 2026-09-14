@@ -25,6 +25,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Changed
 
+- Demodata fixtures are reapplied on every backend startup when `DEMODATA=generic` is enabled; the seed marker table has been removed.
 - Room queue browsing now uses the current queue for order, A–Z, and personal Liked views; hosts control whether members may add new library songs.
 - Admin Users and Metrics now use the same hub chrome as collections and songs: a bottom tab bar with Leave, hub-style user rows, and the shared right-hand actions drawer. Impersonation starts immediately from that drawer.
 - `openapi-sync.mjs` resolves canonical OpenAPI from repo root (`docs/openapi.json`).

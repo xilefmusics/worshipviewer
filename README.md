@@ -240,7 +240,7 @@ Configuration is driven by environment variables (uppercase names matching the `
 - **OTP email:** `OTP_TTL_SECONDS`, `OTP_PEPPER`, `OTP_MAX_ATTEMPTS`, `OTP_ALLOW_SELF_SIGNUP` (optional override: `WORSHIP_OTP_ALLOW_SELF_SIGNUP`). Outbound mail uses **Gmail SMTP** via `GMAIL_APP_PASSWORD` and `GMAIL_FROM` (see [`backend/src/mail.rs`](backend/src/mail.rs)); empty values are only workable if you never send mail.
 - **OIDC (e.g. Google):** `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URL`, `OIDC_SCOPES`.
 - **Database:** `DB_ADDRESS`, `DB_USERNAME`, `DB_PASSWORD`, `DB_MIGRATION_PATH`.
-- **Demodata:** Set `DEMODATA=generic` for a deterministic local fixture with synthetic users, teams, 100 songs, collections, setlists, media, and likes. The scenario is seeded once per database; it is rejected in production.
+- **Demodata:** Set `DEMODATA=generic` for a deterministic local fixture with synthetic users, teams, 100 songs, collections, setlists, media, and likes. The fixture is applied on every backend startup while enabled, so changes to its deterministic records may be overwritten; it is rejected in production.
 
 The generic fixture uses these synthetic accounts for ACL testing: `platform-admin@worshipviewer.test`, `team-admin@worshipviewer.test`, `maintainer@worshipviewer.test`, `guest@worshipviewer.test`, and `outsider@worshipviewer.test`. They remain separate from `INITIAL_ADMIN_USER_EMAIL`.
 
