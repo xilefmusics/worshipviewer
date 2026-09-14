@@ -123,7 +123,7 @@ pub struct RoomQueueLikes {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct RoomParticipant {
+pub struct RoomSession {
     pub id: String,
     pub mode: RoomMode,
     #[serde(default)]
@@ -142,12 +142,12 @@ pub struct RoomSummary {
     pub id: String,
     pub name: String,
     pub team_id: String,
-    #[serde(default = "default_room_open")]
-    pub open: bool,
+    #[serde(default = "default_queue_additions_allowed")]
+    pub queue_additions_allowed: bool,
     pub host_email: String,
     #[serde(default)]
     pub can_close: bool,
-    pub participant_count: usize,
+    pub session_count: usize,
     pub av_occupied: bool,
     pub created_at: DateTime<Utc>,
 }
@@ -158,7 +158,7 @@ pub struct RoomSnapshot {
     #[serde(flatten)]
     pub summary: RoomSummary,
     #[serde(default)]
-    pub locked: bool,
+    pub new_joins_locked: bool,
     pub content: RoomContent,
     #[serde(default)]
     pub queue: Vec<RoomQueueItem>,
@@ -166,11 +166,11 @@ pub struct RoomSnapshot {
     pub voted_queue_ids: Vec<String>,
     pub musical_state: RoomMusicalState,
     pub projection: Option<RoomProjectionPayload>,
-    pub participants: Vec<RoomParticipant>,
+    pub sessions: Vec<RoomSession>,
     pub revision: u64,
     pub host_lease_expires_at: DateTime<Utc>,
-    #[serde(default = "default_guests_allowed")]
-    pub guests_allowed: bool,
+    #[serde(default = "default_guest_access_allowed")]
+    pub guest_access_allowed: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -183,7 +183,7 @@ pub struct AddRoomQueueItem {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct UpdateRoomQueueAccess {
-    pub open: bool,
+    pub queue_additions_allowed: bool,
     pub revision: u64,
 }
 
@@ -200,11 +200,11 @@ pub struct RoomQueueRevision {
     pub revision: u64,
 }
 
-fn default_guests_allowed() -> bool {
+fn default_guest_access_allowed() -> bool {
     true
 }
 
-fn default_room_open() -> bool {
+fn default_queue_additions_allowed() -> bool {
     true
 }
 
@@ -253,17 +253,17 @@ pub struct RoomInviteInfo {
     pub name: String,
     pub host_email: String,
     pub av_occupied: bool,
-    #[serde(default = "default_guests_allowed")]
-    pub guests_allowed: bool,
+    #[serde(default = "default_guest_access_allowed")]
+    pub guest_access_allowed: bool,
     #[serde(default)]
-    pub locked: bool,
+    pub new_joins_locked: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct RoomCredentials {
     pub room_id: String,
-    pub participant_id: String,
+    pub session_id: String,
     pub mode: RoomMode,
     pub resume_credential: String,
     pub connection_ticket: String,
@@ -370,14 +370,14 @@ mod tests {
     }
 
     #[test]
-    fn older_room_summaries_default_to_open_queue_access() {
+    fn older_room_summaries_default_to_allow_queue_additions() {
         let json = r#"{
             "id":"room-1","name":"Room","team_id":"team-1",
             "host_email":"host@example.com","can_close":false,
-            "participant_count":0,"av_occupied":false,
+            "session_count":0,"av_occupied":false,
             "created_at":"2026-01-01T00:00:00Z"
         }"#;
         let summary: RoomSummary = serde_json::from_str(json).unwrap();
-        assert!(summary.open);
+        assert!(summary.queue_additions_allowed);
     }
 }

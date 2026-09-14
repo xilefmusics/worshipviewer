@@ -81,6 +81,7 @@ mod room_http {
     async fn admin_and_content_maintainer_create_source_free_team_rooms() {
         #[derive(Deserialize, SurrealValue)]
         struct PersistedHost {
+            host_session_id: RecordId,
             host_user_id: Option<RecordId>,
         }
 
@@ -126,16 +127,25 @@ mod room_http {
         let snapshot: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
         assert!(snapshot.content.items.is_empty());
         assert!(snapshot.content.toc.is_empty());
-        assert_eq!(snapshot.participants.len(), 1);
-        assert!(snapshot.participants[0].is_host);
+        assert_eq!(snapshot.sessions.len(), 1);
+        assert!(snapshot.sessions[0].is_host);
 
         let mut persisted = db
             .db
-            .query("SELECT host_user_id FROM ONLY type::record('player_room', $id)")
+            .query(
+                "SELECT host_session_id, host_session_id.user_id AS host_user_id FROM ONLY type::record('player_room', $id)",
+            )
             .bind(("id", created.room.id.clone()))
             .await
             .unwrap();
         let persisted = persisted.take::<Option<PersistedHost>>(0).unwrap().unwrap();
+        assert_eq!(
+            persisted.host_session_id,
+            RecordId::new(
+                "player_room_session",
+                format!("{}:{}", created.room.id, snapshot.sessions[0].id),
+            )
+        );
         assert_eq!(
             persisted.host_user_id.as_ref().map(record_id_string),
             Some(fixture.writer.id.clone())
@@ -288,7 +298,7 @@ mod room_http {
             })
             .to_request();
         let created: CreatedRoom = test::call_and_read_body_json(&app, request).await;
-        assert!(!created.room.open);
+        assert!(!created.room.queue_additions_allowed);
 
         let request = test::TestRequest::get()
             .uri(&format!("/api/v1/rooms/{}", created.room.id))
@@ -300,7 +310,7 @@ mod room_http {
             .uri(&format!("/api/v1/rooms/{}/queue-access", created.room.id))
             .insert_header(("Authorization", format!("Bearer {host_token}")))
             .set_json(UpdateRoomQueueAccess {
-                open: true,
+                queue_additions_allowed: true,
                 revision: initial.revision,
             })
             .to_request();
@@ -569,7 +579,7 @@ mod room_http {
         let created: CreatedRoom = test::call_and_read_body_json(&app, request).await;
 
         db.db
-            .query("UPDATE type::record('player_room', $room_id) SET locked = true")
+            .query("UPDATE type::record('player_room', $room_id) SET new_joins_locked = true")
             .bind(("room_id", created.room.id.clone()))
             .await
             .unwrap()
@@ -597,7 +607,7 @@ mod room_http {
             })
             .to_request();
         let info: RoomInviteInfo = test::call_and_read_body_json(&app, request).await;
-        assert!(info.locked);
+        assert!(info.new_joins_locked);
 
         let request = test::TestRequest::post()
             .uri("/api/v1/rooms/invite/join")
@@ -646,8 +656,12 @@ mod room_http {
             .uri(&format!("/api/v1/rooms/{}/queue-access", created.room.id))
             .insert_header(("Authorization", format!("Bearer {host_token}")))
             .set_json(UpdateRoomQueueAccess {
-                open: true,
-                revision: created.room.open.then_some(1).unwrap_or(1),
+                queue_additions_allowed: true,
+                revision: created
+                    .room
+                    .queue_additions_allowed
+                    .then_some(1)
+                    .unwrap_or(1),
             })
             .to_request();
         assert_eq!(
@@ -660,7 +674,7 @@ mod room_http {
             .insert_header(("Authorization", format!("Bearer {host_token}")))
             .to_request();
         let opened: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-        assert!(opened.summary.open);
+        assert!(opened.summary.queue_additions_allowed);
 
         let request = test::TestRequest::post()
             .uri(&format!("/api/v1/rooms/{}/join", created.room.id))
@@ -728,7 +742,7 @@ mod room_http {
             .uri(&format!("/api/v1/rooms/{}/queue-access", created.room.id))
             .insert_header(("Authorization", format!("Bearer {guest_token}")))
             .set_json(UpdateRoomQueueAccess {
-                open: false,
+                queue_additions_allowed: false,
                 revision: snapshot.revision,
             })
             .to_request();
@@ -741,7 +755,7 @@ mod room_http {
             .uri(&format!("/api/v1/rooms/{}/queue-access", created.room.id))
             .insert_header(("Authorization", format!("Bearer {host_token}")))
             .set_json(UpdateRoomQueueAccess {
-                open: false,
+                queue_additions_allowed: false,
                 revision: snapshot.revision,
             })
             .to_request();

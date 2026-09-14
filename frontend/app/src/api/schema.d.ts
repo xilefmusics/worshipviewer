@@ -1881,16 +1881,16 @@ export interface components {
         RoomCredentials: {
             connection_ticket: string;
             mode: components["schemas"]["RoomMode"];
-            participant_id: string;
             resume_credential: string;
             room_id: string;
+            session_id: string;
         };
         RoomInviteInfo: {
             av_occupied: boolean;
-            guests_allowed?: boolean;
+            guest_access_allowed?: boolean;
             host_email: string;
-            locked?: boolean;
             name: string;
+            new_joins_locked?: boolean;
             room_id: string;
         };
         /** @enum {string} */
@@ -1900,17 +1900,6 @@ export interface components {
             language?: string | null;
             started?: boolean;
             transposition?: string | null;
-        };
-        RoomParticipant: {
-            anonymous: boolean;
-            avatar_url?: string | null;
-            connected: boolean;
-            display_name: string;
-            hide_chords?: boolean;
-            id: string;
-            is_av_host: boolean;
-            is_host: boolean;
-            mode: components["schemas"]["RoomMode"];
         };
         RoomProjectionPayload: {
             background_layer: Record<string, never>;
@@ -1939,18 +1928,29 @@ export interface components {
             /** Format: int64 */
             revision: number;
         };
+        RoomSession: {
+            anonymous: boolean;
+            avatar_url?: string | null;
+            connected: boolean;
+            display_name: string;
+            hide_chords?: boolean;
+            id: string;
+            is_av_host: boolean;
+            is_host: boolean;
+            mode: components["schemas"]["RoomMode"];
+        };
         RoomSnapshot: components["schemas"]["RoomSummary"] & {
             content: components["schemas"]["RoomContent"];
-            guests_allowed?: boolean;
+            guest_access_allowed?: boolean;
             /** Format: date-time */
             host_lease_expires_at: string;
-            locked?: boolean;
             musical_state: components["schemas"]["RoomMusicalState"];
-            participants: components["schemas"]["RoomParticipant"][];
+            new_joins_locked?: boolean;
             projection?: null | components["schemas"]["RoomProjectionPayload"];
             queue?: components["schemas"]["RoomQueueItem"][];
             /** Format: int64 */
             revision: number;
+            sessions: components["schemas"]["RoomSession"][];
             voted_queue_ids?: string[];
         };
         /** @enum {string} */
@@ -1963,8 +1963,8 @@ export interface components {
             host_email: string;
             id: string;
             name: string;
-            open?: boolean;
-            participant_count: number;
+            queue_additions_allowed?: boolean;
+            session_count: number;
             team_id: string;
         };
         /**
@@ -2350,7 +2350,7 @@ export interface components {
             title: string;
         };
         UpdateRoomQueueAccess: {
-            open: boolean;
+            queue_additions_allowed: boolean;
             /** Format: int64 */
             revision: number;
         };

@@ -20,8 +20,8 @@ function InviteRoute() {
     name: string
     host_email: string
     av_occupied: boolean
-    guests_allowed?: boolean
-    locked?: boolean
+    guest_access_allowed?: boolean
+    new_joins_locked?: boolean
   } | null>(null)
   const [ended, setEnded] = useState(() => !window.location.hash.slice(1))
   const [name, setName] = useState(randomRoomGuestDisplayName)
@@ -46,9 +46,9 @@ function InviteRoute() {
     return <main className="flex min-h-dvh items-center justify-center p-6">{t('common.load')}</main>
   }
 
-  const guestsAllowed = info.guests_allowed !== false
+  const guestAccessAllowed = info.guest_access_allowed !== false
 
-  if (info.locked) {
+  if (info.new_joins_locked) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-6 text-center">
         <h1 className="text-2xl font-semibold">{info.name}</h1>
@@ -58,7 +58,7 @@ function InviteRoute() {
     )
   }
 
-  if (!guestsAllowed) {
+  if (!guestAccessAllowed) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-6 text-center">
         <h1 className="text-2xl font-semibold">{info.name}</h1>

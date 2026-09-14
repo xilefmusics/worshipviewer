@@ -55,15 +55,40 @@ describe('rooms', () => {
     ).toBe('Room abc12345')
   })
 
-  it('keeps participant credentials scoped by room', () => {
-    const credentials = { room_id: 'r1', participant_id: 'p1', mode: 'sheet' as const, resume_credential: 'resume', connection_ticket: 'ticket' }
+  it('keeps session credentials scoped by room', () => {
+    const credentials = { room_id: 'r1', session_id: 'p1', mode: 'sheet' as const, resume_credential: 'resume', connection_ticket: 'ticket' }
     saveRoomCredentials(credentials)
     expect(readRoomCredentials('r1')).toEqual(credentials)
     expect(readRoomCredentials('r2')).toBeNull()
   })
 
+  it('migrates legacy participant credentials on read and rewrites them', () => {
+    sessionStorage.setItem('room:r1:credentials', JSON.stringify({
+      room_id: 'r1',
+      participant_id: 'legacy-session',
+      mode: 'sheet',
+      resume_credential: 'resume',
+      connection_ticket: 'ticket',
+    }))
+
+    expect(readRoomCredentials('r1')).toEqual({
+      room_id: 'r1',
+      session_id: 'legacy-session',
+      mode: 'sheet',
+      resume_credential: 'resume',
+      connection_ticket: 'ticket',
+    })
+    expect(JSON.parse(sessionStorage.getItem('room:r1:credentials') ?? '{}')).toEqual({
+      room_id: 'r1',
+      session_id: 'legacy-session',
+      mode: 'sheet',
+      resume_credential: 'resume',
+      connection_ticket: 'ticket',
+    })
+  })
+
   it('stores returned room credentials only after successful creation', async () => {
-    const credentials = { room_id: 'r1', participant_id: 'p1', mode: 'sheet' as const, resume_credential: 'resume', connection_ticket: 'ticket' }
+    const credentials = { room_id: 'r1', session_id: 'p1', mode: 'sheet' as const, resume_credential: 'resume', connection_ticket: 'ticket' }
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       room: { id: 'r1' },
       credentials,
@@ -96,7 +121,7 @@ describe('rooms', () => {
 
   it('adapts content snapshots without importing host layout state', () => {
     const item = { song: { id: 's1' }, language: null, flow: null } as RoomSnapshot['content']['items'][number]
-    const snapshot = { id: 'r1', name: 'Room', team_id: 't1', host_email: 'h@example.com', participant_count: 1, av_occupied: false, created_at: new Date().toISOString(), locked: false, content: { items: [item], toc: [] }, queue: [], voted_queue_ids: [], musical_state: { item_index: 0, started: false, language: null, transposition: null }, projection: null, participants: [], revision: 1, host_lease_expires_at: new Date().toISOString() } as RoomSnapshot
+    const snapshot = { id: 'r1', name: 'Room', team_id: 't1', host_email: 'h@example.com', session_count: 1, av_occupied: false, created_at: new Date().toISOString(), new_joins_locked: false, content: { items: [item], toc: [] }, queue: [], voted_queue_ids: [], musical_state: { item_index: 0, started: false, language: null, transposition: null }, projection: null, sessions: [], revision: 1, host_lease_expires_at: new Date().toISOString() } as RoomSnapshot
     expect(playerFromRoom(snapshot)).toMatchObject({ index: 0, scroll_type: 'one_page', orientation: 'portrait', items: [{ type: 'chords', ...item }] })
   })
 
@@ -138,9 +163,9 @@ describe('rooms', () => {
   it('requests one authoritative snapshot when a delta revision is skipped', () => {
     const current = { id: 'r1', revision: 4 } as unknown as RoomSnapshot
     expect(applyRoomServerMessage(current, {
-      type: 'participants_changed',
-      participants: [],
-      participant_count: 0,
+      type: 'sessions_changed',
+      sessions: [],
+      session_count: 0,
       av_occupied: false,
       revision: 7,
     })).toEqual({ snapshot: current, needsSnapshot: true })
@@ -159,17 +184,17 @@ describe('rooms', () => {
   it('applies queue access updates as revisioned room deltas', () => {
     const current = {
       id: 'r1',
-      open: true,
+      queue_additions_allowed: true,
       revision: 4,
     } as unknown as RoomSnapshot
     expect(applyRoomServerMessage(current, {
       type: 'queue_access_updated',
-      open: false,
+      queue_additions_allowed: false,
       revision: 5,
     })).toEqual({
       snapshot: {
         ...current,
-        open: false,
+        queue_additions_allowed: false,
         revision: 5,
       },
       needsSnapshot: false,
@@ -179,17 +204,17 @@ describe('rooms', () => {
   it('applies room lock updates as revisioned room deltas', () => {
     const current = {
       id: 'r1',
-      locked: false,
+      new_joins_locked: false,
       revision: 4,
     } as unknown as RoomSnapshot
     expect(applyRoomServerMessage(current, {
       type: 'room_locked_updated',
-      locked: true,
+      new_joins_locked: true,
       revision: 5,
     })).toEqual({
       snapshot: {
         ...current,
-        locked: true,
+        new_joins_locked: true,
         revision: 5,
       },
       needsSnapshot: false,

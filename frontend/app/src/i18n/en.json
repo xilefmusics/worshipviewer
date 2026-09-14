@@ -1265,6 +1265,7 @@
       "failed": "Queue access update failed."
     },
     "participants": "participants",
+    "sessions": "sessions",
     "empty": "No active Rooms.",
     "avOccupied": "AV occupied",
     "avFree": "AV available",
@@ -1272,6 +1273,7 @@
     "footerJoinAria": "Join room: {{title}}",
     "modeChooserLabel": "Join mode",
     "listParticipants": "{{count}} participants",
+    "listSessions": "{{count}} sessions",
     "sourceType": {
       "song": "Song",
       "collection": "Collection",

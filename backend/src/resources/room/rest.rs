@@ -70,7 +70,7 @@ pub async fn update_queue_access(
             &id,
             &ctx.user.id,
             &team_ids(&ctx),
-            request.open,
+            request.queue_additions_allowed,
             request.revision,
         )
         .await?;
@@ -253,7 +253,6 @@ pub async fn create_room(
             name: request.name,
             host_user_id: ctx.user.id.clone(),
             host_email: ctx.user.email.clone(),
-            host_avatar_url: ctx.user.oauth_picture_url.clone(),
             content,
             initial_queue,
             host_mode: RoomMode::Sheet,
@@ -500,7 +499,8 @@ pub async fn room_websocket(
             let _ = session.close(None).await;
             return;
         };
-        let Ok((room_id, participant_id, mut events, snapshot)) = svc.consume_ticket(&ticket).await
+        let Ok((room_id, session_id, connection_generation, mut events, snapshot)) =
+            svc.consume_ticket(&ticket).await
         else {
             let _ = session.close(None).await;
             return;
@@ -516,15 +516,16 @@ pub async fn room_websocket(
         loop {
             tokio::select! {
                 message = stream.next() => match message {
-                    Some(Ok(actix_ws::Message::Text(raw))) => if let Ok(command) = serde_json::from_str::<ClientEvent>(&raw) { let result = svc.command(&room_id, &participant_id, command).await; if let Ok(Some(event)) = result { let _ = session.text(serde_json::to_string(&event).unwrap()).await; } },
+                    Some(Ok(actix_ws::Message::Text(raw))) => if let Ok(command) = serde_json::from_str::<ClientEvent>(&raw) { let result = svc.command_with_generation(&room_id, &session_id, &connection_generation, command).await; if let Ok(Some(event)) = result { let _ = session.text(serde_json::to_string(&event).unwrap()).await; } },
                     Some(Ok(actix_ws::Message::Ping(bytes))) => { let _ = session.pong(&bytes).await; },
                     Some(Ok(actix_ws::Message::Close(_))) | None => break,
                     _ => {}
                 },
-                event = events.recv() => match event { Ok(event) => { if session.text(serde_json::to_string(&event).unwrap()).await.is_err() { break; } }, Err(broadcast::error::RecvError::Lagged(_)) => if let Ok(snapshot) = svc.snapshot_for_participant(&room_id, &participant_id).await { let _ = session.text(serde_json::to_string(&ServerEvent::Snapshot { snapshot: Box::new(snapshot) }).unwrap()).await; }, Err(_) => break }
+                event = events.recv() => match event { Ok(event) => { if session.text(serde_json::to_string(&event).unwrap()).await.is_err() { break; } }, Err(broadcast::error::RecvError::Lagged(_)) => if let Ok(snapshot) = svc.snapshot_for_session(&room_id, &session_id).await { let _ = session.text(serde_json::to_string(&ServerEvent::Snapshot { snapshot: Box::new(snapshot) }).unwrap()).await; }, Err(_) => break }
             }
         }
-        svc.disconnect(&room_id, &participant_id).await;
+        svc.disconnect(&room_id, &session_id, &connection_generation)
+            .await;
         let _ = session.close(None).await;
     });
     Ok(response)

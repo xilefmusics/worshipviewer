@@ -18,7 +18,7 @@ vi.mock('@/lib/room', async (importOriginal) => {
     ...actual,
     updateRoomQueueAccess: vi.fn().mockResolvedValue(undefined),
     formatRoomDuration: () => '00:01',
-    participantModeLabel: () => 'rooms.mode.chords',
+    sessionModeLabel: () => 'rooms.mode.chords',
     useRoomElapsedSeconds: () => 1,
   }
 })
@@ -35,16 +35,16 @@ function renderSidebar() {
       name="Room"
       createdAt="2026-01-01T00:00:00Z"
       status="connected"
-      participants={[]}
+      sessions={[]}
       isHost
       canClose
-      guestsAllowed
-      onGuestsAllowedChange={vi.fn()}
-      locked={false}
-      onRoomLockedChange={vi.fn()}
+      guestAccessAllowed
+      onGuestAccessAllowedChange={vi.fn()}
+      newJoinsLocked={false}
+      onNewJoinsLockedChange={vi.fn()}
       roomId="room-1"
       revision={1}
-      open
+      queueAdditionsAllowed
       inviteSecret="invite-secret"
       onEndRoom={onEndRoom}
     />,

@@ -59,7 +59,7 @@ vi.mock('@/components/player/av/AvSlideView', () => ({
 
 const credentials: RoomCredentials = {
   room_id: 'room-1',
-  participant_id: 'participant-1',
+  session_id: 'participant-1',
   mode: 'slide',
   resume_credential: 'resume',
   connection_ticket: 'ticket',
@@ -84,16 +84,16 @@ function snapshotWithProjection(
     name: 'Room',
     team_id: 'team-1',
     host_email: 'host@example.com',
-    participant_count: 1,
+    session_count: 1,
     av_occupied: true,
     created_at: new Date().toISOString(),
-    locked: false,
+    new_joins_locked: false,
     content: { items: [roomItem], toc: [] },
     queue: [],
     voted_queue_ids: [],
     musical_state: { item_index: 0, started: false, language: null, transposition: null },
     projection: nextProjection,
-    participants: [
+    sessions: [
       {
         id: 'participant-1',
         mode: 'slide',
@@ -116,8 +116,8 @@ function mockRoom(snapshot: RoomSnapshot) {
     status: 'connected',
     sendMusicalState: vi.fn(),
     sendProjection: vi.fn(),
-    sendGuestsAllowed: vi.fn(),
-    sendRoomLocked: vi.fn(),
+    sendGuestAccessAllowed: vi.fn(),
+    sendNewJoinsLocked: vi.fn(),
     sendQueueVote: vi.fn(),
     leave: vi.fn(),
   })
@@ -242,8 +242,8 @@ describe('RoomLivePage empty room', () => {
   it('renders a purposeful Sheet empty state with host controls reachable', () => {
     const emptySnapshot = snapshotWithProjection(null)
     emptySnapshot.content = { items: [], toc: [] }
-    emptySnapshot.participants[0] = {
-      ...emptySnapshot.participants[0],
+    emptySnapshot.sessions[0] = {
+      ...emptySnapshot.sessions[0],
       mode: 'sheet',
       is_host: true,
     }
