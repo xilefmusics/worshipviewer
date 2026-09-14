@@ -351,6 +351,19 @@ mod tests {
     use super::*;
     use crate::database::{Database, record_id_string};
 
+    async fn assert_demodata_seed_table_absent(db: &Database) {
+        let mut response = db.db.query("INFO FOR DB").await.expect("inspect tables");
+        let info: surrealdb_types::Value = response.take(0).expect("decode tables");
+        let info = serde_json::to_value(info).expect("serialize tables");
+        assert!(
+            !info["Object"]["tables"]["Object"]
+                .as_object()
+                .expect("database table metadata")
+                .contains_key("demodata_seed"),
+            "demodata_seed table must be absent"
+        );
+    }
+
     #[tokio::test]
     async fn migrations_apply_on_fresh_database() {
         let address = format!("mem://{}", uuid::Uuid::new_v4());
@@ -382,7 +395,11 @@ mod tests {
             .check()
             .expect("media table must exist after fresh migration");
 
+        assert_demodata_seed_table_absent(&db).await;
+
         db.migrate(path).await.expect("idempotent second migrate");
+
+        assert_demodata_seed_table_absent(&db).await;
     }
 
     #[tokio::test]

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use anyhow::{Context, Result as AnyResult, anyhow};
 use chordlib::types::{Chord, Line, Part, Section, SimpleChord, Song as SongData, SongFlowItem};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use surrealdb::types::{RecordId, SurrealValue};
 use tracing::info;
 
@@ -17,8 +17,6 @@ use crate::resources::team::{DbTeamMember, TeamCreatePayload};
 use shared::media::{LivestreamType, MediaContent, SpotifyResourceType};
 use shared::setlist::{CreateSetlist, SetlistItem, SongLink as SetlistSongLink};
 use shared::song::Link as CollectionSongLink;
-
-const GENERIC_VERSION: i64 = 1;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scenario {
@@ -38,12 +36,6 @@ impl Scenario {
             )),
         }
     }
-
-    fn name(self) -> &'static str {
-        match self {
-            Self::Generic => "generic",
-        }
-    }
 }
 
 pub fn validate_environment(production: bool, scenario: Option<Scenario>) -> AnyResult<()> {
@@ -53,17 +45,6 @@ pub fn validate_environment(production: bool, scenario: Option<Scenario>) -> Any
         ));
     }
     Ok(())
-}
-
-#[derive(Debug, Deserialize, SurrealValue)]
-struct SeedMarker {
-    version: i64,
-}
-
-#[derive(Debug, Serialize, SurrealValue)]
-struct SeedMarkerRecord {
-    scenario: String,
-    version: i64,
 }
 
 #[derive(Debug, Serialize, SurrealValue)]
@@ -99,33 +80,9 @@ impl SeedSummary {
 }
 
 pub async fn seed(db: &Database, scenario: Scenario) -> AnyResult<()> {
-    let marker_id = RecordId::new("demodata_seed", scenario.name());
-    let marker: Option<SeedMarker> = db
-        .db
-        .select(marker_id.clone())
-        .await
-        .context("failed to inspect demodata marker")?;
-    if marker
-        .as_ref()
-        .is_some_and(|marker| marker.version >= GENERIC_VERSION)
-    {
-        info!(scenario = scenario.name(), "demodata already seeded");
-        return Ok(());
-    }
-
     let summary = match scenario {
         Scenario::Generic => seed_generic(db).await?,
     };
-
-    let _: Option<SeedMarker> = db
-        .db
-        .upsert(marker_id)
-        .content(SeedMarkerRecord {
-            scenario: scenario.name().to_owned(),
-            version: GENERIC_VERSION,
-        })
-        .await
-        .context("failed to write demodata marker")?;
     summary.log();
     Ok(())
 }
@@ -713,9 +670,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn generic_seed_is_idempotent_and_has_expected_counts() {
+    async fn generic_seed_reapplies_fixture_and_has_expected_counts() {
         let db = test_db().await.unwrap();
         seed(&db, Scenario::Generic).await.unwrap();
+
+        db.db
+            .query("UPDATE type::record('song', 'demodata-song-000') SET not_a_song = true")
+            .await
+            .unwrap()
+            .check()
+            .unwrap();
+
         seed(&db, Scenario::Generic).await.unwrap();
 
         for (table, expected) in [
@@ -726,7 +691,6 @@ mod tests {
             ("setlist", 6),
             ("media", 6),
             ("like", 6),
-            ("demodata_seed", 1),
         ] {
             let query = format!("SELECT count() AS count FROM {table} GROUP ALL");
             let mut response = db.db.query(query).await.unwrap();
@@ -737,6 +701,14 @@ mod tests {
                 .unwrap_or(0);
             assert_eq!(count, expected, "unexpected count for {table}");
         }
+
+        let mut response = db
+            .db
+            .query("SELECT VALUE not_a_song FROM type::record('song', 'demodata-song-000')")
+            .await
+            .unwrap();
+        let not_a_song: Vec<bool> = response.take(0).unwrap();
+        assert_eq!(not_a_song, vec![false]);
 
         let mut response = db
             .db
