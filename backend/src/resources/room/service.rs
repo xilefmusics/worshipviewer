@@ -1156,16 +1156,13 @@ COMMIT TRANSACTION;
         teams: &[String],
         closable_teams: &[String],
     ) -> Result<(), AppError> {
-        let aggregate = self
-            .load_aggregate(room_id)
-            .await?
-            .ok_or_else(|| AppError::NotFound("room not found".into()))?;
+        let aggregate = self.load_aggregate(room_id).await?;
+        let Some(aggregate) = aggregate else {
+            return Ok(());
+        };
         let owner = record_id_string(&aggregate.room.owner);
         if !teams.contains(&owner) {
             return Err(AppError::NotFound("room not found".into()));
-        }
-        if aggregate.room.closed_at.is_some() {
-            return Ok(());
         }
         if Self::host_user_id(&aggregate.room, &aggregate.sessions).as_deref() != Some(user_id)
             && !closable_teams.contains(&owner)
@@ -1176,12 +1173,22 @@ COMMIT TRANSACTION;
             .db
             .db
             .query(
-                "UPDATE type::record('player_room', $room_id) SET closed_at = time::now(), revision += 1 WHERE closed_at = NONE RETURN AFTER",
+                r#"
+BEGIN TRANSACTION;
+DELETE player_room_session
+WHERE room = type::record('player_room', $room_id)
+RETURN NONE;
+DELETE player_room_snapshot
+WHERE room = type::record('player_room', $room_id)
+RETURN NONE;
+DELETE type::record('player_room', $room_id) RETURN BEFORE;
+COMMIT TRANSACTION;
+"#,
             )
             .bind(("room_id", room_id.to_string()))
             .await?;
         surreal_take_errors("room.close", &mut response)?;
-        if !response.take::<Vec<RoomRecord>>(0)?.is_empty() {
+        if !response.take::<Vec<RoomRecord>>(2)?.is_empty() {
             self.publish(room_id, ServerEvent::RoomEnded).await;
         }
         Ok(())
@@ -1678,6 +1685,12 @@ SET revision += 1;
         requeued_item.id = Uuid::new_v4().to_string();
         requeued_item.upvotes = 0;
         requeued_item.played = false;
+        let played_queue_ids = aggregate
+            .queue
+            .iter()
+            .filter(|item| current_song_id.as_deref() == Some(item.song_id.as_str()))
+            .map(|item| item.id.clone())
+            .collect::<HashSet<_>>();
         let mut queue = aggregate
             .queue
             .into_iter()
@@ -1696,9 +1709,7 @@ SET revision += 1;
         let queue_json = serde_json::to_string(&queue)
             .map_err(|e| AppError::internal_from_err("room.queue.encode", e))?;
         let mut queue_votes = aggregate.queue_votes;
-        if let Some(queue_id) = queue_id {
-            queue_votes.remove(queue_id);
-        }
+        queue_votes.retain(|id, _| Some(id.as_str()) != queue_id && !played_queue_ids.contains(id));
         let queue_votes_json = serde_json::to_string(&queue_votes)
             .map_err(|e| AppError::internal_from_err("room.queue_votes.encode", e))?;
         let musical_json = serde_json::to_string(&musical_state)
@@ -2709,6 +2720,36 @@ mod tests {
                 .unwrap()
                 .played
         );
+        let current_queue_id = same_song
+            .queue
+            .iter()
+            .find(|item| item.song_id == current.song_id)
+            .unwrap()
+            .id
+            .clone();
+        service
+            .update_queue_vote(
+                &created.room.id,
+                &created.credentials.session_id,
+                &current_queue_id,
+                true,
+                same_song.revision,
+            )
+            .await
+            .unwrap();
+        let liked_current = service
+            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .await
+            .unwrap();
+        assert_eq!(
+            liked_current
+                .queue
+                .iter()
+                .find(|item| item.song_id == current.song_id)
+                .unwrap()
+                .upvotes,
+            1
+        );
 
         service
             .promote_queue_item(
@@ -2716,7 +2757,7 @@ mod tests {
                 "user-1",
                 &["team-1".into()],
                 &next.id,
-                same_song.revision,
+                liked_current.revision,
             )
             .await
             .unwrap();
@@ -2736,6 +2777,7 @@ mod tests {
             .find(|item| item.song_id == next.song_id)
             .unwrap();
         assert!(previous.played);
+        assert_eq!(previous.upvotes, 0);
         assert!(!selected.played);
         assert_eq!(after.musical_state.item_index, 1);
     }

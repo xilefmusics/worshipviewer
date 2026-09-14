@@ -1241,6 +1241,7 @@
     "createFailed": "Could not start the Room.",
     "createFailedAction": "Could not create the Room. Check your connection and team permission, then try again.",
     "loadFailed": "Could not load Rooms.",
+    "backToList": "Back to Rooms",
     "missingCredentials": "Join this Room again to continue.",
     "displayName": "Display name",
     "guestBadge": "(Guest)",

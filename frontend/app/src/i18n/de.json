@@ -1241,6 +1241,7 @@
     "createFailed": "Raum konnte nicht gestartet werden.",
     "createFailedAction": "Raum konnte nicht erstellt werden. Prüfe deine Verbindung und Teamberechtigung und versuche es erneut.",
     "loadFailed": "Räume konnten nicht geladen werden.",
+    "backToList": "Zurück zu Räumen",
     "missingCredentials": "Tritt diesem Raum erneut bei.",
     "displayName": "Anzeigename",
     "guestBadge": "(Gast)",

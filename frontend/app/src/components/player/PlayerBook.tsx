@@ -258,6 +258,8 @@ type PlayerBookProps = {
   mode?: PlayerMode
   allowNetworkFetch: boolean
   embedded?: boolean
+  backToOverride?: '/rooms'
+  backAriaKeyOverride?: string
   resourceTitle?: string
   deletedReconciled?: boolean
   roomMusicalState?: { item_index: number; started: boolean; language: string | null; transposition: string | null }
@@ -278,6 +280,8 @@ export function PlayerBook({
   mode = 'sheet',
   allowNetworkFetch,
   embedded = false,
+  backToOverride,
+  backAriaKeyOverride,
   resourceTitle,
   deletedReconciled,
   roomMusicalState,
@@ -557,7 +561,7 @@ export function PlayerBook({
     viewState.languageByItem,
   ])
 
-  const backTo = hubPathForPlayerType(type)
+  const backTo = backToOverride ?? hubPathForPlayerType(type)
   const localTranspose = viewState.transposeByItem[nav.index]
   const slotKey =
     currentItem?.type === 'chords'
@@ -1083,7 +1087,7 @@ export function PlayerBook({
                 asChild
                 className={playerHeaderIconButtonClass}
               >
-                <Link to={backTo} aria-label={t(backAriaKeyForPlayerType(type))}>
+                <Link to={backTo} aria-label={t(backAriaKeyOverride ?? backAriaKeyForPlayerType(type))}>
                   <ChevronLeftIcon className={playerHeaderIconClass} size={PLAYER_HEADER_ICON_SIZE} />
                 </Link>
               </Button>
