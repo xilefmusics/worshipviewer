@@ -71,7 +71,6 @@ struct RoomRecord {
     #[serde(default = "default_queue_additions_allowed")]
     queue_additions_allowed: bool,
     name: String,
-    host_email: String,
     content_json: String,
     musical_state_json: String,
     #[serde(default = "default_queue_json")]
@@ -98,7 +97,6 @@ struct RoomSummaryRecord {
     #[serde(default = "default_queue_additions_allowed")]
     queue_additions_allowed: bool,
     name: String,
-    host_email: String,
     host_session_id: RecordId,
     av_session_id: Option<RecordId>,
     created_at: Datetime,
@@ -107,7 +105,6 @@ struct RoomSummaryRecord {
 #[derive(Debug, Clone, Deserialize, SurrealValue)]
 struct SessionRecord {
     id: RecordId,
-    session_id: String,
     user_id: Option<RecordId>,
     guest_display_name: Option<String>,
     mode: String,
@@ -127,8 +124,8 @@ struct SessionRecord {
 
 #[derive(Debug, Clone, Deserialize, SurrealValue)]
 struct TicketRecord {
+    id: RecordId,
     room: RecordId,
-    session_id: String,
     connection_generation: String,
 }
 
@@ -139,7 +136,7 @@ struct RevisionRecord {
 
 #[derive(Debug, Clone, Deserialize, SurrealValue)]
 struct HeartbeatSessionRecord {
-    session_id: String,
+    id: RecordId,
 }
 
 #[derive(Debug, Clone, Deserialize, SurrealValue)]
@@ -147,6 +144,7 @@ struct RoomListSessionRecord {
     id: RecordId,
     room: RecordId,
     user_id: Option<RecordId>,
+    user_email: Option<String>,
     connected: bool,
     lease_expires_at: Datetime,
 }
@@ -268,7 +266,6 @@ pub struct CreateRoomInput {
     pub team_id: String,
     pub name: Option<String>,
     pub host_user_id: String,
-    pub host_email: String,
     pub content: RoomContent,
     pub initial_queue: Vec<RoomQueueItem>,
     pub host_mode: RoomMode,
@@ -323,8 +320,8 @@ impl RoomService {
         RecordId::new("user", user_id.to_string())
     }
 
-    fn session_record_id(room_id: &str, session_id: &str) -> RecordId {
-        RecordId::new("player_room_session", format!("{room_id}:{session_id}"))
+    fn session_record_id(session_id: &str) -> RecordId {
+        RecordId::new("room_session", session_id.to_owned())
     }
 
     fn mode_to_db(mode: RoomMode) -> &'static str {
@@ -456,7 +453,7 @@ impl RoomService {
         let mode = Self::mode_from_db(&session.mode)?;
         let anonymous = session.user_id.is_none();
         Ok(RoomSession {
-            id: session.session_id.clone(),
+            id: record_id_string(&session.id),
             mode,
             hide_chords: session.hide_chords,
             display_name: session
@@ -479,6 +476,14 @@ impl RoomService {
             .find(|session| session.id == room.host_session_id)
             .and_then(|session| session.user_id.as_ref())
             .map(record_id_string)
+    }
+
+    fn host_email(room: &RoomRecord, sessions: &[SessionRecord]) -> String {
+        sessions
+            .iter()
+            .find(|session| session.id == room.host_session_id)
+            .and_then(|session| session.user_email.clone())
+            .unwrap_or_default()
     }
 
     fn host_lease_expires_at(room: &RoomRecord, sessions: &[SessionRecord]) -> DateTime<Utc> {
@@ -506,7 +511,7 @@ impl RoomService {
             name: room.name.clone(),
             team_id: record_id_string(&room.owner),
             queue_additions_allowed: room.queue_additions_allowed,
-            host_email: room.host_email.clone(),
+            host_email: Self::host_email(room, sessions),
             can_close: false,
             session_count: active.len(),
             av_occupied,
@@ -612,17 +617,17 @@ impl RoomService {
             .db
             .query(
                 r#"
-SELECT id, owner, name, host_email, content_json,
+SELECT id, owner, name, content_json,
        musical_state_json, queue_json, queue_votes_json, projection_json, revision, queue_additions_allowed,
        invite_hash, host_session_id, av_session_id,
        created_at, closed_at, guest_access_allowed, new_joins_locked
-FROM ONLY type::record('player_room', $room_id);
-SELECT id, session_id, user_id, guest_display_name, mode, hide_chords, resume_hash,
+FROM ONLY type::record('room', $room_id);
+SELECT id, user_id, guest_display_name, mode, hide_chords, resume_hash,
        ticket_hash, expires_at, consumed_at, connected, lease_expires_at,
        joined_at, connection_generation,
        user_id.email AS user_email, user_id.oauth_picture_url AS user_avatar_url
-FROM player_room_session
-WHERE room = type::record('player_room', $room_id);
+FROM room_session
+WHERE room = type::record('room', $room_id);
 "#,
             )
             .bind(("room_id", room_id.to_string()))
@@ -679,7 +684,7 @@ WHERE room = type::record('player_room', $room_id);
         Ok(aggregate)
     }
 
-    async fn issue_ticket(&self, room_id: &str, session_id: &str) -> Result<String, AppError> {
+    async fn issue_ticket(&self, session_id: &str) -> Result<String, AppError> {
         let ticket = Self::secret()?;
         let connection_generation = Uuid::new_v4().to_string();
         let expires_at = Utc::now() + Duration::seconds(TICKET_SECONDS);
@@ -687,9 +692,9 @@ WHERE room = type::record('player_room', $room_id);
             .db
             .db
             .query(
-                "UPDATE type::record('player_room_session', $id) SET ticket_hash = $ticket_hash, expires_at = $expires_at, consumed_at = NONE, connection_generation = $connection_generation RETURN AFTER",
+                "UPDATE type::record('room_session', $id) SET ticket_hash = $ticket_hash, expires_at = $expires_at, consumed_at = NONE, connection_generation = $connection_generation RETURN AFTER",
             )
-            .bind(("id", Self::session_record_id(room_id, session_id)))
+            .bind(("id", Self::session_record_id(session_id)))
             .bind(("ticket_hash", Self::hash(&ticket)))
             .bind(("expires_at", expires_at))
             .bind(("connection_generation", connection_generation))
@@ -733,8 +738,7 @@ WHERE room = type::record('player_room', $room_id);
 
         let now = Utc::now();
         let room_id = Uuid::new_v4().to_string();
-        let session_id = Uuid::new_v4().to_string();
-        let session_row_id = format!("{room_id}:{session_id}");
+        let session_id = format!("{room_id}:{}", Uuid::new_v4());
         let invite_secret = Self::secret()?;
         let resume_credential = Self::secret()?;
         let connection_ticket = Self::secret()?;
@@ -767,9 +771,8 @@ WHERE room = type::record('player_room', $room_id);
             .query(
                 r#"
 BEGIN TRANSACTION;
-CREATE type::record('player_room', $room_id) CONTENT {
+CREATE type::record('room', $room_id) CONTENT {
     owner: type::record('team', $team_id), name: $name,
-    host_email: $host_email,
     content_json: $content_json,
     musical_state_json: $musical_json, queue_json: $queue_json, queue_votes_json: "{}", projection_json: $projection_json,
     queue_additions_allowed: false,
@@ -778,8 +781,8 @@ CREATE type::record('player_room', $room_id) CONTENT {
     created_at: $now, closed_at: NONE,
     guest_access_allowed: false, new_joins_locked: false
 };
-CREATE type::record('player_room_session', $session_row_id) CONTENT {
-    room: type::record('player_room', $room_id), session_id: $session_id, user_id: $user_id,
+CREATE type::record('room_session', $session_row_id) CONTENT {
+    room: type::record('room', $room_id), user_id: $user_id,
     guest_display_name: NONE, mode: $mode, hide_chords: false,
     resume_hash: $resume_hash, ticket_hash: $ticket_hash,
     expires_at: $ticket_expires_at, consumed_at: NONE,
@@ -792,25 +795,23 @@ COMMIT TRANSACTION;
             .bind(("room_id", room_id.clone()))
             .bind(("team_id", input.team_id.clone()))
             .bind(("name", name.clone()))
-            .bind(("host_email", input.host_email.clone()))
             .bind(("content_json", content_json))
             .bind(("queue_json", queue_json))
             .bind(("musical_json", musical_json))
             .bind(("projection_json", projection_json))
             .bind(("invite_hash", Self::hash(&invite_secret)))
-            .bind(("session_id", session_id.clone()))
+            .bind(("session_row_id", session_id.clone()))
             .bind((
                 "host_session_id",
-                Self::session_record_id(&room_id, &session_id),
+                Self::session_record_id(&session_id),
             ))
             .bind((
                 "av_session_id",
                 (input.host_mode == RoomMode::Av)
-                    .then(|| Self::session_record_id(&room_id, &session_id)),
+                    .then(|| Self::session_record_id(&session_id)),
             ))
             .bind(("now", now))
             .bind(("lease", lease))
-            .bind(("session_row_id", session_row_id))
             .bind(("user_id", Some(Self::user_record_id(&input.host_user_id))))
             .bind(("mode", Self::mode_to_db(input.host_mode).to_string()))
             .bind(("resume_hash", Self::hash(&resume_credential)))
@@ -820,22 +821,14 @@ COMMIT TRANSACTION;
             .await?;
         surreal_take_errors("room.create", &mut response)?;
 
-        let summary = RoomSummary {
-            id: room_id.clone(),
-            name,
-            team_id: input.team_id,
-            queue_additions_allowed: false,
-            host_email: input.host_email,
-            can_close: true,
-            session_count: 1,
-            av_occupied: input.host_mode == RoomMode::Av,
-            created_at: now,
-        };
+        let aggregate = self.load_active_aggregate(&room_id).await?;
+        let mut summary = Self::summary_from_room(&aggregate.room, &aggregate.sessions)?;
+        summary.can_close = true;
         Ok(CreatedRoom {
             room: summary,
             credentials: RoomCredentials {
                 room_id,
-                session_id,
+                id: session_id,
                 mode: input.host_mode,
                 resume_credential,
                 connection_ticket,
@@ -860,9 +853,9 @@ COMMIT TRANSACTION;
             .db
             .query(
                 r#"
-SELECT id, owner, queue_additions_allowed, name, host_email,
+SELECT id, owner, queue_additions_allowed, name,
        host_session_id, av_session_id, created_at
-FROM player_room
+FROM room
 WHERE owner IN $owners AND closed_at = NONE
 ORDER BY created_at DESC;
 "#,
@@ -879,7 +872,7 @@ ORDER BY created_at DESC;
             .db
             .db
             .query(
-                "SELECT id, room, user_id, connected, lease_expires_at FROM player_room_session WHERE room IN $rooms",
+                "SELECT id, room, user_id, user_id.email AS user_email, connected, lease_expires_at FROM room_session WHERE room IN $rooms",
             )
             .bind(("rooms", room_ids))
             .await?;
@@ -899,7 +892,12 @@ ORDER BY created_at DESC;
                     session.connected && DateTime::<Utc>::from(session.lease_expires_at) > now
                 })
                 .collect::<Vec<_>>();
-            let haystack = format!("{} {}", room.name, room.host_email).to_lowercase();
+            let host_email = sessions
+                .iter()
+                .find(|session| session.id == room.host_session_id)
+                .and_then(|session| session.user_email.clone())
+                .unwrap_or_default();
+            let haystack = format!("{} {}", room.name, host_email).to_lowercase();
             if !needle.is_empty() && !haystack.contains(&needle) {
                 continue;
             }
@@ -917,7 +915,7 @@ ORDER BY created_at DESC;
                 name: room.name,
                 team_id: record_id_string(&room.owner),
                 queue_additions_allowed: room.queue_additions_allowed,
-                host_email: room.host_email,
+                host_email,
                 can_close: host_user_id.as_deref() == Some(user_id)
                     || closable_teams.contains(&record_id_string(&room.owner)),
                 session_count: active_sessions.len(),
@@ -1011,17 +1009,21 @@ ORDER BY created_at DESC;
                 ));
             }
             (
-                session.session_id.clone(),
+                record_id_string(&session.id),
                 resume.unwrap().to_string(),
                 false,
             )
         } else {
-            (Uuid::new_v4().to_string(), Self::secret()?, true)
+            (
+                format!("{room_id}:{}", Uuid::new_v4()),
+                Self::secret()?,
+                true,
+            )
         };
 
         if mode == RoomMode::Av
             && aggregate.room.av_session_id.as_ref().is_some_and(|id| {
-                id != &Self::session_record_id(room_id, &session_id)
+                id != &Self::session_record_id(&session_id)
                     && aggregate
                         .sessions
                         .iter()
@@ -1035,21 +1037,21 @@ ORDER BY created_at DESC;
         let lease = now + Duration::seconds(LEASE_SECONDS);
         let ticket = Self::secret()?;
         let connection_generation = Uuid::new_v4().to_string();
-        let session_record_id = Self::session_record_id(room_id, &session_id);
+        let session_record_id = Self::session_record_id(&session_id);
         let user_record_id = user_id.map(Self::user_record_id);
         let guest_name = guest_display_name.map(|name| name.trim().to_string());
         let query = if is_new {
             r#"
 BEGIN TRANSACTION;
-CREATE type::record('player_room_session', $session_record_id) CONTENT {
-    room: type::record('player_room', $room_id), session_id: $session_id, user_id: $user_id,
+CREATE type::record('room_session', $session_record_id) CONTENT {
+    room: type::record('room', $room_id), user_id: $user_id,
     guest_display_name: $guest_display_name, mode: $mode, hide_chords: $hide_chords,
     resume_hash: $resume_hash, ticket_hash: $ticket_hash,
     expires_at: $ticket_expires_at, consumed_at: NONE,
     connected: false, lease_expires_at: $lease, joined_at: $joined_at,
     connection_generation: $connection_generation
 };
-UPDATE type::record('player_room', $room_id)
+UPDATE type::record('room', $room_id)
 SET revision += 1,
     av_session_id = IF $claim_av THEN $session_record_id ELSE av_session_id END;
 COMMIT TRANSACTION;
@@ -1057,12 +1059,12 @@ COMMIT TRANSACTION;
         } else {
             r#"
 BEGIN TRANSACTION;
-UPDATE type::record('player_room_session', $session_record_id)
+UPDATE type::record('room_session', $session_record_id)
 SET hide_chords = $hide_chords, ticket_hash = $ticket_hash,
     expires_at = $ticket_expires_at, consumed_at = NONE,
     connected = false, lease_expires_at = $lease,
     connection_generation = $connection_generation;
-UPDATE type::record('player_room', $room_id)
+UPDATE type::record('room', $room_id)
 SET revision += 1,
     av_session_id = IF $claim_av THEN $session_record_id ELSE av_session_id END;
 COMMIT TRANSACTION;
@@ -1074,7 +1076,6 @@ COMMIT TRANSACTION;
             .query(query)
             .bind(("session_record_id", session_record_id))
             .bind(("room_id", room_id.to_string()))
-            .bind(("session_id", session_id.clone()))
             .bind(("user_id", user_record_id))
             .bind(("guest_display_name", guest_name))
             .bind(("mode", Self::mode_to_db(mode).to_string()))
@@ -1095,7 +1096,7 @@ COMMIT TRANSACTION;
         }
         Ok(RoomCredentials {
             room_id: room_id.to_string(),
-            session_id,
+            id: session_id,
             mode,
             resume_credential,
             connection_ticket: ticket,
@@ -1106,7 +1107,7 @@ COMMIT TRANSACTION;
         let mut response = self
             .db
             .db
-            .query("SELECT id FROM ONLY player_room WHERE invite_hash = $hash AND closed_at = NONE")
+            .query("SELECT id FROM ONLY room WHERE invite_hash = $hash AND closed_at = NONE")
             .bind(("hash", Self::hash(secret)))
             .await?;
         #[derive(Deserialize, SurrealValue)]
@@ -1164,7 +1165,7 @@ COMMIT TRANSACTION;
         let mut response = self
             .db
             .db
-            .query("UPDATE type::record('player_room_session', $row_id) SET connected = false, lease_expires_at = $lease")
+            .query("UPDATE type::record('room_session', $row_id) SET connected = false, lease_expires_at = $lease")
             .bind((
                 "row_id",
                 session.id.clone(),
@@ -1172,10 +1173,11 @@ COMMIT TRANSACTION;
             .bind(("lease", lease))
             .await?;
         surreal_take_errors("room.reconnect", &mut response)?;
-        let connection_ticket = self.issue_ticket(room_id, &session.session_id).await?;
+        let session_id = record_id_string(&session.id);
+        let connection_ticket = self.issue_ticket(&session_id).await?;
         Ok(RoomCredentials {
             room_id: room_id.to_string(),
-            session_id: session.session_id.clone(),
+            id: session_id,
             mode,
             resume_credential: resume.to_string(),
             connection_ticket,
@@ -1208,10 +1210,10 @@ COMMIT TRANSACTION;
             .query(
                 r#"
 BEGIN TRANSACTION;
-DELETE player_room_session
-WHERE room = type::record('player_room', $room_id)
+DELETE room_session
+WHERE room = type::record('room', $room_id)
 RETURN NONE;
-DELETE type::record('player_room', $room_id) RETURN BEFORE;
+DELETE type::record('room', $room_id) RETURN BEFORE;
 COMMIT TRANSACTION;
 "#,
             )
@@ -1241,7 +1243,7 @@ COMMIT TRANSACTION;
             .db
             .db
             .query(
-                "UPDATE player_room_session SET consumed_at = time::now() WHERE ticket_hash = $hash AND consumed_at = NONE AND expires_at > time::now() RETURN BEFORE",
+                "UPDATE room_session SET consumed_at = time::now() WHERE ticket_hash = $hash AND consumed_at = NONE AND expires_at > time::now() RETURN BEFORE",
             )
             .bind(("hash", Self::hash(secret)))
             .await?;
@@ -1258,9 +1260,9 @@ COMMIT TRANSACTION;
         let session_index = aggregate
             .sessions
             .iter()
-            .position(|session| session.session_id == ticket.session_id)
+            .position(|session| session.id == ticket.id)
             .ok_or_else(AppError::unauthorized)?;
-        let session_id = aggregate.sessions[session_index].session_id.clone();
+        let session_id = record_id_string(&aggregate.sessions[session_index].id);
         let sender = self.sender(&room_id).await;
         let receiver = sender.subscribe();
         let lease = Utc::now() + Duration::seconds(LEASE_SECONDS);
@@ -1269,14 +1271,14 @@ COMMIT TRANSACTION;
             .db
             .query(
                 r#"
-UPDATE type::record('player_room_session', $row_id)
+UPDATE type::record('room_session', $row_id)
 SET connected = true, lease_expires_at = $lease
 WHERE connection_generation = $connection_generation;
-UPDATE type::record('player_room', $room_id)
+UPDATE type::record('room', $room_id)
 SET revision += 1;
 "#,
             )
-            .bind(("row_id", Self::session_record_id(&room_id, &session_id)))
+            .bind(("row_id", Self::session_record_id(&session_id)))
             .bind(("room_id", room_id.clone()))
             .bind(("lease", lease))
             .bind((
@@ -1308,11 +1310,9 @@ SET revision += 1;
             .load_active_aggregate(room_id)
             .await
             .map_err(|_| AppError::unauthorized())?;
-        if !aggregate
-            .sessions
-            .iter()
-            .any(|session| session.session_id == session_id && Self::session_is_active(session))
-        {
+        if !aggregate.sessions.iter().any(|session| {
+            session.id == Self::session_record_id(session_id) && Self::session_is_active(session)
+        }) {
             return Err(AppError::unauthorized());
         }
         Self::snapshot(&aggregate, Some(session_id))
@@ -1397,7 +1397,7 @@ SET revision += 1;
             .db
             .db
             .query(
-                "UPDATE player_room SET queue_additions_allowed = type::bool($queue_additions_allowed), revision += 1 WHERE id = type::record('player_room', $room_id) AND revision = $revision AND closed_at = NONE RETURN AFTER",
+                "UPDATE room SET queue_additions_allowed = type::bool($queue_additions_allowed), revision += 1 WHERE id = type::record('room', $room_id) AND revision = $revision AND closed_at = NONE RETURN AFTER",
             )
             .bind(("room_id", room_id.to_string()))
             .bind(("revision", revision))
@@ -1496,7 +1496,7 @@ SET revision += 1;
             .db
             .db
             .query(
-                "UPDATE type::record('player_room', $room_id) SET content_json = $content_json, queue_json = $queue_json, revision += 1 WHERE revision = $revision AND closed_at = NONE RETURN AFTER",
+                "UPDATE type::record('room', $room_id) SET content_json = $content_json, queue_json = $queue_json, revision += 1 WHERE revision = $revision AND closed_at = NONE RETURN AFTER",
             )
             .bind(("room_id", room_id.to_string()))
             .bind(("content_json", content_json))
@@ -1561,7 +1561,7 @@ SET revision += 1;
             .db
             .db
             .query(
-                "UPDATE type::record('player_room', $room_id) SET queue_json = $queue_json, queue_votes_json = $queue_votes_json, revision += 1 WHERE revision = $revision AND closed_at = NONE RETURN AFTER",
+                "UPDATE type::record('room', $room_id) SET queue_json = $queue_json, queue_votes_json = $queue_votes_json, revision += 1 WHERE revision = $revision AND closed_at = NONE RETURN AFTER",
             )
             .bind(("room_id", room_id.to_string()))
             .bind(("queue_json", queue_json))
@@ -1586,11 +1586,9 @@ SET revision += 1;
         revision: u64,
     ) -> Result<u64, AppError> {
         let aggregate = self.load_active_aggregate(room_id).await?;
-        if !aggregate
-            .sessions
-            .iter()
-            .any(|session| session.session_id == session_id && Self::session_is_active(session))
-        {
+        if !aggregate.sessions.iter().any(|session| {
+            session.id == Self::session_record_id(session_id) && Self::session_is_active(session)
+        }) {
             return Err(AppError::unauthorized());
         }
         if !aggregate.queue.iter().any(|item| item.id == queue_id) {
@@ -1627,7 +1625,7 @@ SET revision += 1;
             .db
             .db
             .query(
-                "UPDATE type::record('player_room', $room_id) SET queue_json = $queue_json, queue_votes_json = $queue_votes_json, revision += 1 WHERE revision = $revision AND closed_at = NONE RETURN AFTER",
+                "UPDATE type::record('room', $room_id) SET queue_json = $queue_json, queue_votes_json = $queue_votes_json, revision += 1 WHERE revision = $revision AND closed_at = NONE RETURN AFTER",
             )
             .bind(("room_id", room_id.to_string()))
             .bind(("queue_json", queue_json))
@@ -1763,7 +1761,7 @@ SET revision += 1;
             .query(
                 r#"
 BEGIN TRANSACTION;
-UPDATE type::record('player_room', $room_id)
+UPDATE type::record('room', $room_id)
 SET queue_json = $queue_json, queue_votes_json = $queue_votes_json, musical_state_json = $musical_json,
     revision += 1
 WHERE revision = $revision AND closed_at = NONE RETURN AFTER;
@@ -1832,7 +1830,7 @@ COMMIT TRANSACTION;
         binding_value: String,
     ) -> Result<Option<u64>, AppError> {
         let query = format!(
-            "UPDATE player_room SET {assignment}, revision += 1 WHERE id = type::record('player_room', $room_id) AND revision = $revision AND closed_at = NONE RETURN AFTER"
+            "UPDATE room SET {assignment}, revision += 1 WHERE id = type::record('room', $room_id) AND revision = $revision AND closed_at = NONE RETURN AFTER"
         );
         let mut response = self
             .db
@@ -1863,16 +1861,16 @@ COMMIT TRANSACTION;
             .db
             .query(
                 r#"
-UPDATE type::record('player_room_session', $row_id)
+UPDATE type::record('room_session', $row_id)
 SET connected = true, lease_expires_at = $lease
 WHERE connection_generation = $connection_generation
-RETURN session_id;
+RETURN id;
 SELECT revision
-FROM ONLY type::record('player_room', $room_id)
+FROM ONLY type::record('room', $room_id)
 WHERE closed_at = NONE;
 "#,
             )
-            .bind(("row_id", Self::session_record_id(room_id, session_id)))
+            .bind(("row_id", Self::session_record_id(session_id)))
             .bind(("room_id", room_id.to_string()))
             .bind(("lease", lease))
             .bind(("connection_generation", connection_generation.to_string()))
@@ -1882,7 +1880,7 @@ WHERE closed_at = NONE;
             .take::<Vec<HeartbeatSessionRecord>>(0)?
             .into_iter()
             .next();
-        if session.as_ref().map(|record| record.session_id.as_str()) != Some(session_id) {
+        if session.as_ref().map(|record| &record.id) != Some(&Self::session_record_id(session_id)) {
             return Err(AppError::unauthorized());
         }
         let Some(room) = response.take::<Vec<RevisionRecord>>(1)?.into_iter().next() else {
@@ -1918,7 +1916,7 @@ WHERE closed_at = NONE;
         let session = aggregate
             .sessions
             .iter()
-            .find(|session| session.session_id == session_id)
+            .find(|session| session.id == Self::session_record_id(session_id))
             .ok_or_else(AppError::unauthorized)?;
         self.command_with_generation(room_id, session_id, &session.connection_generation, command)
             .await
@@ -1941,7 +1939,7 @@ WHERE closed_at = NONE;
             Err(AppError::NotFound(_)) => return Ok(Some(ServerEvent::RoomEnded)),
             Err(error) => return Err(error),
         };
-        let session_record_id = Self::session_record_id(room_id, session_id);
+        let session_record_id = Self::session_record_id(session_id);
         if !aggregate.sessions.iter().any(|session| {
             session.id == session_record_id
                 && Self::session_is_active(session)
@@ -1964,10 +1962,10 @@ WHERE closed_at = NONE;
                     .db
                     .query(
                         r#"
-UPDATE type::record('player_room_session', $row_id)
+UPDATE type::record('room_session', $row_id)
 SET connected = false, lease_expires_at = time::now()
 WHERE connection_generation = $connection_generation;
-UPDATE type::record('player_room', $room_id)
+UPDATE type::record('room', $room_id)
 SET revision += 1;
 "#,
                     )
@@ -2271,7 +2269,7 @@ SET revision += 1;
         let Some(session) = aggregate
             .sessions
             .iter()
-            .find(|session| session.session_id == session_id)
+            .find(|session| session.id == Self::session_record_id(session_id))
         else {
             return;
         };
@@ -2283,14 +2281,14 @@ SET revision += 1;
             .db
             .query(
                 r#"
-UPDATE type::record('player_room_session', $row_id)
+UPDATE type::record('room_session', $row_id)
 SET connected = false, lease_expires_at = time::now()
 WHERE connection_generation = $connection_generation;
-UPDATE type::record('player_room', $room_id)
+UPDATE type::record('room', $room_id)
 SET revision += 1;
 "#,
             )
-            .bind(("row_id", Self::session_record_id(room_id, session_id)))
+            .bind(("row_id", Self::session_record_id(session_id)))
             .bind(("room_id", room_id.to_string()))
             .bind(("connection_generation", connection_generation.to_string()))
             .await
@@ -2347,7 +2345,6 @@ mod tests {
                 team_id: "team-1".into(),
                 name: None,
                 host_user_id: "user-1".into(),
-                host_email: "host@example.com".into(),
                 content: RoomContent {
                     items: vec![PlayerChordsItem {
                         song,
@@ -2365,11 +2362,68 @@ mod tests {
             .unwrap()
     }
 
+    #[tokio::test]
+    async fn room_host_email_is_derived_from_the_host_session_user() {
+        let db = crate::test_helpers::test_db().await.unwrap();
+        let host = crate::test_helpers::create_user(&db, "host@example.com")
+            .await
+            .unwrap();
+        let service = service(db.clone());
+        let created = service
+            .create(CreateRoomInput {
+                team_id: "team-1".into(),
+                name: Some("Room".into()),
+                host_user_id: host.id.clone(),
+                content: RoomContent {
+                    items: Vec::new(),
+                    toc: Vec::new(),
+                },
+                initial_queue: Vec::new(),
+                host_mode: RoomMode::Sheet,
+                musical_state: RoomMusicalState::default(),
+                projection: None,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(created.room.host_email, "host@example.com");
+        let snapshot = service
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
+            .await
+            .unwrap();
+        assert_eq!(snapshot.summary.host_email, "host@example.com");
+        assert_eq!(
+            service
+                .list(&["team-1".into()], Some("host@example.com"), &host.id, &[])
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            service
+                .inspect_invite(&created.invite_secret)
+                .await
+                .unwrap()
+                .host_email,
+            "host@example.com"
+        );
+
+        let mut response = db
+            .db
+            .query("SELECT * FROM type::record('room', $room_id)")
+            .bind(("room_id", created.room.id.clone()))
+            .await
+            .unwrap();
+        let rows: Vec<serde_json::Value> = response.take(0).unwrap();
+        assert!(!rows[0].as_object().unwrap().contains_key("host_email"));
+    }
+
     async fn persisted_room_state(db: &Database, room_id: &str) -> (String, PersistedRoomState) {
         let mut response = db
             .db
             .query(
-                "SELECT content_json FROM type::record('player_room', $room_id); SELECT musical_state_json, projection_json, revision FROM type::record('player_room', $room_id)",
+                "SELECT content_json FROM type::record('room', $room_id); SELECT musical_state_json, projection_json, revision FROM type::record('room', $room_id)",
             )
             .bind(("room_id", room_id.to_string()))
             .await
@@ -2413,7 +2467,7 @@ mod tests {
             .unwrap();
 
         let snapshot = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert!(snapshot.content.items[0].song.blobs.is_empty());
@@ -2421,7 +2475,7 @@ mod tests {
 
         let mut response = db
             .db
-            .query("SELECT * FROM ONLY type::record('player_room', $room_id)")
+            .query("SELECT * FROM ONLY type::record('room', $room_id)")
             .bind(("room_id", created.room.id))
             .await
             .unwrap();
@@ -2440,7 +2494,7 @@ mod tests {
         let created = create_room(&service).await;
 
         let snapshot = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
 
@@ -2481,7 +2535,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_ne!(sheet.session_id, av.session_id);
+        assert_ne!(sheet.id, av.id);
         assert_eq!(sheet.mode, RoomMode::Sheet);
         assert_eq!(av.mode, RoomMode::Av);
         let resumed = service
@@ -2497,7 +2551,7 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(resumed.session_id, av.session_id);
+        assert_eq!(resumed.id, av.id);
         assert_eq!(resumed.mode, RoomMode::Av);
 
         assert!(matches!(
@@ -2637,7 +2691,7 @@ mod tests {
             ServerEvent::QueueUpdated { .. }
         ));
         let reused = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert_eq!(reused.content.items.len(), 1);
@@ -2670,7 +2724,7 @@ mod tests {
             other => panic!("expected content item event, got {other:?}"),
         }
         let appended = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert_eq!(appended.content.items.len(), 2);
@@ -2710,7 +2764,7 @@ mod tests {
             .await
             .unwrap();
         let queued = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert_eq!(queued.queue.len(), 2);
@@ -2720,7 +2774,7 @@ mod tests {
         service
             .update_queue_vote(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 "queue-song-2",
                 true,
                 queued.revision,
@@ -2728,7 +2782,7 @@ mod tests {
             .await
             .unwrap();
         let voted = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert_eq!(voted.queue[0].upvotes, 1);
@@ -2747,7 +2801,7 @@ mod tests {
             .await
             .unwrap();
         let current_revision = service
-            .snapshot_for_session(&created.room.id, &member.session_id)
+            .snapshot_for_session(&created.room.id, &member.id)
             .await
             .unwrap()
             .revision;
@@ -2780,7 +2834,7 @@ mod tests {
             ServerEvent::PlaybackUpdated { .. }
         ));
         let promoted = service
-            .snapshot_for_session(&member.room_id, &member.session_id)
+            .snapshot_for_session(&member.room_id, &member.id)
             .await
             .unwrap();
         assert_eq!(promoted.queue.len(), 2);
@@ -2804,7 +2858,7 @@ mod tests {
             .await
             .unwrap();
         let promoted_again = service
-            .snapshot_for_session(&member.room_id, &member.session_id)
+            .snapshot_for_session(&member.room_id, &member.id)
             .await
             .unwrap();
         assert_eq!(promoted_again.queue.len(), 2);
@@ -2826,7 +2880,6 @@ mod tests {
                 team_id: "team-1".into(),
                 name: Some("Room".into()),
                 host_user_id: "user-1".into(),
-                host_email: "host@example.com".into(),
                 content: RoomContent {
                     items: vec![queued_content("song-1"), queued_content("song-2")],
                     toc: vec![TocItem {
@@ -2845,7 +2898,7 @@ mod tests {
             .await
             .unwrap();
         let before = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert!(!before.musical_state.started);
@@ -2861,7 +2914,7 @@ mod tests {
             .await
             .unwrap();
         let same_song = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert!(same_song.musical_state.started);
@@ -2883,7 +2936,7 @@ mod tests {
         service
             .update_queue_vote(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 &current_queue_id,
                 true,
                 same_song.revision,
@@ -2891,7 +2944,7 @@ mod tests {
             .await
             .unwrap();
         let liked_current = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert_eq!(
@@ -2916,7 +2969,7 @@ mod tests {
             .unwrap();
 
         let after = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         let previous = after
@@ -2946,7 +2999,6 @@ mod tests {
                 team_id: "team-1".into(),
                 name: Some("Room".into()),
                 host_user_id: "user-1".into(),
-                host_email: "host@example.com".into(),
                 content: RoomContent {
                     items: vec![queued_content("song-1"), queued_content("song-3")],
                     toc: vec![TocItem {
@@ -2965,7 +3017,7 @@ mod tests {
             .await
             .unwrap();
         let before = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
 
@@ -2981,7 +3033,7 @@ mod tests {
             .unwrap();
 
         let after = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert!(after.musical_state.started);
@@ -3006,7 +3058,6 @@ mod tests {
                 team_id: "team-1".into(),
                 name: Some("Room".into()),
                 host_user_id: "user-1".into(),
-                host_email: "host@example.com".into(),
                 content: RoomContent {
                     items: vec![queued_content("song-1")],
                     toc: vec![TocItem {
@@ -3055,7 +3106,7 @@ mod tests {
             .unwrap();
 
         let before_activation = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         service
@@ -3070,7 +3121,7 @@ mod tests {
             .unwrap();
 
         let played_snapshot = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         let played_id = played_snapshot
@@ -3091,7 +3142,7 @@ mod tests {
         service
             .update_queue_vote(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 &played_id,
                 true,
                 played_snapshot.revision,
@@ -3099,7 +3150,7 @@ mod tests {
             .await
             .unwrap();
         let upvoted = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert_eq!(upvoted.queue[0].song_id, "song-1");
@@ -3109,7 +3160,7 @@ mod tests {
         service
             .update_queue_vote(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 &played_id,
                 false,
                 upvoted.revision,
@@ -3117,7 +3168,7 @@ mod tests {
             .await
             .unwrap();
         let unvoted = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert_eq!(unvoted.queue[0].song_id, "song-1");
@@ -3159,7 +3210,7 @@ mod tests {
         service
             .command(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 ClientEvent::UpdateGuestsAllowed {
                     command_id: "enable-guests".into(),
                     guest_access_allowed: true,
@@ -3192,14 +3243,14 @@ mod tests {
             .unwrap();
 
         let guest_revision = service
-            .snapshot_for_session(&created.room.id, &guest.session_id)
+            .snapshot_for_session(&created.room.id, &guest.id)
             .await
             .unwrap()
             .revision;
         service
             .update_queue_vote(
                 &created.room.id,
-                &guest.session_id,
+                &guest.id,
                 "queue-song-3",
                 true,
                 guest_revision,
@@ -3207,14 +3258,14 @@ mod tests {
             .await
             .unwrap();
         let member_revision = service
-            .snapshot_for_session(&created.room.id, &member.session_id)
+            .snapshot_for_session(&created.room.id, &member.id)
             .await
             .unwrap()
             .revision;
         service
             .update_queue_vote(
                 &created.room.id,
-                &member.session_id,
+                &member.id,
                 "queue-song-3",
                 true,
                 member_revision,
@@ -3223,7 +3274,7 @@ mod tests {
             .unwrap();
 
         let ranked = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert_eq!(ranked.queue[0].song_id, "song-3");
@@ -3234,7 +3285,7 @@ mod tests {
         service
             .update_queue_vote(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 "queue-song-3",
                 true,
                 host_revision,
@@ -3242,7 +3293,7 @@ mod tests {
             .await
             .unwrap();
         let ranked = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert_eq!(ranked.queue[0].upvotes, 3);
@@ -3251,7 +3302,7 @@ mod tests {
         service
             .update_queue_vote(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 "queue-song-3",
                 false,
                 ranked.revision,
@@ -3259,7 +3310,7 @@ mod tests {
             .await
             .unwrap();
         let unvoted = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert_eq!(unvoted.queue[0].song_id, "song-3");
@@ -3286,7 +3337,7 @@ mod tests {
             }
         ));
         let snapshot = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert!(snapshot.summary.queue_additions_allowed);
@@ -3314,7 +3365,7 @@ mod tests {
         let accepted = service
             .command(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 ClientEvent::UpdateRoomLocked {
                     command_id: "lock-room".into(),
                     new_joins_locked: true,
@@ -3335,7 +3386,7 @@ mod tests {
         ));
 
         let snapshot = service
-            .snapshot_for_session(&created.room.id, &created.credentials.session_id)
+            .snapshot_for_session(&created.room.id, &created.credentials.id)
             .await
             .unwrap();
         assert!(snapshot.new_joins_locked);
@@ -3370,7 +3421,7 @@ mod tests {
         let accepted = service
             .command(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 ClientEvent::UpdateRoomLocked {
                     command_id: "unlock-room".into(),
                     new_joins_locked: false,
@@ -3589,7 +3640,7 @@ mod tests {
         let event = service
             .command(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 ClientEvent::Heartbeat { revision: Some(0) },
             )
             .await
@@ -3603,7 +3654,7 @@ mod tests {
         let heartbeat = service
             .command(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 ClientEvent::Heartbeat {
                     revision: Some(revision),
                 },
@@ -3632,7 +3683,7 @@ mod tests {
         let initial = second_instance
             .command(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 ClientEvent::RequestSnapshot,
             )
             .await
@@ -3645,7 +3696,7 @@ mod tests {
         first_instance
             .command(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 ClientEvent::UpdateGuestsAllowed {
                     command_id: "remote-update".into(),
                     guest_access_allowed: true,
@@ -3656,7 +3707,7 @@ mod tests {
         let reconciled = second_instance
             .command(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 ClientEvent::Heartbeat {
                     revision: Some(initial_revision),
                 },
@@ -3681,7 +3732,7 @@ mod tests {
         service
             .command(
                 &created.room.id,
-                &created.credentials.session_id,
+                &created.credentials.id,
                 ClientEvent::UpdateGuestsAllowed {
                     command_id: "disable-guests".into(),
                     guest_access_allowed: false,
@@ -3717,7 +3768,7 @@ mod tests {
         let mut response = db
             .db
             .query(
-                "UPDATE player_room_session SET connected = false, lease_expires_at = time::now() - 1s WHERE room = type::record('player_room', $room_id)",
+                "UPDATE room_session SET connected = false, lease_expires_at = time::now() - 1s WHERE room = type::record('room', $room_id)",
             )
             .bind(("room_id", created.room.id.clone()))
             .await
@@ -3745,21 +3796,22 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(restored.session_id, created.credentials.session_id);
+        assert_eq!(restored.id, created.credentials.id);
         let (_, _, _, _, snapshot) = service
             .consume_ticket(&restored.connection_ticket)
             .await
             .unwrap();
         assert!(
-            snapshot.sessions.iter().any(|participant| {
-                participant.id == restored.session_id && participant.is_host
-            })
+            snapshot
+                .sessions
+                .iter()
+                .any(|participant| { participant.id == restored.id && participant.is_host })
         );
 
         let accepted = service
             .command(
                 &created.room.id,
-                &restored.session_id,
+                &restored.id,
                 ClientEvent::UpdateGuestsAllowed {
                     command_id: "restored-host".into(),
                     guest_access_allowed: false,
@@ -3791,13 +3843,13 @@ mod tests {
             snapshot
                 .sessions
                 .iter()
-                .any(|session| { session.id == second_session.session_id && !session.is_host })
+                .any(|session| { session.id == second_session.id && !session.is_host })
         );
         assert!(matches!(
             service
                 .command(
                     &created.room.id,
-                    &second_session.session_id,
+                    &second_session.id,
                     ClientEvent::UpdateGuestsAllowed {
                         command_id: "other-session-host".into(),
                         guest_access_allowed: true,

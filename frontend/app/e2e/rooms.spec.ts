@@ -3,7 +3,7 @@ import { expect, test } from './fixtures/auth'
 // Flow: L6
 test('L6: Room list joins chords directly and offers fixed modes in actions', async ({ page }) => {
   await page.route('**/api/v1/rooms?**', (route) => route.fulfill({ status: 200, headers: { 'X-Total-Count': '1' }, contentType: 'application/json', body: JSON.stringify([{ id: 'room-1', name: 'Sunday Setlist — host@example.com', team_id: 'team-1', host_email: 'host@example.com', session_count: 2, av_occupied: true, created_at: new Date().toISOString() }]) }))
-  await page.route('**/api/v1/rooms/room-1/join', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ room_id: 'room-1', session_id: 'session-1', mode: 'sheet', resume_credential: 'resume', connection_ticket: 'ticket' }) }))
+  await page.route('**/api/v1/rooms/room-1/join', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ room_id: 'room-1', id: 'room-1:session-1', mode: 'sheet', resume_credential: 'resume', connection_ticket: 'ticket' }) }))
   await page.goto('/rooms')
 
   await page.getByRole('button', { name: 'Actions for Sunday Setlist — host@example.com' }).click()

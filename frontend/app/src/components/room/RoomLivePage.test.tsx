@@ -59,7 +59,7 @@ vi.mock('@/components/player/av/AvSlideView', () => ({
 
 const credentials: RoomCredentials = {
   room_id: 'room-1',
-  session_id: 'participant-1',
+  id: 'room-1:participant-1',
   mode: 'slide',
   resume_credential: 'resume',
   connection_ticket: 'ticket',
@@ -95,7 +95,7 @@ function snapshotWithProjection(
     projection: nextProjection,
     sessions: [
       {
-        id: 'participant-1',
+        id: 'room-1:participant-1',
         mode: 'slide',
         display_name: 'Projection',
         avatar_url: null,

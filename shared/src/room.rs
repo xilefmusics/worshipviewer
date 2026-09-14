@@ -261,7 +261,7 @@ pub struct RoomInviteInfo {
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct RoomCredentials {
     pub room_id: String,
-    pub session_id: String,
+    pub id: String,
     pub mode: RoomMode,
     pub resume_credential: String,
     pub connection_ticket: String,

@@ -1880,10 +1880,10 @@ export interface components {
         };
         RoomCredentials: {
             connection_ticket: string;
+            id: string;
             mode: components["schemas"]["RoomMode"];
             resume_credential: string;
             room_id: string;
-            session_id: string;
         };
         RoomInviteInfo: {
             av_occupied: boolean;
