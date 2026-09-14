@@ -240,7 +240,6 @@ pub async fn create_room(
             team_id: crate::database::record_id_string(&owner_record),
             name: request.name,
             host_user_id: ctx.user.id.clone(),
-            host_email: ctx.user.email.clone(),
             content,
             initial_queue,
             host_mode: RoomMode::Sheet,

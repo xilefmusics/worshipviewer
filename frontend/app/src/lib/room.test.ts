@@ -57,7 +57,7 @@ describe('rooms', () => {
   })
 
   it('keeps session credentials scoped by room', () => {
-    const credentials = { room_id: 'r1', session_id: 'p1', mode: 'sheet' as const, resume_credential: 'resume', connection_ticket: 'ticket' }
+    const credentials = { room_id: 'r1', id: 'r1:p1', mode: 'sheet' as const, resume_credential: 'resume', connection_ticket: 'ticket' }
     saveRoomCredentials(credentials)
     expect(readRoomCredentials('r1')).toEqual(credentials)
     expect(readRoomCredentials('r2')).toBeNull()
@@ -74,14 +74,32 @@ describe('rooms', () => {
 
     expect(readRoomCredentials('r1')).toEqual({
       room_id: 'r1',
-      session_id: 'legacy-session',
+      id: 'r1:legacy-session',
       mode: 'sheet',
       resume_credential: 'resume',
       connection_ticket: 'ticket',
     })
     expect(JSON.parse(sessionStorage.getItem('room:r1:credentials') ?? '{}')).toEqual({
       room_id: 'r1',
+      id: 'r1:legacy-session',
+      mode: 'sheet',
+      resume_credential: 'resume',
+      connection_ticket: 'ticket',
+    })
+  })
+
+  it('migrates pre-record-id room credentials on read', () => {
+    sessionStorage.setItem('room:r1:credentials', JSON.stringify({
+      room_id: 'r1',
       session_id: 'legacy-session',
+      mode: 'sheet',
+      resume_credential: 'resume',
+      connection_ticket: 'ticket',
+    }))
+
+    expect(readRoomCredentials('r1')).toEqual({
+      room_id: 'r1',
+      id: 'r1:legacy-session',
       mode: 'sheet',
       resume_credential: 'resume',
       connection_ticket: 'ticket',
@@ -89,7 +107,7 @@ describe('rooms', () => {
   })
 
   it('stores returned room credentials only after successful creation', async () => {
-    const credentials = { room_id: 'r1', session_id: 'p1', mode: 'sheet' as const, resume_credential: 'resume', connection_ticket: 'ticket' }
+    const credentials = { room_id: 'r1', id: 'r1:p1', mode: 'sheet' as const, resume_credential: 'resume', connection_ticket: 'ticket' }
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
       room: { id: 'r1' },
       credentials,

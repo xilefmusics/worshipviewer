@@ -2082,6 +2082,9 @@
           "connection_ticket": {
             "type": "string"
           },
+          "id": {
+            "type": "string"
+          },
           "mode": {
             "$ref": "#/components/schemas/RoomMode"
           },
@@ -2090,14 +2093,11 @@
           },
           "room_id": {
             "type": "string"
-          },
-          "session_id": {
-            "type": "string"
           }
         },
         "required": [
           "room_id",
-          "session_id",
+          "id",
           "mode",
           "resume_credential",
           "connection_ticket"

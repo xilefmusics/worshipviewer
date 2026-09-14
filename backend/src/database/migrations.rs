@@ -445,6 +445,9 @@ mod tests {
                     | Some("20260907160000_rename_player_room_boolean_fields.surql")
                     | Some("20260907190000_merge_player_room_participants_into_sessions.surql")
                     | Some("20260914120000_inline_room_content_and_queue_refs.surql")
+                    | Some("20260914130000_remove_player_room_host_email.surql")
+                    | Some("20260914140000_rename_player_room_tables.surql")
+                    | Some("20260914150000_remove_room_session_id.surql")
             ) {
                 continue;
             }
@@ -499,7 +502,7 @@ mod tests {
         db.migrate(current_path).await.expect("current migrations");
         let mut response = db
             .db
-            .query("SELECT * FROM type::record('player_room', 'legacy-room')")
+            .query("SELECT * FROM type::record('room', 'legacy-room')")
             .await
             .expect("read invalidated room");
         let rooms: Vec<serde_json::Value> = response.take(0).expect("decode invalidated room");
@@ -508,7 +511,7 @@ mod tests {
         let mut response = db
             .db
             .query(
-                "SELECT session_id, user_id, mode, resume_hash, connected FROM player_room_session WHERE room = type::record('player_room', 'legacy-room')",
+                "SELECT id, user_id, mode, resume_hash, connected FROM room_session WHERE room = type::record('room', 'legacy-room')",
             )
             .await
             .expect("read invalidated room sessions");
@@ -535,23 +538,63 @@ mod tests {
                 .unwrap()
                 .contains_key("player_room_snapshot")
         );
+        assert!(
+            !info["Object"]["tables"]["Object"]
+                .as_object()
+                .unwrap()
+                .contains_key("player_room")
+        );
+        assert!(
+            !info["Object"]["tables"]["Object"]
+                .as_object()
+                .unwrap()
+                .contains_key("player_room_session")
+        );
+        assert!(
+            info["Object"]["tables"]["Object"]
+                .as_object()
+                .unwrap()
+                .contains_key("room")
+        );
+        assert!(
+            info["Object"]["tables"]["Object"]
+                .as_object()
+                .unwrap()
+                .contains_key("room_session")
+        );
 
         let mut response = db
             .db
-            .query("INFO FOR TABLE player_room")
+            .query("INFO FOR TABLE room")
             .await
             .expect("inspect migrated room schema");
         let info: Option<serde_json::Value> =
             response.take(0).expect("decode migrated room schema");
-        let info = info.expect("player_room schema info");
+        let info = info.expect("room schema info");
         let fields = info
             .get("fields")
             .and_then(serde_json::Value::as_object)
-            .expect("player_room fields");
+            .expect("room fields");
         assert!(!fields.contains_key("source_type"));
         assert!(!fields.contains_key("source_id"));
         assert!(!fields.contains_key("source_title"));
+        assert!(!fields.contains_key("host_email"));
         assert!(fields.contains_key("content_json"));
+
+        let mut response = db
+            .db
+            .query("INFO FOR TABLE room_session")
+            .await
+            .expect("inspect migrated room session schema");
+        let info: Option<serde_json::Value> = response
+            .take(0)
+            .expect("decode migrated room session schema");
+        let info = info.expect("room_session schema info");
+        let fields = info
+            .get("fields")
+            .and_then(serde_json::Value::as_object)
+            .expect("room_session fields");
+        assert!(!fields.contains_key("session_id"));
     }
 
     #[tokio::test]

@@ -67,7 +67,7 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
     [sendProjection],
   )
   const snapshot = room.snapshot
-  const session = snapshot?.sessions.find((row) => row.id === credentials.session_id)
+  const session = snapshot?.sessions.find((row) => row.id === credentials.id)
   const roomPlayer = useMemo(() => (snapshot ? playerFromRoom(snapshot) : null), [snapshot])
   const currentSongId = useMemo(() => {
     if (!snapshot?.musical_state.started) return null

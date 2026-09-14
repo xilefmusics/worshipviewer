@@ -30,7 +30,7 @@ describe('room connection', () => {
     vi.stubGlobal('WebSocket', MockWebSocket)
     const firstCredentials = {
       room_id: 'r1',
-      session_id: 'p1',
+      id: 'r1:p1',
       mode: 'sheet' as const,
       resume_credential: 'resume-1',
       connection_ticket: 'ticket-1',
@@ -81,7 +81,7 @@ describe('room connection', () => {
     vi.stubGlobal('WebSocket', MockWebSocket)
     const credentials = {
       room_id: 'r1',
-      session_id: 'p1',
+      id: 'r1:p1',
       mode: 'sheet' as const,
       resume_credential: 'resume',
       connection_ticket: 'ticket',
@@ -121,7 +121,7 @@ describe('room connection', () => {
 
     const credentials = {
       room_id: 'r1',
-      session_id: 'p1',
+      id: 'r1:p1',
       mode: 'sheet' as const,
       resume_credential: 'resume',
       connection_ticket: 'ticket',

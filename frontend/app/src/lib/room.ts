@@ -21,7 +21,7 @@ export type RoomQueueItem = components['schemas']['RoomQueueItem']
 export type RoomSession = { id: string; mode: RoomMode; hide_chords?: boolean; display_name: string; avatar_url: string | null; anonymous: boolean; connected: boolean; is_host: boolean; is_av_host: boolean }
 export type RoomSummary = { id: string; name: string; team_id: string; queue_additions_allowed?: boolean; host_email: string; can_close?: boolean; session_count: number; av_occupied: boolean; created_at: string }
 export type RoomSnapshot = RoomSummary & { new_joins_locked?: boolean; content: RoomContent; queue: RoomQueueItem[]; voted_queue_ids: string[]; musical_state: RoomMusicalState; projection: RoomProjection | null; sessions: RoomSession[]; revision: number; host_lease_expires_at: string; guest_access_allowed?: boolean }
-export type RoomCredentials = { room_id: string; session_id: string; mode: RoomMode; resume_credential: string; connection_ticket: string }
+export type RoomCredentials = { room_id: string; id: string; mode: RoomMode; resume_credential: string; connection_ticket: string }
 export type CreatedRoom = { room: RoomSummary; credentials: RoomCredentials; invite_secret: string }
 export type RoomServerMessage =
   | { type: 'snapshot'; snapshot: RoomSnapshot }
@@ -95,11 +95,19 @@ export function readRoomCredentials(roomId: string): RoomCredentials | null {
   try {
     const raw = sessionStorage.getItem(credentialKey(roomId))
     if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<RoomCredentials> & { participant_id?: string }
-    if (typeof parsed.session_id === 'string') return parsed as RoomCredentials
-    if (typeof parsed.participant_id !== 'string') return null
-    const migrated = { ...parsed, session_id: parsed.participant_id } as RoomCredentials & { participant_id?: string }
+    const parsed = JSON.parse(raw) as Partial<RoomCredentials> & { session_id?: string; participant_id?: string }
+    const storedId = typeof parsed.id === 'string'
+      ? parsed.id
+      : typeof parsed.session_id === 'string'
+        ? parsed.session_id
+        : parsed.participant_id
+    if (typeof storedId !== 'string') return null
+    const migrated = {
+      ...parsed,
+      id: storedId.startsWith(`${roomId}:`) ? storedId : `${roomId}:${storedId}`,
+    } as RoomCredentials & { participant_id?: string }
     delete migrated.participant_id
+    delete (migrated as RoomCredentials & { session_id?: string }).session_id
     saveRoomCredentials(migrated)
     return migrated
   } catch {
@@ -271,7 +279,7 @@ export function useRoom(credentials: RoomCredentials | null): RoomConnection {
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null)
   const [status, setStatus] = useState<RoomConnection['status']>('connecting')
   const roomId = credentials?.room_id
-  const sessionId = credentials?.session_id
+  const sessionId = credentials?.id
   const mode = credentials?.mode
   const resumeCredential = credentials?.resume_credential
   const connectionTicket = credentials?.connection_ticket
@@ -290,7 +298,7 @@ export function useRoom(credentials: RoomCredentials | null): RoomConnection {
     if (!roomId || !sessionId || !mode || !resumeCredential || !connectionTicket) return
     const connectionCredentials: RoomCredentials = {
       room_id: roomId,
-      session_id: sessionId,
+      id: sessionId,
       mode,
       resume_credential: resumeCredential,
       connection_ticket: connectionTicket,

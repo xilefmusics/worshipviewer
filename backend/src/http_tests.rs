@@ -133,7 +133,7 @@ mod room_http {
         let mut persisted = db
             .db
             .query(
-                "SELECT host_session_id, host_session_id.user_id AS host_user_id FROM ONLY type::record('player_room', $id)",
+                "SELECT host_session_id, host_session_id.user_id AS host_user_id FROM ONLY type::record('room', $id)",
             )
             .bind(("id", created.room.id.clone()))
             .await
@@ -141,10 +141,7 @@ mod room_http {
         let persisted = persisted.take::<Option<PersistedHost>>(0).unwrap().unwrap();
         assert_eq!(
             persisted.host_session_id,
-            RecordId::new(
-                "player_room_session",
-                format!("{}:{}", created.room.id, snapshot.sessions[0].id),
-            )
+            RecordId::new("room_session", snapshot.sessions[0].id.clone(),)
         );
         assert_eq!(
             persisted.host_user_id.as_ref().map(record_id_string),
@@ -239,7 +236,7 @@ mod room_http {
 
             let mut persisted = db
                 .db
-                .query("SELECT * FROM ONLY type::record('player_room', $id)")
+                .query("SELECT * FROM ONLY type::record('room', $id)")
                 .bind(("id", created.room.id.clone()))
                 .await
                 .unwrap();
@@ -488,7 +485,7 @@ mod room_http {
         );
         let mut response = db
             .db
-            .query("SELECT count() AS count FROM player_room GROUP ALL")
+            .query("SELECT count() AS count FROM room GROUP ALL")
             .await
             .unwrap();
         let count = response
@@ -547,8 +544,8 @@ mod room_http {
         let mut response = db
             .db
             .query(
-                "SELECT count() AS count FROM player_room WHERE id = type::record('player_room', $room_id) GROUP ALL;
-                 SELECT count() AS count FROM player_room_session WHERE room = type::record('player_room', $room_id) GROUP ALL;",
+                "SELECT count() AS count FROM room WHERE id = type::record('room', $room_id) GROUP ALL;
+                 SELECT count() AS count FROM room_session WHERE room = type::record('room', $room_id) GROUP ALL;",
             )
             .bind(("room_id", created.room.id.clone()))
             .await
@@ -603,7 +600,7 @@ mod room_http {
         let created: CreatedRoom = test::call_and_read_body_json(&app, request).await;
 
         db.db
-            .query("UPDATE type::record('player_room', $room_id) SET new_joins_locked = true")
+            .query("UPDATE type::record('room', $room_id) SET new_joins_locked = true")
             .bind(("room_id", created.room.id.clone()))
             .await
             .unwrap()
