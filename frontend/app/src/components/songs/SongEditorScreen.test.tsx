@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps, ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -31,7 +31,21 @@ const songInC: ChordSongData = {
 
 const engine = {
   parseChordPro: (source: string) => JSON.parse(source) as ChordSongData,
-  formatChordPro: (song: ChordSongData) => JSON.stringify(song),
+  parseMarkdown: (source: string) => JSON.parse(source) as ChordSongData,
+  parseSongBeamer: () => ({}),
+  parseProPresenter: () => ({}),
+  parseUltimateGuitarHtml: () => ({}),
+  formatChordPro: vi.fn((song: ChordSongData) => JSON.stringify(song)),
+  formatMarkdown: vi.fn((song: ChordSongData) => JSON.stringify(song)),
+  formatSongBeamer: () => new Uint8Array(),
+  formatProPresenter: () => new Uint8Array(),
+  renderA4Html: () => ({ html: '', css: '' }),
+  renderA4SectionHtmls: () => ({ sections: [], css: '' }),
+  transpose: (song: ChordSongData) => song,
+  fillSectionReferences: (song: ChordSongData) => song,
+  flowItems: () => [],
+  customFlow: () => [],
+  applyFlow: (song: ChordSongData) => song,
 } as ChordEngine
 
 vi.mock('react-i18next', () => ({
@@ -92,7 +106,9 @@ vi.mock('@/components/songs/SongEditorCompose', () => ({
 }))
 
 vi.mock('@/components/songs/SongEditorSource', () => ({
-  SongEditorSource: () => <textarea />,
+  SongEditorSource: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+    <textarea value={value} onChange={(event) => onChange(event.target.value)} />
+  ),
 }))
 
 vi.mock('@/components/ui/select', () => ({
@@ -180,4 +196,29 @@ describe('SongEditorScreen key changes', () => {
       })
     },
   )
+})
+
+describe('SongEditorScreen Markdown mode', () => {
+  beforeEach(() => {
+    autosaveDraft = null
+    vi.clearAllMocks()
+  })
+
+  it('switches to Markdown, autosaves Markdown edits, and switches back to ChordPro', async () => {
+    const user = userEvent.setup()
+    render(<SongEditorScreen songId="song-1" />)
+
+    await user.click(await screen.findByRole('tab', { name: 'songs.editor.tabs.markdown' }))
+    expect(engine.formatMarkdown).toHaveBeenCalled()
+
+    const source = screen.getByRole('textbox')
+    fireEvent.change(source, {
+      target: { value: JSON.stringify({ ...songInC, titles: ['Markdown title'] }) },
+    })
+
+    await waitFor(() => expect(autosaveDraft?.titles).toEqual(['Markdown title']))
+
+    await user.click(screen.getByRole('tab', { name: 'songs.editor.tabs.advanced' }))
+    expect(engine.formatChordPro).toHaveBeenCalled()
+  })
 })

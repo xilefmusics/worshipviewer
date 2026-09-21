@@ -34,6 +34,10 @@ describe('@worshipviewer/chordlib-wasm pkg', () => {
       const formatted = wasm.formatChordPro(json, false, undefined, undefined, undefined)
       expect(formatted).toContain('WASM test')
 
+      const markdown = wasm.formatMarkdown(json)
+      const markdownData = JSON.parse(wasm.parseMarkdown(markdown)) as { titles: string[] }
+      expect(markdownData.titles).toEqual(['WASM test'])
+
       const page = wasm.renderA4Html(json, undefined, undefined, undefined, 1)
       expect(page.html.length).toBeGreaterThan(0)
       expect(page.css.length).toBeGreaterThan(0)

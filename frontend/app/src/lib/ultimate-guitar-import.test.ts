@@ -13,6 +13,9 @@ const mockEngine: ChordEngine = {
   parseChordPro() {
     return {}
   },
+  parseMarkdown() {
+    return {}
+  },
   parseSongBeamer() {
     return {}
   },
@@ -24,6 +27,9 @@ const mockEngine: ChordEngine = {
   },
   formatChordPro(song: ChordSongData) {
     return `{title: ${(song.titles as string[])[0]}}\n\n[C]Line`
+  },
+  formatMarkdown() {
+    return '---\ntitles: [Imported]\n---\n# Verse\n'
   },
   formatSongBeamer() {
     return new Uint8Array()

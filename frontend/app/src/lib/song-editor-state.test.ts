@@ -16,6 +16,7 @@ import {
   applyKeyChangeToSongData,
   beatsPerMeasureFromTimeSignature,
   createSongLanguageEntry,
+  formatSourceFromSongData,
   metadataStripFromSongData,
   parseErrorsFromResult,
   parseSourceWithEngine,
@@ -47,6 +48,9 @@ function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
       if (source.includes('{{broken}}')) throw new ChordEngineError('parse failed at line 2')
       return { ...sample, raw: source }
     },
+    parseMarkdown(source: string) {
+      return { ...sample, raw: source }
+    },
     parseUltimateGuitarHtml() {
       return sample
     },
@@ -58,6 +62,9 @@ function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
     },
     formatChordPro(song: ChordSongData) {
       return `{title: ${(song.titles as string[] | undefined)?.[0] ?? ''}}\n${JSON.stringify(song.sections)}`
+    },
+    formatMarkdown(song: ChordSongData) {
+      return `---\ntitles: [${(song.titles as string[] | undefined)?.[0] ?? ''}]\n---\n# Verse\n`
     },
     formatSongBeamer() {
       return new Uint8Array()
@@ -103,6 +110,27 @@ describe('parseSourceWithEngine', () => {
     if (!result.ok) {
       expect(parseErrorsFromResult(result)).toEqual(['parse failed at line 2'])
     }
+  })
+
+  it('dispatches Markdown sources to the Markdown parser', () => {
+    const engine = mockEngine({
+      parseMarkdown: (source) => ({ titles: [source], sections: [] }),
+    })
+    const result = parseSourceWithEngine(engine, 'markdown source', 'markdown')
+    expect(result).toEqual({ ok: true, data: { titles: ['markdown source'], sections: [] } })
+  })
+})
+
+describe('formatSourceFromSongData', () => {
+  it('dispatches Markdown data to the Markdown formatter', () => {
+    const engine = mockEngine({
+      formatMarkdown: (song, options) => JSON.stringify({ song, options }),
+    })
+    const data = { titles: ['Hello'], sections: [] }
+
+    expect(formatSourceFromSongData(engine, data, 'nashville', 'markdown')).toContain(
+      'nashville',
+    )
   })
 })
 

@@ -1,10 +1,13 @@
 //! WASM bindings for [`chordlib`] song-format parsing, formatting, and A4 HTML rendering.
 
 use chordlib::inputs::chord_pro;
+use chordlib::inputs::markdown;
 use chordlib::inputs::propresenter;
 use chordlib::inputs::songbeamer;
 use chordlib::inputs::ultimate_guitar;
-use chordlib::outputs::{FormatChordPro, FormatHTML, FormatProPresenter, FormatSongBeamer};
+use chordlib::outputs::{
+    FormatChordPro, FormatHTML, FormatMarkdown, FormatProPresenter, FormatSongBeamer,
+};
 use chordlib::types::{ChordRepresentation, SimpleChord, Song, SongFlowItem};
 use wasm_bindgen::prelude::*;
 
@@ -38,6 +41,13 @@ fn parse_representation(rep: Option<String>) -> Result<Option<ChordRepresentatio
 #[wasm_bindgen(js_name = parseChordPro)]
 pub fn parse_chord_pro(source: &str) -> Result<String, String> {
     let song = chord_pro::load_string(source).map_err(|e| e.to_string())?;
+    serde_json::to_string(&song).map_err(|e| e.to_string())
+}
+
+/// Parse aligned Markdown song source into song JSON (`chordlib::types::Song` wire shape).
+#[wasm_bindgen(js_name = parseMarkdown)]
+pub fn parse_markdown(source: &str) -> Result<String, String> {
+    let song = markdown::load_string(source).map_err(|e| e.to_string())?;
     serde_json::to_string(&song).map_err(|e| e.to_string())
 }
 
@@ -76,6 +86,16 @@ pub fn format_chord_pro(
     let rep_ref = parse_representation(representation)?;
     let lang = language.map(|l| l as usize);
     Ok((&song).format_chord_pro(key_ref.as_ref(), rep_ref.as_ref(), lang, worship_pro))
+}
+
+/// Format structured song JSON as aligned Markdown text.
+#[wasm_bindgen(js_name = formatMarkdown)]
+pub fn format_markdown(song_json: &str, representation: Option<String>) -> Result<String, String> {
+    let song = parse_song_json(song_json)?;
+    let rep_ref = parse_representation(representation)?;
+    (&song)
+        .format_markdown(None, rep_ref.as_ref())
+        .map_err(|e| e.to_string())
 }
 
 /// Format structured song JSON as deterministic SongBeamer `.sng` bytes.
@@ -240,6 +260,19 @@ mod tests {
         let out = format_chord_pro(&json, false, None, None, None).expect("format");
         assert!(out.contains("title"));
         assert!(out.contains("[C]"));
+    }
+
+    #[test]
+    fn markdown_parse_and_round_trip() {
+        let source = "---\ntitles: [Test]\nlanguages: [en, de]\nkey: C\n---\n# Verse (2x)\nC       G\nAmazing grace\n&C          G\n&Erstaunliche Gnade\n";
+        let json = parse_markdown(source).expect("parse");
+        let out = format_markdown(&json, Some("default".into())).expect("format");
+        let parsed: Song =
+            serde_json::from_str(&parse_markdown(&out).expect("reparse")).expect("json");
+        assert_eq!(parsed.title(), "Test");
+        assert_eq!(parsed.sections.len(), 1);
+        assert_eq!(parsed.sections[0].repeat_count, 2);
+        assert_eq!(parsed.languages, vec!["en", "de"]);
     }
 
     #[test]

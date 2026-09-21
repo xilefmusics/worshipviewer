@@ -2,7 +2,7 @@ import { expect, secondUserTest, test, uniqueToken } from './fixtures/auth'
 import { gotoEn, setOffline } from './helpers'
 
 // Flow: G1
-test('G1: edit a song (Simple / Advanced)', async ({ page, seed }) => {
+test('G1: edit a song (Simple / ChordPro / Markdown)', async ({ page, seed }) => {
   const token = uniqueToken('g1')
   const coll = await seed.createCollection({ title: `${token}-c` })
   const song = await seed.createSong({ collection: coll.id, title: `${token}-edit` })
@@ -14,6 +14,10 @@ test('G1: edit a song (Simple / Advanced)', async ({ page, seed }) => {
 
   // Advanced tab
   await page.getByRole('tab', { name: 'Advanced' }).click()
+  await expect(page.locator('.cm-editor, [class*="codemirror"]')).toBeVisible()
+
+  // Markdown tab
+  await page.getByRole('tab', { name: 'Markdown' }).click()
   await expect(page.locator('.cm-editor, [class*="codemirror"]')).toBeVisible()
 
   // not_a_song read-only
