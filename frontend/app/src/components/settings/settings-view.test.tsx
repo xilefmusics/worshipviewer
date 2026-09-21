@@ -130,6 +130,11 @@ describe('SettingsView', () => {
 
     render(<SettingsView activeTab="player" />)
 
+    const comfortableKeysAnchor = screen
+      .getByText('settings.comfortableKeys.title')
+      .closest('#comfortable-keys')
+    expect(comfortableKeysAnchor).not.toBeNull()
+
     const c = screen.getByRole('checkbox', { name: 'C' })
     const e = screen.getByRole('checkbox', { name: 'E' })
     const g = screen.getByRole('checkbox', { name: 'G' })

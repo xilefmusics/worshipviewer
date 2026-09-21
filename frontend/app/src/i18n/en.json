@@ -312,6 +312,7 @@
       "label": "Capo",
       "current": "Capo: {{fret}}, change",
       "reset": "Reset capo",
+      "configureComfortableKeys": "Configure comfortable keys",
       "playIn": "Play in {{key}} shape (capo {{fret}})",
       "shape": "{{key}} ({{fret}})"
     },

@@ -19,7 +19,19 @@ const localStorageMock = {
 }
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children }: { children: React.ReactNode }) => <a href="/">{children}</a>,
+  Link: ({
+    children,
+    'aria-label': ariaLabel,
+    hash,
+  }: {
+    children: React.ReactNode
+    'aria-label'?: string
+    hash?: string
+  }) => (
+    <a href="/" aria-label={ariaLabel} data-hash={hash}>
+      {children}
+    </a>
+  ),
   useNavigate: () => vi.fn(),
 }))
 
@@ -381,6 +393,17 @@ describe('PlayerBook likes', () => {
 })
 
 describe('PlayerBook capo controls', () => {
+  it('links from capo controls to the comfortable keys setting', () => {
+    renderPlayer(capoPlayer())
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+
+    const settingsLink = screen.getByRole('link', {
+      name: 'player.capo.configureComfortableKeys',
+    })
+    expect(settingsLink).toHaveAttribute('data-hash', 'comfortable-keys')
+  })
+
   it('keeps every musical key available while limiting guitar capo options', () => {
     renderPlayer(capoPlayer())
 

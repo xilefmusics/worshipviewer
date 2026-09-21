@@ -1433,9 +1433,31 @@ export function PlayerBook({
                           </div>
                         ) : showCapoControls ? (
                           <div className="mt-2 border-t border-[var(--color-border)] pt-2">
-                            <p className="mb-1 text-xs font-medium text-[var(--color-muted-foreground)]">
-                              {t('player.capo.title')}
-                            </p>
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <p className="text-xs font-medium text-[var(--color-muted-foreground)]">
+                                {t('player.capo.title')}
+                              </p>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                asChild
+                                className="size-6 shrink-0"
+                              >
+                                <Link
+                                  to="/settings"
+                                  search={buildSettingsSearch('player', {
+                                    playerType: type,
+                                    playerId: id,
+                                    playerIndex: nav.index,
+                                  })}
+                                  hash="comfortable-keys"
+                                  aria-label={t('player.capo.configureComfortableKeys')}
+                                >
+                                  <SettingsIcon size={16} />
+                                </Link>
+                              </Button>
+                            </div>
                             <Button
                               type="button"
                               size="sm"

@@ -312,6 +312,7 @@
       "label": "Kapodaster",
       "current": "Kapodaster: {{fret}}, ändern",
       "reset": "Kapodaster zurücksetzen",
+      "configureComfortableKeys": "Bequeme Tonarten konfigurieren",
       "playIn": "In {{key}}-Form spielen (Kapodaster {{fret}})",
       "shape": "{{key}} ({{fret}})"
     },

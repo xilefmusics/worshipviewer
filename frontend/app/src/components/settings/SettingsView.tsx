@@ -1062,10 +1062,12 @@ export function SettingsView({
             onInstrumentChange={setPlayerInstrumentPreference}
           />
 
-          <ComfortableKeysSection
-            keys={comfortableKeys}
-            onChange={setComfortableKeysPreference}
-          />
+          <div id="comfortable-keys" className="scroll-mt-4">
+            <ComfortableKeysSection
+              keys={comfortableKeys}
+              onChange={setComfortableKeysPreference}
+            />
+          </div>
 
           <Card>
             <CardHeader className="p-4 pb-3">
