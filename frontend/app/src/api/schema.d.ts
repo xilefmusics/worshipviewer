@@ -1807,6 +1807,7 @@ export interface components {
         };
         /** @description ChordPro-backed song item in a player sequence (`type`: `"chords"`). */
         PlayerChordsItem: {
+            capo_shape?: null | components["schemas"]["SimpleChord"];
             /** @description Custom flow override from the setlist slot, if any. */
             flow?: components["schemas"]["SongFlowItem"][] | null;
             /** @description Language override for this player item; `None` uses the song's default language. */
@@ -2049,6 +2050,7 @@ export interface components {
          */
         SetlistPlayerView: "book" | "av";
         SetlistSongLink: {
+            capo_shape?: null | components["schemas"]["SimpleChord"];
             /** @description Custom section order and repeats for this setlist slot. */
             flow?: components["schemas"]["SongFlowItem"][] | null;
             /** @description Song record id. */

@@ -29,6 +29,7 @@ pub struct LinkOwned {
     pub song: Song,
     pub nr: Option<String>,
     pub key: Option<SimpleChord>,
+    pub capo_shape: Option<SimpleChord>,
     pub tempo: Option<u32>,
     pub language: Option<String>,
     pub flow: Option<Vec<SongFlowItem>>,

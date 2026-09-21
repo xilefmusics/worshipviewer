@@ -141,6 +141,7 @@ pub fn player_from_song_links(
                 song: link.song,
                 nr: Some(link.nr.unwrap_or_else(|| (idx + 1).to_string())),
                 key: link.key,
+                capo_shape: link.capo_shape,
                 tempo: link.tempo,
                 language: link.language,
                 flow: link.flow,
@@ -252,6 +253,7 @@ fn song_link_records_to_owned(
             song: rec.into_song(),
             nr: link.nr,
             key: link.key.map(|k| k.0),
+            capo_shape: None,
             tempo: link.tempo,
             language: link.language,
             flow: None,
@@ -284,6 +286,7 @@ fn setlist_song_link_records_to_owned(
             song: rec.into_song(),
             nr: link.nr,
             key: link.key.map(|k| k.0),
+            capo_shape: link.capo_shape.map(|k| k.0),
             tempo: link.tempo,
             language: link.language,
             flow: link
@@ -323,6 +326,8 @@ pub struct SetlistSongLinkRecord {
     nr: Option<String>,
     #[serde(default)]
     key: Option<SimpleChordField>,
+    #[serde(default)]
+    capo_shape: Option<SimpleChordField>,
     #[serde(default)]
     tempo: Option<u32>,
     #[serde(default)]
@@ -365,6 +370,8 @@ pub struct SetlistItemRecord {
     #[serde(default)]
     pub key: Option<SimpleChordField>,
     #[serde(default)]
+    pub capo_shape: Option<SimpleChordField>,
+    #[serde(default)]
     pub tempo: Option<u32>,
     #[serde(default)]
     pub language: Option<String>,
@@ -381,6 +388,7 @@ impl SetlistItemRecord {
             id: self.id.clone(),
             nr: self.nr.clone(),
             key: self.key.clone(),
+            capo_shape: self.capo_shape.clone(),
             tempo: self.tempo,
             language: self.language.clone(),
             flow: self.flow.clone(),
@@ -396,6 +404,7 @@ impl From<SetlistItem> for SetlistItemRecord {
                 id: song_thing(&link.id),
                 nr: link.nr,
                 key: link.key.map(SimpleChordField),
+                capo_shape: link.capo_shape.map(SimpleChordField),
                 tempo: link.tempo,
                 language: link.language,
                 flow: link.flow.map(|flow| {
@@ -409,6 +418,7 @@ impl From<SetlistItem> for SetlistItemRecord {
                 id: media_thing(&link.id),
                 nr: None,
                 key: None,
+                capo_shape: None,
                 tempo: None,
                 language: None,
                 flow: None,
@@ -428,6 +438,7 @@ impl From<SetlistItemRecord> for SetlistItem {
             id: record_id_string(&record.id),
             nr: record.nr,
             key: record.key.map(|k| k.0),
+            capo_shape: record.capo_shape.map(|k| k.0),
             tempo: record.tempo,
             language: record.language,
             flow: record
@@ -443,6 +454,7 @@ impl From<SetlistSongLink> for SetlistSongLinkRecord {
             id: song_thing(&link.id),
             nr: link.nr,
             key: link.key.map(SimpleChordField),
+            capo_shape: link.capo_shape.map(SimpleChordField),
             tempo: link.tempo,
             language: link.language,
             flow: link.flow.map(|flow| {
@@ -460,6 +472,7 @@ impl From<SetlistSongLinkRecord> for SetlistSongLink {
             id: record_id_string(&record.id),
             nr: record.nr,
             key: record.key.map(|k| k.0),
+            capo_shape: record.capo_shape.map(|k| k.0),
             tempo: record.tempo,
             language: record.language,
             flow: record
@@ -552,6 +565,7 @@ mod tests {
                 song: s1,
                 nr: None,
                 key: None,
+                capo_shape: None,
                 tempo: None,
                 language: None,
                 flow: None,
@@ -561,6 +575,7 @@ mod tests {
                 song: s2,
                 nr: Some("x".into()),
                 key: None,
+                capo_shape: None,
                 tempo: None,
                 language: None,
                 flow: None,

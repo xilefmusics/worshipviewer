@@ -4595,6 +4595,7 @@ mod spa_fallback_guard {
 mod setlist_items_http {
     use super::*;
     use actix_web::http::StatusCode;
+    use chordlib::types::SimpleChord;
     use shared::media::{CreateMedia, CreateMediaContent, Media};
     use shared::player::Player;
     use shared::setlist::{CreateSetlist, Setlist, SetlistItem, SongLink};
@@ -4659,6 +4660,7 @@ mod setlist_items_http {
                 id: song_a.id.clone(),
                 nr: Some("1".into()),
                 key: None,
+                capo_shape: Some(SimpleChord::new(10)),
                 tempo: Some(88),
                 language: Some("de".into()),
                 flow: None,
@@ -4668,6 +4670,7 @@ mod setlist_items_http {
                 id: song_a.id.clone(),
                 nr: Some("2".into()),
                 key: None,
+                capo_shape: None,
                 tempo: None,
                 language: None,
                 flow: None,
@@ -4677,6 +4680,7 @@ mod setlist_items_http {
                 id: song_b.id.clone(),
                 nr: None,
                 key: None,
+                capo_shape: None,
                 tempo: None,
                 language: None,
                 flow: None,
@@ -4739,6 +4743,12 @@ mod setlist_items_http {
         assert_eq!(book.toc()[0].idx, 0);
         assert_eq!(book.toc()[1].idx, 1);
         assert_eq!(book.toc()[2].idx, 2);
+        match &book.items()[0] {
+            shared::player::PlayerItem::Chords(item) => {
+                assert_eq!(item.capo_shape, Some(SimpleChord::new(10)))
+            }
+            _ => panic!("expected chords"),
+        }
 
         let request = test::TestRequest::get()
             .uri(&format!("/api/v1/setlists/{}/player?view=av", created.id))

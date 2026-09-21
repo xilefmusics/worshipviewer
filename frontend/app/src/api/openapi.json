@@ -1830,6 +1830,17 @@
       "PlayerChordsItem": {
         "description": "ChordPro-backed song item in a player sequence (`type`: `\"chords\"`).",
         "properties": {
+          "capo_shape": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SimpleChord",
+                "description": "Saved capo playing shape from a setlist slot, if any."
+              }
+            ]
+          },
           "flow": {
             "description": "Custom flow override from the setlist slot, if any.",
             "items": {
@@ -2637,6 +2648,17 @@
       "SetlistSongLink": {
         "additionalProperties": false,
         "properties": {
+          "capo_shape": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SimpleChord",
+                "description": "Optional capo playing shape for this setlist slot. The player derives the fret from this shape and the sounding key."
+              }
+            ]
+          },
           "flow": {
             "description": "Custom section order and repeats for this setlist slot.",
             "items": {

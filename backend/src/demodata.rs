@@ -591,6 +591,7 @@ fn song_item(index: usize, overrides: bool) -> SetlistItem {
         id: song_id(index),
         nr: Some((index + 1).to_string()),
         key: overrides.then(|| SimpleChord::new(((index + 2) % 12) as u8)),
+        capo_shape: None,
         tempo: overrides.then_some(96 + (index as u32 % 4) * 4),
         language: None,
         flow: overrides.then(|| {
@@ -608,6 +609,7 @@ fn bilingual_song_item(index: usize) -> SetlistItem {
         id: song_id(index),
         nr: Some((index - 19).to_string()),
         key: None,
+        capo_shape: None,
         tempo: None,
         language: Some(if index.is_multiple_of(2) { "de" } else { "en" }.into()),
         flow: None,

@@ -7,6 +7,8 @@ import {
 import {
   readPlayerViewState,
   writePlayerViewState,
+  clearCapoForItem,
+  setCapoForItem,
   playerViewStorageKey,
   setLanguageForItem,
   clearLanguageForItem,
@@ -64,6 +66,22 @@ describe('player-view-state', () => {
     const loaded = readPlayerViewState('song', 's1', mockStorage)
     expect(loaded.transposeByItem[0]).toBe('G')
     expect(loaded.languageByItem).toEqual({})
+    expect(loaded.capoByItem).toEqual({})
+  })
+
+  it('persists and clears capo settings', () => {
+    const selected = setCapoForItem({ transposeByItem: {} }, 0, 'G')
+    expect(selected.capoByItem?.[0]).toBe('G')
+
+    const storage = new Map<string, string>()
+    const mockStorage = {
+      getItem: (k: string) => storage.get(k) ?? null,
+      setItem: (k: string, v: string) => storage.set(k, v),
+    }
+    writePlayerViewState('song', 's1', selected, mockStorage)
+    expect(readPlayerViewState('song', 's1', mockStorage).capoByItem?.[0]).toBe('G')
+
+    expect(clearCapoForItem(selected, 0).capoByItem?.[0]).toBeUndefined()
   })
 
   it('persists and reads item index', () => {

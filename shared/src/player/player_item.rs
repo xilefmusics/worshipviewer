@@ -1,5 +1,6 @@
 use crate::media::{Media, MediaContent};
 use crate::song::Song;
+use chordlib::types::SimpleChord;
 use chordlib::types::SongFlowItem;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "backend")]
@@ -26,6 +27,10 @@ pub struct PlayerBlobItem {
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct PlayerChordsItem {
     pub song: Song,
+    /// Saved capo playing shape from a setlist slot, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "backend", schema(value_type = Option<crate::song::SimpleChordSchema>))]
+    pub capo_shape: Option<SimpleChord>,
     /// Language override for this player item; `None` uses the song's default language.
     pub language: Option<String>,
     /// Custom flow override from the setlist slot, if any.

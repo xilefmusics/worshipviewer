@@ -16,12 +16,42 @@ import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/c
 import { stripChordsFromChordlibHtml } from '@/lib/strip-chords-from-html'
 import type { ChordSongData } from '@/ports/chord-engine'
 import type { PlayerOverflowStyle } from '@/lib/player/effective-scroll-type'
+import { formatPlayedKeyOffset } from '@/lib/player/transpose-key'
 import { cn } from '@/lib/utils'
 
 import './player-chords.css'
 
 type Song = components['schemas']['Song']
 type Orientation = components['schemas']['Orientation']
+
+const GENERATED_KEY_PATTERN = /\bKey\s+[A-G](?:b|#)?/
+
+function replaceGeneratedKeyMeta(html: string, keyLine: string): string {
+  if (typeof DOMParser === 'undefined') return html
+  const document = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html')
+  const meta = document.querySelector('.meta')
+  if (!meta) return html
+
+  function replaceText(node: Node): boolean {
+    for (const child of Array.from(node.childNodes)) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const text = child.textContent ?? ''
+        if (GENERATED_KEY_PATTERN.test(text)) {
+          child.textContent = text.replace(GENERATED_KEY_PATTERN, keyLine)
+          return true
+        }
+      } else if (replaceText(child)) {
+        return true
+      }
+    }
+    return false
+  }
+
+  if (!replaceText(meta)) {
+    meta.insertBefore(document.createTextNode(`${keyLine} · `), meta.firstChild)
+  }
+  return document.body.innerHTML
+}
 
 type RenderState =
   | { status: 'loading' }
@@ -31,6 +61,11 @@ type RenderState =
 type ChordsSlideProps = {
   song: Song
   displayKey?: string | null
+  soundingKey?: string | null
+  selectedKey?: string | null
+  capoFret?: number | null
+  showTransposeControls?: boolean
+  transposeOffset?: number | null
   languageIndex?: number | null
   chordFormat: ChordFormatPreference
   orientation: Orientation
@@ -43,6 +78,11 @@ type ChordsSlideProps = {
 export function ChordsSlide({
   song,
   displayKey,
+  soundingKey = displayKey,
+  selectedKey = soundingKey,
+  capoFret = null,
+  showTransposeControls = false,
+  transposeOffset = null,
   languageIndex,
   chordFormat,
   orientation,
@@ -70,7 +110,7 @@ export function ChordsSlide({
 
   const songData = song.data as ChordSongData
   const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
-  const renderKey = `${song.id}:${displayKey ?? ''}:${languageIndex ?? ''}:${renderPass}:${representation}:${hideChords ? 'hidden' : 'shown'}`
+  const renderKey = `${song.id}:${displayKey ?? ''}:${soundingKey ?? ''}:${selectedKey ?? ''}:${capoFret ?? ''}:${showTransposeControls ? 'transpose' : 'guitar'}:${transposeOffset ?? ''}:${languageIndex ?? ''}:${renderPass}:${representation}:${hideChords ? 'hidden' : 'shown'}`
   const renderState = useMemo(
     (): RenderState =>
       renderCache.key === renderKey ? renderCache.state : { status: 'loading' },
@@ -144,7 +184,15 @@ ${
           representation,
         })
         if (cancelled) return
-        const html = hideChords ? stripChordsFromChordlibHtml(page.html) : page.html
+        const keyLine = selectedKey
+          ? showTransposeControls && transposeOffset != null && transposeOffset !== 0
+            ? `${t('player.songKeyPrefix')} ${selectedKey} · ${t('player.transpose.short')} ${formatPlayedKeyOffset(transposeOffset)}`
+            : capoFret != null
+              ? `${t('player.songKeyPrefix')} ${selectedKey} · ${t('player.capo.label')} ${capoFret}`
+              : `${t('player.songKeyPrefix')} ${selectedKey}`
+          : null
+        const withPlayerMeta = keyLine ? replaceGeneratedKeyMeta(page.html, keyLine) : page.html
+        const html = hideChords ? stripChordsFromChordlibHtml(withPlayerMeta) : withPlayerMeta
         setRenderCache({ key: renderKey, state: { status: 'ready', html, css: page.css } })
       } catch (e) {
         if (cancelled) return
@@ -155,7 +203,7 @@ ${
     return () => {
       cancelled = true
     }
-  }, [renderKey, songData, displayKey, languageIndex, representation, hideChords])
+  }, [renderKey, songData, displayKey, soundingKey, selectedKey, capoFret, showTransposeControls, transposeOffset, languageIndex, representation, hideChords, t])
 
   useLayoutEffect(() => {
     if (renderState.status !== 'ready') return

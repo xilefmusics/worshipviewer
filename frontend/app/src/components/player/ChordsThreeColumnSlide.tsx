@@ -16,6 +16,7 @@ import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/c
 import { stripChordsFromChordlibHtml } from '@/lib/strip-chords-from-html'
 import type { ChordSongData } from '@/ports/chord-engine'
 import type { PlayerOverflowStyle } from '@/lib/player/effective-scroll-type'
+import { formatPlayedKeyOffset } from '@/lib/player/transpose-key'
 import {
   songArtistForLanguage,
   songTitleForLanguage,
@@ -51,9 +52,18 @@ type ColumnSection = {
 type ChordsThreeColumnSlideProps = {
   song: Song
   displayKey?: string | null
+  soundingKey?: string | null
+  selectedKey?: string | null
+  capoFret?: number | null
+  showTransposeControls?: boolean
+  transposeOffset?: number | null
   languageIndex?: number | null
   nextSong?: Song | null
   nextDisplayKey?: string | null
+  nextSoundingKey?: string | null
+  nextSelectedKey?: string | null
+  nextCapoFret?: number | null
+  nextTransposeOffset?: number | null
   nextLanguageIndex?: number | null
   chordFormat: ChordFormatPreference
   columnCount?: 1 | 2 | 3
@@ -95,11 +105,30 @@ type SongMetaLines = {
   tempoLine: string | null
 }
 
+type SongMetaLabels = {
+  keyPrefix: string
+  capoLabel: string
+  transposeLabel: string
+  showTransposeControls: boolean
+}
+
 function songMetaLines(
   songData: ChordSongData,
   displayKey: string | null | undefined,
+  soundingKey: string | null | undefined,
+  selectedKey: string | null | undefined,
+  capoFret: number | null | undefined,
+  transposeOffset: number | null | undefined,
+  labels: SongMetaLabels,
 ): SongMetaLines {
-  const keyLine = displayKey ? `Key ${displayKey}` : null
+  const key = selectedKey ?? soundingKey ?? displayKey
+  const keyLine = key
+    ? labels.showTransposeControls && transposeOffset != null && transposeOffset !== 0
+      ? `${labels.keyPrefix} ${key} · ${labels.transposeLabel} ${formatPlayedKeyOffset(transposeOffset)}`
+      : capoFret != null
+        ? `${labels.keyPrefix} ${key} · ${labels.capoLabel} ${capoFret}`
+      : `${labels.keyPrefix} ${key}`
+    : null
   const tempo = songData.tempo
   const time = songData.time
   const tempoNum = typeof tempo === 'number' && Number.isFinite(tempo) ? tempo : null
@@ -183,13 +212,31 @@ function useMultiColumnSongRender(
 function previewHeadingHtml(
   song: Song,
   displayKey?: string | null,
+  soundingKey?: string | null,
+  selectedKey?: string | null,
+  capoFret?: number | null,
+  transposeOffset?: number | null,
   languageIndex?: number | null,
+  labels?: SongMetaLabels,
 ): string {
   const songData = song.data as ChordSongData
   const language = songLanguageTagAt(songData, languageIndex)
   const title = escapeHtml(songTitleForLanguage(songData as Record<string, unknown>, language))
   const subtitle = songSubtitleLine(songData, language)
-  const meta = songMetaLines(songData, displayKey)
+  const meta = songMetaLines(
+    songData,
+    displayKey,
+    soundingKey,
+    selectedKey,
+    capoFret,
+    transposeOffset,
+    labels ?? {
+      keyPrefix: 'Key',
+      capoLabel: 'Capo',
+      transposeLabel: 'Transpose',
+      showTransposeControls: false,
+    },
+  )
   const metaParts = [meta.keyLine, meta.tempoLine].filter(Boolean)
   const metaLine = metaParts.length > 0 ? escapeHtml(metaParts.join(' · ')) : null
 
@@ -209,13 +256,30 @@ function buildColumnSections(
   currentSections: string[],
   nextSong: Song | null | undefined,
   nextDisplayKey: string | null | undefined,
+  nextSoundingKey: string | null | undefined,
+  nextSelectedKey: string | null | undefined,
+  nextCapoFret: number | null | undefined,
+  nextTransposeOffset: number | null | undefined,
   nextLanguageIndex: number | null | undefined,
   nextSections: string[],
+  labels: SongMetaLabels,
 ): ColumnSection[] {
   const sections: ColumnSection[] = currentSections.map((html) => ({ html, preview: false }))
 
   if (nextSong && nextSections.length > 0) {
-    sections.push({ html: previewHeadingHtml(nextSong, nextDisplayKey, nextLanguageIndex), preview: true })
+    sections.push({
+      html: previewHeadingHtml(
+        nextSong,
+        nextDisplayKey,
+        nextSoundingKey,
+        nextSelectedKey,
+        nextCapoFret,
+        nextTransposeOffset,
+        nextLanguageIndex,
+        labels,
+      ),
+      preview: true,
+    })
     for (const section of nextSections) {
       sections.push({
         html: `<div class="player-chords-three-column__preview-section">${section}</div>`,
@@ -291,9 +355,18 @@ function columnTypographyStyle(columnLayout: {
 export function ChordsThreeColumnSlide({
   song,
   displayKey,
+  soundingKey = displayKey,
+  selectedKey = soundingKey,
+  capoFret = null,
+  showTransposeControls = false,
+  transposeOffset = null,
   languageIndex,
   nextSong,
   nextDisplayKey,
+  nextSoundingKey,
+  nextSelectedKey,
+  nextCapoFret,
+  nextTransposeOffset,
   nextLanguageIndex,
   chordFormat,
   columnCount = 3,
@@ -355,7 +428,19 @@ export function ChordsThreeColumnSlide({
     [songData, language],
   )
   const subtitle = useMemo(() => songSubtitleLine(songData, language), [songData, language])
-  const meta = useMemo(() => songMetaLines(songData, displayKey), [songData, displayKey])
+  const metaLabels = useMemo<SongMetaLabels>(
+    () => ({
+      keyPrefix: t('player.songKeyPrefix'),
+      capoLabel: t('player.capo.label'),
+      transposeLabel: t('player.transpose.short'),
+      showTransposeControls,
+    }),
+    [showTransposeControls, t],
+  )
+  const meta = useMemo(
+    () => songMetaLines(songData, displayKey, soundingKey, selectedKey, capoFret, transposeOffset, metaLabels),
+    [songData, displayKey, soundingKey, selectedKey, capoFret, transposeOffset, metaLabels],
+  )
 
   const retry = useCallback(() => {
     setRenderPass((n) => n + 1)
@@ -369,10 +454,27 @@ export function ChordsThreeColumnSlide({
       renderState.sections,
       showNextPreview ? nextSong : undefined,
       nextDisplayKey,
+      nextSoundingKey,
+      nextSelectedKey,
+      nextCapoFret,
+      nextTransposeOffset,
       nextLanguageIndex,
       nextSections,
+      metaLabels,
     )
-  }, [renderState, showNextPreview, nextSong, nextDisplayKey, nextLanguageIndex, nextPreviewRenderState])
+  }, [
+    renderState,
+    showNextPreview,
+    nextSong,
+    nextDisplayKey,
+    nextSoundingKey,
+    nextSelectedKey,
+    nextCapoFret,
+    nextTransposeOffset,
+    nextLanguageIndex,
+    nextPreviewRenderState,
+    metaLabels,
+  ])
 
   const combinedColumnCss = useMemo(() => {
     if (renderState.status !== 'ready') return ''

@@ -297,8 +297,24 @@
       "landscape": "Landscape"
     },
     "transpose": {
+      "title": "Transpose",
+      "short": "Tr",
       "current": "Transpose: {{key}}, change",
       "default": "Default"
+    },
+    "songKeyPrefix": "Key",
+    "key": {
+      "title": "Key",
+      "current": "Key: {{key}}, change"
+    },
+    "capo": {
+      "title": "Capo",
+      "label": "Capo",
+      "current": "Capo: {{fret}}, change",
+      "reset": "Reset capo",
+      "configureComfortableKeys": "Configure comfortable keys",
+      "playIn": "Play in {{key}} shape (capo {{fret}})",
+      "shape": "{{key}} ({{fret}})"
     },
     "language": {
       "current": "Language: {{language}}, change",
@@ -575,6 +591,16 @@
       "nashville": "Nashville",
       "nashvilleDescription": "Show Nashville numbers such as 1, 4, and 6m."
     },
+    "comfortableKeys": {
+      "title": "Comfortable keys",
+      "description": "Choose the keys you are comfortable playing. These keys will be shown as capo options for guitar and transpose options for keyboard in the player."
+    },
+    "instrument": {
+      "title": "Instrument",
+      "description": "Choose which playing controls to show in the player.",
+      "guitar": "Guitar",
+      "keyboard": "Keyboard"
+    },
     "chordSongFontScale": {
       "title": "Chord-song font size",
       "description": "Scale chord-song type in the sheet player on this device.",
@@ -824,6 +850,7 @@
       "dragHandleAria": "Drag to reorder",
       "removeAria": "Remove from setlist",
       "keyChip": "Key: {{symbol}}",
+      "capoChip": "Capo: {{shape}}",
       "tempoChip": "Tempo: {{bpm}}",
       "tempoChipPlaceholder": "Tempo: —",
       "tempoPopoverAria": "Edit tempo for this setlist slot",

@@ -51,7 +51,11 @@ test('H3: transpose current song', async ({ page, seed }) => {
   const transposeBtn = page.getByRole('button', { name: /transpose/i })
   await expect(transposeBtn).toBeVisible()
   await transposeBtn.click()
-  await page.getByRole('button', { name: 'D' }).click()
+  await page.getByTestId('capo-shape-G').click()
+  await expect(page.getByText(/Key A.*Capo 2/)).toBeVisible()
+  await transposeBtn.click()
+  await page.getByTestId('transpose-key-D').click()
+  await expect(page.getByText(/Key D.*Capo 7/)).toBeVisible()
   await page.keyboard.press('r')
 })
 

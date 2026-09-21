@@ -297,8 +297,24 @@
       "landscape": "Querformat"
     },
     "transpose": {
+      "title": "Transponieren",
+      "short": "Tr",
       "current": "Transponieren: {{key}}, ändern",
       "default": "Standard"
+    },
+    "songKeyPrefix": "Tonart",
+    "key": {
+      "title": "Tonart",
+      "current": "Tonart: {{key}}, ändern"
+    },
+    "capo": {
+      "title": "Kapodaster",
+      "label": "Kapodaster",
+      "current": "Kapodaster: {{fret}}, ändern",
+      "reset": "Kapodaster zurücksetzen",
+      "configureComfortableKeys": "Bequeme Tonarten konfigurieren",
+      "playIn": "In {{key}}-Form spielen (Kapodaster {{fret}})",
+      "shape": "{{key}} ({{fret}})"
     },
     "language": {
       "current": "Sprache: {{language}}, ändern",
@@ -575,6 +591,16 @@
       "nashville": "Nashville",
       "nashvilleDescription": "Zeigt Nashville-Ziffern wie 1, 4 und 6m."
     },
+    "comfortableKeys": {
+      "title": "Sichere Tonarten",
+      "description": "Wähle die Tonarten, die du sicher spielen kannst. Diese Tonarten werden im Player als Kapodaster-Optionen für Gitarre und Transpositions-Optionen für Keyboard angezeigt."
+    },
+    "instrument": {
+      "title": "Instrument",
+      "description": "Wähle, welche Spielsteuerung im Player angezeigt wird.",
+      "guitar": "Gitarre",
+      "keyboard": "Keyboard"
+    },
     "chordSongFontScale": {
       "title": "Schriftgröße für Akkordlieder",
       "description": "Skaliert die Schrift von Akkordliedern im Noten-Player auf diesem Gerät.",
@@ -824,6 +850,7 @@
       "dragHandleAria": "Zum Sortieren ziehen",
       "removeAria": "Aus Setliste entfernen",
       "keyChip": "Tonart: {{symbol}}",
+      "capoChip": "Kapodaster: {{shape}}",
       "tempoChip": "Tempo: {{bpm}}",
       "tempoChipPlaceholder": "Tempo: —",
       "tempoPopoverAria": "Tempo für diesen Setlisten-Eintrag bearbeiten",

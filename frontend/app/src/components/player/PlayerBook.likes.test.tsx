@@ -19,7 +19,19 @@ const localStorageMock = {
 }
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children }: { children: React.ReactNode }) => <a href="/">{children}</a>,
+  Link: ({
+    children,
+    'aria-label': ariaLabel,
+    hash,
+  }: {
+    children: React.ReactNode
+    'aria-label'?: string
+    hash?: string
+  }) => (
+    <a href="/" aria-label={ariaLabel} data-hash={hash}>
+      {children}
+    </a>
+  ),
   useNavigate: () => vi.fn(),
 }))
 
@@ -37,13 +49,13 @@ vi.mock('@/api/songs-like', () => ({
 
 vi.mock('@/components/player/BlobSlide', () => ({ BlobSlide: () => null }))
 vi.mock('@/components/player/ChordsSlide', () => ({
-  ChordsSlide: ({ song }: { song: components['schemas']['Song'] }) => (
-    <div data-player-chord-surface>{song.id}</div>
+  ChordsSlide: ({ song, displayKey, soundingKey, selectedKey, capoFret, transposeOffset }: { song: components['schemas']['Song']; displayKey?: string | null; soundingKey?: string | null; selectedKey?: string | null; capoFret?: number | null; transposeOffset?: number | null }) => (
+    <div data-player-chord-surface data-display-key={displayKey ?? ''} data-sounding-key={soundingKey ?? ''} data-selected-key={selectedKey ?? ''} data-capo-fret={capoFret ?? ''} data-transpose-offset={transposeOffset ?? ''}>{song.id}</div>
   ),
 }))
 vi.mock('@/components/player/ChordsThreeColumnSlide', () => ({
-  ChordsThreeColumnSlide: ({ song }: { song: components['schemas']['Song'] }) => (
-    <div data-player-chord-surface>{song.id}</div>
+  ChordsThreeColumnSlide: ({ song, displayKey, soundingKey, selectedKey, capoFret, transposeOffset }: { song: components['schemas']['Song']; displayKey?: string | null; soundingKey?: string | null; selectedKey?: string | null; capoFret?: number | null; transposeOffset?: number | null }) => (
+    <div data-player-chord-surface data-display-key={displayKey ?? ''} data-sounding-key={soundingKey ?? ''} data-selected-key={selectedKey ?? ''} data-capo-fret={capoFret ?? ''} data-transpose-offset={transposeOffset ?? ''}>{song.id}</div>
   ),
 }))
 vi.mock('@/components/player/PlayerBookSpread', () => ({
@@ -110,14 +122,14 @@ vi.mock('@/lib/player/apply-song-flow', () => ({
 type Player = components['schemas']['Player']
 type Song = components['schemas']['Song']
 
-function song(id: string, liked: boolean): Song {
+function song(id: string, liked: boolean, key?: string): Song {
   return {
     id,
     blobs: [],
     not_a_song: false,
     owner: 'team-1',
     user_specific_addons: { liked },
-    data: { titles: [id], sections: [] },
+    data: { titles: [id], sections: [], ...(key ? { key } : {}) },
   } as Song
 }
 
@@ -141,11 +153,33 @@ function player(): Player {
   }
 }
 
+function capoPlayer(): Player {
+  const value = player()
+  return {
+    ...value,
+    items: value.items.map((item) =>
+      item.type === 'chords' ? { ...item, song: song(item.song.id, item.song.user_specific_addons.liked, 'A') } : item,
+    ),
+  }
+}
+
+function savedCapoPlayer(): Player {
+  const value = capoPlayer()
+  return {
+    ...value,
+    items: value.items.map((item, index) =>
+      item.type === 'chords' && index === 0 ? { ...item, capo_shape: { level: 10 } } : item,
+    ),
+  }
+}
+
 function renderPlayer(
   value: Player,
   roomSidebar: React.ReactNode = <div>room</div>,
   tocSidebar?: React.ReactNode,
   embedded = false,
+  roomMusicalState?: { item_index: number; started: boolean; language: string | null; transposition: string | null },
+  canControlRoomMusicalState = false,
 ) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -158,6 +192,8 @@ function renderPlayer(
         embedded={embedded}
         roomSidebar={roomSidebar}
         tocSidebar={tocSidebar}
+        roomMusicalState={roomMusicalState}
+        canControlRoomMusicalState={canControlRoomMusicalState}
       />
     </QueryClientProvider>,
   )
@@ -353,5 +389,163 @@ describe('PlayerBook likes', () => {
     await waitFor(() => expect(likedToc.getByText('Current')).toBeInTheDocument())
     expect(likedToc.getByText('Current duplicate')).toBeInTheDocument()
     expect(mocks.toastError).toHaveBeenCalledWith('player.loadFailed')
+  })
+})
+
+describe('PlayerBook capo controls', () => {
+  it('links from capo controls to the comfortable keys setting', () => {
+    renderPlayer(capoPlayer())
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+
+    const settingsLink = screen.getByRole('link', {
+      name: 'player.capo.configureComfortableKeys',
+    })
+    expect(settingsLink).toHaveAttribute('data-hash', 'comfortable-keys')
+  })
+
+  it('keeps every musical key available while limiting guitar capo options', () => {
+    renderPlayer(capoPlayer())
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+
+    for (const key of ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']) {
+      expect(screen.getByTestId(`key-option-${key}`)).toBeVisible()
+    }
+    expect(screen.getByTestId('capo-shape-G')).toBeVisible()
+    expect(screen.getByTestId('capo-shape-C')).toBeVisible()
+
+    fireEvent.click(screen.getByTestId('key-option-D'))
+    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'D')
+  })
+
+  it('shows every comfortable key as a capo shape option in guitar mode', () => {
+    localStorageState.set('wv_comfortable_keys', JSON.stringify(['Bb', 'B']))
+    renderPlayer(capoPlayer())
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+
+    expect(screen.getByTestId('capo-shape-Bb')).toBeVisible()
+    expect(screen.getByTestId('capo-shape-B')).toBeVisible()
+    expect(screen.queryByTestId('capo-shape-G')).not.toBeInTheDocument()
+  })
+
+  it('loads the saved setlist capo and restores it after a local override is reset', () => {
+    renderPlayer(savedCapoPlayer())
+
+    expect(screen.getByText('song-1')).toHaveAttribute('data-display-key', 'G')
+    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'A')
+    expect(screen.getByText('song-1')).toHaveAttribute('data-capo-fret', '2')
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+    fireEvent.click(screen.getByTestId('capo-shape-C'))
+    expect(screen.getByText('song-1')).toHaveAttribute('data-display-key', 'C')
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+    fireEvent.keyDown(window, { key: 'r' })
+    expect(screen.getByText('song-1')).toHaveAttribute('data-display-key', 'G')
+    expect(screen.getByText('song-1')).toHaveAttribute('data-capo-fret', '2')
+  })
+
+  it('renders capo-shaped chords and resets the guitar capo', () => {
+    renderPlayer(capoPlayer())
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+    fireEvent.click(screen.getByTestId('capo-shape-G'))
+
+    const surface = screen.getByText('song-1')
+    expect(surface).toHaveAttribute('data-display-key', 'G')
+    expect(surface).toHaveAttribute('data-sounding-key', 'A')
+    expect(surface).toHaveAttribute('data-capo-fret', '2')
+
+    fireEvent.keyDown(window, { key: 'r' })
+    expect(screen.getByText('song-1')).toHaveAttribute('data-display-key', 'A')
+    expect(screen.getByText('song-1')).toHaveAttribute('data-capo-fret', '')
+  })
+
+  it('offers keyboard transposition offsets from -5 through +6', () => {
+    localStorageState.set('wv_player_instrument', 'keyboard')
+    renderPlayer(capoPlayer())
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+
+    expect(screen.getByTestId('transpose-offset--5')).toHaveTextContent('E (+5)')
+    expect(screen.getByTestId('transpose-offset--2')).toHaveTextContent('G (+2)')
+    const defaultTranspose = screen.getByTestId('transpose-offset-0')
+    expect(defaultTranspose).toHaveTextContent('player.transpose.default')
+    expect(defaultTranspose).toHaveClass('bg-[var(--color-primary)]')
+    expect(screen.getByTestId('transpose-offset-3')).toHaveTextContent('C (-3)')
+    expect(screen.queryByTestId('transpose-offset-6')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('capo-shape-G')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('transpose-offset--2'))
+    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'G')
+    expect(screen.getByText('song-1')).toHaveAttribute('data-transpose-offset', '-2')
+  })
+
+  it('anchors keyboard transpose offsets to the selected key', () => {
+    localStorageState.set('wv_player_instrument', 'keyboard')
+    localStorageState.set(
+      'playerView:setlist:setlist-1',
+      JSON.stringify({ transposeByItem: { 0: 'Db' } }),
+    )
+    renderPlayer(capoPlayer())
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+
+    expect(screen.getByTestId('key-option-Db')).toBeVisible()
+    expect(screen.getByTestId('transpose-offset--1')).toHaveTextContent('C (+1)')
+    expect(screen.getByTestId('transpose-offset-0')).toHaveTextContent('player.transpose.default')
+    expect(screen.getByTestId('transpose-offset-6')).toHaveTextContent('G (-6)')
+    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'Db')
+  })
+
+  it('keeps the sounding transpose target when changing the selected key', () => {
+    localStorageState.set('wv_player_instrument', 'keyboard')
+    renderPlayer(capoPlayer())
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+    fireEvent.click(screen.getByTestId('transpose-offset--2'))
+    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'G')
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+    fireEvent.click(screen.getByTestId('key-option-C'))
+
+    expect(screen.getByText('song-1')).toHaveAttribute('data-selected-key', 'C')
+    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'G')
+    expect(screen.getByText('song-1')).toHaveAttribute('data-transpose-offset', '-5')
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+    expect(screen.getByTestId('transpose-offset--5')).toHaveTextContent('G (+5)')
+    expect(screen.getByTestId('transpose-offset--5')).toHaveClass('bg-[var(--color-primary)]')
+  })
+
+  it('shows the selected key separately from the sounding key', () => {
+    localStorageState.set('wv_player_instrument', 'keyboard')
+    localStorageState.set(
+      'playerView:setlist:setlist-1',
+      JSON.stringify({ selectedKeyByItem: { 0: 'Db' }, transposeOffsetByItem: { 0: -4 } }),
+    )
+    renderPlayer(capoPlayer())
+
+    expect(screen.getByRole('button', { name: 'player.key.current' })).toHaveTextContent('Db')
+    expect(screen.getByText('song-1')).toHaveAttribute('data-selected-key', 'Db')
+    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'A')
+    expect(screen.getByText('song-1')).toHaveAttribute('data-transpose-offset', '-4')
+  })
+
+  it('clears capo controls in shared Room playback', () => {
+    renderPlayer(
+      savedCapoPlayer(),
+      <div>room</div>,
+      undefined,
+      false,
+      { item_index: 0, started: true, language: null, transposition: null },
+      true,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
+    expect(screen.queryByText('player.capo.title')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('capo-shape-G')).not.toBeInTheDocument()
   })
 })
