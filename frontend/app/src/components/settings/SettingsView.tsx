@@ -14,6 +14,7 @@ import { deleteUploadedProfilePicture, putProfilePicture } from '@/api/profile-p
 import { fetchSessionUser, SESSION_QUERY_KEY, SESSION_STALE_TIME_MS, type User } from '@/api/session'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { GuitarIcon, KeyboardIcon } from '@/components/icons/instrument-icons'
 import { useHubViewMode } from '@/hooks/useHubViewMode'
 import { useSession } from '@/hooks/useSession'
 import { useUserAvatarDisplay } from '@/hooks/useUserAvatarDisplay'
@@ -55,6 +56,16 @@ import {
   type AvVerticalAlign,
 } from '@/lib/player/av-preferences'
 import { readPlayerDefaultMode, writePlayerDefaultMode } from '@/lib/player/player-mode-preference'
+import {
+  readComfortableKeysPreference,
+  writeComfortableKeysPreference,
+  type ComfortableKey,
+} from '@/lib/player/comfortable-keys-preference'
+import {
+  readPlayerInstrumentPreference,
+  writePlayerInstrumentPreference,
+  type PlayerInstrument,
+} from '@/lib/player/player-instrument-preference'
 import {
   CHORD_SONG_FONT_SCALE_MAX,
   CHORD_SONG_FONT_SCALE_MIN,
@@ -106,6 +117,7 @@ import type { PlayerMirrorRow } from '@/lib/dexie-db'
 import type { PlayerEditorReturnContext } from '@/lib/player/player-editor-return'
 import { buildSettingsSearch, type SettingsTab } from '@/lib/settings-route'
 import { cn } from '@/lib/utils'
+import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
 
 import './settings-view.css'
 
@@ -193,6 +205,107 @@ function SettingsSection<T extends string | number>({
               onSelect={onChange}
             />
           ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function InstrumentSection({
+  instrument,
+  onInstrumentChange,
+}: {
+  instrument: PlayerInstrument
+  onInstrumentChange: (instrument: PlayerInstrument) => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <Card>
+      <CardHeader className="p-4 pb-3">
+        <CardTitle className="text-base">{t('settings.instrument.title')}</CardTitle>
+        <CardDescription>{t('settings.instrument.description')}</CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 pt-0">
+        <div
+          role="radiogroup"
+          aria-label={t('settings.instrument.title')}
+          className="grid grid-cols-2 gap-2"
+        >
+          {(['guitar', 'keyboard'] as const).map((option) => {
+            const selected = instrument === option
+            const Icon = option === 'guitar' ? GuitarIcon : KeyboardIcon
+            return (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={cn(
+                  'flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold transition-colors',
+                  selected
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
+                    : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]/55',
+                )}
+                onClick={() => onInstrumentChange(option)}
+              >
+                <Icon size={24} />
+                <span>{t(`settings.instrument.${option}`)}</span>
+              </button>
+            )
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ComfortableKeysSection({
+  keys,
+  onChange,
+}: {
+  keys: ComfortableKey[]
+  onChange: (keys: ComfortableKey[]) => void
+}) {
+  const { t } = useTranslation()
+
+  function toggleKey(key: ComfortableKey) {
+    const next = keys.includes(key) ? keys.filter((value) => value !== key) : [...keys, key]
+    onChange(next.length > 0 ? next : keys)
+  }
+
+  return (
+    <Card>
+      <CardHeader className="p-4 pb-3">
+        <CardTitle className="text-base">{t('settings.comfortableKeys.title')}</CardTitle>
+        <CardDescription>{t('settings.comfortableKeys.description')}</CardDescription>
+      </CardHeader>
+      <CardContent className="p-4 pt-0">
+        <div
+          role="group"
+          aria-label={t('settings.comfortableKeys.title')}
+          className="grid grid-cols-3 gap-2 sm:grid-cols-4"
+        >
+          {MUSICAL_KEYS.map((key) => {
+            const selected = keys.includes(key)
+            return (
+              <button
+                key={key}
+                type="button"
+                role="checkbox"
+                aria-checked={selected}
+                className={cn(
+                  'rounded-md border px-3 py-2 text-sm font-semibold transition-colors',
+                  selected
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
+                    : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]/55',
+                )}
+                onClick={() => toggleKey(key)}
+              >
+                {key}
+              </button>
+            )
+          })}
         </div>
       </CardContent>
     </Card>
@@ -396,6 +509,8 @@ export function SettingsView({
   const [invertSheetImages, setInvertSheetImagesState] = useState(readSheetImageInvertPreference)
   const [layoutPreferences, setLayoutPreferences] = useState(readPlayerLayoutPreferences)
   const [defaultPlayerMode, setDefaultPlayerModeState] = useState<PlayerMode>(readPlayerDefaultMode)
+  const [comfortableKeys, setComfortableKeys] = useState(readComfortableKeysPreference)
+  const [playerInstrument, setPlayerInstrument] = useState(readPlayerInstrumentPreference)
   const [collapseLyricWhitespace, setCollapseLyricWhitespaceState] = useState(
     readLyricCollapseWhitespacePreference,
   )
@@ -662,6 +777,15 @@ export function SettingsView({
   function setDefaultPlayerMode(next: PlayerMode) {
     writePlayerDefaultMode(next)
     setDefaultPlayerModeState(next)
+  }
+
+  function setComfortableKeysPreference(next: ComfortableKey[]) {
+    setComfortableKeys(writeComfortableKeysPreference(next))
+  }
+
+  function setPlayerInstrumentPreference(next: PlayerInstrument) {
+    writePlayerInstrumentPreference(next)
+    setPlayerInstrument(next)
   }
 
   function setCollapseLyricWhitespace(next: boolean) {
@@ -931,6 +1055,16 @@ export function SettingsView({
             options={chordFormatOptions}
             value={chordFormatPreference}
             onChange={setChordFormat}
+          />
+
+          <InstrumentSection
+            instrument={playerInstrument}
+            onInstrumentChange={setPlayerInstrumentPreference}
+          />
+
+          <ComfortableKeysSection
+            keys={comfortableKeys}
+            onChange={setComfortableKeysPreference}
           />
 
           <Card>

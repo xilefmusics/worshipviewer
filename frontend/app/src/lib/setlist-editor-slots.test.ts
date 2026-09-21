@@ -38,4 +38,24 @@ describe('mixed setlist editor slots', () => {
       { type: 'song', id: 'song:1', nr: null, key: null, tempo: null, language: null, flow: null },
     ])
   })
+
+  it('round-trips a saved capo shape on a song slot', () => {
+    const slots = slotsFromSetlistItems([
+      { type: 'song', id: 'song:1', key: { level: 0 }, capo_shape: { level: 10 } },
+    ])
+
+    expect(slots[0]?.type === 'song' ? slots[0].link.capoShapeKey : null).toBe('G')
+    expect(setlistItemsFromSlots(slots)).toEqual([
+      {
+        type: 'song',
+        id: 'song:1',
+        nr: null,
+        key: { level: 0 },
+        capo_shape: { level: 10 },
+        tempo: null,
+        language: null,
+        flow: null,
+      },
+    ])
+  })
 })

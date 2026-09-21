@@ -62,6 +62,7 @@ mod tests {
                     id: "s1".into(),
                     nr: Some("1".into()),
                     key: None,
+                    capo_shape: Some(chordlib::types::SimpleChord::new(10)),
                     tempo: None,
                     language: Some("de".into()),
                     flow: None,
@@ -78,6 +79,10 @@ mod tests {
             setlist.items[0].as_song().unwrap().language.as_deref(),
             Some("de")
         );
+        assert_eq!(
+            setlist.items[0].as_song().unwrap().capo_shape,
+            Some(chordlib::types::SimpleChord::new(10))
+        );
     }
 
     #[test]
@@ -92,6 +97,7 @@ mod tests {
                     id: "s1".into(),
                     nr: Some("1".into()),
                     key: None,
+                    capo_shape: None,
                     tempo: None,
                     language: None,
                     flow: None,
@@ -121,6 +127,7 @@ mod tests {
                     id: "s1".into(),
                     nr: Some("1".into()),
                     key: None,
+                    capo_shape: None,
                     tempo: None,
                     language: None,
                     flow: Some(vec![chordlib::types::SongFlowItem {
@@ -152,6 +159,7 @@ mod tests {
                         id: "s1".into(),
                         nr: Some("1".into()),
                         key: None,
+                        capo_shape: None,
                         tempo: None,
                         language: None,
                         flow: None,

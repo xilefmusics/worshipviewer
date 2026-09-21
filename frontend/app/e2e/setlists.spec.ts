@@ -1,4 +1,5 @@
 import { expect, secondUserTest, test, uniqueToken } from './fixtures/auth'
+import { MINIMAL_SONG_DATA } from './fixtures/api'
 import { HubPage } from './pages/hub'
 import { gotoEn } from './helpers'
 
@@ -87,13 +88,34 @@ test('E5: setlist key picker saves slot key', async ({ page, seed }) => {
     items: [{ type: 'song', id: song.id, key: null, nr: '1', tempo: null }],
   })
   await gotoEn(page, `/setlists/${sl.id}`)
-  await page.getByRole('button', { name: /key.*C/i }).first().click()
+  await page.getByRole('button', { name: /key.*A/i }).first().click()
   await page.getByRole('button', { name: 'D', exact: true }).click()
   const patchPromise = page.waitForResponse(
     (r) => r.request().method() === 'PATCH' && r.url().includes(`/setlists/${sl.id}`) && r.ok(),
   )
   await patchPromise
   await expect(page.getByRole('button', { name: /key.*D/i }).first()).toBeVisible()
+
+  const capoChip = page.getByRole('button', { name: /capo.*—/i }).first()
+  await capoChip.click()
+  const capoPatchPromise = page.waitForResponse(
+    async (r) => {
+      if (r.request().method() !== 'PATCH' || !r.url().includes(`/setlists/${sl.id}`) || !r.ok()) return false
+      const body = await r.json() as { items?: Array<{ capo_shape?: { level?: number } }> }
+      return body.items?.[0]?.capo_shape?.level === 10
+    },
+  )
+  await page.getByRole('button', { name: /Play in G shape \(capo 7\)/i }).click()
+  await capoPatchPromise
+  await expect(page.getByRole('button', { name: /capo.*G \(7\)/i }).first()).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByRole('button', { name: /capo.*G \(7\)/i }).first()).toBeVisible()
+
+  await gotoEn(page, `/player?type=setlist&id=${sl.id}&index=0&mode=sheet`)
+  await expect(page).toHaveURL(/\/player/)
+  await page.locator('body').click({ position: { x: 640, y: 400 } })
+  await expect(page.getByText(/Key D.*Capo 7/)).toBeVisible()
 })
 
 // Flow: E6

@@ -1,6 +1,7 @@
 import type { components } from '@/api/schema'
 import type { SongFlowItem } from '@/ports/chord-engine'
 
+import { isCapoShapeKey, type CapoShapeKey } from '@/lib/player/capo'
 import { normalizedTempoBpm } from '@/lib/song-display-meta'
 
 export type CollectionSongLink = components['schemas']['SongLink']
@@ -10,6 +11,7 @@ export type SetlistSongLink = components['schemas']['SetlistSongLink']
 export type EditorSongLink = {
   id: string
   key: string | null
+  capoShapeKey?: CapoShapeKey | null
   tempo?: number | null
   language?: string | null
   nr?: string | null
@@ -96,12 +98,26 @@ export function songLinkKeyEditorToWire(key: unknown): SimpleChord | null {
   return { level }
 }
 
+/** Normalize a persisted setlist capo shape to one of the supported playing shapes. */
+export function normalizeCapoShapeKey(value: unknown): CapoShapeKey | null {
+  const coerced = coerceMusicalKeyString(value)
+  return isCapoShapeKey(coerced) ? coerced : null
+}
+
+/** Convert a supported editor capo shape to the setlist wire chord representation. */
+export function capoShapeKeyEditorToWire(value: unknown): SimpleChord | null {
+  const shape = normalizeCapoShapeKey(value)
+  return shape == null ? null : songLinkKeyEditorToWire(shape)
+}
+
 /** One wire `SongLink` for PATCH/POST `songs`; server expects `key` as `{ level }` or JSON `null`. */
 export function songLinkForSetlistMutation(link: EditorSongLink): SetlistSongLink {
+  const capoShape = capoShapeKeyEditorToWire(link.capoShapeKey)
   return {
     id: normalizeSongLinkId(link.id),
     nr: normalizeSongLinkNr(link.nr),
     key: songLinkKeyEditorToWire(link.key),
+    ...(capoShape != null ? { capo_shape: capoShape } : {}),
     tempo: songLinkTempoEditorToWire(link.tempo),
     language: normalizeSongLinkLanguage(link.language),
     flow: link.flow ?? null,
@@ -408,6 +424,7 @@ export function normalizeSongLinksForEditor(links: SetlistSongLink[] | null | un
   return (links ?? []).map((l) => ({
     id: normalizeSongLinkId(l.id),
     key: coerceMusicalKeyString(l.key),
+    ...(l.capo_shape !== undefined ? { capoShapeKey: normalizeCapoShapeKey(l.capo_shape) } : {}),
     nr: normalizeSongLinkNr(l.nr),
     tempo: normalizedTempoBpm(l.tempo),
     language: normalizeSongLinkLanguage(l.language),

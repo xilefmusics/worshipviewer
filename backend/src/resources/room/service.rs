@@ -2348,6 +2348,7 @@ mod tests {
                 content: RoomContent {
                     items: vec![PlayerChordsItem {
                         song,
+                        capo_shape: None,
                         language: None,
                         flow: None,
                     }],
@@ -2584,6 +2585,7 @@ mod tests {
                 }],
                 ..shared::song::Song::default()
             },
+            capo_shape: None,
             language: None,
             flow: None,
         }
@@ -3545,6 +3547,7 @@ mod tests {
                     },
                     ..shared::song::Song::default()
                 },
+                capo_shape: None,
                 language: None,
                 flow: None,
             }],

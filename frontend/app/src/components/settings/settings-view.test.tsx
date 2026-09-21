@@ -125,6 +125,51 @@ describe('SettingsView', () => {
     ).toBeChecked()
   })
 
+  it('stores the comfortable keys shown by the player key picker', async () => {
+    const user = userEvent.setup()
+
+    render(<SettingsView activeTab="player" />)
+
+    const c = screen.getByRole('checkbox', { name: 'C' })
+    const e = screen.getByRole('checkbox', { name: 'E' })
+    const g = screen.getByRole('checkbox', { name: 'G' })
+    expect(c).toBeChecked()
+    expect(e).toBeChecked()
+    expect(g).toBeChecked()
+
+    await user.click(c)
+    await user.click(screen.getByRole('checkbox', { name: 'Db' }))
+
+    expect(c).not.toBeChecked()
+    expect(e).toBeChecked()
+    expect(g).toBeChecked()
+    expect(JSON.parse(window.localStorage.getItem('wv_comfortable_keys') ?? '[]')).toEqual([
+      'Db',
+      'E',
+      'G',
+    ])
+  })
+
+  it('stores the selected player instrument', async () => {
+    const user = userEvent.setup()
+
+    const { unmount } = render(<SettingsView activeTab="player" />)
+    const keyboard = screen.getByRole('radio', { name: 'settings.instrument.keyboard' })
+    const guitar = screen.getByRole('radio', { name: 'settings.instrument.guitar' })
+
+    expect(guitar).toBeChecked()
+    expect(guitar.querySelector('svg')).toBeInTheDocument()
+    expect(keyboard.querySelector('svg')).toBeInTheDocument()
+    await user.click(keyboard)
+
+    expect(keyboard).toBeChecked()
+    expect(window.localStorage.getItem('wv_player_instrument')).toBe('keyboard')
+
+    unmount()
+    render(<SettingsView activeTab="player" />)
+    expect(screen.getByRole('radio', { name: 'settings.instrument.keyboard' })).toBeChecked()
+  })
+
   it('renders the AV bilingual control in Player AV and restores it from storage', async () => {
     const user = userEvent.setup()
 

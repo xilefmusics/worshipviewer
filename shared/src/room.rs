@@ -296,6 +296,7 @@ mod tests {
         let player = Player::new(
             vec![PlayerItem::Chords(Box::new(PlayerChordsItem {
                 song,
+                capo_shape: None,
                 language: None,
                 flow: None,
             }))],
@@ -336,6 +337,7 @@ mod tests {
             song: blob_only,
             nr: Some("1".into()),
             key: None,
+            capo_shape: None,
             tempo: None,
             language: None,
             flow: None,
@@ -344,6 +346,7 @@ mod tests {
             song: chord_song,
             nr: Some("2".into()),
             key: None,
+            capo_shape: None,
             tempo: None,
             language: None,
             flow: None,

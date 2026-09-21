@@ -20,6 +20,8 @@ import { Button } from '@/components/ui/button'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
 import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
 import { useChordSongFontScale } from '@/hooks/useChordSongFontScale'
+import { useComfortableKeysPreference } from '@/hooks/useComfortableKeysPreference'
+import { usePlayerInstrumentPreference } from '@/hooks/usePlayerInstrumentPreference'
 import { useIsPhoneWidth, useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerLayoutPreference } from '@/hooks/usePlayerScrollPreference'
 import { useOnline } from '@/hooks/use-online'
@@ -58,14 +60,31 @@ import {
   resolvePlayerItemKey,
   tocEntryForIndex,
 } from '@/lib/player/player-helpers'
+import {
+  CAPO_FRET_MAX,
+  CAPO_FRET_MIN,
+  capoFretForKeys,
+  resolvePlayerKeyState,
+  type PlayerKeyState,
+} from '@/lib/player/capo'
 import { playerKeyboardAction } from '@/lib/player/player-keyboard'
 import { prefetchNextItemIndex } from '@/lib/player/prefetch-next-item'
-import { resolveTransposeKey } from '@/lib/player/transpose-key'
+import {
+  formatPlayedKeyOffset,
+  stepMusicalKey,
+  TRANSPOSE_OFFSETS,
+  transposeOffsetBetweenKeys,
+} from '@/lib/player/transpose-key'
 import {
   readPlayerViewState,
   clearTransposeForItem,
+  clearCapoForItem,
+  clearPlayerKeyForItem,
   clearLanguageForItem,
   setPlayerNavPosition,
+  setPlayerKeyForItem,
+  setTransposeOffsetForItem,
+  setCapoForItem,
   setTransposeForItem,
   setLanguageForItem,
   writePlayerViewState,
@@ -85,7 +104,7 @@ import { resolveSongLanguageIndex, songLanguageOptions } from '@/lib/player/song
 import { buildSettingsSearch } from '@/lib/settings-route'
 import { writeChordSongFontScale } from '@/lib/player/chord-song-font-scale-preference'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
-import { languageIndexForSongLink, resolveSongDataKey } from '@/lib/setlist-song-links'
+import { languageIndexForSongLink, normalizeCapoShapeKey, resolveSongDataKey } from '@/lib/setlist-song-links'
 import { cn } from '@/lib/utils'
 import type { ChordFormatPreference } from '@/lib/chord-format'
 import type { PlayerOverflowStyle } from '@/lib/player/effective-scroll-type'
@@ -96,6 +115,39 @@ type Song = components['schemas']['Song']
 type Orientation = components['schemas']['Orientation']
 type PlayerItem = Player['items'][number]
 type TocItem = Player['toc'][number]
+
+const EMPTY_PLAYER_KEY_STATE: PlayerKeyState = {
+  soundingKey: null,
+  displayKey: null,
+  capoShapeKey: null,
+  capoFret: null,
+}
+
+type PlayerKeySelection = {
+  baseKey: string | null
+  selectedKey: string | null
+  soundingKey: string | null
+  transposeOffset: number
+  hasKeyOverride: boolean
+}
+
+const EMPTY_PLAYER_KEY_SELECTION: PlayerKeySelection = {
+  baseKey: null,
+  selectedKey: null,
+  soundingKey: null,
+  transposeOffset: 0,
+  hasKeyOverride: false,
+}
+
+function transposeOffsetForSelectedKeyChange(
+  showTransposeControls: boolean,
+  transposeOffset: number,
+  soundingKey: string | null,
+  nextSelectedKey: string,
+): number {
+  if (!showTransposeControls || transposeOffset === 0) return 0
+  return transposeOffsetBetweenKeys(nextSelectedKey, soundingKey) ?? 0
+}
 
 function initialLikedBySongId(player: Player): Record<string, boolean> {
   const liked: Record<string, boolean> = {}
@@ -173,6 +225,11 @@ type ResolvedBookChordsProps = {
   song: Song
   flow: SongFlowItem[] | null | undefined
   displayKey: string | null
+  soundingKey?: string | null
+  selectedKey?: string | null
+  capoFret?: number | null
+  showTransposeControls?: boolean
+  transposeOffset?: number | null
   languageIndex: number | null
   chordFormat: ChordFormatPreference
   sheetOrientation: Orientation
@@ -180,6 +237,10 @@ type ResolvedBookChordsProps = {
   nextSong?: Song | null
   nextFlow?: SongFlowItem[] | null
   nextDisplayKey?: string | null
+  nextSoundingKey?: string | null
+  nextSelectedKey?: string | null
+  nextCapoFret?: number | null
+  nextTransposeOffset?: number | null
   nextLanguageIndex?: number | null
   freeColumnCount: 1 | 2 | 3 | null
   overflowStyle?: PlayerOverflowStyle
@@ -191,6 +252,11 @@ export function ResolvedBookChords({
   song,
   flow,
   displayKey,
+  soundingKey = displayKey,
+  selectedKey,
+  capoFret = null,
+  showTransposeControls = false,
+  transposeOffset = null,
   languageIndex,
   chordFormat,
   sheetOrientation,
@@ -198,6 +264,10 @@ export function ResolvedBookChords({
   nextSong,
   nextFlow,
   nextDisplayKey,
+  nextSoundingKey,
+  nextSelectedKey,
+  nextCapoFret,
+  nextTransposeOffset,
   nextLanguageIndex,
   freeColumnCount,
   overflowStyle,
@@ -206,15 +276,25 @@ export function ResolvedBookChords({
 }: ResolvedBookChordsProps) {
   const resolvedSong = useResolvedSongWithFlow(song, flow)
   const resolvedNextSong = useResolvedSongWithFlow(nextSong ?? song, nextFlow)
+  const resolvedSelectedKey = selectedKey ?? soundingKey
 
   if (freeColumnCount != null) {
     return (
       <ChordsThreeColumnSlide
         song={resolvedSong}
         displayKey={displayKey}
+        soundingKey={soundingKey}
+        selectedKey={resolvedSelectedKey}
+        capoFret={capoFret}
+        showTransposeControls={showTransposeControls}
+        transposeOffset={transposeOffset}
         languageIndex={languageIndex}
         nextSong={nextSong ? resolvedNextSong : undefined}
         nextDisplayKey={nextDisplayKey}
+        nextSoundingKey={nextSoundingKey}
+        nextSelectedKey={nextSelectedKey}
+        nextCapoFret={nextCapoFret}
+        nextTransposeOffset={nextTransposeOffset}
         nextLanguageIndex={nextLanguageIndex}
         chordFormat={chordFormat}
         columnCount={freeColumnCount}
@@ -230,6 +310,11 @@ export function ResolvedBookChords({
     <ChordsSlide
       song={resolvedSong}
       displayKey={displayKey}
+      soundingKey={soundingKey}
+      selectedKey={resolvedSelectedKey}
+      capoFret={capoFret}
+      showTransposeControls={showTransposeControls}
+      transposeOffset={transposeOffset}
       languageIndex={languageIndex}
       chordFormat={chordFormat}
       orientation={sheetOrientation}
@@ -298,6 +383,8 @@ export function PlayerBook({
   const online = useOnline()
   const chordFormat = useChordFormatPreference()
   const chordSongFontScale = useChordSongFontScale()
+  const comfortableKeys = useComfortableKeysPreference()
+  const playerInstrument = usePlayerInstrumentPreference()
   const layoutPreferences = usePlayerLayoutPreference()
   const isPhoneViewport = useIsPhoneWidth()
   const isLandscapeViewport = useMediaQuery('(orientation: landscape)')
@@ -559,15 +646,41 @@ export function PlayerBook({
   ])
 
   const backTo = backToOverride ?? hubPathForPlayerType(type)
-  const localTranspose = viewState.transposeByItem[nav.index]
-  const slotKey =
+  const localCapoShape = viewState.capoByItem?.[nav.index]
+  const currentKeySelection =
     currentItem?.type === 'chords'
-      ? resolveSongDataKey(currentItem.song.data as Record<string, unknown>)
-      : null
-  const displayKey =
-    currentItem?.type === 'chords'
-      ? resolvePlayerItemKey(currentItem, type, slotKey, localTranspose)
-      : null
+      ? keySelectionForItem(currentItem, nav.index)
+      : EMPTY_PLAYER_KEY_SELECTION
+  const currentKeyState =
+    currentItem?.type === 'chords' ? keyStateForItem(currentItem, nav.index) : EMPTY_PLAYER_KEY_STATE
+  const { soundingKey, capoShapeKey } = currentKeyState
+  const showCapoControls =
+    !roomMusicalState &&
+    playerInstrument === 'guitar' &&
+    currentItem?.type === 'chords' &&
+    soundingKey != null &&
+    MUSICAL_KEYS.includes(soundingKey as (typeof MUSICAL_KEYS)[number])
+  const showTransposeControls =
+    (playerInstrument === 'keyboard' || Boolean(roomMusicalState)) && currentItem?.type === 'chords'
+  const { selectedKey, transposeOffset } = currentKeySelection
+  const transposeOptions = TRANSPOSE_OFFSETS.map((offset) => ({
+    offset,
+    key: selectedKey == null ? null : stepMusicalKey(selectedKey, offset),
+  })).filter(
+    (option): option is { offset: (typeof TRANSPOSE_OFFSETS)[number]; key: string } =>
+      option.key != null &&
+      (option.offset === 0 || comfortableKeys.includes(option.key as (typeof MUSICAL_KEYS)[number])),
+  ).sort((left, right) => Number(left.offset !== 0) - Number(right.offset !== 0))
+  const capoShapeOptions = Array.from(
+    new Set(
+      capoShapeKey != null && !comfortableKeys.includes(capoShapeKey)
+        ? [capoShapeKey, ...comfortableKeys]
+        : comfortableKeys,
+    ),
+  ).filter((key) => {
+    const fret = capoFretForKeys(soundingKey, key)
+    return fret != null && fret >= CAPO_FRET_MIN && fret <= CAPO_FRET_MAX
+  })
   const currentLanguageOptions = useMemo(() => currentItem?.type === 'chords' ? songLanguageOptions(currentItem.song.data as Record<string, unknown>) : [], [currentItem])
   const currentLanguageIndex =
     currentItem?.type === 'chords'
@@ -626,13 +739,13 @@ export function PlayerBook({
   const lastRoomStateRef = useRef('')
   useEffect(() => {
     if (!canControlRoomMusicalState || !onRoomMusicalStateChange) return
-    const stateWithoutStarted = { item_index: nav.index, language: currentItem?.type === 'chords' && currentLanguageOptions.length > 0 ? currentLanguageLabel : null, transposition: currentItem?.type === 'chords' ? displayKey : null }
+    const stateWithoutStarted = { item_index: nav.index, language: currentItem?.type === 'chords' && currentLanguageOptions.length > 0 ? currentLanguageLabel : null, transposition: currentItem?.type === 'chords' ? soundingKey : null }
     const serialized = JSON.stringify(stateWithoutStarted)
     if (serialized === lastRoomStateRef.current) return
     const wasPreviouslySynced = lastRoomStateRef.current !== ''
     lastRoomStateRef.current = serialized
     onRoomMusicalStateChange({ ...stateWithoutStarted, started: roomMusicalState?.started === true || wasPreviouslySynced })
-  }, [canControlRoomMusicalState, currentItem, currentLanguageLabel, currentLanguageOptions.length, displayKey, nav.index, onRoomMusicalStateChange, roomMusicalState?.started])
+  }, [canControlRoomMusicalState, currentItem, currentLanguageLabel, currentLanguageOptions.length, nav.index, onRoomMusicalStateChange, roomMusicalState?.started, soundingKey])
 
   const handleTocSelect = useCallback(
     (sourceIdx: number, languageIndex: number | null) => {
@@ -749,34 +862,58 @@ export function PlayerBook({
 
       if (currentItem?.type !== 'chords') return
 
+      if (!roomMusicalState && playerInstrument === 'guitar') {
+        if (action === 'resetTranspose') {
+          e.preventDefault()
+          setViewState((state) => clearCapoForItem(state, nav.index))
+          setKeyPopoverOpen(false)
+        }
+        return
+      }
+
       if (typeof action === 'object' && action.type === 'setTransposeKey') {
         e.preventDefault()
-        setViewState((state) => setTransposeForItem(state, nav.index, action.key))
+        const nextTransposeOffset = transposeOffsetForSelectedKeyChange(
+          showTransposeControls,
+          transposeOffset,
+          currentKeySelection.soundingKey,
+          action.key,
+        )
+        setViewState((state) =>
+          setTransposeOffsetForItem(
+            setPlayerKeyForItem(state, nav.index, action.key),
+            nav.index,
+            nextTransposeOffset,
+          ),
+        )
         setKeyPopoverOpen(false)
         return
       }
       if (action === 'resetTranspose') {
         e.preventDefault()
-        setViewState((state) => clearTransposeForItem(state, nav.index))
+        setViewState((state) => clearCapoForItem(clearPlayerKeyForItem(state, nav.index), nav.index))
         setKeyPopoverOpen(false)
         return
       }
       if (action === 'transposeUp') {
         e.preventDefault()
-        const nextKey = resolveTransposeKey(displayKey, 1)
-        if (nextKey) {
-          setViewState((state) => setTransposeForItem(state, nav.index, nextKey))
-          setKeyPopoverOpen(false)
-        }
+        const currentOffsetIndex = TRANSPOSE_OFFSETS.indexOf(
+          transposeOffset as (typeof TRANSPOSE_OFFSETS)[number],
+        )
+        const nextOffset = TRANSPOSE_OFFSETS[(currentOffsetIndex + 1) % TRANSPOSE_OFFSETS.length]
+        setViewState((state) => setTransposeOffsetForItem(state, nav.index, nextOffset))
+        setKeyPopoverOpen(false)
         return
       }
       if (action === 'transposeDown') {
         e.preventDefault()
-        const nextKey = resolveTransposeKey(displayKey, -1)
-        if (nextKey) {
-          setViewState((state) => setTransposeForItem(state, nav.index, nextKey))
-          setKeyPopoverOpen(false)
-        }
+        const currentOffsetIndex = TRANSPOSE_OFFSETS.indexOf(
+          transposeOffset as (typeof TRANSPOSE_OFFSETS)[number],
+        )
+        const nextOffset =
+          TRANSPOSE_OFFSETS[(currentOffsetIndex - 1 + TRANSPOSE_OFFSETS.length) % TRANSPOSE_OFFSETS.length]
+        setViewState((state) => setTransposeOffsetForItem(state, nav.index, nextOffset))
+        setKeyPopoverOpen(false)
         return
       }
     }
@@ -789,7 +926,9 @@ export function PlayerBook({
     chordFormat,
     currentItem,
     dispatch,
-    displayKey,
+    transposeOffset,
+    currentKeySelection.soundingKey,
+    showTransposeControls,
     navigateToSongEditor,
     nav.index,
     navBlocked,
@@ -797,6 +936,8 @@ export function PlayerBook({
     keyPopoverOpen,
     languagePopoverOpen,
     chromeVisible,
+    playerInstrument,
+    roomMusicalState,
     layoutPreferences,
     sheetOrientation,
     cancelPendingChromeOpen,
@@ -807,10 +948,53 @@ export function PlayerBook({
 
   const title = resourceTitle ?? tocRow?.title ?? ''
 
-  function displayKeyForItem(item: PlayerItem, itemIndex: number): string | null {
-    if (item.type !== 'chords') return null
+  function baseKeyForItem(item: Extract<PlayerItem, { type: 'chords' }>): string | null {
     const itemSlotKey = resolveSongDataKey(item.song.data as Record<string, unknown>)
-    return resolvePlayerItemKey(item, type, itemSlotKey, viewState.transposeByItem[itemIndex])
+    return resolvePlayerItemKey(item, type, itemSlotKey, undefined)
+  }
+
+  function keySelectionForItem(
+    item: Extract<PlayerItem, { type: 'chords' }>,
+    itemIndex: number,
+  ): PlayerKeySelection {
+    const baseKey = baseKeyForItem(item)
+    const legacyKey = viewState.transposeByItem[itemIndex]
+    const selectedKeyOverride = viewState.selectedKeyByItem?.[itemIndex]
+    const isRoomFollower = Boolean(roomMusicalState && !canControlRoomMusicalState)
+    const selectedKeyCandidate = isRoomFollower
+      ? legacyKey
+      : selectedKeyOverride ?? legacyKey ?? baseKey
+    const selectedKey = MUSICAL_KEYS.includes(selectedKeyCandidate as (typeof MUSICAL_KEYS)[number])
+      ? selectedKeyCandidate
+      : baseKey
+    const configuredOffset = viewState.transposeOffsetByItem?.[itemIndex]
+    const transposeOffset =
+      !isRoomFollower &&
+      typeof configuredOffset === 'number' &&
+      Number.isInteger(configuredOffset) &&
+      configuredOffset >= TRANSPOSE_OFFSETS[0] &&
+      configuredOffset <= TRANSPOSE_OFFSETS[TRANSPOSE_OFFSETS.length - 1]
+        ? configuredOffset
+        : 0
+    const soundingKey = selectedKey == null ? null : stepMusicalKey(selectedKey, transposeOffset)
+    return {
+      baseKey,
+      selectedKey,
+      soundingKey,
+      transposeOffset,
+      hasKeyOverride: !isRoomFollower && (selectedKeyOverride != null || legacyKey != null),
+    }
+  }
+
+  function keyStateForItem(item: Extract<PlayerItem, { type: 'chords' }>, itemIndex: number): PlayerKeyState {
+    const keySelection = keySelectionForItem(item, itemIndex)
+    const savedCapoShape = type === 'setlist' ? normalizeCapoShapeKey(item.capo_shape) : null
+    const localCapoShape = viewState.capoByItem?.[itemIndex]
+    const capoShape =
+      roomMusicalState || playerInstrument !== 'guitar'
+        ? null
+        : localCapoShape ?? savedCapoShape
+    return resolvePlayerKeyState(keySelection.baseKey, keySelection.soundingKey, capoShape)
   }
 
   function languageOptionsForItem(item: PlayerItem) {
@@ -851,20 +1035,32 @@ export function PlayerBook({
     const nextItem = showNextPreview ? player.items[itemIndex + 1] : undefined
     const nextSong = nextItem?.type === 'chords' ? nextItem.song : undefined
     const nextFlow = nextItem?.type === 'chords' ? nextItem.flow : undefined
+    const keySelection = keySelectionForItem(item, itemIndex)
+    const keyState = keyStateForItem(item, itemIndex)
+    const nextKeySelection =
+      nextItem?.type === 'chords' ? keySelectionForItem(nextItem, itemIndex + 1) : null
+    const nextKeyState = nextItem?.type === 'chords' ? keyStateForItem(nextItem, itemIndex + 1) : null
     return (
       <ResolvedBookChords
         song={item.song}
         flow={item.flow}
-        displayKey={displayKeyForItem(item, itemIndex)}
+        displayKey={keyState.displayKey}
+        soundingKey={keyState.soundingKey}
+        selectedKey={keySelection.selectedKey}
+        capoFret={keyState.capoFret}
+        showTransposeControls={showTransposeControls}
+        transposeOffset={keySelection.transposeOffset}
         languageIndex={renderLanguageIndexForItem(item, itemIndex)}
         chordFormat={chordFormat}
         sheetOrientation={sheetOrientation}
         fillParent={fillParent}
         nextSong={nextSong}
         nextFlow={nextFlow}
-        nextDisplayKey={
-          nextItem?.type === 'chords' ? displayKeyForItem(nextItem, itemIndex + 1) : undefined
-        }
+        nextDisplayKey={nextKeyState?.displayKey}
+        nextSoundingKey={nextKeyState?.soundingKey}
+        nextSelectedKey={nextKeySelection?.selectedKey}
+        nextCapoFret={nextKeyState?.capoFret}
+        nextTransposeOffset={nextKeySelection?.transposeOffset}
         nextLanguageIndex={
           nextItem?.type === 'chords' ? renderLanguageIndexForItem(nextItem, itemIndex + 1) : undefined
         }
@@ -1150,25 +1346,32 @@ export function PlayerBook({
                           variant="outline"
                           size="icon"
                           className={playerHeaderIconButtonClass}
-                          aria-label={t('player.transpose.current', {
-                            key: displayKey ?? t('player.transpose.default'),
+                          aria-label={t('player.key.current', {
+                            key: selectedKey ?? t('player.transpose.default'),
                           })}
                           disabled={navBlocked}
                         >
                           <span className={cn(playerHeaderIconClass, 'text-sm font-semibold leading-none')}>
-                            {displayKey ?? '♮'}
+                            {selectedKey ?? '♮'}
                           </span>
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent align="end" className="w-56 p-2">
+                      <PopoverContent align="end" className="w-64 p-2">
+                        <p className="mb-1 text-xs font-medium text-[var(--color-muted-foreground)]">
+                          {t('player.key.title')}
+                        </p>
                         <div className="grid grid-cols-4 gap-1">
                           <Button
                             type="button"
                             size="sm"
-                            variant={localTranspose === undefined ? 'default' : 'outline'}
+                            variant={
+                              !currentKeySelection.hasKeyOverride && transposeOffset === 0
+                                ? 'default'
+                                : 'outline'
+                            }
                             className="col-span-4"
                             onClick={() => {
-                              setViewState((s) => clearTransposeForItem(s, nav.index))
+                              setViewState((s) => clearPlayerKeyForItem(s, nav.index))
                               setKeyPopoverOpen(false)
                             }}
                           >
@@ -1179,9 +1382,22 @@ export function PlayerBook({
                               key={key}
                               type="button"
                               size="sm"
-                              variant={displayKey === key ? 'default' : 'outline'}
+                              variant={selectedKey === key ? 'default' : 'outline'}
+                              data-testid={`key-option-${key}`}
                               onClick={() => {
-                                setViewState((s) => setTransposeForItem(s, nav.index, key))
+                                const nextTransposeOffset = transposeOffsetForSelectedKeyChange(
+                                  showTransposeControls,
+                                  transposeOffset,
+                                  currentKeySelection.soundingKey,
+                                  key,
+                                )
+                                setViewState((s) =>
+                                  setTransposeOffsetForItem(
+                                    setPlayerKeyForItem(s, nav.index, key),
+                                    nav.index,
+                                    nextTransposeOffset,
+                                  ),
+                                )
                                 setKeyPopoverOpen(false)
                               }}
                             >
@@ -1189,6 +1405,74 @@ export function PlayerBook({
                             </Button>
                           ))}
                         </div>
+                        {showTransposeControls ? (
+                          <div className="mt-2 border-t border-[var(--color-border)] pt-2">
+                            <p className="mb-1 text-xs font-medium text-[var(--color-muted-foreground)]">
+                              {t('player.transpose.title')}
+                            </p>
+                            <div className="grid grid-cols-2 gap-1">
+                              {transposeOptions.map(({ offset, key }) => (
+                                <Button
+                                  key={offset}
+                                  type="button"
+                                  size="sm"
+                                  variant={transposeOffset === offset ? 'default' : 'outline'}
+                                  className={offset === 0 ? 'col-span-2' : undefined}
+                                  data-testid={`transpose-offset-${offset}`}
+                                  onClick={() => {
+                                    setViewState((s) => setTransposeOffsetForItem(s, nav.index, offset))
+                                    setKeyPopoverOpen(false)
+                                  }}
+                                >
+                                  {offset === 0
+                                    ? t('player.transpose.default')
+                                    : `${key} (${formatPlayedKeyOffset(offset)})`}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : showCapoControls ? (
+                          <div className="mt-2 border-t border-[var(--color-border)] pt-2">
+                            <p className="mb-1 text-xs font-medium text-[var(--color-muted-foreground)]">
+                              {t('player.capo.title')}
+                            </p>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="mb-1 w-full"
+                              disabled={localCapoShape == null}
+                              onClick={() => {
+                                setViewState((s) => clearCapoForItem(s, nav.index))
+                                setKeyPopoverOpen(false)
+                              }}
+                            >
+                              {t('player.capo.reset')}
+                            </Button>
+                            <div className="grid grid-cols-2 gap-1">
+                              {capoShapeOptions.map((key) => {
+                                const fret = capoFretForKeys(soundingKey, key)
+                                return (
+                                  <Button
+                                    key={key}
+                                    type="button"
+                                    size="sm"
+                                    variant={capoShapeKey === key ? 'default' : 'outline'}
+                                    className="min-w-[7rem]"
+                                    aria-label={t('player.capo.playIn', { key, fret })}
+                                    data-testid={`capo-shape-${key}`}
+                                    onClick={() => {
+                                      setViewState((s) => setCapoForItem(s, nav.index, key))
+                                      setKeyPopoverOpen(false)
+                                    }}
+                                  >
+                                    {t('player.capo.shape', { key, fret })}
+                                  </Button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        ) : null}
                       </PopoverContent>
                     </PopoverRoot>
                   </>

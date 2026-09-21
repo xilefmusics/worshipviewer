@@ -35,6 +35,7 @@ import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
 import { SetlistFlowEditorSheet } from '@/components/setlists/SetlistFlowEditorSheet'
 import { SetlistSongPickerSheet } from '@/components/setlists/SetlistSongPickerSheet'
 import { SetlistMediaPickerSheet } from '@/components/setlists/SetlistMediaPickerSheet'
+import { CapoShapePicker } from '@/components/setlists/CapoShapePicker'
 import { useCanEditSetlist } from '@/hooks/useCanEditSetlist'
 import { useSession } from '@/hooks/useSession'
 import { useRegisterSetlistPaletteBridge } from '@/context/SetlistPaletteBridgeContext'
@@ -43,6 +44,7 @@ import { useSetlistAutosave } from '@/hooks/useSetlistAutosave'
 import { useSetlistDetailQuery } from '@/hooks/useSetlistDetailQuery'
 import { brokenSlotGate, type SongHydrationOutcome } from '@/lib/setlist-broken-rows'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
+import type { CapoShapeKey } from '@/lib/player/capo'
 import {
   makeMediaSlotRow,
   makeSlotRow,
@@ -645,6 +647,16 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
                     })
                     queueMicrotask(() => notifyDraftEdited())
                   }}
+                  onPatchCapoShape={(capoShapeKey) => {
+                    setSlotRows((prev) => {
+                      const next = [...prev]
+                      const cur = next[idx]
+                      if (!cur || cur.type !== 'song') return prev
+                      next[idx] = { ...cur, link: { ...cur.link, capoShapeKey } }
+                      return next
+                    })
+                    queueMicrotask(() => notifyDraftEdited())
+                  }}
                   onPatchTempo={(tempo) => {
                     setSlotRows((prev) => {
                       const next = [...prev]
@@ -814,6 +826,7 @@ type SortProps = {
   patchInFlight: boolean
   onAnnounce: (s: string) => void
   onPatchKey: (key: string | null) => void
+  onPatchCapoShape: (shapeKey: CapoShapeKey | null) => void
   onPatchTempo: (tempo: number | null) => void
   onPatchLanguage: (language: string | null) => void
   onEditFlow: () => void
@@ -866,6 +879,8 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
   if (!titleLabel && !hydrationPending && !brokenHydration) titleLabel = '…'
   const defaultKey = resolveSongDataKey(hydratedSong?.data)
   const displayChip = pinned ?? defaultKey
+  const hasValidSoundingKey = displayChip != null && MUSICAL_KEYS.includes(displayChip as (typeof MUSICAL_KEYS)[number])
+  const capoShapeKey = row.link.capoShapeKey ?? null
   const isDefaultInherited = pinned == null && defaultKey != null
   const showSongOriginalKeyCaption = !hydrationPending && !brokenHydration && Boolean(hydratedSong)
 
@@ -980,7 +995,7 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
               </div>
 
               {!brokenHydration && hydratedSong ? (
-                <div className="grid grid-cols-4 gap-1 pt-1">
+                <div className="grid grid-cols-2 gap-1 pt-1 sm:grid-cols-5">
                   <PopoverRoot>
                     <PopoverTrigger asChild>
                       <Button
@@ -1013,6 +1028,15 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
                       </div>
                     </PopoverContent>
                   </PopoverRoot>
+                  {hasValidSoundingKey ? (
+                    <CapoShapePicker
+                      soundingKey={displayChip ?? ''}
+                      selectedShape={capoShapeKey}
+                      canEditUi={canEditUi}
+                      blockingAll={blockingAll}
+                      onChange={props.onPatchCapoShape}
+                    />
+                  ) : null}
                   <TempoOverrideChip
                     displayBpm={displayBpm}
                     pinnedBpm={pinnedBpm}

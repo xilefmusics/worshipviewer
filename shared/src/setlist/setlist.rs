@@ -114,6 +114,10 @@ pub struct SongLink {
     /// Transposition key for this slot (same `{ "level": … }` object as `Song.data.key`).
     #[cfg_attr(feature = "backend", schema(value_type = Option<crate::song::SimpleChordSchema>))]
     pub key: Option<chordlib::types::SimpleChord>,
+    /// Optional capo playing shape for this setlist slot. The player derives the fret from this shape and the sounding key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "backend", schema(value_type = Option<crate::song::SimpleChordSchema>))]
+    pub capo_shape: Option<chordlib::types::SimpleChord>,
     /// Tempo override in BPM for this slot; `None` inherits the song's `data.tempo`.
     pub tempo: Option<u32>,
     /// Language override for this slot; `None` inherits the song's default language.
@@ -213,6 +217,7 @@ mod tests {
             id: id.into(),
             nr: Some("1".into()),
             key: Some(chordlib::types::SimpleChord::new(3)),
+            capo_shape: Some(chordlib::types::SimpleChord::new(10)),
             tempo: Some(88),
             language: Some("de".into()),
             flow: Some(vec![chordlib::types::SongFlowItem {

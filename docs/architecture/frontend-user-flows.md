@@ -434,7 +434,7 @@ flowchart TD
     ins -->|No| add["Insert song (duplicate badge if already present) → autosave"]
 ```
 
-### E5. Change a song's key in a setlist
+### E5. Change a song's key or capo shape in a setlist
 
 ```mermaid
 flowchart TD
@@ -442,6 +442,11 @@ flowchart TD
     chip --> pop(["Key picker popover"])
     pop --> keys["Pick one of 12 keys (C, Db, D, …, B)"]
     keys --> set["Set explicit slot key → autosave"]
+    row --> capo["Capo: {shape} chip"]
+    capo --> capoPop["Capo picker popover"]
+    capoPop --> shapes["Pick G/C/E/D/A shape; fret derives from sounding key"]
+    shapes --> capoSet["Save capo_shape on the setlist item → autosave"]
+    capoPop --> capoReset["Reset → remove saved capo shape"]
     note["No 'reset to original' option — always explicit"]
 ```
 
@@ -589,11 +594,16 @@ flowchart TD
     how -->|Chrome → Transpose button| pop(["Transpose popover"])
     pop --> def["Default → clear override"]
     pop --> key["Pick key (C…B) → set override"]
+    pop --> capo["Capo → pick G/C/E/D/A shape; keep sounding key and show capo fret"]
     how -->|Keys A–G| setroot["Set transpose to that root"]
     how -->|r| reset["Reset to default"]
     how -->|b or -| down["Down one semitone"]
     how -->|# or +| up["Up one semitone"]
-    note["Transpose is per-item, persisted locally (not in URL)"]
+    note["Transpose and local capo changes are per-item, persisted locally (not in URL)"]
+    saved["Setlist items load their saved capo_shape as the standalone sheet baseline"]
+    saved -.-> note
+    room["Room playback ignores saved/local capo controls and keeps existing transpose behavior"]
+    capo -.-> note2["With a capo shape selected, key changes move the sounding key and recalculate the capo while keeping the shape"]
 ```
 
 ### H4. Other sheet-mode controls (keyboard)

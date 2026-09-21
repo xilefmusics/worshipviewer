@@ -22,6 +22,9 @@ export function makeSlotRow(link: EditorSongLink): SongSlotRow {
   const id = normalizeSongLinkId(link.id)
   const key = coerceMusicalKeyString(link.key)
   const row: EditorSongLink = { id, key }
+  if (link.capoShapeKey !== undefined) {
+    row.capoShapeKey = link.capoShapeKey
+  }
   if (link.nr !== undefined) {
     row.nr = normalizeSongLinkNr(link.nr)
   }
