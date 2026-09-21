@@ -20,10 +20,12 @@ import type { ChordEngine, ChordSongData } from '@/ports/chord-engine'
 function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
   return {
     parseChordPro: vi.fn(() => ({ titles: ['Hello'], sections: [] })),
+    parseMarkdown: vi.fn(() => ({ titles: ['Hello'], sections: [] })),
     parseSongBeamer: vi.fn(() => ({ titles: ['Hello'], sections: [] })),
     parseProPresenter: vi.fn(() => ({ titles: ['Hello'], sections: [] })),
     parseUltimateGuitarHtml: vi.fn(),
     formatChordPro: vi.fn(() => '{title: Hello}'),
+    formatMarkdown: vi.fn(() => '---\ntitles: [Hello]\n---\n# Verse\n'),
     formatSongBeamer: vi.fn(() => new Uint8Array([0xef, 0xbb, 0xbf])),
     formatProPresenter: vi.fn(() => new Uint8Array([0x08, 0x01])),
     renderA4Html: vi.fn(() => ({ html: '<div></div>', css: '' })),

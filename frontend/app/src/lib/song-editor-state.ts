@@ -14,6 +14,8 @@ import {
   type FormatChordProOptions,
 } from '@/ports/chord-engine'
 
+export type SongEditorTextFormat = 'chordpro' | 'markdown'
+
 /** Format options for Worship Pro source in the song editor. */
 export function songEditorFormatOptions(
   chordFormat: ChordFormatPreference = 'letters',
@@ -118,9 +120,13 @@ export type ParseSourceResult =
   | { ok: true; data: ChordSongData }
   | { ok: false; error: string }
 
-export function parseSourceWithEngine(engine: ChordEngine, source: string): ParseSourceResult {
+export function parseSourceWithEngine(
+  engine: ChordEngine,
+  source: string,
+  format: SongEditorTextFormat = 'chordpro',
+): ParseSourceResult {
   try {
-    const data = engine.parseChordPro(source)
+    const data = format === 'markdown' ? engine.parseMarkdown(source) : engine.parseChordPro(source)
     return { ok: true, data }
   } catch (e) {
     const message = e instanceof ChordEngineError ? e.message : String(e)
@@ -411,9 +417,10 @@ export function applyKeyChangeToSource(
   mode: KeyChangeChordMode,
   previousKey: string,
   chordFormat: ChordFormatPreference = 'letters',
+  format: SongEditorTextFormat = 'chordpro',
 ): string {
   const changed = applyKeyChangeToSongData(parsed, strip, mode, previousKey)
-  return engine.formatChordPro(changed, songEditorFormatOptions(chordFormat, changed))
+  return formatSourceFromSongData(engine, changed, chordFormat, format)
 }
 
 /** Apply a key change to canonical song data so the chosen chord behavior survives saving. */
@@ -441,16 +448,23 @@ export function applyMetadataStripToSource(
   parsed: ChordSongData,
   strip: SongMetadataStrip,
   chordFormat: ChordFormatPreference = 'letters',
+  format: SongEditorTextFormat = 'chordpro',
 ): string {
   const merged = mergeSongDataWithMetadataStrip(parsed, strip)
-  return engine.formatChordPro(merged, songEditorFormatOptions(chordFormat, merged))
+  return formatSourceFromSongData(engine, merged, chordFormat, format)
 }
 
 export function formatSourceFromSongData(
   engine: ChordEngine,
   data: ChordSongData,
   chordFormat: ChordFormatPreference = 'letters',
+  format: SongEditorTextFormat = 'chordpro',
 ): string {
+  if (format === 'markdown') {
+    return engine.formatMarkdown(data, {
+      representation: chordFormatToRepresentation(chordFormat),
+    })
+  }
   return engine.formatChordPro(data, songEditorFormatOptions(chordFormat, data))
 }
 

@@ -3,6 +3,7 @@ import {
   type ChordEngine,
   type ChordSongData,
   type FormatChordProOptions,
+  type FormatMarkdownOptions,
   type FormatPresentationOptions,
   type RenderA4HtmlOptions,
   type SongFlowItem,
@@ -47,6 +48,10 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
       return wrapWasmError(() => parseSongJson(wasm.parseChordPro(source)))
     },
 
+    parseMarkdown(source: string) {
+      return wrapWasmError(() => parseSongJson(wasm.parseMarkdown(source)))
+    },
+
     parseSongBeamer(bytes: Uint8Array) {
       return wrapWasmError(() => parseSongJson(wasm.parseSongBeamer(bytes)))
     },
@@ -70,6 +75,11 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
           options?.language,
         ),
       )
+    },
+
+    formatMarkdown(song: ChordSongData, options?: FormatMarkdownOptions) {
+      const json = JSON.stringify(song)
+      return wrapWasmError(() => wasm.formatMarkdown(json, options?.representation))
     },
 
     formatSongBeamer(song: ChordSongData, options?: FormatPresentationOptions) {

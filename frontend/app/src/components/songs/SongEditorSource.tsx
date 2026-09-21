@@ -5,25 +5,35 @@ import { useMemo } from 'react'
 import { chordProAutocomplete } from '@/lib/chordpro-editor/autocomplete'
 import { chordProLanguageSupport } from '@/lib/chordpro-editor/language'
 import { chordProEditorTheme } from '@/lib/chordpro-editor/theme'
+import { markdownLanguageSupport } from '@/lib/markdown-editor/language'
+import type { SongEditorTextFormat } from '@/lib/song-editor-state'
 import { cn } from '@/lib/utils'
 
 type SongEditorSourceProps = {
   id: string
   value: string
+  format: SongEditorTextFormat
   readOnly: boolean
   onChange: (value: string) => void
   className?: string
 }
 
-export function SongEditorSource({ id, value, readOnly, onChange, className }: SongEditorSourceProps) {
+export function SongEditorSource({ id, value, format, readOnly, onChange, className }: SongEditorSourceProps) {
   const extensions = useMemo(
-    () => [
-      chordProLanguageSupport(),
-      chordProAutocomplete,
-      EditorView.lineWrapping,
-      EditorView.contentAttributes.of({ spellcheck: 'false' }),
-    ],
-    [],
+    () =>
+      format === 'chordpro'
+        ? [
+            chordProLanguageSupport(),
+            chordProAutocomplete,
+            EditorView.lineWrapping,
+            EditorView.contentAttributes.of({ spellcheck: 'false' }),
+          ]
+        : [
+            markdownLanguageSupport(),
+            EditorView.lineWrapping,
+            EditorView.contentAttributes.of({ spellcheck: 'false' }),
+          ],
+    [format],
   )
 
   return (

@@ -947,8 +947,8 @@
       "readOnlyBanner": "Schreibgeschützt — du hast auf diesem Team keine Bearbeitungsrechte für die Bibliothek.",
       "bannerOfflineEditing": "Du bist offline — Bearbeitung ist pausiert.",
       "notASongChip": "Dieser Eintrag ist als «kein Song» markiert (schreibgeschützt).",
-      "parseErrorTitle": "ChordPro-Fehler beheben, bevor gespeichert werden kann:",
-      "parseBlocked": "Speichern pausiert, bis ChordPro fehlerfrei parst.",
+      "parseErrorTitle": "Fehler im Songtext beheben, bevor gespeichert werden kann:",
+      "parseBlocked": "Speichern pausiert, bis der Songtext fehlerfrei parst.",
       "previewBlocked": "Vorschau nicht verfügbar, solange die Quelle Parse-Fehler hat.",
       "previewRenderFailed": "Vorschau konnte nicht gerendert werden.",
       "previewLabel": "Vorschau",
@@ -1000,11 +1000,13 @@
         "translationChordMismatch": "Akkorde der Übersetzung stimmen nicht mit der Originalzeile überein"
       },
       "sourceLabel": "ChordPro-Quelltext",
+      "markdownSourceLabel": "Markdown-Quelltext",
       "metadataLabel": "Metadaten",
       "tabsAria": "Song-Editor-Bereiche",
       "tabs": {
         "simple": "Einfach",
-        "advanced": "Erweitert"
+        "advanced": "Erweitert",
+        "markdown": "Markdown"
       },
       "titleLabel": "Titel",
       "titleNumberedLabel": "Titel {{number}}",

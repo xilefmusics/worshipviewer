@@ -947,8 +947,8 @@
       "readOnlyBanner": "Read-only — you don’t have edit access on this team.",
       "bannerOfflineEditing": "You’re offline — editing is paused.",
       "notASongChip": "This item is marked as not a song (read-only).",
-      "parseErrorTitle": "Fix ChordPro errors before saving:",
-      "parseBlocked": "Saving paused until ChordPro parses cleanly.",
+      "parseErrorTitle": "Fix song text errors before saving:",
+      "parseBlocked": "Saving paused until the song text parses cleanly.",
       "previewBlocked": "Preview unavailable while the source has parse errors.",
       "previewRenderFailed": "Could not render preview.",
       "previewLabel": "Preview",
@@ -1000,11 +1000,13 @@
         "translationChordMismatch": "Translation chords do not match the original line"
       },
       "sourceLabel": "ChordPro source",
+      "markdownSourceLabel": "Markdown source",
       "metadataLabel": "Metadata",
       "tabsAria": "Song editor sections",
       "tabs": {
         "simple": "Simple",
-        "advanced": "Advanced"
+        "advanced": "Advanced",
+        "markdown": "Markdown"
       },
       "titleLabel": "Title",
       "titleNumberedLabel": "Title {{number}}",

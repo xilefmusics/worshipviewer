@@ -50,6 +50,7 @@ import {
   SONG_EDITOR_TYPING_DEBOUNCE_MS,
   shouldPromptKeyChangeChords,
   type KeyChangeChordMode,
+  type SongEditorTextFormat,
   type SongMetadataStrip,
 } from '@/lib/song-editor-state'
 import {
@@ -65,9 +66,9 @@ import {
 import type { ChordEngine, ChordSongData } from '@/ports/chord-engine'
 import { cn } from '@/lib/utils'
 
-type EditorTab = 'simple' | 'advanced'
+type EditorTab = 'simple' | 'advanced' | 'markdown'
 
-const editorTabs: EditorTab[] = ['simple', 'advanced']
+const editorTabs: EditorTab[] = ['simple', 'advanced', 'markdown']
 
 type EngineState =
   | { status: 'loading' }
@@ -111,6 +112,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   const [parseError, setParseError] = useState<string | null>(null)
   const [ugImportUi, setUgImportUi] = useState<UgImportUiState>({ kind: 'idle' })
   const [activeTab, setActiveTab] = useState<EditorTab>('simple')
+  const [sourceFormat, setSourceFormat] = useState<SongEditorTextFormat>('chordpro')
   const lastLoadedSongRef = useRef('')
   const [resumePrompt, setResumePrompt] = useState(false)
   const [keyChangePrompt, setKeyChangePrompt] = useState<{
@@ -162,6 +164,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     composeSongDataRef.current = songData
     const strip = metadataStripFromSongData(songData)
     const source = formatSourceFromSongData(engine, songData, chordFormat)
+    setSourceFormat('chordpro')
     setSourceText(source)
     setMetadataStrip(strip)
     setParseError(null)
@@ -175,8 +178,8 @@ export function SongEditorScreen({ songId }: { songId: string }) {
 
   const parseResult = useMemo(() => {
     if (!engine) return null
-    return parseSourceWithEngine(engine, sourceText)
-  }, [engine, sourceText])
+    return parseSourceWithEngine(engine, sourceText, sourceFormat)
+  }, [engine, sourceFormat, sourceText])
   const parseResultRef = useRef(parseResult)
   useEffect(() => {
     parseResultRef.current = parseResult
@@ -199,7 +202,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
       }, 0)
       return () => clearTimeout(clearId)
     }
-    const errors = parseErrors
+    const errors = parseErrors.length > 0 ? parseErrors : [effectiveParseError]
     const id = setTimeout(() => {
       setDisplayedParseError(effectiveParseError)
       setDisplayedParseErrors(errors)
@@ -274,21 +277,30 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   useRegisterSongEditorNavigationBridge(navigationBridge)
 
   const applyCanonicalSongDataToEditor = useCallback(
-    (songData: ChordSongData) => {
-      if (!engine) return
+    (songData: ChordSongData, nextFormat: SongEditorTextFormat = sourceFormat): boolean => {
+      if (!engine) return false
       const stripped = stripEmptyLinesFromSongData(songData)
+      let nextSource: string
+      try {
+        nextSource = formatSourceFromSongData(engine, stripped, chordFormat, nextFormat)
+      } catch (e) {
+        setParseError(e instanceof Error ? e.message : String(e))
+        return false
+      }
       composeSongDataRef.current = stripped
       const strip = metadataStripFromSongData(stripped)
       skipComposeResyncRef.current = true
       setComposeSections(
         composeSectionsFromSongData(stripped, engine, strip.key || null, chordFormat),
       )
-      setSourceText(formatSourceFromSongData(engine, stripped, chordFormat))
+      setSourceFormat(nextFormat)
+      setSourceText(nextSource)
       setMetadataStrip(strip)
       setParseError(null)
       setComposeDraftRevision((revision) => revision + 1)
+      return true
     },
-    [chordFormat, engine],
+    [chordFormat, engine, sourceFormat],
   )
 
   const switchEditorTab = useCallback(
@@ -299,13 +311,24 @@ export function SongEditorScreen({ songId }: { songId: string }) {
         if (ok === false) return
       }
       const parsed = parseResultRef.current
+      const nextFormat: SongEditorTextFormat =
+        tab === 'markdown' ? 'markdown' : tab === 'advanced' ? 'chordpro' : sourceFormat
+      const formatChanged = tab !== 'simple' && nextFormat !== sourceFormat
+      if (formatChanged && !parsed?.ok) return
       if (engine && parsed?.ok) {
         const data = (composeSongDataRef.current ?? parsed.data) as ChordSongData
-        applyCanonicalSongDataToEditor(data)
+        if (!applyCanonicalSongDataToEditor(data, nextFormat)) return
       }
       setActiveTab(tab)
     },
-    [activeTab, applyCanonicalSongDataToEditor, canAutosavePatch, engine, flushNow],
+    [
+      activeTab,
+      applyCanonicalSongDataToEditor,
+      canAutosavePatch,
+      engine,
+      flushNow,
+      sourceFormat,
+    ],
   )
 
   useEffect(() => {
@@ -335,9 +358,9 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     const data = composeSongDataRef.current ?? (current?.ok ? current.data : null)
     if (!data) return
     queueMicrotask(() => {
-      setSourceText(formatSourceFromSongData(engine, data, chordFormat))
+      setSourceText(formatSourceFromSongData(engine, data, chordFormat, sourceFormat))
     })
-  }, [chordFormat, engine])
+  }, [chordFormat, engine, sourceFormat])
 
   useEffect(() => {
     if (!engine || !detail || saveRevision === 0) return
@@ -351,7 +374,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
   const sourceBlocked = blockingAll || !editable || !engineReady
 
   useEffect(() => {
-    if (!engine || !editable || sourceBlocked) {
+    if (!engine || !editable || sourceBlocked || sourceFormat !== 'chordpro') {
       queueMicrotask(() => setUgImportUi({ kind: 'idle' }))
       return
     }
@@ -388,7 +411,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     }, SONG_EDITOR_TYPING_DEBOUNCE_MS)
 
     return () => clearTimeout(timer)
-  }, [sourceText, engine, editable, sourceBlocked, chordFormat, parseResult?.ok])
+  }, [sourceText, engine, editable, sourceBlocked, sourceFormat, chordFormat, parseResult?.ok])
 
   const retryAfterUntil = saveFailure?.retryAfterUntil
   const [retrySec, setRetrySec] = useState(0)
@@ -410,7 +433,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
       setComposeDraftRevision((revision) => revision + 1)
       setSourceText(next)
       if (!engine) return
-      const parsed = parseSourceWithEngine(engine, next)
+      const parsed = parseSourceWithEngine(engine, next, sourceFormat)
       if (parsed.ok) {
         setParseError(null)
         setMetadataStrip(metadataStripFromSongData(parsed.data))
@@ -418,7 +441,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
         setParseError(parsed.error)
       }
     },
-    [engine, sourceBlocked],
+    [engine, sourceBlocked, sourceFormat],
   )
 
   const commitMetadataStrip = useCallback(
@@ -427,11 +450,21 @@ export function SongEditorScreen({ songId }: { songId: string }) {
       const base = composeSongDataRef.current ?? (parseResult?.ok ? parseResult.data : null)
       if (!base) return
       const strip = stripOverride ?? metadataStrip
-      const nextSource = applyMetadataStripToSource(engine, base, strip, chordFormat)
-      setSourceText(nextSource)
-      setParseError(null)
+      try {
+        const nextSource = applyMetadataStripToSource(
+          engine,
+          base,
+          strip,
+          chordFormat,
+          sourceFormat,
+        )
+        setSourceText(nextSource)
+        setParseError(null)
+      } catch (e) {
+        setParseError(e instanceof Error ? e.message : String(e))
+      }
     },
-    [engine, metadataStrip, parseResult, sourceBlocked, chordFormat],
+    [engine, metadataStrip, parseResult, sourceBlocked, chordFormat, sourceFormat],
   )
 
   const commitKeyChange = useCallback(
@@ -446,16 +479,23 @@ export function SongEditorScreen({ songId }: { songId: string }) {
         previousKey,
       )
       composeSongDataRef.current = changed
+      let nextSource: string
+      try {
+        nextSource = formatSourceFromSongData(engine, changed, chordFormat, sourceFormat)
+      } catch (e) {
+        setParseError(e instanceof Error ? e.message : String(e))
+        return
+      }
       skipComposeResyncRef.current = true
       setComposeSections(
         composeSectionsFromSongData(changed, engine, strip.key || null, chordFormat),
       )
       setComposeDraftRevision((revision) => revision + 1)
-      setSourceText(formatSourceFromSongData(engine, changed, chordFormat))
+      setSourceText(nextSource)
       setMetadataStrip(metadataStripFromSongData(changed))
       setParseError(null)
     },
-    [chordFormat, engine, parseResult, sourceBlocked],
+    [chordFormat, engine, parseResult, sourceBlocked, sourceFormat],
   )
 
   const onKeySelectChange = useCallback(
@@ -503,9 +543,13 @@ export function SongEditorScreen({ songId }: { songId: string }) {
       )
       composeSongDataRef.current = merged
       setComposeDraftRevision((revision) => revision + 1)
-      const nextSource = formatSourceFromSongData(engine, merged, chordFormat)
-      setSourceText(nextSource)
-      setParseError(null)
+      try {
+        const nextSource = formatSourceFromSongData(engine, merged, chordFormat, sourceFormat)
+        setSourceText(nextSource)
+        setParseError(null)
+      } catch (e) {
+        setParseError(e instanceof Error ? e.message : String(e))
+      }
     },
     [
       chordFormat,
@@ -515,6 +559,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
       metadataStrip.languageEntries.length,
       parseResult,
       sourceBlocked,
+      sourceFormat,
     ],
   )
 
@@ -586,7 +631,14 @@ export function SongEditorScreen({ songId }: { songId: string }) {
     await queryClient.invalidateQueries({ queryKey: songDetailQueryKey(songId) })
     const r = await refetch()
     if (r.data && engine) {
-      setSourceText(formatSourceFromSongData(engine, r.data.data as Record<string, unknown>, chordFormat))
+      setSourceText(
+        formatSourceFromSongData(
+          engine,
+          r.data.data as Record<string, unknown>,
+          chordFormat,
+          sourceFormat,
+        ),
+      )
       setMetadataStrip(metadataStripFromSongData(r.data.data as Record<string, unknown>))
       setParseError(null)
     }
@@ -713,7 +765,7 @@ export function SongEditorScreen({ songId }: { songId: string }) {
                 const rolled = discardFailedSave()
                 if (rolled && engine) {
                   const data = rolled as unknown as Record<string, unknown>
-                  setSourceText(formatSourceFromSongData(engine, data, chordFormat))
+                  setSourceText(formatSourceFromSongData(engine, data, chordFormat, sourceFormat))
                   setMetadataStrip(metadataStripFromSongData(data))
                   setParseError(null)
                 }
@@ -970,19 +1022,24 @@ export function SongEditorScreen({ songId }: { songId: string }) {
         </div>
       ) : null}
 
-      {activeTab === 'advanced' ? (
+      {activeTab === 'advanced' || activeTab === 'markdown' ? (
         <div
           role="tabpanel"
-          id={`song-editor-panel-advanced-${songId}`}
-          aria-labelledby={`song-editor-tab-advanced-${songId}`}
+          id={`song-editor-panel-${activeTab}-${songId}`}
+          aria-labelledby={`song-editor-tab-${activeTab}-${songId}`}
           className="grid min-h-0 gap-1.5"
         >
           <label htmlFor={`song-editor-source-${songId}`} className="sr-only">
-            {t('songs.editor.sourceLabel')}
+            {t(
+              sourceFormat === 'markdown'
+                ? 'songs.editor.markdownSourceLabel'
+                : 'songs.editor.sourceLabel',
+            )}
           </label>
           <SongEditorSource
             id={`song-editor-source-${songId}`}
             value={sourceText}
+            format={sourceFormat}
             readOnly={sourceBlocked}
             onChange={onSourceChange}
           />

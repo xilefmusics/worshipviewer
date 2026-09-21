@@ -213,6 +213,9 @@ function mockEngine(): ChordEngine {
       }
       return sample
     },
+    parseMarkdown() {
+      return sample
+    },
     parseUltimateGuitarHtml() {
       return sample
     },
@@ -243,6 +246,9 @@ function mockEngine(): ChordEngine {
         return '{title: _}\n{key: C}\n{section: _}\n[C]x'
       }
       return '{title: _}\n{section: _}\nx'
+    },
+    formatMarkdown() {
+      return '---\ntitles: [_]\n---\n# _\n'
     },
     formatSongBeamer() {
       return new Uint8Array()
