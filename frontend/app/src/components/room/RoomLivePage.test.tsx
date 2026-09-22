@@ -209,9 +209,20 @@ describe('RoomLivePage responsive player layout', () => {
     render(<RoomLivePage credentials={{ ...credentials, mode: 'sheet' }} />)
 
     expect(screen.queryByRole('tablist', { name: 'rooms.panels' })).not.toBeInTheDocument()
-    expect(playerBookProps).toEqual(expect.objectContaining({ embedded: true }))
+    expect(playerBookProps).toEqual(expect.objectContaining({
+      embedded: true,
+      enableEmbeddedSwipeNavigation: true,
+    }))
     expect(playerBookProps).not.toHaveProperty('tocSidebar')
     expect(playerBookProps).not.toHaveProperty('roomSidebar')
+  })
+
+  it('does not enable embedded Sheet swipes for desktop rooms', () => {
+    mockRoom(snapshotWithProjection(null))
+
+    render(<RoomLivePage credentials={{ ...credentials, mode: 'sheet' }} />)
+
+    expect(playerBookProps).not.toHaveProperty('enableEmbeddedSwipeNavigation')
   })
 
   it('keeps AV in the three-panel shell on mobile', () => {

@@ -9,6 +9,7 @@ import { PlayerBook } from '@/components/player/PlayerBook'
 const mocks = vi.hoisted(() => ({
   setSongLikeStatus: vi.fn(),
   toastError: vi.fn(),
+  isPhoneViewport: false,
 }))
 const localStorageState = new Map<string, string>()
 const localStorageMock = {
@@ -68,11 +69,23 @@ vi.mock('@/components/player/PlayerLikeHeartBurst', () => ({
   ),
 }))
 vi.mock('@/components/player/PlayerTocSidebar', () => ({
-  PlayerTocSidebar: ({ toc }: { toc: components['schemas']['TocItem'][] }) => (
-    <div data-testid="liked-toc">
+  PlayerTocSidebar: ({
+    toc,
+    className,
+    onSelect,
+  }: {
+    toc: components['schemas']['TocItem'][]
+    className?: string
+    onSelect: (sourceIdx: number, languageIndex: number | null) => void
+  }) => (
+    <div data-testid="liked-toc" className={className}>
       {toc
         .filter((row) => row.liked)
-        .map((row) => <div key={`${row.idx}:${row.title}`}>{row.title}</div>)}
+        .map((row) => (
+          <button key={`${row.idx}:${row.title}`} type="button" onClick={() => onSelect(row.idx, null)}>
+            {row.title}
+          </button>
+        ))}
     </div>
   ),
 }))
@@ -81,7 +94,7 @@ vi.mock('@/hooks/useChordFormatPreference', () => ({
   useChordFormatPreference: () => 'letters',
 }))
 vi.mock('@/hooks/useMediaQuery', () => ({
-  useIsPhoneWidth: () => false,
+  useIsPhoneWidth: () => mocks.isPhoneViewport,
   useMediaQuery: () => false,
 }))
 vi.mock('@/hooks/use-online', () => ({ useOnline: () => true }))
@@ -180,6 +193,8 @@ function renderPlayer(
   embedded = false,
   roomMusicalState?: { item_index: number; started: boolean; language: string | null; transposition: string | null },
   canControlRoomMusicalState = false,
+  initialIndex?: number,
+  enableEmbeddedSwipeNavigation = false,
 ) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -188,8 +203,10 @@ function renderPlayer(
         type="setlist"
         id="setlist-1"
         player={value}
+        initialIndex={initialIndex}
         allowNetworkFetch
         embedded={embedded}
+        enableEmbeddedSwipeNavigation={enableEmbeddedSwipeNavigation}
         roomSidebar={roomSidebar}
         tocSidebar={tocSidebar}
         roomMusicalState={roomMusicalState}
@@ -201,6 +218,7 @@ function renderPlayer(
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.isPhoneViewport = false
   localStorageState.clear()
   vi.stubGlobal('localStorage', localStorageMock)
 })
@@ -293,6 +311,223 @@ describe('PlayerBook likes', () => {
     expect(window.localStorage.getItem('wv_chord_song_font_scale')).toBeNull()
   })
 
+  it('swipes right to the previous item away from the left edge', () => {
+    mocks.isPhoneViewport = true
+    renderPlayer(player(), null, undefined, false, undefined, false, 2)
+    const main = screen.getByRole('main')
+
+    fireEvent.touchStart(main, { touches: [{ clientX: 100, clientY: 50 }] })
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 180, clientY: 50 }] })
+
+    expect(within(main).getByText('song-1')).toBeInTheDocument()
+  })
+
+  it('supports touch pointer events at every standalone viewport width', () => {
+    renderPlayer(player(), null, undefined, false, undefined, false, 2)
+    const main = screen.getByRole('main')
+
+    expect(main).toHaveStyle({ touchAction: 'pan-y', overscrollBehaviorX: 'none' })
+    fireEvent.pointerDown(main, { pointerId: 1, pointerType: 'touch', clientX: 100, clientY: 50 })
+    fireEvent.pointerUp(main, { pointerId: 1, pointerType: 'touch', clientX: 20, clientY: 50 })
+
+    expect(within(main).getByText('song-2')).toBeInTheDocument()
+  })
+
+  it('opens the TOC for a left-edge swipe at non-phone widths', () => {
+    renderPlayer(player(), null, undefined, false, undefined, false, 2)
+    const main = screen.getByRole('main')
+
+    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 80, clientY: 50 }] })
+
+    expect(screen.getByTestId('liked-toc')).toBeInTheDocument()
+    expect(within(main).getByText('song-2')).toBeInTheDocument()
+  })
+
+  it('keeps adjacent songs beside the current song and snaps after a swipe', () => {
+    mocks.isPhoneViewport = true
+    renderPlayer(player(), null, undefined, false, undefined, false, 1)
+    const main = screen.getByRole('main')
+    vi.spyOn(main, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
+    )
+
+    fireEvent.touchStart(main, { touches: [{ clientX: 80, clientY: 50 }] })
+    fireEvent.touchMove(main, { touches: [{ clientX: 30, clientY: 50 }] })
+
+    const track = screen.getByTestId('player-swipe-track')
+    expect(track.style.transform).toContain('-50px')
+    expect(within(main).getAllByText('song-1')).toHaveLength(2)
+    expect(within(main).getByText('song-2')).toBeInTheDocument()
+
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 0, clientY: 50 }] })
+    expect(track.style.transition).toContain('transform')
+    fireEvent.transitionEnd(track, { propertyName: 'transform' })
+
+    expect(screen.queryByTestId('player-swipe-track')).not.toBeInTheDocument()
+    expect(within(main).getByText('song-2')).toBeInTheDocument()
+  })
+
+  it('uses the swipe track animation for click-zone navigation', async () => {
+    renderPlayer(player(), null, undefined, false, undefined, false, 2)
+    const main = screen.getByRole('main')
+    vi.spyOn(main, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
+    )
+
+    fireEvent.click(main, { clientX: 10, clientY: 50, detail: 1 })
+
+    const track = screen.getByTestId('player-swipe-track')
+    await waitFor(() => expect(track.style.transform).toContain('100px'))
+    expect(track.style.transition).toContain('transform')
+    fireEvent.transitionEnd(track, { propertyName: 'transform' })
+
+    expect(screen.queryByTestId('player-swipe-track')).not.toBeInTheDocument()
+    expect(within(main).getByText('song-1')).toBeInTheDocument()
+  })
+
+  it('does not finish the previous-song animation on a nested transition', async () => {
+    renderPlayer(player(), null, undefined, false, undefined, false, 2)
+    const main = screen.getByRole('main')
+    vi.spyOn(main, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
+    )
+
+    fireEvent.click(main, { clientX: 10, clientY: 50, detail: 1 })
+
+    const track = screen.getByTestId('player-swipe-track')
+    await waitFor(() => expect(track.style.transform).toContain('100px'))
+    fireEvent.transitionEnd(track.firstElementChild as HTMLElement, { propertyName: 'transform' })
+
+    expect(screen.getByTestId('player-swipe-track')).toBeInTheDocument()
+    expect(within(main).getAllByText('song-2')).toHaveLength(2)
+
+    fireEvent.transitionEnd(track, { propertyName: 'transform' })
+    expect(screen.queryByTestId('player-swipe-track')).not.toBeInTheDocument()
+    expect(within(main).getByText('song-1')).toBeInTheDocument()
+  })
+
+  it('opens the full-width TOC for a right swipe from the left edge', () => {
+    mocks.isPhoneViewport = true
+    renderPlayer(player(), null, undefined, false, undefined, false, 2)
+    const main = screen.getByRole('main')
+
+    expect(main).toHaveStyle({ touchAction: 'pan-y', overscrollBehaviorX: 'none' })
+
+    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 80, clientY: 50 }] })
+
+    const toc = screen.getByTestId('liked-toc')
+    expect(toc).toHaveClass('w-full', 'border-r-0')
+    expect(toc.parentElement).toHaveClass('w-full')
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    expect(within(main).getByText('song-2')).toBeInTheDocument()
+  })
+
+  it('animates back to the song panel when selecting a fullscreen TOC row', async () => {
+    mocks.isPhoneViewport = true
+    renderPlayer(player(), null, undefined, false, undefined, false, 2)
+    const main = screen.getByRole('main')
+
+    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 80, clientY: 50 }] })
+
+    const toc = screen.getByTestId('liked-toc')
+    const tocOverlay = toc.parentElement?.parentElement
+    expect(tocOverlay).not.toBeNull()
+    vi.spyOn(tocOverlay!, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
+    )
+
+    const track = screen.getByTestId('player-toc-swipe-track')
+    fireEvent.click(within(toc).getByRole('button', { name: 'Other' }))
+
+    expect(within(main).getByText('song-2')).toBeInTheDocument()
+    expect(track.style.transform).toContain('-100px')
+    expect(track.style.transition).toContain('transform')
+
+    fireEvent.transitionEnd(track, { propertyName: 'transform' })
+    await waitFor(() => expect(screen.queryByTestId('liked-toc')).not.toBeInTheDocument())
+  })
+
+  it('swipes left inside the fullscreen TOC to return to the song', async () => {
+    mocks.isPhoneViewport = true
+    renderPlayer(player(), null, undefined, false, undefined, false, 2)
+    const main = screen.getByRole('main')
+
+    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 80, clientY: 50 }] })
+
+    const toc = screen.getByTestId('liked-toc')
+    const tocOverlay = toc.parentElement?.parentElement
+    expect(tocOverlay).not.toBeNull()
+    vi.spyOn(tocOverlay!, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
+    )
+
+    fireEvent.touchStart(toc, { touches: [{ clientX: 180, clientY: 50 }] })
+    fireEvent.touchMove(toc, { touches: [{ clientX: 130, clientY: 50 }] })
+
+    const track = screen.getByTestId('player-toc-swipe-track')
+    expect(track.style.transform).toContain('-50px')
+    expect(within(main).getByText('song-2')).toBeInTheDocument()
+
+    fireEvent.touchEnd(toc, { changedTouches: [{ clientX: 130, clientY: 50 }] })
+    expect(track.style.transform).toContain('-100px')
+    expect(track.style.transition).toContain('transform')
+    fireEvent.transitionEnd(track, { propertyName: 'transform' })
+
+    await waitFor(() => expect(screen.queryByTestId('liked-toc')).not.toBeInTheDocument())
+    expect(within(main).getByText('song-2')).toBeInTheDocument()
+  })
+
+  it('keeps the fullscreen TOC open for vertical and non-dismissal swipes', () => {
+    mocks.isPhoneViewport = true
+    renderPlayer(player(), null, undefined, false, undefined, false, 2)
+    const main = screen.getByRole('main')
+
+    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 80, clientY: 50 }] })
+
+    const toc = screen.getByTestId('liked-toc')
+    const tocOverlay = toc.parentElement?.parentElement
+    expect(tocOverlay).not.toBeNull()
+    vi.spyOn(tocOverlay!, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
+    )
+
+    fireEvent.touchStart(toc, { touches: [{ clientX: 180, clientY: 50 }] })
+    fireEvent.touchMove(toc, { touches: [{ clientX: 170, clientY: 0 }] })
+    fireEvent.touchEnd(toc, { changedTouches: [{ clientX: 170, clientY: 0 }] })
+    expect(screen.getByTestId('liked-toc')).toBeInTheDocument()
+
+    fireEvent.touchStart(toc, { touches: [{ clientX: 100, clientY: 50 }] })
+    fireEvent.touchEnd(toc, { changedTouches: [{ clientX: 140, clientY: 50 }] })
+    expect(screen.getByTestId('liked-toc')).toBeInTheDocument()
+
+    fireEvent.touchStart(toc, { touches: [{ clientX: 100, clientY: 50 }] })
+    fireEvent.touchMove(toc, { touches: [{ clientX: 70, clientY: 50 }] })
+    const track = screen.getByTestId('player-toc-swipe-track')
+    expect(track.style.transform).toContain('-30px')
+    fireEvent.touchEnd(toc, { changedTouches: [{ clientX: 70, clientY: 50 }] })
+    expect(track.style.transform).toContain('0px')
+    expect(track.style.transition).toContain('transform')
+    fireEvent.transitionEnd(track, { propertyName: 'transform' })
+    expect(screen.getByTestId('liked-toc')).toBeInTheDocument()
+  })
+
+  it('reserves a left swipe from the left edge without navigating', () => {
+    mocks.isPhoneViewport = true
+    renderPlayer(player(), null, undefined, false, undefined, false, 2)
+    const main = screen.getByRole('main')
+
+    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: -80, clientY: 50 }] })
+
+    expect(within(main).getByText('song-2')).toBeInTheDocument()
+    expect(screen.queryByTestId('liked-toc')).not.toBeInTheDocument()
+  })
+
   it('leaves one-finger swipe navigation to the room shell when embedded', () => {
     renderPlayer(player(), null, undefined, true)
     const main = screen.getByRole('main')
@@ -305,6 +540,46 @@ describe('PlayerBook likes', () => {
     fireEvent.touchEnd(main, { changedTouches: [end] })
 
     expect(within(main).queryByText('song-2')).not.toBeInTheDocument()
+  })
+
+  it('navigates songs for embedded room swipes away from both panel edges', () => {
+    mocks.isPhoneViewport = true
+    renderPlayer(player(), null, undefined, true, undefined, false, 1, true)
+    const main = screen.getByRole('main')
+    vi.spyOn(main, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
+    )
+
+    fireEvent.touchStart(main, { touches: [{ clientX: 50, clientY: 50 }] })
+    fireEvent.touchMove(main, { touches: [{ clientX: 0, clientY: 50 }] })
+
+    const track = screen.getByTestId('player-swipe-track')
+    expect(track.style.transform).toContain('-50px')
+
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: -50, clientY: 50 }] })
+    fireEvent.transitionEnd(track, { propertyName: 'transform' })
+
+    expect(within(main).getByText('song-2')).toBeInTheDocument()
+  })
+
+  it('leaves both embedded room edge swipes to the room panel shell', () => {
+    mocks.isPhoneViewport = true
+    renderPlayer(player(), null, undefined, true, undefined, false, 1, true)
+    const main = screen.getByRole('main')
+    vi.spyOn(main, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
+    )
+
+    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
+    fireEvent.touchMove(main, { touches: [{ clientX: 60, clientY: 50 }] })
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 80, clientY: 50 }] })
+
+    fireEvent.touchStart(main, { touches: [{ clientX: 100, clientY: 50 }] })
+    fireEvent.touchMove(main, { touches: [{ clientX: 40, clientY: 50 }] })
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 20, clientY: 50 }] })
+
+    expect(screen.queryByTestId('player-swipe-track')).not.toBeInTheDocument()
+    expect(within(main).getByText('song-1')).toBeInTheDocument()
   })
 
   it('unlikes exactly once for a native mouse double-click', async () => {

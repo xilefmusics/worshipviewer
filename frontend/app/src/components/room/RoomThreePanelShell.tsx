@@ -16,6 +16,8 @@ type Props = {
 const panels: Panel[] = ['queue', 'player', 'details']
 const PANEL_WHEEL_THRESHOLD_PX = 16
 const PANEL_WHEEL_IDLE_MS = 100
+const PANEL_SWIPE_MIN_PX = 48
+const PANEL_EDGE_SWIPE_WIDTH_PX = 24
 
 export function RoomThreePanelShell({ queue, player, details, desktopOverlay = false }: Props) {
   const { t } = useTranslation()
@@ -23,6 +25,8 @@ export function RoomThreePanelShell({ queue, player, details, desktopOverlay = f
   const wheelDeltaRef = useRef(0)
   const wheelDirectionRef = useRef<number | null>(null)
   const wheelLockTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null)
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current
@@ -89,6 +93,86 @@ export function RoomThreePanelShell({ queue, player, details, desktopOverlay = f
     armWheelLock()
   }
 
+  function scrollToPanel(viewport: HTMLDivElement, panel: Panel) {
+    if (viewport.clientWidth <= 0) return
+    viewport.scrollTo({ left: panels.indexOf(panel) * viewport.clientWidth, behavior: 'smooth' })
+  }
+
+  function finishEdgeSwipe(
+    clientX: number,
+    clientY: number,
+    currentTarget: HTMLDivElement,
+    start: { x: number; y: number } | null,
+  ) {
+    if (!start) return
+
+    const dx = clientX - start.x
+    const dy = clientY - start.y
+    if (Math.abs(dx) < PANEL_SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 1.2) return
+
+    const width = currentTarget.clientWidth
+    if (width <= 0) return
+
+    const currentPanelIndex = Math.max(
+      0,
+      Math.min(panels.length - 1, Math.round(currentTarget.scrollLeft / width)),
+    )
+    if (currentPanelIndex !== panels.indexOf('player')) return
+
+    const rect = currentTarget.getBoundingClientRect()
+    const relativeStartX = start.x - rect.left
+    const startsAtLeftEdge = relativeStartX <= PANEL_EDGE_SWIPE_WIDTH_PX
+    const startsAtRightEdge = relativeStartX >= width - PANEL_EDGE_SWIPE_WIDTH_PX
+
+    if (startsAtLeftEdge && dx > 0) {
+      scrollToPanel(currentTarget, 'queue')
+    } else if (startsAtRightEdge && dx < 0) {
+      scrollToPanel(currentTarget, 'details')
+    }
+  }
+
+  function onTouchStart(event: React.TouchEvent<HTMLDivElement>) {
+    if (pointerStartRef.current || event.touches.length !== 1) {
+      touchStartRef.current = null
+      return
+    }
+    const touch = event.touches[0]
+    touchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null
+  }
+
+  function onTouchEnd(event: React.TouchEvent<HTMLDivElement>) {
+    if (pointerStartRef.current) return
+    const start = touchStartRef.current
+    touchStartRef.current = null
+    const touch = event.changedTouches[0]
+    if (!touch || event.defaultPrevented) return
+    finishEdgeSwipe(touch.clientX, touch.clientY, event.currentTarget, start)
+  }
+
+  function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return
+    if (pointerStartRef.current) {
+      pointerStartRef.current = null
+      return
+    }
+    pointerStartRef.current = { x: event.clientX, y: event.clientY }
+  }
+
+  function onPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return
+    const start = pointerStartRef.current
+    pointerStartRef.current = null
+    touchStartRef.current = null
+    if (event.defaultPrevented) return
+    finishEdgeSwipe(event.clientX, event.clientY, event.currentTarget, start)
+  }
+
+  function onPointerCancel(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return
+    pointerStartRef.current = null
+    touchStartRef.current = null
+  }
+
   const panelLabel = (panel: Panel) => t(`rooms.panel.${panel}`)
 
   return (
@@ -102,6 +186,11 @@ export function RoomThreePanelShell({ queue, player, details, desktopOverlay = f
             : 'md:grid md:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)_minmax(16rem,20rem)] md:overflow-hidden md:snap-none',
         )}
         onWheel={onWheel}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
       >
         <section
           className={cn(

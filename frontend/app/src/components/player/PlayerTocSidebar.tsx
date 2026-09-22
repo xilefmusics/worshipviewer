@@ -14,6 +14,7 @@ type PlayerTocSidebarProps = {
   currentSourceIdx: number
   currentLanguageIndex: number | null
   onSelect: (sourceIdx: number, languageIndex: number | null) => void
+  className?: string
 }
 
 export function PlayerTocSidebar({
@@ -22,6 +23,7 @@ export function PlayerTocSidebar({
   currentSourceIdx,
   currentLanguageIndex,
   onSelect,
+  className,
 }: PlayerTocSidebarProps) {
   const { t } = useTranslation()
   const multilingual = useTocMultilingualPreference()
@@ -55,6 +57,7 @@ export function PlayerTocSidebar({
         for (const id of activeTagIds) if (!next.has(id)) toggleTagId(id)
         for (const id of next) if (!activeTagIds.has(id)) toggleTagId(id)
       }}
+      className={className}
       ariaLabel={t('player.toc.title')}
     />
   )

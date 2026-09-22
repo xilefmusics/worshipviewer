@@ -221,6 +221,26 @@ function touchDistance(touches: React.TouchList): number | null {
   return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY)
 }
 
+function pointerDistance(pointers: Map<number, { x: number; y: number }>): number | null {
+  const [first, second] = [...pointers.values()]
+  if (!first || !second) return null
+  return Math.hypot(second.x - first.x, second.y - first.y)
+}
+
+function gestureTimestamp(): number {
+  return performance.now()
+}
+
+function swipePreviewNavStates(
+  nav: PlayerNavState,
+  config: Parameters<typeof nextPlayerState>[2],
+) {
+  return {
+    previous: nextPlayerState(nav, { type: 'prev' }, config),
+    next: nextPlayerState(nav, { type: 'next' }, config),
+  }
+}
+
 type ResolvedBookChordsProps = {
   song: Song
   flow: SongFlowItem[] | null | undefined
@@ -329,7 +349,11 @@ const PLAYER_CHROME_EASE = [0.25, 0.1, 0.25, 1] as const
 const VIEWPORT_DOUBLE_TAP_MS = 300
 const VIEWPORT_TAP_MOVE_SLOP_PX = 10
 const VIEWPORT_SWIPE_MIN_PX = 48
+const VIEWPORT_EDGE_SWIPE_WIDTH_PX = 24
 const TOUCH_CLICK_SUPPRESSION_MS = 750
+const PLAYER_SWIPE_TRANSITION = 'transform 220ms cubic-bezier(0.25, 0.1, 0.25, 1)'
+
+type ViewportSwipeDirection = -1 | 1
 
 const playerChromeHeaderClass =
   'pointer-events-auto flex shrink-0 items-center gap-2 overflow-hidden border-b border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-2 sm:px-3 sm:py-3'
@@ -342,6 +366,7 @@ type PlayerBookProps = {
   mode?: PlayerMode
   allowNetworkFetch: boolean
   embedded?: boolean
+  enableEmbeddedSwipeNavigation?: boolean
   backToOverride?: '/rooms'
   backAriaKeyOverride?: string
   resourceTitle?: string
@@ -364,6 +389,7 @@ export function PlayerBook({
   mode = 'sheet',
   allowNetworkFetch,
   embedded = false,
+  enableEmbeddedSwipeNavigation = false,
   backToOverride,
   backAriaKeyOverride,
   resourceTitle,
@@ -398,11 +424,28 @@ export function PlayerBook({
   const [chromeVisible, setChromeVisible] = useState(() => tocSidebar != null || roomSidebar != null)
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const tocTouchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const tocOverlayRef = useRef<HTMLDivElement | null>(null)
+  const tocSwipeOffsetRef = useRef(0)
+  const tocSwipeSettlingRef = useRef(false)
+  const tocSwipeDismissRef = useRef(false)
   const pinchStartRef = useRef<{ distance: number; fontScale: number } | null>(null)
   const touchMovedRef = useRef(false)
+  const pointerGestureActiveRef = useRef(false)
+  const suppressTouchFallbackRef = useRef(false)
+  const activePointerPositionsRef = useRef(new Map<number, { x: number; y: number }>())
   const suppressClicksUntilRef = useRef(0)
   const lastMiddleViewportTapTimeRef = useRef<number | null>(null)
   const pendingChromeOpenRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const swipeTrackOffsetRef = useRef(0)
+  const swipeTrackVisibleRef = useRef(false)
+  const swipeTrackSettlingRef = useRef(false)
+  const swipeSettleDirectionRef = useRef<ViewportSwipeDirection | null>(null)
+  const [swipeTrackOffset, setSwipeTrackOffset] = useState(0)
+  const [swipeTrackVisible, setSwipeTrackVisible] = useState(false)
+  const [swipeTrackSettling, setSwipeTrackSettling] = useState(false)
+  const [tocSwipeOffset, setTocSwipeOffset] = useState(0)
+  const [tocSwipeSettling, setTocSwipeSettling] = useState(false)
   const [likeBurstKey, setLikeBurstKey] = useState(0)
   const [likeBurstActive, setLikeBurstActive] = useState(false)
   const [likeBurstLiked, setLikeBurstLiked] = useState(true)
@@ -491,14 +534,17 @@ export function PlayerBook({
     }),
     [itemsLen, player.between_items, navScrollType, player.items],
   )
+  const { previous: previousSwipeNav, next: nextSwipeNav } = swipePreviewNavStates(nav, navConfig)
   const displayToc = useMemo(
     () => mergeTocLikes(player.toc, likedBySongId),
     [player.toc, likedBySongId],
   )
   const tocRow = tocEntryForIndex(displayToc, nav.index)
   const showToc = !embedded && (tocSidebar != null || displayToc.length > 0)
+  const fullscreenToc = isPhoneViewport && chromeVisible && showToc
   const showChordsControls = hasChordsItems(player.items)
   const navBlocked = Boolean(roomMusicalState && !canControlRoomMusicalState)
+  const canSwipeNavigate = !embedded || enableEmbeddedSwipeNavigation
 
   const dispatch = useCallback(
     (action: Parameters<typeof nextPlayerState>[1]) => {
@@ -517,6 +563,101 @@ export function PlayerBook({
     },
     [nav, navBlocked, navConfig, onRoomQueueNext, setNav],
   )
+
+  function setSwipeTrackOffsetValue(offset: number) {
+    swipeTrackOffsetRef.current = offset
+    setSwipeTrackOffset(offset)
+  }
+
+  function setSwipeTrackVisibleValue(visible: boolean) {
+    swipeTrackVisibleRef.current = visible
+    setSwipeTrackVisible(visible)
+  }
+
+  function resetSwipeTrack() {
+    swipeSettleDirectionRef.current = null
+    swipeTrackSettlingRef.current = false
+    setSwipeTrackSettling(false)
+    setSwipeTrackOffsetValue(0)
+    setSwipeTrackVisibleValue(false)
+  }
+
+  function settleSwipeTrack(direction: ViewportSwipeDirection | null, currentTarget: HTMLDivElement) {
+    const action = direction == null ? null : direction > 0 ? { type: 'prev' as const } : { type: 'next' as const }
+    const next = action == null ? nav : nextPlayerState(nav, action, navConfig)
+    const hasTarget =
+      action != null &&
+      (next.index !== nav.index || next.pageOffset !== nav.pageOffset) &&
+      !navBlocked &&
+      canSwipeNavigate &&
+      !chromeVisible
+    const width = currentTarget.getBoundingClientRect().width || currentTarget.clientWidth
+
+    if (!hasTarget) {
+      if (!swipeTrackVisibleRef.current) return
+      if (reduceMotion || width <= 0) {
+        resetSwipeTrack()
+        return
+      }
+      swipeSettleDirectionRef.current = null
+      swipeTrackSettlingRef.current = true
+      setSwipeTrackSettling(true)
+      setSwipeTrackOffsetValue(0)
+      return
+    }
+
+    if (reduceMotion || width <= 0) {
+      resetSwipeTrack()
+      dispatch(action)
+      return
+    }
+
+    const startFromCenter = !swipeTrackVisibleRef.current
+    swipeSettleDirectionRef.current = direction
+    swipeTrackSettlingRef.current = true
+    setSwipeTrackVisibleValue(true)
+    if (startFromCenter) {
+      // Give the three-panel track one paint at the centered position before
+      // enabling the transition. This makes click navigation use the same
+      // visible snap as a completed drag instead of allowing the browser to
+      // collapse the mount and movement into one frame.
+      setSwipeTrackSettling(false)
+      setSwipeTrackOffsetValue(0)
+      requestAnimationFrame(() => {
+        if (
+          !swipeTrackSettlingRef.current ||
+          swipeSettleDirectionRef.current !== direction
+        ) {
+          return
+        }
+        setSwipeTrackSettling(true)
+        requestAnimationFrame(() => {
+          if (
+            !swipeTrackSettlingRef.current ||
+            swipeSettleDirectionRef.current !== direction
+          ) {
+            return
+          }
+          setSwipeTrackOffsetValue((direction ?? 0) * width)
+        })
+      })
+    } else {
+      setSwipeTrackSettling(true)
+      setSwipeTrackOffsetValue((direction ?? 0) * width)
+    }
+  }
+
+  function onSwipeTrackTransitionEnd(e: React.TransitionEvent<HTMLDivElement>) {
+    if (
+      e.target !== e.currentTarget ||
+      e.propertyName !== 'transform' ||
+      !swipeTrackSettlingRef.current
+    ) return
+    const direction = swipeSettleDirectionRef.current
+    resetSwipeTrack()
+    if (direction == null || navBlocked) return
+    dispatch({ type: direction > 0 ? 'prev' : 'next' })
+  }
 
   usePlayerIndexSearchSync(type, id, nav.index, mode)
 
@@ -747,16 +888,16 @@ export function PlayerBook({
     onRoomMusicalStateChange({ ...stateWithoutStarted, started: roomMusicalState?.started === true || wasPreviouslySynced })
   }, [canControlRoomMusicalState, currentItem, currentLanguageLabel, currentLanguageOptions.length, nav.index, onRoomMusicalStateChange, roomMusicalState?.started, soundingKey])
 
-  const handleTocSelect = useCallback(
-    (sourceIdx: number, languageIndex: number | null) => {
-      if (navBlocked) return
-      if (languageIndex != null) {
-        setViewState((state) => setLanguageForItem(state, sourceIdx, languageIndex))
-      }
-      dispatch({ type: 'jump', index: sourceIdx })
-    },
-    [dispatch, navBlocked, setViewState],
-  )
+  function handleTocSelect(sourceIdx: number, languageIndex: number | null) {
+    if (navBlocked) return
+    if (languageIndex != null) {
+      setViewState((state) => setLanguageForItem(state, sourceIdx, languageIndex))
+    }
+    dispatch({ type: 'jump', index: sourceIdx })
+    if (fullscreenToc && tocOverlayRef.current) {
+      settleTocSwipe(true, tocOverlayRef.current)
+    }
+  }
 
   const playerReturnContext = useMemo(
     () => ({ playerType: type, playerId: id, playerIndex: nav.index }),
@@ -1018,7 +1159,12 @@ export function PlayerBook({
     return selected != null && selected > 0 ? selected : null
   }
 
-  function renderPlayerItem(item: PlayerItem, itemIndex: number, fillParent = false) {
+  function renderPlayerItem(
+    item: PlayerItem,
+    itemIndex: number,
+    fillParent = false,
+    columnCount = freeColumnCount,
+  ) {
     if (item.type === 'blob') {
       return (
         <BlobSlide
@@ -1064,7 +1210,7 @@ export function PlayerBook({
         nextLanguageIndex={
           nextItem?.type === 'chords' ? renderLanguageIndexForItem(nextItem, itemIndex + 1) : undefined
         }
-        freeColumnCount={freeColumnCount}
+        freeColumnCount={columnCount}
         overflowStyle={layoutPreference.overflowStyle}
         expandSections={layoutPreference.expandSections}
         fontScale={chordSongFontScale}
@@ -1072,7 +1218,258 @@ export function PlayerBook({
     )
   }
 
+  function renderPlayerNavContent(targetNav: PlayerNavState) {
+    const item = player.items[targetNav.index]
+    if (!item) return null
+
+    const targetItemType = item.type === 'blob' ? 'blob' : item.type === 'chords' ? 'chords' : null
+    const targetBookSpread = shouldUseBookSpreadLayout({
+      scrollType: effectiveScroll,
+      layoutPreference,
+      orientation: sheetOrientation,
+      isPhone: isPhoneViewport,
+      itemType: targetItemType,
+    })
+    const targetColumnCount = targetBookSpread ? null : resolvedFreeColumnCount
+
+    if (targetBookSpread) {
+      const rightIndex = bookSpreadRightIndex(targetNav.index, itemsLen)
+      const rightItem = rightIndex == null ? null : player.items[rightIndex]
+      return (
+        <PlayerBookSpread
+          left={renderPlayerItem(item, targetNav.index, true, targetColumnCount)}
+          right={
+            rightItem && rightIndex != null
+              ? renderPlayerItem(rightItem, rightIndex, true, targetColumnCount)
+              : undefined
+          }
+        />
+      )
+    }
+
+    return renderPlayerItem(item, targetNav.index, isMultiColumnScrollMode(effectiveScroll), targetColumnCount)
+  }
+
+  function updateSwipeTrack(
+    clientX: number,
+    clientY: number,
+    currentTarget: HTMLDivElement,
+    preventDefault: () => void,
+  ) {
+    const start = touchStartRef.current
+    const rect = currentTarget.getBoundingClientRect()
+    const relativeStartX = start ? start.x - rect.left : 0
+    const startsAtLeftEdge = relativeStartX <= VIEWPORT_EDGE_SWIPE_WIDTH_PX
+    const startsAtRightEdge =
+      rect.width > 0 && relativeStartX >= rect.width - VIEWPORT_EDGE_SWIPE_WIDTH_PX
+    if (
+      !start ||
+      !canSwipeNavigate ||
+      navBlocked ||
+      chromeVisible ||
+      swipeTrackSettlingRef.current ||
+      startsAtLeftEdge ||
+      (embedded && startsAtRightEdge)
+    ) {
+      return
+    }
+
+    const dx = clientX - start.x
+    const dy = clientY - start.y
+    if (Math.abs(dx) <= VIEWPORT_TAP_MOVE_SLOP_PX || Math.abs(dx) < Math.abs(dy) * 1.2) return
+
+    const direction: ViewportSwipeDirection = dx > 0 ? 1 : -1
+    const action = direction > 0 ? { type: 'prev' as const } : { type: 'next' as const }
+    const next = nextPlayerState(nav, action, navConfig)
+    if (next.index === nav.index && next.pageOffset === nav.pageOffset) return
+
+    const width = currentTarget.getBoundingClientRect().width || currentTarget.clientWidth
+    const boundedOffset = width > 0 ? Math.max(-width, Math.min(width, dx)) : dx
+    setSwipeTrackVisibleValue(true)
+    setSwipeTrackOffsetValue(boundedOffset)
+    touchMovedRef.current = true
+    preventDefault()
+  }
+
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return
+    if (swipeTrackSettlingRef.current) return
+
+    pointerGestureActiveRef.current = true
+    suppressTouchFallbackRef.current = true
+    activePointerPositionsRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId)
+
+    if (activePointerPositionsRef.current.size >= 2) {
+      touchStartRef.current = null
+      touchMovedRef.current = true
+      cancelPendingChromeOpen()
+      if (!isChordSurfaceTarget(e.target)) {
+        pinchStartRef.current = null
+        return
+      }
+      const distance = pointerDistance(activePointerPositionsRef.current)
+      if (distance == null || distance <= 0) return
+      e.preventDefault()
+      pinchStartRef.current = { distance, fontScale: chordSongFontScale }
+      return
+    }
+
+    touchStartRef.current = { x: e.clientX, y: e.clientY }
+    touchMovedRef.current = false
+    if (
+      !embedded &&
+      e.clientX <= VIEWPORT_EDGE_SWIPE_WIDTH_PX
+    ) {
+      e.preventDefault()
+    }
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!pointerGestureActiveRef.current) return
+    activePointerPositionsRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    const pinchStart = pinchStartRef.current
+    if (pinchStart) {
+      const distance = pointerDistance(activePointerPositionsRef.current)
+      if (distance == null) return
+      e.preventDefault()
+      writeChordSongFontScale(pinchStart.fontScale * (distance / pinchStart.distance))
+      return
+    }
+
+    const start = touchStartRef.current
+    if (!start || activePointerPositionsRef.current.size >= 2) return
+    const dx = e.clientX - start.x
+    const dy = e.clientY - start.y
+    if (
+      Math.abs(dx) > VIEWPORT_TAP_MOVE_SLOP_PX ||
+      Math.abs(dy) > VIEWPORT_TAP_MOVE_SLOP_PX
+    ) {
+      touchMovedRef.current = true
+    }
+    updateSwipeTrack(e.clientX, e.clientY, e.currentTarget, () => e.preventDefault())
+  }
+
+  function finishViewportGesture(
+    clientX: number,
+    clientY: number,
+    target: EventTarget | null,
+    currentTarget: HTMLDivElement,
+    preventDefault: () => void,
+    now: number,
+  ) {
+    const start = touchStartRef.current
+    touchStartRef.current = null
+    if (!start) return
+
+    const dx = clientX - start.x
+    const dy = clientY - start.y
+    const isSwipe =
+      Math.abs(dx) >= VIEWPORT_SWIPE_MIN_PX && Math.abs(dx) >= Math.abs(dy) * 1.2
+
+    if (isSwipe) {
+      touchMovedRef.current = false
+      suppressClicksUntilRef.current = now + TOUCH_CLICK_SUPPRESSION_MS
+      const rect = currentTarget.getBoundingClientRect()
+      const relativeStartX = start.x - rect.left
+      const startsAtLeftEdge = relativeStartX <= VIEWPORT_EDGE_SWIPE_WIDTH_PX
+      const startsAtRightEdge =
+        rect.width > 0 && relativeStartX >= rect.width - VIEWPORT_EDGE_SWIPE_WIDTH_PX
+
+      if (embedded && enableEmbeddedSwipeNavigation && (startsAtLeftEdge || startsAtRightEdge)) {
+        // Leave the room shell's edge gesture untouched: the shell owns the
+        // queue and participant panels on mobile.
+        return
+      }
+
+      const edgeSwipe = !embedded && startsAtLeftEdge
+
+      if (edgeSwipe) {
+        preventDefault()
+        if (dx > 0) {
+          cancelPendingChromeOpen()
+          setKeyPopoverOpen(false)
+          setLanguagePopoverOpen(false)
+          if (showToc) setChromeVisible(true)
+        }
+        return
+      }
+
+      if (!canSwipeNavigate || navBlocked || chromeVisible) {
+        settleSwipeTrack(null, currentTarget)
+        return
+      }
+      settleSwipeTrack(dx > 0 ? 1 : -1, currentTarget)
+      return
+    }
+
+    if (swipeTrackVisibleRef.current) {
+      touchMovedRef.current = false
+      suppressClicksUntilRef.current = now + TOUCH_CLICK_SUPPRESSION_MS
+      settleSwipeTrack(null, currentTarget)
+      return
+    }
+
+    if (touchMovedRef.current) {
+      touchMovedRef.current = false
+      suppressClicksUntilRef.current = now + TOUCH_CLICK_SUPPRESSION_MS
+      return
+    }
+
+    if (handleViewportPointer(clientX, target, currentTarget)) {
+      suppressClicksUntilRef.current = now + TOUCH_CLICK_SUPPRESSION_MS
+    }
+  }
+
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    if (!pointerGestureActiveRef.current) return
+    activePointerPositionsRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    if (pinchStartRef.current) {
+      activePointerPositionsRef.current.delete(e.pointerId)
+      if (activePointerPositionsRef.current.size < 2) {
+        pinchStartRef.current = null
+        touchStartRef.current = null
+        touchMovedRef.current = false
+        suppressClicksUntilRef.current = gestureTimestamp() + TOUCH_CLICK_SUPPRESSION_MS
+      }
+      e.preventDefault()
+      return
+    }
+
+    activePointerPositionsRef.current.delete(e.pointerId)
+    if (activePointerPositionsRef.current.size > 0) return
+    pointerGestureActiveRef.current = false
+    finishViewportGesture(
+      e.clientX,
+      e.clientY,
+      e.target,
+      e.currentTarget,
+      () => e.preventDefault(),
+      gestureTimestamp(),
+    )
+    if (e.currentTarget.releasePointerCapture) {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    }
+  }
+
+  function onPointerCancel(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return
+    activePointerPositionsRef.current.delete(e.pointerId)
+    pointerGestureActiveRef.current = activePointerPositionsRef.current.size > 0
+    if (!pointerGestureActiveRef.current) {
+      if (swipeTrackVisibleRef.current) settleSwipeTrack(null, e.currentTarget)
+      suppressTouchFallbackRef.current = false
+      touchStartRef.current = null
+      pinchStartRef.current = null
+      touchMovedRef.current = false
+    }
+  }
+
   function onTouchStart(e: React.TouchEvent) {
+    if (suppressTouchFallbackRef.current) return
+    if (swipeTrackSettlingRef.current) return
     if (e.touches.length >= 2) {
       touchStartRef.current = null
       touchMovedRef.current = true
@@ -1092,9 +1489,19 @@ export function PlayerBook({
     if (!touch) return
     touchStartRef.current = { x: touch.clientX, y: touch.clientY }
     touchMovedRef.current = false
+
+    if (
+      !embedded &&
+      touch.clientX <= VIEWPORT_EDGE_SWIPE_WIDTH_PX
+    ) {
+      // Safari's history gesture starts before touchend. Preventing the
+      // default at the beginning is the best available web-page mitigation.
+      e.preventDefault()
+    }
   }
 
-  function onTouchMove(e: React.TouchEvent) {
+  function onTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+    if (suppressTouchFallbackRef.current) return
     const pinchStart = pinchStartRef.current
     if (pinchStart) {
       const distance = touchDistance(e.touches)
@@ -1106,7 +1513,7 @@ export function PlayerBook({
 
     const start = touchStartRef.current
     const touch = e.touches[0]
-    if (!start || !touch || touchMovedRef.current) return
+    if (!start || !touch) return
 
     const dx = touch.clientX - start.x
     const dy = touch.clientY - start.y
@@ -1116,18 +1523,30 @@ export function PlayerBook({
     ) {
       touchMovedRef.current = true
     }
+    updateSwipeTrack(touch.clientX, touch.clientY, e.currentTarget, () => e.preventDefault())
   }
 
-  function onTouchCancel() {
+  function onTouchCancel(e: React.TouchEvent<HTMLDivElement>) {
+    if (suppressTouchFallbackRef.current) {
+      suppressTouchFallbackRef.current = false
+      return
+    }
+    if (swipeTrackVisibleRef.current) {
+      settleSwipeTrack(null, e.currentTarget)
+    }
     touchStartRef.current = null
     pinchStartRef.current = null
     touchMovedRef.current = false
   }
 
-  const handleViewportPointer = useCallback(
-    (clientX: number, target: EventTarget | null, rect: DOMRect) => {
+  function handleViewportPointer(
+    clientX: number,
+    target: EventTarget | null,
+    currentTarget: HTMLDivElement,
+  ) {
       if (isInteractiveTarget(target)) return false
 
+      const rect = currentTarget.getBoundingClientRect()
       const zone = viewportPointerZone(clientX, rect)
       const now = performance.now()
       const doubleTap =
@@ -1159,12 +1578,18 @@ export function PlayerBook({
 
       if (zone === 'left') {
         cancelPendingChromeOpen()
-        if (!navBlocked) dispatch({ type: 'prev' })
+        if (!navBlocked) {
+          if (embedded) dispatch({ type: 'prev' })
+          else settleSwipeTrack(1, currentTarget)
+        }
         return true
       }
       if (zone === 'right') {
         cancelPendingChromeOpen()
-        if (!navBlocked) dispatch({ type: 'next' })
+        if (!navBlocked) {
+          if (embedded) dispatch({ type: 'next' })
+          else settleSwipeTrack(-1, currentTarget)
+        }
         return true
       }
 
@@ -1182,11 +1607,13 @@ export function PlayerBook({
         setChromeVisible(true)
       }, VIEWPORT_DOUBLE_TAP_MS)
       return true
-    },
-    [cancelPendingChromeOpen, chromeVisible, dispatch, navBlocked, toggleCurrentSongLike],
-  )
+  }
 
-  function onTouchEnd(e: React.TouchEvent) {
+  function onTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    if (suppressTouchFallbackRef.current) {
+      suppressTouchFallbackRef.current = false
+      return
+    }
     if (pinchStartRef.current) {
       pinchStartRef.current = null
       touchStartRef.current = null
@@ -1196,46 +1623,26 @@ export function PlayerBook({
       return
     }
 
-    const start = touchStartRef.current
-    touchStartRef.current = null
     const touch = e.changedTouches[0]
-    if (!start || !touch) return
-
-    const dx = touch.clientX - start.x
-    const dy = touch.clientY - start.y
-    const isSwipe =
-      Math.abs(dx) >= VIEWPORT_SWIPE_MIN_PX && Math.abs(dx) >= Math.abs(dy) * 1.2
-
-    if (isSwipe) {
-      touchMovedRef.current = false
-      suppressClicksUntilRef.current = performance.now() + TOUCH_CLICK_SUPPRESSION_MS
-      if (embedded || navBlocked || chromeVisible) return
-      if (dx > 0) dispatch({ type: 'prev' })
-      else dispatch({ type: 'next' })
-      return
-    }
-
-    if (touchMovedRef.current) {
-      touchMovedRef.current = false
-      suppressClicksUntilRef.current = performance.now() + TOUCH_CLICK_SUPPRESSION_MS
-      return
-    }
-
-    const rect = e.currentTarget.getBoundingClientRect()
-    if (handleViewportPointer(touch.clientX, e.target, rect)) {
-      suppressClicksUntilRef.current = performance.now() + TOUCH_CLICK_SUPPRESSION_MS
-    }
+    if (!touch) return
+    finishViewportGesture(
+      touch.clientX,
+      touch.clientY,
+      e.target,
+      e.currentTarget,
+      () => e.preventDefault(),
+      gestureTimestamp(),
+    )
   }
 
-  function onMainClick(e: React.MouseEvent<HTMLElement>) {
+  function onMainClick(e: React.MouseEvent<HTMLDivElement>) {
     if (performance.now() < suppressClicksUntilRef.current) {
       return
     }
     suppressClicksUntilRef.current = 0
     if (e.detail > 1) return
 
-    const rect = e.currentTarget.getBoundingClientRect()
-    handleViewportPointer(e.clientX, e.target, rect)
+    handleViewportPointer(e.clientX, e.target, e.currentTarget)
   }
 
   function onMainDoubleClick(e: React.MouseEvent<HTMLElement>) {
@@ -1246,6 +1653,110 @@ export function PlayerBook({
     cancelPendingChromeOpen()
     lastMiddleViewportTapTimeRef.current = performance.now()
     toggleCurrentSongLike()
+  }
+
+  function setTocSwipeOffsetValue(offset: number) {
+    tocSwipeOffsetRef.current = offset
+    setTocSwipeOffset(offset)
+  }
+
+  function resetTocSwipe() {
+    tocSwipeDismissRef.current = false
+    tocSwipeSettlingRef.current = false
+    setTocSwipeSettling(false)
+    setTocSwipeOffsetValue(0)
+  }
+
+  function settleTocSwipe(
+    dismiss: boolean,
+    currentTarget: HTMLDivElement,
+  ) {
+    const width = currentTarget.getBoundingClientRect().width || currentTarget.clientWidth
+    if (reduceMotion || width <= 0) {
+      resetTocSwipe()
+      if (dismiss) {
+        cancelPendingChromeOpen()
+        setKeyPopoverOpen(false)
+        setLanguagePopoverOpen(false)
+        setChromeVisible(false)
+      }
+      return
+    }
+
+    if (!dismiss && tocSwipeOffsetRef.current === 0) return
+
+    tocSwipeDismissRef.current = dismiss
+    tocSwipeSettlingRef.current = true
+    setTocSwipeSettling(true)
+    setTocSwipeOffsetValue(dismiss ? -width : 0)
+  }
+
+  function onTocSwipeTransitionEnd(e: React.TransitionEvent<HTMLDivElement>) {
+    if (
+      e.target !== e.currentTarget ||
+      e.propertyName !== 'transform' ||
+      !tocSwipeSettlingRef.current
+    ) return
+
+    const dismiss = tocSwipeDismissRef.current
+    resetTocSwipe()
+    if (!dismiss) return
+
+    cancelPendingChromeOpen()
+    setKeyPopoverOpen(false)
+    setLanguagePopoverOpen(false)
+    setChromeVisible(false)
+  }
+
+  function onTocTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    if (tocSwipeSettlingRef.current) return
+    if (!isPhoneViewport || e.touches.length !== 1) {
+      tocTouchStartRef.current = null
+      return
+    }
+
+    const touch = e.touches[0]
+    if (!touch) return
+    tocTouchStartRef.current = { x: touch.clientX, y: touch.clientY }
+  }
+
+  function onTocTouchMove(e: React.TouchEvent<HTMLDivElement>) {
+    const start = tocTouchStartRef.current
+    const touch = e.touches.length === 1 ? e.touches[0] : undefined
+    if (!start || !touch) {
+      tocTouchStartRef.current = null
+      return
+    }
+
+    const dx = touch.clientX - start.x
+    const dy = touch.clientY - start.y
+    if (Math.abs(dx) <= VIEWPORT_TAP_MOVE_SLOP_PX || Math.abs(dx) < Math.abs(dy) * 1.2) return
+
+    const width = e.currentTarget.getBoundingClientRect().width || e.currentTarget.clientWidth
+    const boundedOffset = width > 0 ? Math.max(-width, Math.min(0, dx)) : Math.min(0, dx)
+    setTocSwipeOffsetValue(boundedOffset)
+    e.preventDefault()
+  }
+
+  function onTocTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    const start = tocTouchStartRef.current
+    tocTouchStartRef.current = null
+    const touch = e.changedTouches[0]
+    if (!start || !touch) return
+
+    const dx = touch.clientX - start.x
+    const dy = touch.clientY - start.y
+    const isDismissSwipe =
+      dx <= -VIEWPORT_SWIPE_MIN_PX && Math.abs(dx) >= Math.abs(dy) * 1.2
+    if (isDismissSwipe || tocSwipeOffsetRef.current !== 0) {
+      if (isDismissSwipe) e.preventDefault()
+      settleTocSwipe(isDismissSwipe, e.currentTarget)
+    }
+  }
+
+  function onTocTouchCancel(e: React.TouchEvent<HTMLDivElement>) {
+    tocTouchStartRef.current = null
+    settleTocSwipe(false, e.currentTarget)
   }
 
   if (itemsLen === 0 || !currentItem) {
@@ -1539,13 +2050,22 @@ export function PlayerBook({
             layout={!reduceMotion}
             aria-label={t('player.mainAria', { title: title || t('player.untitled') })}
             className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            style={
+              !embedded
+                ? { touchAction: 'pan-y', overscrollBehaviorX: 'none' }
+                : undefined
+            }
             animate={{
-              paddingLeft: chromeVisible && showToc ? tocInsetPx : 0,
+              paddingLeft: chromeVisible && showToc && !isPhoneViewport ? tocInsetPx : 0,
               paddingRight: chromeVisible && roomSidebar ? tocInsetPx : 0,
             }}
             transition={chromeTransition}
             onClick={onMainClick}
             onDoubleClick={onMainDoubleClick}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
@@ -1567,47 +2087,72 @@ export function PlayerBook({
               })}
             </p>
 
-            {bookSpread ? (
-              <PlayerBookSpread
-                left={renderPlayerItem(currentItem, nav.index, true)}
-                right={(() => {
-                  const rightIndex = bookSpreadRightIndex(nav.index, itemsLen)
-                  const rightItem = rightIndex == null ? null : player.items[rightIndex]
-                  if (!rightItem || rightIndex == null) return undefined
-                  return renderPlayerItem(rightItem, rightIndex, true)
-                })()}
-              />
-            ) : currentItem ? (
-              renderPlayerItem(
-                currentItem,
-                nav.index,
-                isMultiColumnScrollMode(effectiveScroll),
-              )
-            ) : null}
+            {swipeTrackVisible ? (
+              <div
+                data-testid="player-swipe-track"
+                className="flex h-full min-h-0 w-[300%] shrink-0"
+                style={{
+                  transform: `translate3d(calc(-33.333333% + ${swipeTrackOffset}px), 0, 0)`,
+                  transition: swipeTrackSettling && !reduceMotion ? PLAYER_SWIPE_TRANSITION : 'none',
+                }}
+                onTransitionEnd={onSwipeTrackTransitionEnd}
+              >
+                <div className="h-full min-h-0 w-1/3 shrink-0 overflow-hidden">
+                  {renderPlayerNavContent(previousSwipeNav)}
+                </div>
+                <div className="h-full min-h-0 w-1/3 shrink-0 overflow-hidden">
+                  {renderPlayerNavContent(nav)}
+                </div>
+                <div className="h-full min-h-0 w-1/3 shrink-0 overflow-hidden">
+                  {renderPlayerNavContent(nextSwipeNav)}
+                </div>
+              </div>
+            ) : (
+              <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                {renderPlayerNavContent(nav)}
+              </div>
+            )}
           </motion.div>
 
           <AnimatePresence initial={false}>
             {chromeVisible && showToc ? (
               <motion.div
                 key="player-chrome-toc"
+                ref={tocOverlayRef}
                 className={cn(
                   'pointer-events-auto absolute inset-y-0 left-0 z-10 flex overflow-hidden',
-                  tocSidebar ? PLAYER_TOC_WIDTH_CLASS : undefined,
+                  isPhoneViewport ? 'w-full' : tocSidebar ? PLAYER_TOC_WIDTH_CLASS : undefined,
                 )}
+                style={isPhoneViewport ? { touchAction: 'pan-y', overscrollBehaviorX: 'none' } : undefined}
                 initial={reduceMotion ? false : { x: '-100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={chromeTransition}
+                onTouchStart={onTocTouchStart}
+                onTouchMove={onTocTouchMove}
+                onTouchEnd={onTocTouchEnd}
+                onTouchCancel={onTocTouchCancel}
               >
-                {tocSidebar ?? (
-                  <PlayerTocSidebar
-                    toc={displayToc}
-                    items={player.items}
-                    currentSourceIdx={nav.index}
-                    currentLanguageIndex={currentLanguageIndex}
-                    onSelect={handleTocSelect}
-                  />
-                )}
+                <div
+                  data-testid="player-toc-swipe-track"
+                  className="h-full min-w-0 w-full"
+                  style={{
+                    transform: `translate3d(${tocSwipeOffset}px, 0, 0)`,
+                    transition: tocSwipeSettling && !reduceMotion ? PLAYER_SWIPE_TRANSITION : 'none',
+                  }}
+                  onTransitionEnd={onTocSwipeTransitionEnd}
+                >
+                  {tocSidebar ?? (
+                    <PlayerTocSidebar
+                      toc={displayToc}
+                      items={player.items}
+                      currentSourceIdx={nav.index}
+                      currentLanguageIndex={currentLanguageIndex}
+                      onSelect={handleTocSelect}
+                      className={isPhoneViewport ? 'w-full border-r-0' : undefined}
+                    />
+                  )}
+                </div>
               </motion.div>
             ) : null}
           </AnimatePresence>
