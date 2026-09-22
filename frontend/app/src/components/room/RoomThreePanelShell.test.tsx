@@ -95,4 +95,58 @@ describe('RoomThreePanelShell', () => {
 
     expect(scrollTo).not.toHaveBeenCalled()
   })
+
+  it('opens the participant panel for a right-edge swipe from the player', () => {
+    render(
+      <RoomThreePanelShell
+        queue={<div>queue</div>}
+        player={<div>player</div>}
+        details={<div>participants</div>}
+      />,
+    )
+
+    const viewport = screen.getByRole('region', { name: 'rooms.panel.queue' }).parentElement
+    expect(viewport).not.toBeNull()
+    if (!viewport) return
+
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 100 })
+    Object.defineProperty(viewport, 'scrollLeft', { configurable: true, writable: true, value: 100 })
+    const scrollTo = vi.fn()
+    Object.defineProperty(viewport, 'scrollTo', { configurable: true, value: scrollTo })
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
+    )
+
+    fireEvent.touchStart(viewport, { touches: [{ clientX: 100, clientY: 50 }] })
+    fireEvent.touchEnd(viewport, { changedTouches: [{ clientX: 20, clientY: 50 }] })
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 200, behavior: 'smooth' })
+  })
+
+  it('opens the queue for a left-edge swipe from the player', () => {
+    render(
+      <RoomThreePanelShell
+        queue={<div>queue</div>}
+        player={<div>player</div>}
+        details={<div>participants</div>}
+      />,
+    )
+
+    const viewport = screen.getByRole('region', { name: 'rooms.panel.queue' }).parentElement
+    expect(viewport).not.toBeNull()
+    if (!viewport) return
+
+    Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 100 })
+    Object.defineProperty(viewport, 'scrollLeft', { configurable: true, writable: true, value: 100 })
+    const scrollTo = vi.fn()
+    Object.defineProperty(viewport, 'scrollTo', { configurable: true, value: scrollTo })
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
+    )
+
+    fireEvent.touchStart(viewport, { touches: [{ clientX: 0, clientY: 50 }] })
+    fireEvent.touchEnd(viewport, { changedTouches: [{ clientX: 80, clientY: 50 }] })
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 0, behavior: 'smooth' })
+  })
 })

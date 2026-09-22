@@ -196,7 +196,9 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
     <PlayerBook
       key={`room-book-${isPhoneViewport ? 'embedded' : 'desktop'}`}
       {...shared}
-      {...(isPhoneViewport ? { embedded: true } : { tocSidebar: queuePanel, roomSidebar: roomDetails })}
+      {...(isPhoneViewport
+        ? { embedded: true, enableEmbeddedSwipeNavigation: true }
+        : { tocSidebar: queuePanel, roomSidebar: roomDetails })}
       mode="sheet"
     />
   )
