@@ -236,7 +236,6 @@ Configuration is driven by environment variables (uppercase names matching the `
 
 - **HTTP:** `HOST`, `PORT` (defaults: `127.0.0.1`, `8080`).
 - **Cookies / session:** `POST_LOGIN_PATH`, `COOKIE_NAME`, `COOKIE_SECURE`, `SESSION_TTL_SECONDS`, `IMPERSONATION_ENABLED` (opt-in; defaults to `false`). When enabled, the admin users page can start audited browser support sessions; disabling it at startup invalidates existing records.
-- **Rooms v2 hub UI:** `ROOMS_V2_ENABLED` (opt-in; defaults to `false`). Set on the running process (`docker run -e ROOMS_V2_ENABLED=true`). Does not disable room APIs; it only shows the hub create/list UI. Local Vite uses `VITE_ROOMS_V2_ENABLED` instead.
 - **OTP email:** `OTP_TTL_SECONDS`, `OTP_PEPPER`, `OTP_MAX_ATTEMPTS`, `OTP_ALLOW_SELF_SIGNUP` (optional override: `WORSHIP_OTP_ALLOW_SELF_SIGNUP`). Outbound mail uses **Gmail SMTP** via `GMAIL_APP_PASSWORD` and `GMAIL_FROM` (see [`backend/src/mail.rs`](backend/src/mail.rs)); empty values are only workable if you never send mail.
 - **OIDC (e.g. Google):** `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URL`, `OIDC_SCOPES`.
 - **Database:** `DB_ADDRESS`, `DB_USERNAME`, `DB_PASSWORD`, `DB_MIGRATION_PATH`.

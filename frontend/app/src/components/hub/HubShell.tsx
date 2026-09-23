@@ -58,7 +58,6 @@ import { useSongDetailQuery } from '@/hooks/useSongDetailQuery'
 import { useMediaDetailQuery } from '@/hooks/useMediaDetailQuery'
 import { useWritableTeams } from '@/hooks/useWritableTeams'
 import { listenToMediaQuery } from '@/lib/browser-apis'
-import { isRoomsV2Enabled } from '@/lib/feature-flags'
 import { getTeamDisplayName, isPersonalTeamName } from '@/lib/team-display-name'
 import {
   buildPlayerReturnSearch,
@@ -371,10 +370,9 @@ function HubChrome({
   const navigate = useNavigate()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const { teams: writableMediaTeams } = useWritableTeams('mediaHubFab', pathname === '/media')
-  const roomsV2Enabled = isRoomsV2Enabled()
   const { teams: writableRoomTeams } = useWritableTeams(
     'roomCreate',
-    pathname === '/rooms' && roomsV2Enabled,
+    pathname === '/rooms',
   )
   const locationSearch = useRouterState({ select: (s) => s.location.search })
   const isTeamsList = pathname === '/teams'
@@ -405,7 +403,7 @@ function HubChrome({
       formatAdminDateInputValue(quick.end) === adminEndDate
     )
   }) ?? null
-  const showLibraryFilters = isLibraryListPath(pathname) && (pathname !== '/rooms' || roomsV2Enabled)
+  const showLibraryFilters = isLibraryListPath(pathname)
   const songEditorPlayerReturn = isSongDetail
     ? parsePlayerEditorReturnSearch(locationSearch as Record<string, unknown>)
     : null
@@ -436,7 +434,7 @@ function HubChrome({
     isSongDetail ||
     isMediaDetail ||
     (pathname === '/media' && writableMediaTeams.length === 0) ||
-    (pathname === '/rooms' && (!roomsV2Enabled || writableRoomTeams.length === 0))
+    (pathname === '/rooms' && writableRoomTeams.length === 0)
   const showFooter =
     !isTeamDetail &&
     !isSetlistDetail &&
@@ -1007,19 +1005,6 @@ function HubChrome({
                 </div>
               </div>
             </>
-          ) : pathname === '/rooms' && !roomsV2Enabled ? (
-            <div ref={searchAnchorRef} className="group relative my-[0.36rem] min-w-0 flex-1">
-              <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
-                <p
-                  className={cn(
-                    'w-full truncate px-5 text-center font-medium text-[var(--color-foreground)]',
-                    HUB_SEARCH_PILL_TEXT_CLASS,
-                  )}
-                >
-                  {t('rooms.title')}
-                </p>
-              </div>
-            </div>
           ) : showLibraryFilters ? (
             <HubLibrarySearchField
               searchAnchorRef={searchAnchorRef}

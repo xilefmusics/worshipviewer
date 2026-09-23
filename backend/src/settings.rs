@@ -37,11 +37,6 @@ pub struct Settings {
     pub cookie_secure: bool,
     pub session_ttl_seconds: u64,
     pub impersonation_enabled: bool,
-    /// When false, the SPA hides Rooms v2 create/list UI. Default false.
-    /// Container runtime: `ROOMS_V2_ENABLED=true` (alias: `VITE_ROOMS_V2_ENABLED=true`).
-    #[serde(default)]
-    pub rooms_v2_enabled: bool,
-
     pub otp_ttl_seconds: u64,
     pub otp_pepper: String,
     pub otp_max_attempts: u32,
@@ -140,7 +135,6 @@ impl fmt::Debug for Settings {
             .field("cookie_secure", &self.cookie_secure)
             .field("session_ttl_seconds", &self.session_ttl_seconds)
             .field("impersonation_enabled", &self.impersonation_enabled)
-            .field("rooms_v2_enabled", &self.rooms_v2_enabled)
             .field("otp_ttl_seconds", &self.otp_ttl_seconds)
             .field("otp_pepper", &"<redacted>")
             .field("otp_max_attempts", &self.otp_max_attempts)
@@ -225,7 +219,6 @@ impl Default for Settings {
             cookie_secure: false,
             session_ttl_seconds: 31536000,
             impersonation_enabled: false,
-            rooms_v2_enabled: false,
             otp_ttl_seconds: 300,
             otp_pepper: "changeme".into(),
             otp_max_attempts: 5,
@@ -405,11 +398,6 @@ impl Settings {
         if let Ok(v) = std::env::var("WORSHIP_OTP_ALLOW_SELF_SIGNUP") {
             s.otp_allow_self_signup =
                 !(v == "0" || v.eq_ignore_ascii_case("false") || v.eq_ignore_ascii_case("no"));
-        }
-        if std::env::var("ROOMS_V2_ENABLED").is_err()
-            && let Ok(v) = std::env::var("VITE_ROOMS_V2_ENABLED")
-        {
-            s.rooms_v2_enabled = v == "true";
         }
         Ok(s)
     }

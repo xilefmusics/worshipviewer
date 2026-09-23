@@ -7,7 +7,6 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 ### Added
 
 - Empty, team-owned Rooms can be created directly from the Rooms hub and entered in Sheet view.
-- `ROOMS_V2_ENABLED` runtime flag for the Rooms hub UI (`docker run -e ROOMS_V2_ENABLED=true`).
 - Spotify track and playlist Media items with external playback controls in the AV player.
 - Independent grayscale text controls for primary and translated AV lyrics.
 - Two Zeltlager background presets for AV-mode lyric projection.
