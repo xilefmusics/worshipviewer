@@ -41,10 +41,13 @@ export async function applyFlowToSongDataAsync(
 export function useResolvedSongWithFlow(
   song: Song,
   flow: SongFlowItem[] | null | undefined,
+  enabled = true,
 ): Song {
   const [resolvedSong, setResolvedSong] = useState(song)
 
   useEffect(() => {
+    if (!enabled) return
+
     let cancelled = false
     queueMicrotask(() => {
       if (!cancelled) setResolvedSong(song)
@@ -77,9 +80,9 @@ export function useResolvedSongWithFlow(
     return () => {
       cancelled = true
     }
-  }, [flow, song])
+  }, [enabled, flow, song])
 
-  return resolvedSong
+  return enabled ? resolvedSong : song
 }
 
 export function useResolvedPlayerItemChordData(

@@ -95,6 +95,23 @@ describe('ResolvedBookChords', () => {
     expect(getChordEngine).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps custom flow data raw for multi-column rendering so the worker can apply it', () => {
+    render(
+      <ResolvedBookChords
+        song={song('Verse')}
+        flow={[flow('Chorus', 2)]}
+        displayKey={null}
+        languageIndex={null}
+        chordFormat="letters"
+        sheetOrientation="portrait"
+        freeColumnCount={3}
+      />,
+    )
+
+    expect(screen.getByTestId('song-sections-three')).toHaveTextContent('Verse')
+    expect(getChordEngine).not.toHaveBeenCalled()
+  })
+
   it('falls back to the raw song when applyFlow fails', async () => {
     applyFlow.mockImplementation(() => {
       throw new Error('boom')
