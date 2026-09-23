@@ -270,7 +270,7 @@ mod room_http {
     }
 
     #[actix_web::test]
-    async fn promoting_a_queue_item_keeps_the_selected_song_upcoming() {
+    async fn promoting_a_queue_item_moves_the_selected_song_to_already_played() {
         let db = test_db().await.unwrap();
         let fixture = TeamFixture::build(&db).await.unwrap();
         let host_token = create_session_token(&db, fixture.writer.clone())
@@ -384,10 +384,11 @@ mod room_http {
         let promoted: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
         assert_eq!(promoted.queue.len(), 2);
         assert_eq!(promoted.queue[0].song_id, second_song.id);
+        assert!(!promoted.queue[0].played);
         assert_eq!(promoted.queue[1].song_id, song.id);
         assert_ne!(promoted.queue[1].id, first_queue_id);
         assert_eq!(promoted.queue[1].upvotes, 0);
-        assert!(!promoted.queue[1].played);
+        assert!(promoted.queue[1].played);
     }
 
     #[actix_web::test]

@@ -1724,10 +1724,10 @@ SET revision += 1;
                     .map(|item| item.song.id.clone())
             })
             .flatten();
-        let mut requeued_item = queue_item.clone();
-        requeued_item.id = Uuid::new_v4().to_string();
-        requeued_item.upvotes = 0;
-        requeued_item.played = false;
+        let mut activated_item = queue_item.clone();
+        activated_item.id = Uuid::new_v4().to_string();
+        activated_item.upvotes = 0;
+        activated_item.played = true;
         let played_queue_ids = aggregate
             .queue
             .iter()
@@ -1744,7 +1744,7 @@ SET revision += 1;
                 }
                 item
             })
-            .chain(std::iter::once(requeued_item))
+            .chain(std::iter::once(activated_item))
             .collect::<Vec<_>>();
         Self::rank_queue(&mut queue);
         let queue_json = serde_json::to_string(&queue)
@@ -2844,7 +2844,7 @@ mod tests {
         assert_eq!(promoted.queue[1].song_id, "song-2");
         assert_ne!(promoted.queue[1].id, "queue-song-2");
         assert_eq!(promoted.queue[1].upvotes, 0);
-        assert!(!promoted.queue[1].played);
+        assert!(promoted.queue[1].played);
         assert_eq!(promoted.content.items.len(), 3);
         assert_eq!(promoted.musical_state.item_index, 1);
 
@@ -2867,7 +2867,7 @@ mod tests {
         assert_eq!(promoted_again.queue[0].song_id, "song-3");
         assert_eq!(promoted_again.queue[1].song_id, "song-2");
         assert_ne!(promoted_again.queue[1].id, requeued_id);
-        assert!(!promoted_again.queue[1].played);
+        assert!(promoted_again.queue[1].played);
         assert_eq!(promoted_again.content.items.len(), 3);
     }
 
@@ -2921,7 +2921,7 @@ mod tests {
             .unwrap();
         assert!(same_song.musical_state.started);
         assert!(
-            !same_song
+            same_song
                 .queue
                 .iter()
                 .find(|item| item.song_id == current.song_id)
@@ -2986,7 +2986,7 @@ mod tests {
             .unwrap();
         assert!(previous.played);
         assert_eq!(previous.upvotes, 0);
-        assert!(!selected.played);
+        assert!(selected.played);
         assert_eq!(after.musical_state.item_index, 1);
     }
 
@@ -3045,6 +3045,14 @@ mod tests {
                 .queue
                 .iter()
                 .find(|item| item.song_id == first.song_id)
+                .unwrap()
+                .played
+        );
+        assert!(
+            after
+                .queue
+                .iter()
+                .find(|item| item.song_id == third.song_id)
                 .unwrap()
                 .played
         );
