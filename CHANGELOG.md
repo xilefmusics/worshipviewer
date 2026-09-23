@@ -25,6 +25,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Changed
 
+- Player chord sections now render in a background worker with cached results, and the table of contents dismisses with a smoother animation.
 - Demodata fixtures are reapplied on every backend startup when `DEMODATA=generic` is enabled; the seed marker table has been removed.
 - Room queue browsing now uses the current queue for order, A–Z, and personal Liked views; hosts control whether members may add new library songs.
 - Admin Users and Metrics now use the same hub chrome as collections and songs: a bottom tab bar with Leave, hub-style user rows, and the shared right-hand actions drawer. Impersonation starts immediately from that drawer.
