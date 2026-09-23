@@ -353,6 +353,7 @@ const PLAYER_CHROME_EASE = [0.25, 0.1, 0.25, 1] as const
 const VIEWPORT_DOUBLE_TAP_MS = 300
 const VIEWPORT_TAP_MOVE_SLOP_PX = 10
 const VIEWPORT_SWIPE_MIN_PX = 48
+const SONG_SWIPE_COMMIT_MIN_PX = 10
 const VIEWPORT_EDGE_SWIPE_WIDTH_PX = 24
 const TOUCH_CLICK_SUPPRESSION_MS = 750
 const PLAYER_SWIPE_TRANSITION = 'transform 220ms cubic-bezier(0.25, 0.1, 0.25, 1)'
@@ -1398,7 +1399,7 @@ export function PlayerBook({
     const dx = clientX - start.x
     const dy = clientY - start.y
     const isSwipe =
-      Math.abs(dx) >= VIEWPORT_SWIPE_MIN_PX && Math.abs(dx) >= Math.abs(dy) * 1.2
+      Math.abs(dx) >= SONG_SWIPE_COMMIT_MIN_PX && Math.abs(dx) >= Math.abs(dy) * 1.2
 
     if (isSwipe) {
       touchMovedRef.current = false

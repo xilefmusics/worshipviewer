@@ -25,6 +25,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Changed
 
+- Song navigation in the player now commits after a 10 px horizontal swipe.
 - Player chord sections now render in a background worker with cached results, and the table of contents dismisses with a smoother animation.
 - Demodata fixtures are reapplied on every backend startup when `DEMODATA=generic` is enabled; the seed marker table has been removed.
 - Room queue browsing now uses the current queue for order, A–Z, and personal Liked views; hosts control whether members may add new library songs.
