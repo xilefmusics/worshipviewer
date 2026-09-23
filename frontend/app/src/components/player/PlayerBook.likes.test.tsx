@@ -311,6 +311,16 @@ describe('PlayerBook likes', () => {
     expect(window.localStorage.getItem('wv_chord_song_font_scale')).toBeNull()
   })
 
+  it('navigates songs after a short horizontal swipe', () => {
+    renderPlayer(player(), null, undefined, false, undefined, false, 1)
+    const main = screen.getByRole('main')
+
+    fireEvent.touchStart(main, { touches: [{ clientX: 100, clientY: 50 }] })
+    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 88, clientY: 50 }] })
+
+    expect(within(main).getByText('song-2')).toBeInTheDocument()
+  })
+
   it('swipes right to the previous item away from the left edge', () => {
     mocks.isPhoneViewport = true
     renderPlayer(player(), null, undefined, false, undefined, false, 2)
