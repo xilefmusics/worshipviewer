@@ -5,16 +5,20 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { useHideChordsPreference } from '@/hooks/useHideChordsPreference'
 import { observeElementResize } from '@/lib/browser-apis'
+import {
+  chordSectionRenderKey,
+  getCachedChordSections,
+  renderChordSections,
+  type ChordSectionRenderRequest,
+} from '@/lib/player/chord-section-render'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import {
   columnWidthInMultiColumnLayout,
   fontScaleForMultiColumnPlayer,
   scaledColumnTypography,
 } from '@/lib/chord-a4-scale'
-import { getChordEngine } from '@/lib/chord-engine'
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
-import { stripChordsFromChordlibHtml } from '@/lib/strip-chords-from-html'
-import type { ChordSongData } from '@/ports/chord-engine'
+import type { ChordSongData, SongFlowItem } from '@/ports/chord-engine'
 import type { PlayerOverflowStyle } from '@/lib/player/effective-scroll-type'
 import { formatPlayedKeyOffset } from '@/lib/player/transpose-key'
 import {
@@ -51,6 +55,7 @@ type ColumnSection = {
 
 type ChordsThreeColumnSlideProps = {
   song: Song
+  flow?: readonly SongFlowItem[] | null
   displayKey?: string | null
   soundingKey?: string | null
   selectedKey?: string | null
@@ -59,6 +64,7 @@ type ChordsThreeColumnSlideProps = {
   transposeOffset?: number | null
   languageIndex?: number | null
   nextSong?: Song | null
+  nextFlow?: readonly SongFlowItem[] | null
   nextDisplayKey?: string | null
   nextSoundingKey?: string | null
   nextSelectedKey?: string | null
@@ -155,6 +161,7 @@ function songMetaLines(
 function useMultiColumnSongRender(
   song: Song | null | undefined,
   songData: ChordSongData | undefined,
+  flow: readonly SongFlowItem[] | null | undefined,
   displayKey: string | null | undefined,
   languageIndex: number | null | undefined,
   chordFormat: ChordFormatPreference,
@@ -162,50 +169,58 @@ function useMultiColumnSongRender(
   expandSections: boolean,
   renderPass: number,
 ): RenderState {
+  const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
+  const request = useMemo<ChordSectionRenderRequest | null>(
+    () =>
+      songData
+        ? {
+            songData,
+            flow,
+            key: displayKey,
+            language: languageIndex,
+            representation,
+            hideChords,
+            expandSections,
+          }
+        : null,
+    [displayKey, expandSections, flow, hideChords, languageIndex, representation, songData],
+  )
+  const renderKey = request ? chordSectionRenderKey(request) : ''
+  const localRenderKey = `${renderKey}:${renderPass}`
+  const cachedRender = request ? getCachedChordSections(request) : undefined
   const [renderCache, setRenderCache] = useState<{ key: string; state: RenderState }>({
     key: '',
     state: { status: 'loading' },
   })
-  const representation = useMemo(() => chordFormatToRepresentation(chordFormat), [chordFormat])
-  const renderKey = song
-    ? `${song.id}:${displayKey ?? ''}:${languageIndex ?? ''}:${renderPass}:${representation}:${hideChords ? 'hidden' : 'shown'}:${expandSections ? 'expanded' : 'raw'}`
-    : ''
 
   useEffect(() => {
-    if (!song || !songData) return
+    if (!song || !request) return
 
     let cancelled = false
-    void (async () => {
-      try {
-        const engine = await getChordEngine()
-        const renderData = expandSections ? engine.fillSectionReferences(songData) : songData
-        const page = engine.renderA4SectionHtmls(renderData, {
-          key: displayKey ?? undefined,
-          language: languageIndex ?? undefined,
-          representation,
-        })
+    void renderChordSections(request).then(
+      (page) => {
         if (cancelled) return
-        const sections = hideChords
-          ? page.sections.map((section) => stripChordsFromChordlibHtml(section))
-          : page.sections
         setRenderCache({
-          key: renderKey,
-          state: { status: 'ready', sections, css: page.css },
+          key: localRenderKey,
+          state: { status: 'ready', sections: page.sections, css: page.css },
         })
-      } catch (e) {
+      },
+      (e: unknown) => {
         if (cancelled) return
         const message = e instanceof Error ? e.message : String(e)
-        setRenderCache({ key: renderKey, state: { status: 'error', message } })
-      }
-    })()
+        setRenderCache({ key: localRenderKey, state: { status: 'error', message } })
+      },
+    )
     return () => {
       cancelled = true
     }
-  }, [song, songData, displayKey, languageIndex, renderKey, representation, hideChords, expandSections])
+  }, [localRenderKey, request, song])
 
-  if (!song || !songData || renderCache.key !== renderKey) {
+  if (!song || !songData) {
     return LOADING_RENDER_STATE
   }
+  if (cachedRender) return { status: 'ready', ...cachedRender }
+  if (renderCache.key !== localRenderKey) return LOADING_RENDER_STATE
   return renderCache.state
 }
 
@@ -354,6 +369,7 @@ function columnTypographyStyle(columnLayout: {
 
 export function ChordsThreeColumnSlide({
   song,
+  flow,
   displayKey,
   soundingKey = displayKey,
   selectedKey = soundingKey,
@@ -362,6 +378,7 @@ export function ChordsThreeColumnSlide({
   transposeOffset = null,
   languageIndex,
   nextSong,
+  nextFlow,
   nextDisplayKey,
   nextSoundingKey,
   nextSelectedKey,
@@ -402,6 +419,7 @@ export function ChordsThreeColumnSlide({
   const renderState = useMultiColumnSongRender(
     song,
     songData,
+    flow,
     displayKey,
     languageIndex,
     chordFormat,
@@ -413,6 +431,7 @@ export function ChordsThreeColumnSlide({
   const nextRenderState = useMultiColumnSongRender(
     nextSong,
     nextSongData,
+    nextFlow,
     nextDisplayKey,
     nextLanguageIndex,
     chordFormat,

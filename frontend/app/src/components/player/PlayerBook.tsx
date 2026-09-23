@@ -19,6 +19,7 @@ import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
 import { Button } from '@/components/ui/button'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
 import { useChordFormatPreference } from '@/hooks/useChordFormatPreference'
+import { useHideChordsPreference } from '@/hooks/useHideChordsPreference'
 import { useChordSongFontScale } from '@/hooks/useChordSongFontScale'
 import { useComfortableKeysPreference } from '@/hooks/useComfortableKeysPreference'
 import { usePlayerInstrumentPreference } from '@/hooks/usePlayerInstrumentPreference'
@@ -101,6 +102,7 @@ import type { PlayerMode } from '@/lib/player/player-mode'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { resolveSongLanguageIndex, songLanguageOptions } from '@/lib/player/song-language'
+import { renderChordSections } from '@/lib/player/chord-section-render'
 import { buildSettingsSearch } from '@/lib/settings-route'
 import { writeChordSongFontScale } from '@/lib/player/chord-song-font-scale-preference'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
@@ -108,7 +110,7 @@ import { languageIndexForSongLink, normalizeCapoShapeKey, resolveSongDataKey } f
 import { cn } from '@/lib/utils'
 import type { ChordFormatPreference } from '@/lib/chord-format'
 import type { PlayerOverflowStyle } from '@/lib/player/effective-scroll-type'
-import type { SongFlowItem } from '@/ports/chord-engine'
+import type { ChordSongData, SongFlowItem } from '@/ports/chord-engine'
 
 type Player = components['schemas']['Player']
 type Song = components['schemas']['Song']
@@ -294,14 +296,15 @@ export function ResolvedBookChords({
   expandSections,
   fontScale = 1,
 }: ResolvedBookChordsProps) {
-  const resolvedSong = useResolvedSongWithFlow(song, flow)
-  const resolvedNextSong = useResolvedSongWithFlow(nextSong ?? song, nextFlow)
+  const resolveFlowOnMainThread = freeColumnCount == null
+  const resolvedSong = useResolvedSongWithFlow(song, flow, resolveFlowOnMainThread)
   const resolvedSelectedKey = selectedKey ?? soundingKey
 
   if (freeColumnCount != null) {
     return (
       <ChordsThreeColumnSlide
-        song={resolvedSong}
+        song={song}
+        flow={flow}
         displayKey={displayKey}
         soundingKey={soundingKey}
         selectedKey={resolvedSelectedKey}
@@ -309,7 +312,8 @@ export function ResolvedBookChords({
         showTransposeControls={showTransposeControls}
         transposeOffset={transposeOffset}
         languageIndex={languageIndex}
-        nextSong={nextSong ? resolvedNextSong : undefined}
+        nextSong={nextSong}
+        nextFlow={nextFlow}
         nextDisplayKey={nextDisplayKey}
         nextSoundingKey={nextSoundingKey}
         nextSelectedKey={nextSelectedKey}
@@ -408,6 +412,7 @@ export function PlayerBook({
   const queryClient = useQueryClient()
   const online = useOnline()
   const chordFormat = useChordFormatPreference()
+  const hideChords = useHideChordsPreference()
   const chordSongFontScale = useChordSongFontScale()
   const comfortableKeys = useComfortableKeysPreference()
   const playerInstrument = usePlayerInstrumentPreference()
@@ -428,7 +433,6 @@ export function PlayerBook({
   const tocOverlayRef = useRef<HTMLDivElement | null>(null)
   const tocSwipeOffsetRef = useRef(0)
   const tocSwipeSettlingRef = useRef(false)
-  const tocSwipeDismissRef = useRef(false)
   const pinchStartRef = useRef<{ distance: number; fontScale: number } | null>(null)
   const touchMovedRef = useRef(false)
   const pointerGestureActiveRef = useRef(false)
@@ -716,6 +720,8 @@ export function PlayerBook({
     }
   }, [deletedReconciled, t])
 
+  // The helper declarations below close over every reactive value listed in this dependency array.
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     const prefetchIndices = new Set<number>()
     const primary = prefetchNextItemIndex(online, nav.index, itemsLen)
@@ -744,27 +750,41 @@ export function PlayerBook({
           await fetchBlobBinaryWithMime(nextItem.blob_id, controller.signal)
         } else if (nextItem.type === 'chords') {
           try {
-            const engine = await getChordEngine()
-            const key = resolveSongDataKey(nextItem.song.data as Record<string, unknown>)
-            const languageOptions = songLanguageOptions(nextItem.song.data as Record<string, unknown>)
-            const slotLanguageIndex = languageIndexForSongLink(
-              nextItem.song.data as Record<string, unknown>,
-              nextItem.language,
-            )
-            const selectedLanguageIndex = resolveSongLanguageIndex(
-              languageOptions,
-              viewState.languageByItem?.[prefetchIndex] ?? slotLanguageIndex,
-            )
-            const languageIndex = selectedLanguageIndex > 0 ? selectedLanguageIndex : null
-            const renderOpts = {
-              key: key ?? undefined,
-              language: languageIndex ?? undefined,
-              representation: chordFormatToRepresentation(chordFormat),
-            }
-            if (isMultiColumnScrollMode(effectiveScroll)) {
-              engine.renderA4SectionHtmls(nextItem.song.data, renderOpts)
+            if (freeColumnCount != null) {
+              const languageIndex = renderLanguageIndexForItem(nextItem, prefetchIndex)
+              const key = keyStateForItem(nextItem, prefetchIndex).displayKey
+              await renderChordSections({
+                songData: nextItem.song.data as ChordSongData,
+                flow: nextItem.flow,
+                key,
+                language: languageIndex,
+                representation: chordFormatToRepresentation(chordFormat),
+                hideChords,
+                expandSections: layoutPreference.expandSections,
+              })
             } else {
-              engine.renderA4Html(nextItem.song.data, renderOpts)
+              const engine = await getChordEngine()
+              const key = resolveSongDataKey(nextItem.song.data as Record<string, unknown>)
+              const languageOptions = songLanguageOptions(nextItem.song.data as Record<string, unknown>)
+              const slotLanguageIndex = languageIndexForSongLink(
+                nextItem.song.data as Record<string, unknown>,
+                nextItem.language,
+              )
+              const selectedLanguageIndex = resolveSongLanguageIndex(
+                languageOptions,
+                viewState.languageByItem?.[prefetchIndex] ?? slotLanguageIndex,
+              )
+              const languageIndex = selectedLanguageIndex > 0 ? selectedLanguageIndex : null
+              const renderOptions = {
+                key: key ?? undefined,
+                language: languageIndex ?? undefined,
+                representation: chordFormatToRepresentation(chordFormat),
+              }
+              if (isMultiColumnScrollMode(effectiveScroll)) {
+                engine.renderA4SectionHtmls(nextItem.song.data as ChordSongData, renderOptions)
+              } else {
+                engine.renderA4Html(nextItem.song.data as ChordSongData, renderOptions)
+              }
             }
           } catch {
             // Prefetch is best-effort
@@ -784,7 +804,19 @@ export function PlayerBook({
     effectiveScroll,
     chordFormat,
     viewState.languageByItem,
+    viewState.capoByItem,
+    viewState.selectedKeyByItem,
+    viewState.transposeByItem,
+    viewState.transposeOffsetByItem,
+    hideChords,
+    layoutPreference.expandSections,
+    playerInstrument,
+    roomMusicalState,
+    canControlRoomMusicalState,
+    type,
+    freeColumnCount,
   ])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const backTo = backToOverride ?? hubPathForPlayerType(type)
   const localCapoShape = viewState.capoByItem?.[nav.index]
@@ -1661,7 +1693,6 @@ export function PlayerBook({
   }
 
   function resetTocSwipe() {
-    tocSwipeDismissRef.current = false
     tocSwipeSettlingRef.current = false
     setTocSwipeSettling(false)
     setTocSwipeOffsetValue(0)
@@ -1685,10 +1716,17 @@ export function PlayerBook({
 
     if (!dismiss && tocSwipeOffsetRef.current === 0) return
 
-    tocSwipeDismissRef.current = dismiss
     tocSwipeSettlingRef.current = true
     setTocSwipeSettling(true)
-    setTocSwipeOffsetValue(dismiss ? -width : 0)
+    // Let the outer TOC panel and header exit while the tracked inner panel
+    // returns to rest; animating it fully offscreen first creates a second exit.
+    setTocSwipeOffsetValue(0)
+    if (dismiss) {
+      cancelPendingChromeOpen()
+      setKeyPopoverOpen(false)
+      setLanguagePopoverOpen(false)
+      setChromeVisible(false)
+    }
   }
 
   function onTocSwipeTransitionEnd(e: React.TransitionEvent<HTMLDivElement>) {
@@ -1698,14 +1736,7 @@ export function PlayerBook({
       !tocSwipeSettlingRef.current
     ) return
 
-    const dismiss = tocSwipeDismissRef.current
     resetTocSwipe()
-    if (!dismiss) return
-
-    cancelPendingChromeOpen()
-    setKeyPopoverOpen(false)
-    setLanguagePopoverOpen(false)
-    setChromeVisible(false)
   }
 
   function onTocTouchStart(e: React.TouchEvent<HTMLDivElement>) {
@@ -1777,11 +1808,17 @@ export function PlayerBook({
           {chromeVisible ? (
             <motion.header
               key="player-chrome-header"
-              layout={!reduceMotion}
               className={playerChromeHeaderClass}
               initial={reduceMotion ? false : { height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
-              exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
+              exit={reduceMotion ? undefined : {
+                height: 0,
+                opacity: 0,
+                transition: {
+                  height: { duration: 0.1, delay: 0.12, ease: PLAYER_CHROME_EASE },
+                  opacity: { duration: 0.12, ease: PLAYER_CHROME_EASE },
+                },
+              }}
               transition={chromeTransition}
             >
               <Button
@@ -2041,13 +2078,10 @@ export function PlayerBook({
         </AnimatePresence>
 
         <motion.div
-          layout={!reduceMotion}
-          transition={chromeTransition}
           className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         >
           <motion.div
             role="main"
-            layout={!reduceMotion}
             aria-label={t('player.mainAria', { title: title || t('player.untitled') })}
             className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
             style={
@@ -2114,7 +2148,7 @@ export function PlayerBook({
             )}
           </motion.div>
 
-          <AnimatePresence initial={false}>
+          <AnimatePresence initial={false} onExitComplete={resetTocSwipe}>
             {chromeVisible && showToc ? (
               <motion.div
                 key="player-chrome-toc"
