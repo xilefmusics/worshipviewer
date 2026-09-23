@@ -433,7 +433,6 @@ export function PlayerBook({
   const tocOverlayRef = useRef<HTMLDivElement | null>(null)
   const tocSwipeOffsetRef = useRef(0)
   const tocSwipeSettlingRef = useRef(false)
-  const tocSwipeDismissRef = useRef(false)
   const pinchStartRef = useRef<{ distance: number; fontScale: number } | null>(null)
   const touchMovedRef = useRef(false)
   const pointerGestureActiveRef = useRef(false)
@@ -1694,7 +1693,6 @@ export function PlayerBook({
   }
 
   function resetTocSwipe() {
-    tocSwipeDismissRef.current = false
     tocSwipeSettlingRef.current = false
     setTocSwipeSettling(false)
     setTocSwipeOffsetValue(0)
@@ -1718,10 +1716,17 @@ export function PlayerBook({
 
     if (!dismiss && tocSwipeOffsetRef.current === 0) return
 
-    tocSwipeDismissRef.current = dismiss
     tocSwipeSettlingRef.current = true
     setTocSwipeSettling(true)
-    setTocSwipeOffsetValue(dismiss ? -width : 0)
+    // Let the outer TOC panel and header exit while the tracked inner panel
+    // returns to rest; animating it fully offscreen first creates a second exit.
+    setTocSwipeOffsetValue(0)
+    if (dismiss) {
+      cancelPendingChromeOpen()
+      setKeyPopoverOpen(false)
+      setLanguagePopoverOpen(false)
+      setChromeVisible(false)
+    }
   }
 
   function onTocSwipeTransitionEnd(e: React.TransitionEvent<HTMLDivElement>) {
@@ -1731,14 +1736,7 @@ export function PlayerBook({
       !tocSwipeSettlingRef.current
     ) return
 
-    const dismiss = tocSwipeDismissRef.current
     resetTocSwipe()
-    if (!dismiss) return
-
-    cancelPendingChromeOpen()
-    setKeyPopoverOpen(false)
-    setLanguagePopoverOpen(false)
-    setChromeVisible(false)
   }
 
   function onTocTouchStart(e: React.TouchEvent<HTMLDivElement>) {
@@ -1810,11 +1808,17 @@ export function PlayerBook({
           {chromeVisible ? (
             <motion.header
               key="player-chrome-header"
-              layout={!reduceMotion}
               className={playerChromeHeaderClass}
               initial={reduceMotion ? false : { height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
-              exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
+              exit={reduceMotion ? undefined : {
+                height: 0,
+                opacity: 0,
+                transition: {
+                  height: { duration: 0.1, delay: 0.12, ease: PLAYER_CHROME_EASE },
+                  opacity: { duration: 0.12, ease: PLAYER_CHROME_EASE },
+                },
+              }}
               transition={chromeTransition}
             >
               <Button
@@ -2074,13 +2078,10 @@ export function PlayerBook({
         </AnimatePresence>
 
         <motion.div
-          layout={!reduceMotion}
-          transition={chromeTransition}
           className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         >
           <motion.div
             role="main"
-            layout={!reduceMotion}
             aria-label={t('player.mainAria', { title: title || t('player.untitled') })}
             className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
             style={
@@ -2147,7 +2148,7 @@ export function PlayerBook({
             )}
           </motion.div>
 
-          <AnimatePresence initial={false}>
+          <AnimatePresence initial={false} onExitComplete={resetTocSwipe}>
             {chromeVisible && showToc ? (
               <motion.div
                 key="player-chrome-toc"

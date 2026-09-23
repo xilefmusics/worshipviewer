@@ -424,7 +424,7 @@ describe('PlayerBook likes', () => {
     expect(within(main).getByText('song-2')).toBeInTheDocument()
   })
 
-  it('animates back to the song panel when selecting a fullscreen TOC row', async () => {
+  it('dismisses the fullscreen TOC after selecting a row without waiting for a track transition', async () => {
     mocks.isPhoneViewport = true
     renderPlayer(player(), null, undefined, false, undefined, false, 2)
     const main = screen.getByRole('main')
@@ -439,15 +439,11 @@ describe('PlayerBook likes', () => {
       DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
     )
 
-    const track = screen.getByTestId('player-toc-swipe-track')
     fireEvent.click(within(toc).getByRole('button', { name: 'Other' }))
 
     expect(within(main).getByText('song-2')).toBeInTheDocument()
-    expect(track.style.transform).toContain('-100px')
-    expect(track.style.transition).toContain('transform')
-
-    fireEvent.transitionEnd(track, { propertyName: 'transform' })
     await waitFor(() => expect(screen.queryByTestId('liked-toc')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('banner')).not.toBeInTheDocument())
   })
 
   it('swipes left inside the fullscreen TOC to return to the song', async () => {
@@ -473,12 +469,9 @@ describe('PlayerBook likes', () => {
     expect(within(main).getByText('song-2')).toBeInTheDocument()
 
     fireEvent.touchEnd(toc, { changedTouches: [{ clientX: 130, clientY: 50 }] })
-    expect(track.style.transform).toContain('-100px')
-    expect(track.style.transition).toContain('transform')
-    fireEvent.transitionEnd(track, { propertyName: 'transform' })
-
     await waitFor(() => expect(screen.queryByTestId('liked-toc')).not.toBeInTheDocument())
     expect(within(main).getByText('song-2')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('banner')).not.toBeInTheDocument())
   })
 
   it('keeps the fullscreen TOC open for vertical and non-dismissal swipes', () => {
