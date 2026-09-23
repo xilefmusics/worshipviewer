@@ -25,36 +25,6 @@ function gitVersion(): string {
   }
 }
 
-function runtimeConfigJs(roomsV2Enabled: boolean): string {
-  return `window.__WORSHIP_RUNTIME__=${JSON.stringify({ roomsV2Enabled })};`
-}
-
-function runtimeConfigPlugin(roomsV2Enabled: boolean): Plugin {
-  const handle = (
-    req: { url?: string },
-    res: { setHeader: (name: string, value: string) => void; end: (body: string) => void },
-    next: () => void,
-  ) => {
-    const path = req.url?.split('?')[0]
-    if (path !== '/runtime-config.js') {
-      next()
-      return
-    }
-    res.setHeader('Content-Type', 'application/javascript; charset=utf-8')
-    res.setHeader('Cache-Control', 'no-store')
-    res.end(runtimeConfigJs(roomsV2Enabled))
-  }
-  return {
-    name: 'runtime-config',
-    configureServer(server) {
-      server.middlewares.use(handle)
-    },
-    configurePreviewServer(server) {
-      server.middlewares.use(handle)
-    },
-  }
-}
-
 function avOutputCspPlugin(): Plugin {
   const apply = (csp: string) => (
     req: { url?: string },
@@ -88,11 +58,8 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_DEV_PROXY_TARGET || 'http://127.0.0.1:8080'
   const port = Number(env.PORT)
   const host = env.HOST || undefined
-  const roomsV2Enabled = env.VITE_ROOMS_V2_ENABLED === 'true'
-
   return {
     plugins: [
-      runtimeConfigPlugin(roomsV2Enabled),
       avOutputCspPlugin(),
       tanstackRouter({ target: 'react', autoCodeSplitting: true }),
       react(),
@@ -131,13 +98,7 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           navigateFallback: 'index.html',
-          navigateFallbackDenylist: [/^\/api\//, /^\/auth\//, /^\/player\/output/, /^\/runtime-config\.js$/],
-          runtimeCaching: [
-            {
-              urlPattern: /\/runtime-config\.js$/,
-              handler: 'NetworkOnly',
-            },
-          ],
+          navigateFallbackDenylist: [/^\/api\//, /^\/auth\//, /^\/player\/output/],
         },
       }),
     ],
