@@ -1,15 +1,13 @@
-# Docker Hub has not published rust:1.98.1-* yet; install the compiler via rustup to match rust-toolchain.toml.
-FROM rust:1.98.0-slim AS toolchain
+FROM rust:1.98.1-slim AS toolchain
 
 RUN export CARGO_BUILD_JOBS=$(nproc) && \
-    rustup toolchain install 1.98.1 && rustup default 1.98.1 && \
     rustup target add wasm32-unknown-unknown && \
     apt-get update && \
     apt-get install -y --no-install-recommends pkg-config libssl-dev build-essential ca-certificates curl && \
-    curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
+    curl -fsSL https://deb.nodesource.com/setup_26.x | bash - && \
     apt-get install -y --no-install-recommends nodejs && \
-    corepack enable && corepack prepare pnpm@10.34.5 --activate && \
-    curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh && \
+    npm install --global pnpm@12.6.0 && \
+    curl -fsSL https://rustwasm.github.io/wasm-pack/installer/init.sh | VERSION=0.15.0 sh && \
     VENOM_VERSION=1.3.0 && \
     curl -L "https://github.com/ovh/venom/releases/download/v${VENOM_VERSION}/venom.linux-amd64" -o /usr/local/bin/venom && \
     chmod +x /usr/local/bin/venom

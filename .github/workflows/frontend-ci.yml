@@ -24,17 +24,15 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/setup@v3
         with:
-          version: 10.34.5
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          version: 12.6.0
+          runtime: node@26
+          working-directory: frontend
+          cache: true
+          install: false
 
       - uses: dtolnay/rust-toolchain@v1
         with:
@@ -47,7 +45,7 @@ jobs:
           shared-key: wv-frontend-wasm
 
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        run: curl -fsSL https://rustwasm.github.io/wasm-pack/installer/init.sh | VERSION=0.15.0 sh
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
