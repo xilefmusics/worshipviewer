@@ -27,7 +27,7 @@ Rust crates are **standalone** (there is no root `Cargo.toml`):
 | Frontend      | [`frontend/`](frontend/)                                           | pnpm monorepo; Vite SPA in `frontend/app/`          |
 | Chordlib WASM | [`frontend/crates/chordlib-wasm/`](frontend/crates/chordlib-wasm/) | WASM wrapper around the external **chordlib** crate |
 
-Toolchain: **Rust 1.98.1** ([`rust-toolchain.toml`](rust-toolchain.toml)), **Node 24**, **pnpm 10.34.5**.
+Toolchain: **Rust 1.98.1** ([`rust-toolchain.toml`](rust-toolchain.toml)), **Node 26**, **pnpm 12.6.0**.
 
 ## Main principles
 
@@ -59,11 +59,10 @@ For local dev, run the **Vite dev server** and let it **proxy** API traffic to y
 
 ### Install prerequisites
 
-**Frontend** (Node.js 24 + pnpm 10):
+**Frontend** (Node.js 26 + pnpm 12):
 
 ```bash
-corepack enable
-corepack prepare pnpm@10.34.5 --activate
+npm install --global pnpm@12.6.0
 pnpm -C frontend install
 ```
 
@@ -71,7 +70,7 @@ pnpm -C frontend install
 
 ```bash
 rustup target add wasm32-unknown-unknown
-curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+curl -fsSL https://rustwasm.github.io/wasm-pack/installer/init.sh | VERSION=0.15.0 sh
 ```
 
 **Backend** (optional for frontend-only UI work against production):
@@ -79,7 +78,7 @@ curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 Install Rust with [rustup](https://rustup.rs/). The repository's
 [`rust-toolchain.toml`](rust-toolchain.toml) selects the required Rust version.
 
-The Docker image is built with **Rust 1.98.1**, **Node.js 24**, **pnpm 10.34.5**, and **wasm-pack** (see the root [`Dockerfile`](Dockerfile)).
+The Docker image is built with **Rust 1.98.1**, **Node.js 26**, **pnpm 12.6.0**, and **wasm-pack 0.15.0** (see the root [`Dockerfile`](Dockerfile)).
 
 ### Backend startup options
 
@@ -104,7 +103,7 @@ Best when you want data to survive backend restarts.
 
 ```bash
 # Start the database as a separate process
-docker run --rm -p 8000:8000 surrealdb/surrealdb:v3.0.5 start --log debug --user root --pass root memory
+docker run --rm -p 8000:8000 surrealdb/surrealdb:v3.2.4 start --log debug --user root --pass root memory
 
 # Create a database user for the backend (run from the repo root)
 token=$(curl -sS -X POST http://127.0.0.1:8000/signin \
@@ -187,7 +186,7 @@ The SPA in `frontend/app/` has two automated UI layers:
 - **Vitest** — fast unit tests (`environment: node`) and component tests (`jsdom` + Testing Library).
 - **Playwright** — browser end-to-end tests against a locally started **`vite preview`** server (production build).
 
-Both run from the frontend workspace. Install prerequisites above (Node 24, pnpm, wasm-pack) and dependencies once:
+Both run from the frontend workspace. Install prerequisites above (Node 26, pnpm 12.6.0, wasm-pack 0.15.0) and dependencies once:
 
 ```bash
 pnpm -C frontend install

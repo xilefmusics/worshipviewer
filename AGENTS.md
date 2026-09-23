@@ -115,6 +115,6 @@ This is the authoritative local gate: fmt, audit, backend test/clippy, OpenAPI t
 - Monorepo: Rust backend/cli/shared + React/Vite frontend + chordlib WASM crate.
 - No root `Cargo.toml`; each Rust crate is standalone.
 - Canonical OpenAPI: `docs/openapi.json` (tri-copied to backend and frontend).
-- Tool versions: Rust **1.98.1**, Node **24**, pnpm **10.34.5** — see [CONTRIBUTING.md](CONTRIBUTING.md#prerequisites).
+- Tool versions: Rust **1.98.1**, Node **26**, pnpm **12.6.0**, wasm-pack **0.15.0** — see [CONTRIBUTING.md](CONTRIBUTING.md#prerequisites).
 
 For architecture, migrations, release notes, and CI job details, read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/README.md](docs/README.md).
