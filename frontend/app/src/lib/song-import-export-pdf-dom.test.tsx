@@ -29,7 +29,9 @@ describe('mountPdfExportDocumentForTest', () => {
     expect(css).toContain('size: A4 portrait')
     expect(css).toContain('@media print')
     expect(css).toContain('.pdf-export-root:nth-of-type(1) .page')
-    expect(css).toContain('height: auto')
+    expect(css).toContain('height: 297mm')
+    expect(css).not.toContain('height: auto')
+    expect(css).not.toContain('.pdf-export-root:nth-of-type(1) .columns')
     expect(doc.querySelectorAll('.pdf-export-root')).toHaveLength(1)
   })
 
