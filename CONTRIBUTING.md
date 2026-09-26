@@ -42,7 +42,7 @@ See [README.md](README.md) for production-like single-process runs, Playwright e
 ./scripts/verify-ci.sh
 ```
 
-Runs fmt, audit, backend tests/clippy, OpenAPI tri-copy + Spectral, and the full frontend gate. Does **not** run Playwright e2e or Docker/Venom.
+Runs fmt, audit, backend tests/clippy, OpenAPI tri-copy + Spectral, and the full frontend gate. Does **not** run Playwright e2e or Docker builds.
 
 ## Commit messages
 
@@ -150,16 +150,16 @@ CI fails if the three copies diverge or if `openapi_snapshot_matches_committed_f
 | ----------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
 | [Backend CI](.github/workflows/backend-ci.yml) — validation | PRs to `main`; pushes to non-`main` branches           | `cargo test`, clippy, fmt, Spectral, OpenAPI tri-copy, `cargo audit` (backend, cli, shared, `chordlib-wasm`)    |
 | [Frontend CI](.github/workflows/frontend-ci.yml)            | PRs to `main`; pushes to `main` that touch `frontend/` | Vitest, flow lint, typecheck, OpenAPI `schema.d.ts` drift, lint, build, `pnpm audit`                            |
-| [Backend CI](.github/workflows/backend-ci.yml) — publish    | Pushes to `main` or a tag matching build paths         | Builds and publishes `ghcr.io/xilefmusics/worshipviewer`; **Venom** integration tests run in the `tester` stage |
+| [Backend CI](.github/workflows/backend-ci.yml) — publish    | Pushes to `main` or a tag matching build paths         | Builds and publishes `ghcr.io/xilefmusics/worshipviewer` |
 
 Validation jobs cancel superseded runs for the same PR/ref. Publishing is excluded
 from cancellation. Frontend CI caches Rust/WASM build artifacts and builds WASM
 once during dependency installation. Docker builds the backend and frontend in
 independent stages, with cached frontend dependency installation and a separate
 cached WASM stage. The backend stage copies only build/test inputs so local runtime
-data cannot invalidate compilation; the final image still
-depends on the Venom tester stage. Docker's GitHub Actions layer cache uses scope
-`worshipviewer-amd64` with `mode=max`. The scratch tester and runtime include a
+data cannot invalidate compilation; the final image copies the compiled binary
+directly from the backend builder. Docker's GitHub Actions layer cache uses scope
+`worshipviewer-amd64` with `mode=max`. The scratch runtime includes a
 writable `/tmp` directory for temporary files, including amd64 emulation.
 
 ### GHCR publishing setup
@@ -184,12 +184,6 @@ The workflow does not change package visibility automatically.
 **Playwright e2e** (`pnpm test:e2e` in `frontend/`) is **local-only** and intentionally not part of CI. Run it against the real backend on port 8788 before release.
 
 **Supply chain:** `pnpm audit --audit-level=high` and `cargo audit` on all Rust manifests including `frontend/crates/chordlib-wasm`. The frontend pins `serialize-javascript` ≥7.0.5 via pnpm overrides (build-time transitive from `vite-plugin-pwa`).
-
-Venom HTTP tests are **not** re-run on every PR (they require the full Docker build). Treat a green Docker `main` build as the post-merge integration gate, or run locally:
-
-```bash
-docker build --target tester .
-```
 
 ## Documentation
 

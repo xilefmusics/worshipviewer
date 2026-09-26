@@ -85,7 +85,7 @@ pnpm -C frontend build            # frontend or WASM changes
 ./scripts/verify-ci.sh
 ```
 
-This is the authoritative local gate: fmt, audit, backend test/clippy, OpenAPI tri-copy + Spectral, frontend test/lint/typecheck/flow lint/build. It does **not** run Playwright e2e or Docker/Venom.
+This is the authoritative local gate: fmt, audit, backend test/clippy, OpenAPI tri-copy + Spectral, frontend test/lint/typecheck/flow lint/build. It does **not** run Playwright e2e or Docker builds.
 
 ## Quick reference by path
 
@@ -101,7 +101,7 @@ This is the authoritative local gate: fmt, audit, backend test/clippy, OpenAPI t
 ## What not to run by default
 
 - **Playwright e2e** (`pnpm -C frontend test:e2e`) — local-only, not in CI. Run only when the user asks or when you changed e2e specs.
-- **Docker/Venom** — post-merge integration gate; see [CONTRIBUTING.md](CONTRIBUTING.md#ci-overview).
+- **Docker builds** — image publishing runs on `main` and tags; see [CONTRIBUTING.md](CONTRIBUTING.md#ci-overview).
 
 ## When checks fail
 

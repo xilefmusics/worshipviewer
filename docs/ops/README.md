@@ -46,7 +46,7 @@ Abbreviated procedures for deploy verification, rollback, and incident triage. E
 
 ## Integration test gate
 
-Production images run Venom tests during `docker build --target tester`. For pre-merge validation of HTTP regressions, build the tester stage locally or rely on `main` Docker CI.
+Run `cd backend && cargo test -- --test-threads=4` for HTTP regression coverage before merging. Backend validation CI runs this suite on pull requests; production image builds do not run tests.
 
 ## Log alerting pointers
 

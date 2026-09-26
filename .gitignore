@@ -6,7 +6,6 @@ backend/media-assets/
 backend/static/*
 !backend/static/.gitkeep
 .cursor
-venom*.log
 0000_migration_test
 .env
 .env*.local
