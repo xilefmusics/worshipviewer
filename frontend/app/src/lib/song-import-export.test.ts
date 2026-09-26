@@ -45,9 +45,10 @@ describe('buildPdfPrintCss', () => {
     const css = buildPdfPrintCss()
     expect(css).toContain('@media print')
     expect(css).toContain('.pdf-export-root:nth-of-type(1) .page')
-    expect(css).toContain('height: auto')
-    expect(css).toContain('overflow: visible')
-    expect(css).toContain('.pdf-export-root:nth-of-type(1) .columns')
+    expect(css).toContain('height: 297mm')
+    expect(css).toContain('overflow: hidden')
+    expect(css).not.toContain('height: auto')
+    expect(css).not.toContain('.pdf-export-root:nth-of-type(1) .columns')
   })
 
   it('emits one override block per exported page', () => {

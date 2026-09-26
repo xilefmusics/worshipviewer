@@ -267,20 +267,15 @@ const PDF_PAGE_BASE_CSS = `
 }
 `
 
-/** Print overrides for chordlib fixed-height screen layout (exported for tests). */
+/** Print overrides that preserve chordlib's fixed A4 page layout (exported for tests). */
 export function buildPdfPrintCss(pageCount = 1): string {
   const pageRules = Array.from({ length: pageCount }, (_, index) => {
     const host = `.pdf-export-root:nth-of-type(${index + 1})`
     return `${host} .page {
     width: 210mm;
-    height: auto;
-    min-height: 0;
-    overflow: visible;
+    height: 297mm;
+    overflow: hidden;
     transform: none;
-  }
-  ${host} .columns {
-    height: auto;
-    overflow: visible;
   }`
   }).join('\n  ')
 
