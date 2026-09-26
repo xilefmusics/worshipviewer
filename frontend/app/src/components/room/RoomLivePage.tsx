@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react'
+import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { PlayerBook } from '@/components/player/PlayerBook'
@@ -7,6 +8,7 @@ import { AvSlideView } from '@/components/player/av/AvSlideView'
 import { RoomSidebar } from '@/components/room/RoomSidebar'
 import { RoomQueuePanel } from '@/components/room/RoomQueuePanel'
 import { RoomThreePanelShell } from '@/components/room/RoomThreePanelShell'
+import { Button } from '@/components/ui/button'
 import { useIsPhoneWidth } from '@/hooks/useMediaQuery'
 import { PLAYER_TOC_WIDTH_CLASS } from '@/lib/player/player-chrome'
 import {
@@ -81,8 +83,11 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
   }, [session?.is_host, snapshot])
   if (room.status === 'ended') {
     return (
-      <main className="flex min-h-dvh items-center justify-center p-6 text-center">
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
         <h1 className="text-xl font-semibold">{t('rooms.ended')}</h1>
+        <Button asChild variant="outline">
+          <Link to="/rooms">{t('rooms.backToList')}</Link>
+        </Button>
       </main>
     )
   }
