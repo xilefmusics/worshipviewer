@@ -198,22 +198,23 @@ describe('SettingsView', () => {
     ).toBeChecked()
   })
 
-  it('renders and stores both Zeltlager AV backgrounds', async () => {
+  it('offers only the Default AV background and stores the Ray preset', async () => {
     const user = userEvent.setup()
 
     render(<SettingsView activeTab="playerRoles" />)
 
-    expect(
-      screen.getByText('settings.playerRoles.background.zeltlager1'),
-    ).toBeInTheDocument()
-    const zeltlager2 = screen.getByRole('radio', {
-      name: /settings\.playerRoles\.background\.zeltlager2/,
+    const defaultBackground = screen.getByRole('radio', {
+      name: /settings\.playerRoles\.background\.default/,
     })
+    expect(
+      screen.getAllByRole('radio', { name: /settings\.playerRoles\.background\.default/ }),
+    ).toHaveLength(1)
+    expect(screen.queryByRole('radio', { name: /zeltlager/i })).not.toBeInTheDocument()
 
-    await user.click(zeltlager2)
+    await user.click(defaultBackground)
 
     expect(JSON.parse(window.localStorage.getItem('avPreferences') ?? '{}')).toMatchObject({
-      backgroundLayer: { preset: 4 },
+      backgroundLayer: { preset: 2 },
     })
   })
 

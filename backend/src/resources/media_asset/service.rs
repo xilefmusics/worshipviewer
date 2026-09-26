@@ -314,6 +314,39 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
     ) -> Result<shared::media::MediaContent, AppError> {
         use shared::media::MediaContent;
         match content {
+            MediaContent::Image { blob_id } => {
+                let (kind, content_type) = self
+                    .repo
+                    .list_assets_for_media(source_media_id)
+                    .await?
+                    .into_iter()
+                    .find(|asset| asset.id == *blob_id)
+                    .map(|asset| (asset.kind, asset.content_type))
+                    .unwrap_or((MediaAssetKind::Image, "application/octet-stream".into()));
+                let new_id = uuid::Uuid::new_v4().to_string();
+                self.storage
+                    .copy_final_file(blob_id, &new_id)
+                    .map_err(|e| AppError::Internal(e.to_string()))?;
+                let mut cleanup = FinalFileCleanup::new(self.storage.clone(), &new_id);
+                let bytes = std::fs::read(self.final_file_path(&new_id))
+                    .map_err(|e| AppError::internal_from_err("media.duplicate.read", e))?;
+                let etag = crate::http_range::etag_from_file_bytes(&bytes);
+                self.repo
+                    .create_final(
+                        &new_id,
+                        CreateFinalAsset {
+                            owner,
+                            media_id: RecordId::new("media", dest_media_id.to_owned()),
+                            kind,
+                            content_type,
+                            byte_length: bytes.len() as u64,
+                            etag,
+                        },
+                    )
+                    .await?;
+                cleanup.disarm();
+                Ok(MediaContent::Image { blob_id: new_id })
+            }
             MediaContent::Video {
                 blob_id,
                 duration_ms,
@@ -537,6 +570,7 @@ mod tests {
                     content: CreateMediaContent::YouTube {
                         url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ".into(),
                     },
+                    is_background: false,
                 },
             )
             .await
@@ -588,6 +622,7 @@ mod tests {
                     content: CreateMediaContent::YouTube {
                         url: "https://youtu.be/dQw4w9WgXcQ".into(),
                     },
+                    is_background: false,
                 },
             )
             .await

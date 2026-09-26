@@ -40,6 +40,7 @@ type AvMediaTransportPanelProps = {
   onLoop: (loop: boolean) => void
   onRetry: () => void
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
+  onSelectBackgroundImage: (image: { mediaId: string; assetId: string }) => void
 }
 
 function errorCopyKey(code: string | undefined): string {
@@ -80,6 +81,7 @@ export function AvMediaTransportPanel({
   onLoop,
   onRetry,
   onSelectBackgroundPreset,
+  onSelectBackgroundImage,
 }: AvMediaTransportPanelProps) {
   const { t } = useTranslation()
   const web = isWebPageAvKind(kind)
@@ -240,10 +242,11 @@ export function AvMediaTransportPanel({
         ) : null}
       </div>
       <AvBackgroundSelector
-        preset={backgroundLayer.preset}
+        backgroundLayer={backgroundLayer}
         previewText={backgroundPreviewText}
         contentLayer={contentLayer}
         onSelectPreset={onSelectBackgroundPreset}
+        onSelectBackgroundImage={onSelectBackgroundImage}
       />
     </div>
   )

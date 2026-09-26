@@ -26,12 +26,14 @@ export function CreateMediaDialog({
   onOpenChange,
   onCreated,
   defaultOwner,
+  defaultIsBackground = false,
   elevated = false,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: (id: string, media: Media) => void
   defaultOwner?: string
+  defaultIsBackground?: boolean
   elevated?: boolean
 }) {
   const { t } = useTranslation()
@@ -42,7 +44,8 @@ export function CreateMediaDialog({
   const pointerStartY = useRef<number | null>(null)
   const { teams, user, isPending: teamsPending } = useWritableTeams('mediaCreate', open)
   const [title, setTitle] = useState('')
-  const [kind, setKind] = useState<CreateMediaKind>('slide_deck')
+  const [kind, setKind] = useState<CreateMediaKind>(defaultIsBackground ? 'image' : 'slide_deck')
+  const [isBackground, setIsBackground] = useState(defaultIsBackground)
   const [url, setUrl] = useState('')
   const [owner, setOwner] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -62,13 +65,20 @@ export function CreateMediaDialog({
       if (quickFiles) {
         if (!owner) throw new Error(t('media.validation.noWritableTeam'))
         const kinds = quickFiles.map(sniffAssetUploadKind)
-        const uploadKind =
+        let uploadKind: 'image' | 'video' | 'audio' | 'slide_deck' | null = null
+        if (kind === 'image') {
+          if (quickFiles.length !== 1 || (kinds[0] !== 'image' && kinds[0] !== 'svg')) {
+            throw new Error(t('media.validation.imageFileType'))
+          }
+          uploadKind = 'image'
+        } else if (
           kinds.length > 0 &&
           kinds.every((value) => value === 'image' || value === 'pdf' || value === 'svg')
-            ? 'slide_deck'
-            : kinds.length === 1 && (kinds[0] === 'audio' || kinds[0] === 'video')
-              ? kinds[0]
-              : null
+        ) {
+          uploadKind = 'slide_deck'
+        } else if (kinds.length === 1 && (kinds[0] === 'audio' || kinds[0] === 'video')) {
+          uploadKind = kinds[0]
+        }
         if (!uploadKind) throw new Error(t('setlists.editor.mediaQuickUploadUnsupported'))
         setKind(uploadKind)
         setFile(quickFiles[0])
@@ -81,6 +91,7 @@ export function CreateMediaDialog({
             quickFiles[0].name.replace(/\.[^.]+$/, '').trim() ||
             t('media.create.title'),
           owner,
+          isBackground: uploadKind === 'image' && isBackground,
           files: quickFiles,
           onProgress: setUploadProgress,
         })
@@ -88,6 +99,20 @@ export function CreateMediaDialog({
       if (!title.trim()) throw new Error(t('media.validation.titleRequired'))
       if (!owner) throw new Error(t('media.validation.noWritableTeam'))
       if (isUploadMediaKind(kind)) {
+        if (kind === 'image') {
+          if (!file) throw new Error(t('media.validation.fileRequired'))
+          const sniff = sniffAssetUploadKind(file)
+          if (sniff !== 'image' && sniff !== 'svg') throw new Error(t('media.validation.imageFileType'))
+          setUploadProgress(0)
+          return createUploadedMedia({
+            kind,
+            title: title.trim(),
+            owner,
+            isBackground,
+            files: [file],
+            onProgress: setUploadProgress,
+          })
+        }
         if (kind === 'slide_deck') {
           if (files.length === 0) throw new Error(t('media.validation.fileRequired'))
           for (const next of files) {
@@ -101,6 +126,7 @@ export function CreateMediaDialog({
             kind,
             title: title.trim(),
             owner,
+            isBackground: false,
             files,
             onProgress: setUploadProgress,
           })
@@ -142,7 +168,8 @@ export function CreateMediaDialog({
     onOpenChange(next)
     if (!next) {
       setTitle('')
-      setKind('slide_deck')
+      setKind(defaultIsBackground ? 'image' : 'slide_deck')
+      setIsBackground(defaultIsBackground)
       setUrl('')
       setOwner('')
       setFile(null)
@@ -229,6 +256,9 @@ export function CreateMediaDialog({
                           disabled={busy || teamsPending || !owner}
                           pending={busy && uploading}
                           progress={uploadProgress}
+                          accept={kind === 'image'
+                            ? 'image/png,image/jpeg,image/svg+xml,.png,.jpg,.jpeg,.svg'
+                            : undefined}
                           onFiles={(nextFiles) => {
                             setError('')
                             mutation.mutate(nextFiles)
@@ -256,6 +286,8 @@ export function CreateMediaDialog({
                       onOwnerChange={setOwner}
                       onFileChange={setFile}
                       onFilesChange={setFiles}
+                      isBackground={isBackground}
+                      onBackgroundChange={setIsBackground}
                     />
                     {uploading ? (
                       <div role="status" className="grid gap-1">

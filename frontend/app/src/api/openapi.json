@@ -325,6 +325,10 @@
           "content": {
             "$ref": "#/components/schemas/CreateMediaContent"
           },
+          "is_background": {
+            "description": "URL-backed media cannot be selected as an AV background in v1.",
+            "type": "boolean"
+          },
           "owner": {
             "type": [
               "string",
@@ -520,6 +524,10 @@
         "additionalProperties": false,
         "description": "Metadata part for synchronous multipart uploaded-media creation.",
         "properties": {
+          "is_background": {
+            "description": "Whether the uploaded item should appear in AV background selection.",
+            "type": "boolean"
+          },
           "owner": {
             "type": [
               "string",
@@ -872,6 +880,9 @@
           "id": {
             "type": "string"
           },
+          "is_background": {
+            "type": "boolean"
+          },
           "owner": {
             "type": "string"
           },
@@ -971,6 +982,24 @@
       },
       "MediaContent": {
         "oneOf": [
+          {
+            "properties": {
+              "blob_id": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "image"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "blob_id",
+              "type"
+            ],
+            "type": "object"
+          },
           {
             "properties": {
               "pages": {
@@ -3384,6 +3413,13 @@
               }
             ]
           },
+          "is_background": {
+            "description": "Omit to preserve the current value.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "owner": {
             "type": [
               "string",
@@ -3509,6 +3545,7 @@
       "UploadedMediaKind": {
         "description": "Uploaded media kind accepted by synchronous multipart creation.",
         "enum": [
+          "image",
           "slide_deck",
           "video",
           "audio"
@@ -5848,6 +5885,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Filter by AV background flag",
+            "in": "query",
+            "name": "is_background",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -5959,7 +6005,7 @@
         "operationId": "create_uploaded_media",
         "parameters": [
           {
-            "description": "Uploaded media kind: video, audio, or slide_deck",
+            "description": "Uploaded media kind: image, video, audio, or slide_deck",
             "in": "query",
             "name": "kind",
             "required": true,

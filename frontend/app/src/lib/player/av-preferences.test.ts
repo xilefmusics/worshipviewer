@@ -4,6 +4,7 @@ import {
   DEFAULT_AV_PREFERENCES,
   buildAvProjectionPayload,
   readAvPreferences,
+  writeAvPreferences,
 } from '@/lib/player/av-preferences'
 
 const baseInput = {
@@ -61,15 +62,72 @@ describe('buildAvProjectionPayload', () => {
       }).contentLines,
     ).toBeUndefined()
   })
+
+  it('includes the selected custom background in projection payloads', () => {
+    const backgroundLayer = {
+      preset: 2 as const,
+      image: { mediaId: 'media:bg', assetId: 'asset:bg' },
+    }
+    const payload = buildAvProjectionPayload({
+      ...baseInput,
+      backgroundLayer,
+      screenState: 'live',
+    })
+    expect(payload.backgroundLayer).toEqual(backgroundLayer)
+  })
 })
 
 describe('readAvPreferences', () => {
-  it.each([3, 4])('restores Zeltlager background preset %i', (preset) => {
+  it.each([0, 1, 3, 4])('migrates removed background preset %i to Default', (preset) => {
     const storage = {
       getItem: () => JSON.stringify({ backgroundLayer: { preset } }),
     }
 
-    expect(readAvPreferences(storage).backgroundLayer.preset).toBe(preset)
+    expect(readAvPreferences(storage).backgroundLayer.preset).toBe(2)
+  })
+
+  it('persists a custom image background alongside its preset fallback', () => {
+    const storage = {
+      getItem: () => JSON.stringify({
+        backgroundLayer: {
+          preset: 4,
+          image: { mediaId: 'media:bg', assetId: 'asset:bg' },
+        },
+      }),
+    }
+    expect(readAvPreferences(storage).backgroundLayer).toEqual({
+      preset: 2,
+      image: { mediaId: 'media:bg', assetId: 'asset:bg' },
+    })
+  })
+
+  it('drops incomplete custom background references and keeps the saved preset', () => {
+    const storage = {
+      getItem: () => JSON.stringify({
+        backgroundLayer: { preset: 3, image: { mediaId: 'media:bg' } },
+      }),
+    }
+    expect(readAvPreferences(storage).backgroundLayer).toEqual({ preset: 2 })
+  })
+
+  it('writes a selected custom background to preference storage', () => {
+    let saved = ''
+    const storage = {
+      setItem: (_key: string, value: string) => {
+        saved = value
+      },
+    }
+    writeAvPreferences({
+      ...DEFAULT_AV_PREFERENCES,
+      backgroundLayer: {
+        preset: 2,
+        image: { mediaId: 'media:bg', assetId: 'asset:bg' },
+      },
+    }, storage)
+    expect(JSON.parse(saved).backgroundLayer).toEqual({
+      preset: 2,
+      image: { mediaId: 'media:bg', assetId: 'asset:bg' },
+    })
   })
 
   it('adds text lightness defaults to legacy preferences', () => {

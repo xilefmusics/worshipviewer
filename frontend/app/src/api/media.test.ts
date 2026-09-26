@@ -18,7 +18,15 @@ describe('Media API mapping', () => {
   it('maps debounced search, team filter, and pagination', async () => {
     vi.mocked(api.GET).mockResolvedValue({ data: [media], response: response(200, { 'X-Total-Count': '51' }) } as never)
     await expect(fetchMediaPage(queryClient, { page: 1, q: ' stream ', teamId: 'team:1' })).resolves.toEqual({ items: [media], total: 51 })
-    expect(api.GET).toHaveBeenCalledWith('/api/v1/media', expect.objectContaining({ params: { query: { page: 1, page_size: 50, q: 'stream', team: 'team:1' } } }))
+    expect(api.GET).toHaveBeenCalledWith('/api/v1/media', expect.objectContaining({ params: { query: { page: 1, page_size: 50, q: 'stream', team: 'team:1', is_background: undefined } } }))
+  })
+
+  it('maps the backgrounds-only filter to the API query', async () => {
+    vi.mocked(api.GET).mockResolvedValue({ data: [media], response: response(200) } as never)
+    await fetchMediaPage(queryClient, { page: 0, q: '', isBackground: true })
+    expect(api.GET).toHaveBeenCalledWith('/api/v1/media', expect.objectContaining({
+      params: { query: { page: 0, page_size: 50, q: undefined, team: undefined, is_background: true } },
+    }))
   })
 
   it('maps create, edit, duplicate, move, and delete requests', async () => {

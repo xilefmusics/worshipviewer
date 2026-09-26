@@ -1,3 +1,4 @@
+use crate::api::ListQuery;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "backend")]
@@ -43,6 +44,9 @@ pub enum SpotifyResourceType {
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub enum MediaContent {
+    Image {
+        blob_id: String,
+    },
     SlideDeck {
         pages: Vec<MediaDeckPage>,
     },
@@ -89,6 +93,7 @@ pub struct MediaDeckPage {
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub enum UploadedMediaKind {
+    Image,
     SlideDeck,
     Video,
     Audio,
@@ -97,6 +102,7 @@ pub enum UploadedMediaKind {
 impl UploadedMediaKind {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
+            "image" => Some(Self::Image),
             "slide_deck" => Some(Self::SlideDeck),
             "video" => Some(Self::Video),
             "audio" => Some(Self::Audio),
@@ -113,6 +119,8 @@ pub struct Media {
     pub owner: String,
     pub title: String,
     pub content: MediaContent,
+    #[serde(default)]
+    pub is_background: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_revision: Option<MediaPendingRevision>,
 }
@@ -125,6 +133,9 @@ pub struct CreateUploadedMedia {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner: Option<String>,
     pub title: String,
+    /// Whether the uploaded item should appear in AV background selection.
+    #[serde(default)]
+    pub is_background: bool,
 }
 
 /// Create a synchronously validated URL-backed media resource.
@@ -136,6 +147,9 @@ pub struct CreateMedia {
     pub owner: Option<String>,
     pub title: String,
     pub content: CreateMediaContent,
+    /// URL-backed media cannot be selected as an AV background in v1.
+    #[serde(default)]
+    pub is_background: bool,
 }
 
 /// URL content accepted by E5.1. Uploaded/deck and legacy URL tags on
@@ -162,6 +176,59 @@ pub struct UpdateMedia {
     pub content: Option<CreateMediaContent>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner: Option<String>,
+    /// Omit to preserve the current value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_background: Option<bool>,
+}
+
+/// Media list filters; kept separate from shared ListQuery so other resource endpoints
+/// do not expose media-specific query parameters.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MediaListQuery {
+    pub page: Option<u32>,
+    pub page_size: Option<u32>,
+    pub q: Option<String>,
+    pub team: Option<String>,
+    pub is_background: Option<bool>,
+}
+
+impl MediaListQuery {
+    pub fn validate(self) -> Result<Self, String> {
+        let validated = to_shared_list_query(&self).validate()?;
+        Ok(Self {
+            page: validated.page,
+            page_size: validated.page_size,
+            q: validated.q,
+            team: validated.team,
+            is_background: self.is_background,
+        })
+    }
+
+    pub fn effective_offset_limit(&self) -> (u32, u32) {
+        to_shared_list_query(self).effective_offset_limit()
+    }
+
+    pub fn query_string_for_page(&self, page: u32) -> String {
+        let mut query = to_shared_list_query(self);
+        query.page = Some(page);
+        let mut parts = query.to_query_string().trim_start_matches('?').to_owned();
+        if let Some(is_background) = self.is_background {
+            if !parts.is_empty() {
+                parts.push('&');
+            }
+            parts.push_str(&format!("is_background={is_background}"));
+        }
+        parts
+    }
+}
+
+fn to_shared_list_query(query: &MediaListQuery) -> ListQuery {
+    ListQuery {
+        page: query.page,
+        page_size: query.page_size,
+        q: query.q.clone(),
+        team: query.team.clone(),
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
@@ -195,6 +262,7 @@ mod tests {
     #[test]
     fn all_content_tags_round_trip() {
         let values = [
+            serde_json::json!({"type":"image","blob_id":"b1"}),
             serde_json::json!({"type":"slide_deck","pages":[{"blob_id":"b1","section_title":"Intro"}]}),
             serde_json::json!({"type":"video","blob_id":"b1","duration_ms":1,"width":2,"height":3}),
             serde_json::json!({"type":"audio","blob_id":"b1","duration_ms":1}),
@@ -217,6 +285,7 @@ mod tests {
         });
         let media: Media = serde_json::from_value(value).unwrap();
         assert!(media.pending_revision.is_none());
+        assert!(!media.is_background);
         assert!(
             serde_json::from_value::<MediaContent>(serde_json::json!({"type":"future"})).is_err()
         );
@@ -225,12 +294,30 @@ mod tests {
     #[test]
     fn uploaded_media_kind_parses() {
         for (raw, expected) in [
+            ("image", UploadedMediaKind::Image),
             ("video", UploadedMediaKind::Video),
             ("audio", UploadedMediaKind::Audio),
             ("slide_deck", UploadedMediaKind::SlideDeck),
         ] {
             assert_eq!(UploadedMediaKind::parse(raw), Some(expected));
         }
+    }
+
+    #[test]
+    fn background_filter_is_preserved_in_pagination_links() {
+        let query = MediaListQuery {
+            page: Some(0),
+            page_size: Some(10),
+            q: Some("sunset".into()),
+            team: Some("team:1".into()),
+            is_background: Some(true),
+        };
+        let link = query.query_string_for_page(1);
+        assert!(link.contains("page=1"));
+        assert!(link.contains("page_size=10"));
+        assert!(link.contains("q=sunset"));
+        assert!(link.contains("team=team:1"));
+        assert!(link.contains("is_background=true"));
     }
 
     #[test]

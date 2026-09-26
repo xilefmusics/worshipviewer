@@ -108,7 +108,7 @@
       "offline": "Offline",
       "settings": "Einstellungen",
       "teams": "Teams",
-      "media": "AV-Medien",
+      "media": "AV-Medien / Hintergründe",
       "sessions": "Sitzungen",
       "admin": "Admin-Dashboard",
       "about": "Über",
@@ -371,6 +371,9 @@
       "backgroundTitle": "Hintergrund",
       "backgroundExpand": "Hintergrundauswahl einblenden",
       "backgroundCollapse": "Hintergrundauswahl ausblenden",
+      "customBackground": "Eigener Hintergrund",
+      "backgroundsError": "Hintergründe konnten nicht geladen werden.",
+      "backgroundsEmpty": "Noch keine eigenen Hintergründe.",
       "sectionShortcutsAria": "Zu Abschnitt springen",
       "sectionJump": "Zu {{section}} springen ({{key}})",
       "play": "Wiedergabe",
@@ -723,16 +726,8 @@
       "background": {
         "title": "Hintergrund",
         "description": "Wähle, was hinter den Lyrics erscheint.",
-        "black": "Schwarz",
-        "blackDescription": "Einfarbiger schwarzer Hintergrund.",
-        "red": "Rot",
-        "redDescription": "Roter radialer Verlauf.",
-        "ray": "Ray",
-        "rayDescription": "Ray-Licht-Hintergrundbild.",
-        "zeltlager1": "Zeltlager 1",
-        "zeltlager1Description": "Zeltlager-Hintergrund mit eingerahmtem Lyrics-Bereich.",
-        "zeltlager2": "Zeltlager 2",
-        "zeltlager2Description": "Zeltlager-Powercamp-Hintergrund."
+        "default": "Standard",
+        "defaultDescription": "Ray-Licht-Hintergrundbild als Standard."
       },
       "transition": {
         "title": "Folienübergang",
@@ -1366,6 +1361,7 @@
       "livestream": "Livestream",
       "web_page": "Webseite",
       "slide_deck": "Foliensatz",
+      "image": "Bild",
       "video": "Video",
       "audio": "Audio",
       "unknown": "Unbekanntes Medium"
@@ -1379,6 +1375,7 @@
       "kind": "Inhaltstyp",
       "team": "Team",
       "canonicalUrl": "Gespeicherte URL",
+      "isBackground": "Als AV-Hintergrund verwenden",
       "url": {
         "youtube": "YouTube-URL",
         "spotify": "Spotify-Titel- oder Playlist-URL",
@@ -1386,13 +1383,18 @@
         "web_page": "Webseiten-URL"
       },
       "file": {
+        "image": "PNG-, JPEG- oder SVG-Bild",
         "video": "Videodatei",
         "audio": "Audiodatei",
         "slide_deck": "PNG-, JPEG-, SVG- oder PDF-Dateien"
       }
     },
     "list": {
+      "tabsAria": "Ansichten der Medienbibliothek",
+      "allItems": "Alle Medien",
+      "backgroundItems": "Hintergründe",
       "empty": "Noch keine Medien.",
+      "noBackgrounds": "Noch keine Hintergründe.",
       "filteredEmpty": "Keine Medien für dieses Team.",
       "noResults": "Keine Medien entsprechen deiner Suche.",
       "loadingAria": "Medien werden geladen",
@@ -1404,7 +1406,7 @@
     },
     "create": {
       "title": "Medium hinzufügen",
-      "description": "Füge ein wiederverwendbares YouTube-Video, einen Spotify-Titel oder eine Playlist, einen Foliensatz oder hochgeladenes Audio oder Video hinzu."
+      "description": "Füge ein wiederverwendbares YouTube-Video, einen Spotify-Titel oder eine Playlist, einen Bildhintergrund, Foliensatz oder hochgeladenes Audio oder Video hinzu."
     },
     "editor": {
       "backToList": "Zurück zu Medien",
@@ -1485,7 +1487,8 @@
       "destinationRequired": "Wähle ein Zielteam.",
       "notEditable": "Dieses Medium kann nicht bearbeitet werden.",
       "fileRequired": "Wähle eine Datei zum Hochladen.",
-      "deckFileType": "Wähle PNG-, JPEG-, SVG- oder PDF-Dateien."
+      "deckFileType": "Wähle PNG-, JPEG-, SVG- oder PDF-Dateien.",
+      "imageFileType": "Wähle genau ein PNG-, JPEG- oder SVG-Bild."
     }
   },
   "impersonation": {

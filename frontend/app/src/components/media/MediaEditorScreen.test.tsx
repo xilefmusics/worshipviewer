@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -56,12 +56,16 @@ vi.mock('@/components/media/DeckPagesEditor', () => ({
     </div>
   ),
 }))
+vi.mock('@/components/media/MediaDeckPageView', () => ({
+  MediaDeckPageView: () => <div data-testid="image-preview" />,
+}))
 
 function deckMedia(overrides: Partial<Media> = {}): Media {
   return {
     id: 'media:deck',
     owner: 'team:1',
     title: 'Sunday',
+    is_background: false,
     content: {
       type: 'slide_deck',
       pages: [
@@ -80,11 +84,22 @@ function deckMedia(overrides: Partial<Media> = {}): Media {
   }
 }
 
-function renderEditor() {
+function imageMedia(overrides: Partial<Media> = {}): Media {
+  return {
+    id: 'media:image',
+    owner: 'team:1',
+    title: 'Background image',
+    is_background: false,
+    content: { type: 'image', blob_id: 'asset:image' },
+    ...overrides,
+  }
+}
+
+function renderEditor(mediaId = 'media:deck') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <MediaEditorScreen mediaId="media:deck" />
+      <MediaEditorScreen mediaId={mediaId} />
     </QueryClientProvider>,
   )
 }
@@ -168,4 +183,46 @@ describe('MediaEditorScreen slide decks', () => {
     })
   })
 
+})
+
+describe('MediaEditorScreen background images', () => {
+  it('previews an image and saves its background flag', async () => {
+    fetchMedia.mockResolvedValue(imageMedia())
+    updateMedia.mockImplementation(async (_qc: unknown, _id: string, body: { is_background?: boolean }) =>
+      imageMedia({ is_background: body.is_background ?? false }),
+    )
+    const user = userEvent.setup()
+    renderEditor('media:image')
+
+    expect(await screen.findByTestId('image-preview')).toBeInTheDocument()
+    const checkbox = screen.getByLabelText('media.fields.isBackground')
+    await user.click(checkbox)
+    await user.click(screen.getByRole('button', { name: 'media.actions.save' }))
+
+    await waitFor(() => expect(updateMedia).toHaveBeenCalledWith(
+      expect.anything(),
+      'media:image',
+      expect.objectContaining({ is_background: true }),
+    ))
+  })
+
+  it('replaces the uploaded image through the Media asset endpoint', async () => {
+    fetchMedia.mockResolvedValue(imageMedia({ is_background: true }))
+    uploadMediaSource.mockResolvedValue(imageMedia({
+      is_background: true,
+      content: { type: 'image', blob_id: 'asset:replacement' },
+    }))
+    renderEditor('media:image')
+    await screen.findByTestId('image-preview')
+    const fileInput = document.querySelector('input[type="file"]')
+    expect(fileInput).toBeInstanceOf(HTMLInputElement)
+    fireEvent.change(fileInput!, {
+      target: { files: [new File(['png'], 'new.png', { type: 'image/png' })] },
+    })
+    await waitFor(() => expect(uploadMediaSource).toHaveBeenCalledWith(expect.objectContaining({
+      mediaId: 'media:image',
+      kind: 'image',
+    })))
+    expect(await screen.findByText('media.kinds.image')).toBeInTheDocument()
+  })
 })

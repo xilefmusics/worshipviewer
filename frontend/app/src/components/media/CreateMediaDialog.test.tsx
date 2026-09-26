@@ -30,13 +30,18 @@ vi.mock('@/api/media-upload', () => ({
   createUploadedMedia: mocks.createUploadedMedia,
 }))
 
-function renderDialog(onCreated = vi.fn()) {
+function renderDialog(onCreated = vi.fn(), defaultIsBackground = false) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   const rendered = render(
     <QueryClientProvider client={client}>
-      <CreateMediaDialog open onOpenChange={vi.fn()} onCreated={onCreated} />
+      <CreateMediaDialog
+        open
+        onOpenChange={vi.fn()}
+        onCreated={onCreated}
+        defaultIsBackground={defaultIsBackground}
+      />
     </QueryClientProvider>,
   )
   return { ...rendered, client }
@@ -174,6 +179,44 @@ describe('CreateMediaDialog quick upload', () => {
       'setlists.editor.mediaQuickUploadUnsupported',
     )
     expect(mocks.createUploadedMedia).not.toHaveBeenCalled()
+  })
+
+  it('creates an image as a background by default in the backgrounds view', async () => {
+    const file = new File(['png'], 'worship.png', { type: 'image/png' })
+    renderDialog(vi.fn(), true)
+    const input = screen.getByLabelText('setlists.editor.mediaQuickUploadAria')
+    fireEvent.drop(input.closest('label')!, { dataTransfer: { files: [file] } })
+    await waitFor(() =>
+      expect(mocks.createUploadedMedia).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'image', isBackground: true, files: [file] }),
+      ),
+    )
+  })
+
+  it('opens the create form in image mode with the background flag enabled', () => {
+    renderDialog(vi.fn(), true)
+    expect(screen.getByRole('combobox', { name: 'media.fields.kind' })).toHaveTextContent(
+      'media.kinds.image',
+    )
+    expect(screen.getByLabelText('media.fields.isBackground')).toBeChecked()
+    expect(screen.getByLabelText('setlists.editor.mediaQuickUploadAria')).toHaveAttribute(
+      'accept',
+      'image/png,image/jpeg,image/svg+xml,.png,.jpg,.jpeg,.svg',
+    )
+  })
+
+  it('can create an image without adding it to background choices', async () => {
+    const user = userEvent.setup()
+    const file = new File(['png'], 'worship.png', { type: 'image/png' })
+    renderDialog(vi.fn(), true)
+    await user.click(screen.getByLabelText('media.fields.isBackground'))
+    const input = screen.getByLabelText('setlists.editor.mediaQuickUploadAria')
+    fireEvent.drop(input.closest('label')!, { dataTransfer: { files: [file] } })
+    await waitFor(() =>
+      expect(mocks.createUploadedMedia).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'image', isBackground: false, files: [file] }),
+      ),
+    )
   })
 })
 

@@ -1117,7 +1117,12 @@ function HubChrome({
                     } else if (pathname === '/songs') {
                       void navigate({ to: '/songs', search: { new: '1' } })
                     } else if (pathname === '/media') {
-                      void navigate({ to: '/media', search: { new: '1' } })
+                      void navigate({
+                        to: '/media',
+                        search: adminSearch.is_background === 'true' || adminSearch.is_background === true
+                          ? { new: '1', is_background: 'true' }
+                          : { new: '1' },
+                      })
                     } else if (pathname === '/rooms') {
                       void navigate({ to: '/rooms', search: { new: '1' } })
                     }

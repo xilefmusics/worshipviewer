@@ -362,6 +362,7 @@ async fn seed_generic(db: &Database) -> AnyResult<SeedSummary> {
                 title: title.to_owned(),
                 content,
                 pending_revision: None,
+                is_background: false,
             },
         )?;
         upsert(db, RecordId::new("media", format!("demodata-{id}")), media).await?;

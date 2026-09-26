@@ -56,6 +56,7 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
     void navigate({ to: '/login', search: { return_to: undefined } })
   }
 
+  // Flow: M0 — open the combined Media and background library from the profile menu.
   return (
     <HubRightDrawer
       title={user.email}
