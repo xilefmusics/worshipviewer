@@ -257,8 +257,8 @@ testcases:
           Content-Type: application/json
         body: |
           {
-            "title": "Test Collection",
-            "cover": "mysongs",
+            "title": "Favorite Collection",
+            "cover": "cover-one",
             "songs": []
           }
         assertions:
@@ -320,27 +320,17 @@ testcases:
           songid:
             from: result.bodyjson.id
 
-  # POST /api/v1/collections
-  # BLC: BLC-COLL-009, BLC-COLL-003
-  - name: post-collection-success
+  # Existing collection setup also exercises POST with an empty songs list.
+  # BLC: BLC-COLL-011
+  - name: get-collection-success
     steps:
       - type: http
-        method: POST
-        url: "{{.base_url}}/api/v1/collections"
+        method: GET
+        url: "{{.base_url}}/api/v1/collections/{{.setup-collection-owner-song-collection.collection_owner_song_collection_id}}"
         headers:
           Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
-          Content-Type: application/json
-        body: |
-          {
-            "title": "Favorite Collection",
-            "cover": "cover-one",
-            "songs": [
-              { "id": "{{.create-collection-song-one.songid}}", "nr": "1" },
-              { "id": "{{.create-collection-song-two.songid}}", "nr": "2" }
-            ]
-          }
         assertions:
-          - result.statuscode ShouldEqual 201
+          - result.statuscode ShouldEqual 200
           - result.bodyjson.owner ShouldEqual "{{.get-collection-owner-personal-team.owner_personal_team_id}}"
           - result.bodyjson.title ShouldEqual "Favorite Collection"
           - result.bodyjson.songs ShouldHaveLength 2
@@ -361,9 +351,7 @@ testcases:
           {
             "title": "Blob Backed Collection",
             "cover": "{{.post-collection-cover-blob.blobid}}",
-            "songs": [
-              { "id": "{{.create-collection-song-one.songid}}", "nr": "1" }
-            ]
+            "songs": []
           }
         assertions:
           - result.statuscode ShouldEqual 201
@@ -615,7 +603,7 @@ testcases:
         assertions:
           - result.statuscode ShouldEqual 200
           - result.bodyjson ShouldHaveLength 1
-          - result.bodyjson.bodyjson0.id ShouldEqual "{{.post-collection-success.collectionid}}"
+          - result.bodyjson.bodyjson0.id ShouldEqual "{{.get-collection-success.collectionid}}"
 
   # BLC: BLC-LP-003 — title substring (mid-word; full-text alone would not match)
   - name: get-collections-q-title-substring
@@ -628,7 +616,7 @@ testcases:
         assertions:
           - result.statuscode ShouldEqual 200
           - result.bodyjson ShouldHaveLength 1
-          - result.bodyjson.bodyjson0.id ShouldEqual "{{.post-collection-success.collectionid}}"
+          - result.bodyjson.bodyjson0.id ShouldEqual "{{.get-collection-success.collectionid}}"
 
   # BLC: BLC-LP-009, BLC-LP-003
   - name: get-collections-q-with-pagination
@@ -641,7 +629,7 @@ testcases:
         assertions:
           - result.statuscode ShouldEqual 200
           - result.bodyjson ShouldHaveLength 1
-          - result.bodyjson.bodyjson0.id ShouldEqual "{{.post-collection-success.collectionid}}"
+          - result.bodyjson.bodyjson0.id ShouldEqual "{{.get-collection-success.collectionid}}"
 
   # BLC: BLC-LP-003, BLC-LP-008, BLC-COLL-010
   - name: get-collections-q-no-matches-empty-array
@@ -673,12 +661,12 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.bodyjson.id ShouldEqual "{{.post-collection-success.collectionid}}"
+          - result.bodyjson.id ShouldEqual "{{.get-collection-success.collectionid}}"
           - result.bodyjson.owner ShouldEqual "{{.get-collection-owner-personal-team.owner_personal_team_id}}"
           - result.bodyjson.title ShouldEqual "Favorite Collection"
 
@@ -687,19 +675,19 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer {{.create-collection-read-session.sessionid}}"
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.bodyjson.id ShouldEqual "{{.post-collection-success.collectionid}}"
+          - result.bodyjson.id ShouldEqual "{{.get-collection-success.collectionid}}"
 
   # BLC: BLC-COLL-006
   - name: get-collection-noperm-user
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer {{.create-collection-noperm-session.sessionid}}"
         assertions:
@@ -710,7 +698,7 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer invalid"
         assertions:
@@ -721,7 +709,7 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         assertions:
           - result.statuscode ShouldEqual 401
 
@@ -753,7 +741,7 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}/songs"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}/songs"
         headers:
           Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
         assertions:
@@ -765,7 +753,7 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}/songs"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}/songs"
         headers:
           Authorization: "Bearer {{.create-collection-read-session.sessionid}}"
         assertions:
@@ -777,7 +765,7 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}/songs"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}/songs"
         headers:
           Authorization: "Bearer {{.create-collection-noperm-session.sessionid}}"
         assertions:
@@ -799,7 +787,7 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}/songs"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}/songs"
         assertions:
           - result.statuscode ShouldEqual 401
 
@@ -820,7 +808,7 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}/player"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}/player"
         headers:
           Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
         assertions:
@@ -832,7 +820,7 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}/player"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}/player"
         headers:
           Authorization: "Bearer {{.create-collection-read-session.sessionid}}"
         assertions:
@@ -844,7 +832,7 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}/player"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}/player"
         headers:
           Authorization: "Bearer {{.create-collection-noperm-session.sessionid}}"
         assertions:
@@ -866,7 +854,7 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}/player"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}/player"
         assertions:
           - result.statuscode ShouldEqual 401
 
@@ -875,7 +863,7 @@ testcases:
     steps:
       - type: http
         method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}/player"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}/player"
         headers:
           Authorization: "Bearer invalid"
         assertions:
@@ -898,7 +886,7 @@ testcases:
     steps:
       - type: http
         method: PUT
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
           Content-Type: application/json
@@ -921,7 +909,7 @@ testcases:
     steps:
       - type: http
         method: PUT
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
           Content-Type: application/json
@@ -941,7 +929,7 @@ testcases:
     steps:
       - type: http
         method: PUT
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer {{.create-collection-write-session.sessionid}}"
           Content-Type: application/json
@@ -964,7 +952,7 @@ testcases:
     steps:
       - type: http
         method: PUT
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer {{.create-collection-read-session.sessionid}}"
           Content-Type: application/json
@@ -984,7 +972,7 @@ testcases:
     steps:
       - type: http
         method: PUT
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer {{.create-collection-noperm-session.sessionid}}"
           Content-Type: application/json
@@ -1024,7 +1012,7 @@ testcases:
     steps:
       - type: http
         method: PUT
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Content-Type: application/json
         body: |
@@ -1043,7 +1031,7 @@ testcases:
     steps:
       - type: http
         method: PUT
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer invalid"
           Content-Type: application/json
@@ -1112,7 +1100,7 @@ testcases:
         assertions:
           - result.statuscode ShouldEqual 500
 
-  # BLC: BLC-COLL-012, BLC-COLL-014
+  # BLC: BLC-COLL-004, BLC-COLL-027
   - name: post-collection-includes-unreadable-song
     steps:
       - type: http
@@ -1130,29 +1118,14 @@ testcases:
             ]
           }
         assertions:
-          - result.statuscode ShouldEqual 201
-        vars:
-          collectionid:
-            from: result.bodyjson.id
-
-  # BLC: BLC-COLL-012, BLC-COLL-014
-  - name: get-collection-songs-includes-unreadable-entry
-    steps:
-      - type: http
-        method: GET
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-includes-unreadable-song.collectionid}}/songs"
-        headers:
-          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
-        assertions:
-          - result.statuscode ShouldEqual 200
-          - result.bodyjson ShouldHaveLength 1
+          - result.statuscode ShouldEqual 409
 
   # BLC: BLC-COLL-004, BLC-COLL-013, BLC-COLL-024
   - name: put-collection-invalid-song-entry
     steps:
       - type: http
         method: PUT
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.post-collection-with-real-cover.cascade_collection_id}}"
         headers:
           Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
           Content-Type: application/json
@@ -1161,35 +1134,24 @@ testcases:
             "title": "Put Bad Song",
             "cover": "cover-bad-song",
             "songs": [
-              { "id": "{{.create-collection-song-one.songid}}", "nr": "1" },
-              { "id": "{{.create-collection-song-two.songid}}", "nr": "2" },
               { "id": "song-missing-from-db", "nr": "3" }
             ]
           }
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.bodyjson.songs ShouldHaveLength 3
+          - result.bodyjson.songs ShouldHaveLength 1
 
   # POST /api/v1/collections/{id}/songs/{song_id}/transfer
   - name: post-collection-transfer-source
     steps:
       - type: http
-        method: POST
-        url: "{{.base_url}}/api/v1/collections"
+        method: GET
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
-          Content-Type: application/json
-        body: |
-          {
-            "title": "Transfer Source",
-            "cover": "cover-transfer-src",
-            "songs": [
-              { "id": "{{.create-collection-song-two.songid}}", "nr": "src" }
-            ]
-          }
         assertions:
-          - result.statuscode ShouldEqual 201
-          - result.bodyjson.songs ShouldHaveLength 1
+          - result.statuscode ShouldEqual 200
+          - result.bodyjson.songs ShouldHaveLength 2
         vars:
           collectionid:
             from: result.bodyjson.id
@@ -1231,7 +1193,7 @@ testcases:
         assertions:
           - result.statuscode ShouldEqual 200
           - result.bodyjson.source.id ShouldEqual "{{.post-collection-transfer-source.collectionid}}"
-          - result.bodyjson.source.songs ShouldHaveLength 0
+          - result.bodyjson.source.songs ShouldHaveLength 1
           - result.bodyjson.target.id ShouldEqual "{{.post-collection-transfer-target.collectionid}}"
           - result.bodyjson.target.songs ShouldHaveLength 1
           - result.bodyjson.target.songs.songs0.id ShouldEqual "{{.create-collection-song-two.songid}}"
@@ -1246,7 +1208,8 @@ testcases:
           Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
         assertions:
           - result.statuscode ShouldEqual 200
-          - result.bodyjson.songs ShouldHaveLength 0
+          - result.bodyjson.songs ShouldHaveLength 1
+          - result.bodyjson.songs.songs0.id ShouldEqual "{{.create-collection-song-one.songid}}"
 
   - name: get-collection-transfer-target-after-move
     steps:
@@ -1336,8 +1299,8 @@ testcases:
         assertions:
           - result.statuscode ShouldEqual 401
 
-  # Repair path: song already in target — unlink from source only
-  - name: post-collection-transfer-repair-source
+  # BLC-COLL-027: reject a second collection membership
+  - name: post-collection-transfer-duplicate-source-rejected
     steps:
       - type: http
         method: POST
@@ -1354,29 +1317,7 @@ testcases:
             ]
           }
         assertions:
-          - result.statuscode ShouldEqual 201
-          - result.bodyjson.songs ShouldHaveLength 1
-        vars:
-          collectionid:
-            from: result.bodyjson.id
-
-  - name: post-transfer-collection-song-repair-already-in-target
-    steps:
-      - type: http
-        method: POST
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-transfer-repair-source.collectionid}}/songs/{{.create-collection-song-two.songid}}/transfer"
-        headers:
-          Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
-          Content-Type: application/json
-        body: |
-          {
-            "target": "{{.post-collection-transfer-target.collectionid}}"
-          }
-        assertions:
-          - result.statuscode ShouldEqual 200
-          - result.bodyjson.source.songs ShouldHaveLength 0
-          - result.bodyjson.target.songs ShouldHaveLength 1
-          - result.bodyjson.target.songs.songs0.nr ShouldEqual "moved"
+          - result.statuscode ShouldEqual 409
 
   # Additional collections for delete scenarios
   - name: post-collection-for-delete
@@ -1422,21 +1363,12 @@ testcases:
   - name: post-collection-for-delete-blocked
     steps:
       - type: http
-        method: POST
-        url: "{{.base_url}}/api/v1/collections"
+        method: GET
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer {{.create-collection-owner-session.sessionid}}"
-          Content-Type: application/json
-        body: |
-          {
-            "title": "Collection With Songs",
-            "cover": "cover-delete-blocked",
-            "songs": [
-              { "id": "{{.create-collection-song-one.songid}}", "nr": "1" }
-            ]
-          }
         assertions:
-          - result.statuscode ShouldEqual 201
+          - result.statuscode ShouldEqual 200
         vars:
           collectionid:
             from: result.bodyjson.id
@@ -1509,7 +1441,7 @@ testcases:
     steps:
       - type: http
         method: DELETE
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         assertions:
           - result.statuscode ShouldEqual 401
 
@@ -1518,7 +1450,7 @@ testcases:
     steps:
       - type: http
         method: DELETE
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer invalid"
         assertions:
@@ -1529,7 +1461,7 @@ testcases:
     steps:
       - type: http
         method: DELETE
-        url: "{{.base_url}}/api/v1/collections/{{.post-collection-success.collectionid}}"
+        url: "{{.base_url}}/api/v1/collections/{{.get-collection-success.collectionid}}"
         headers:
           Authorization: "Bearer {{.create-collection-noperm-session.sessionid}}"
         assertions:
@@ -1624,4 +1556,3 @@ testcases:
           Authorization: "Bearer {{.token_admin}}"
         assertions:
           - result.statuscode ShouldEqual 204
-
