@@ -401,6 +401,59 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn media_background_migration_defaults_existing_and_new_records_to_false() {
+        #[derive(Debug, Deserialize, SurrealValue)]
+        struct BackgroundRow {
+            is_background: bool,
+        }
+
+        let address = format!("mem://{}", uuid::Uuid::new_v4());
+        let db = Database::connect(&address, "test", "test", None, None)
+            .await
+            .expect("connect");
+        ensure_migration_table(&db.db)
+            .await
+            .expect("migration table");
+        db.db
+            .query(
+                "DEFINE TABLE media TYPE NORMAL SCHEMAFULL PERMISSIONS NONE;
+                 DEFINE FIELD owner ON media TYPE record<team> PERMISSIONS FULL;
+                 DEFINE FIELD title ON media TYPE string PERMISSIONS FULL;
+                 DEFINE FIELD content_json ON media TYPE string PERMISSIONS FULL;
+                 CREATE media:legacy SET owner = type::record('team', 'legacy'), title = 'Legacy', content_json = '{\"type\":\"youtube\",\"video_id\":\"dQw4w9WgXcQ\",\"canonical_url\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"}';",
+            )
+            .await
+            .expect("create legacy media row")
+            .check()
+            .expect("legacy media schema");
+
+        apply_migration(
+            &db.db,
+            "20260926100000_media_backgrounds.surql",
+            "test-checksum",
+            include_str!("../../db-migrations/20260926100000_media_backgrounds.surql"),
+        )
+        .await
+        .expect("apply media background migration");
+
+        db.db
+            .query("CREATE media:ordinary SET owner = type::record('team', 'legacy'), title = 'Ordinary', content_json = '{\"type\":\"youtube\",\"video_id\":\"dQw4w9WgXcQ\",\"canonical_url\":\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"}';")
+            .await
+            .expect("create ordinary media")
+            .check()
+            .expect("ordinary media defaults");
+
+        let mut response = db
+            .db
+            .query("SELECT is_background FROM media WHERE id IN [media:legacy, media:ordinary];")
+            .await
+            .expect("read media background defaults");
+        let rows: Vec<BackgroundRow> = response.take(0).expect("decode default values");
+        assert_eq!(rows.len(), 2);
+        assert!(rows.iter().all(|row| !row.is_background));
+    }
+
+    #[tokio::test]
     async fn checksum_mismatch_aborts_migration() {
         let address = format!("mem://{}", uuid::Uuid::new_v4());
         let db = Database::connect(&address, "test", "test", None, None)

@@ -16,7 +16,7 @@ Cross-cutting rules used throughout:
 - **Command palette** (⌘K/Ctrl+K) only exists on `pointer:fine` (desktop) devices.
 - **Editors autosave** (no Save button): songs 3000 ms debounce, collections/setlists 750 ms.
 - **Owner picker** in create-collection/setlist dialogs appears only when the user can edit **2+** teams; with 0–1 writable teams `owner` is omitted and the server uses the personal team.
-- **Primary hub tabs** are ordered Collections, Songs, Setlists, and Rooms; Teams is available from the profile menu and command palette. The profile menu also opens Media items (`/media`), after flushing pending song editor changes; a blocked flush keeps the editor open.
+- **Primary hub tabs** are ordered Collections, Songs, Setlists, and Rooms; Teams is available from the profile menu and command palette. The profile menu also opens AV media and backgrounds (`/media`), after flushing pending song editor changes; a blocked flush keeps the editor open. The Media list switches between all media and flagged image backgrounds.
 
 ## Index
 
@@ -32,7 +32,7 @@ Cross-cutting rules used throughout:
 - [J. Settings & preferences](#j-settings--preferences)
 - [K. Sessions](#k-sessions)
 - [L. Hub lists: search, browse, export, duplicate, delete](#l-hub-lists)
-- [M. Media — slide decks](#m-media--slide-decks)
+- [M. Media — images and slide decks](#m-media--images-and-slide-decks)
 
 ---
 
@@ -672,7 +672,7 @@ flowchart TD
     state -->|"r / 'Blank' button"| blank["Toggle Blank (background only, no text)"]
     state -->|"Shift+R / 'Blackout' button"| black["Toggle Blackout (solid black)"]
     state -->|Section shortcut key c/v/p/1-9/b/t/e| sect["Jump to that section's first slide"]
-    state -->|Background selector| bg["Expand → pick Black / Red / Ray / Zeltlager 1 / Zeltlager 2"]
+    state -->|Background selector| bg["Expand → pick a preset or readable flagged image background"]
     blank --> sync["Broadcast to output window"]
     black --> sync
     bg --> sync
@@ -902,7 +902,20 @@ Room creation is online-only. The Rooms hub can create an independent room, whil
 
 ---
 
-## M. Media — slide decks
+## M. Media — images and slide decks
+
+### M0. Open and manage AV backgrounds
+
+The profile picture menu has one **AV media / backgrounds** entry that opens `/media`. The list has All media and Backgrounds filters. The Backgrounds filter uses `is_background=true`, and its Add flow starts with Image selected and the background flag enabled. The regular media flow can also create image Media with the flag disabled. Image editors preview and replace the image, and keep the existing move, duplicate, and delete actions.
+
+```mermaid
+flowchart TD
+    profile(["Profile picture menu"]) --> library["AV media / backgrounds → /media"]
+    library --> all["All media"]
+    library --> bg["Backgrounds filter → /media?is_background=true"]
+    bg --> add["Add image · PNG / JPEG / sanitized SVG"]
+    add --> flag["Flagged image background in Media library"]
+```
 
 ### M1. Create a slide deck from mixed files
 

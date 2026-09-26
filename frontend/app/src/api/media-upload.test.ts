@@ -74,4 +74,21 @@ describe('createUploadedMedia', () => {
     )
     expect(form.getAll('file')).toEqual([first, second])
   })
+
+  it('includes the background flag when requested', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXmlHttpRequest)
+
+    await createUploadedMedia({
+      kind: 'image',
+      title: 'Background',
+      owner: 'team:1',
+      isBackground: true,
+      files: [new File(['image'], 'background.png', { type: 'image/png' })],
+    })
+
+    const form = FakeXmlHttpRequest.latest?.body as FormData
+    expect(await (form.get('metadata') as Blob).text()).toBe(
+      JSON.stringify({ title: 'Background', owner: 'team:1', is_background: true }),
+    )
+  })
 })

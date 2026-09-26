@@ -43,22 +43,24 @@ import {
 } from '@/lib/media-display'
 import { getTeamDisplayName } from '@/lib/team-display-name'
 import { canEditTeamLibrary } from '@/lib/team-permissions'
+import { cn } from '@/lib/utils'
 
-export function MediaListView() {
+export function MediaListView({ backgroundOnly = false }: { backgroundOnly?: boolean }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { debouncedQ, selectedTeamId, setQInput } = useHubSearch()
   const { teams: writableTeams } = useWritableTeams('mediaMove')
   const query = useInfiniteQuery({
-    queryKey: mediaListKey(debouncedQ, selectedTeamId),
+    queryKey: mediaListKey(debouncedQ, selectedTeamId, backgroundOnly ? true : undefined),
     initialPageParam: 0,
-    queryFn: ({ pageParam, signal }) => fetchMediaPage(queryClient, { page: pageParam as number, q: debouncedQ, teamId: selectedTeamId, signal }),
+    queryFn: ({ pageParam, signal }) => fetchMediaPage(queryClient, { page: pageParam as number, q: debouncedQ, teamId: selectedTeamId, isBackground: backgroundOnly ? true : undefined, signal }),
     getNextPageParam: (_last, all) => getNextPageIndex(all),
   })
   const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data?.pages])
   const [deleteTarget, setDeleteTarget] = useState<Media | null>(null)
   const [moveTarget, setMoveTarget] = useState<Media | null>(null)
+  const activeTab = backgroundOnly ? 'backgrounds' : 'all'
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteMedia(queryClient, id),
@@ -72,16 +74,57 @@ export function MediaListView() {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col pb-4">
+      <nav
+        role="tablist"
+        aria-label={t('media.list.tabsAria')}
+        className="flex items-stretch gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem] shadow-[var(--shadow-elevated)]"
+      >
+        {(['all', 'backgrounds'] as const).map((tab) => {
+          const selected = activeTab === tab
+          return (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              id={`media-library-tab-${tab}`}
+              aria-selected={selected}
+              aria-controls="media-library-panel"
+              tabIndex={selected ? 0 : -1}
+              onClick={() =>
+                void navigate({
+                  to: '/media',
+                  search: { is_background: tab === 'backgrounds' ? 'true' : undefined },
+                })
+              }
+              className={cn(
+                'min-w-0 flex-1 rounded-full px-3 py-2.5 text-sm font-medium transition-colors',
+                selected
+                  ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
+                  : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',
+              )}
+            >
+              {t(tab === 'all' ? 'media.list.allItems' : 'media.list.backgroundItems')}
+            </button>
+          )
+        })}
+      </nav>
+      <div
+        role="tabpanel"
+        id="media-library-panel"
+        aria-labelledby={`media-library-tab-${activeTab}`}
+        className="min-h-0"
+      >
       {query.isPending ? <MediaSkeleton /> : null}
       {query.isError ? <div className="flex flex-col items-center gap-3 py-12 text-center"><p className="text-sm text-[var(--color-muted-foreground)]">{t('media.list.error')}</p><Button variant="outline" onClick={() => void query.refetch()}>{t('hub.error.retry')}</Button></div> : null}
       {!query.isPending && !query.isError && items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-16 text-center">
-          <p className="text-sm text-[var(--color-muted-foreground)]">{debouncedQ.trim() ? t('media.list.noResults') : selectedTeamId ? t('media.list.filteredEmpty') : t('media.list.empty')}</p>
+          <p className="text-sm text-[var(--color-muted-foreground)]">{debouncedQ.trim() ? t('media.list.noResults') : backgroundOnly ? t('media.list.noBackgrounds') : selectedTeamId ? t('media.list.filteredEmpty') : t('media.list.empty')}</p>
           {debouncedQ.trim() ? <Button size="sm" variant="outline" onClick={() => setQInput('')}>{t('hub.empty.clearSearch')}</Button> : null}
         </div>
       ) : null}
       {!query.isError && items.map((media) => <MediaRow key={media.id} media={media} canMove={writableTeams.some((team) => team.id !== media.owner)} onOpen={() => void navigate({ to: '/media/$mediaId', params: { mediaId: media.id }, search: emptyEditorReturnSearch() })} onMove={() => setMoveTarget(media)} onDelete={() => setDeleteTarget(media)} />)}
       {query.hasNextPage ? <div className="flex justify-center py-4"><Button variant="outline" size="sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>{query.isFetchingNextPage ? t('common.load') : t('hub.loadMore')}</Button></div> : null}
+      </div>
 
       <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

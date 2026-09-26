@@ -266,17 +266,16 @@
   height: 100%;
 }
 
-.av-background-layer--preset-0 {
-  background: black;
+.av-background-layer__image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.av-background-layer--preset-1 {
-  background: radial-gradient(circle at center, oklch(0.55 0.21 27) 0%, oklch(0.45 0.21 27) 100%);
-}
-
-.av-background-layer--preset-2,
-.av-background-layer--preset-3,
-.av-background-layer--preset-4 {
+.av-background-layer--preset-2 {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -284,14 +283,6 @@
 
 .av-background-layer--preset-2 {
   background-image: url('/ray.png');
-}
-
-.av-background-layer--preset-3 {
-  background-image: url('/zeltlager-1.webp');
-}
-
-.av-background-layer--preset-4 {
-  background-image: url('/zeltlager-2.webp');
 }
 
 .av-current-next {

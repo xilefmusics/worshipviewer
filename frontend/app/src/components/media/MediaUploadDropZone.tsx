@@ -7,11 +7,13 @@ export function MediaUploadDropZone({
   disabled = false,
   pending = false,
   progress = null,
+  accept = 'image/png,image/jpeg,image/svg+xml,application/pdf,video/*,audio/*,.png,.jpg,.jpeg,.svg,.pdf',
   onFiles,
 }: {
   disabled?: boolean
   pending?: boolean
   progress?: number | null
+  accept?: string
   onFiles: (files: File[]) => void
 }) {
   const { t } = useTranslation()
@@ -47,7 +49,7 @@ export function MediaUploadDropZone({
         type="file"
         className="sr-only"
         multiple
-        accept="image/png,image/jpeg,image/svg+xml,application/pdf,video/*,audio/*,.png,.jpg,.jpeg,.svg,.pdf"
+        accept={accept}
         disabled={disabled}
         aria-label={t('setlists.editor.mediaQuickUploadAria')}
         onChange={(event) => {

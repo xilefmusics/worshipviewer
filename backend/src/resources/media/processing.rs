@@ -172,11 +172,13 @@ impl MediaProcessingHandle {
             }
         };
         let title = checked_title(metadata.title)?;
+        let is_background = metadata.is_background;
         let media_id = uuid::Uuid::new_v4().to_string();
         let mut cleanup = FinalAssetCleanup::new(self.asset_svc.clone());
         let content = self
             .process_new_content(&media_id, owner.clone(), kind, &sources, &mut cleanup)
             .await?;
+        crate::resources::media::service::validate_background_flag(&content, is_background)?;
         let media = self
             .media_repo
             .create_with_id(
@@ -186,6 +188,7 @@ impl MediaProcessingHandle {
                     title,
                     content,
                     pending_revision: None,
+                    is_background,
                 },
             )
             .await?;
@@ -202,6 +205,37 @@ impl MediaProcessingHandle {
         cleanup: &mut FinalAssetCleanup,
     ) -> Result<MediaContent, AppError> {
         match kind {
+            UploadedMediaKind::Image => {
+                let source = &sources[0];
+                if !matches!(source.kind, MediaAssetKind::Image | MediaAssetKind::Svg) {
+                    return Err(AppError::invalid_request(
+                        "image media accepts PNG, JPEG, or SVG files",
+                    ));
+                }
+                let expanded = self
+                    .deck_processor
+                    .expand_source(&source.path, source.kind, &self.work_parent, 1)
+                    .await
+                    .map_err(app_error_from_failure)?;
+                if expanded.pages.len() != 1 {
+                    return Err(AppError::invalid_request(
+                        "image media requires exactly one image",
+                    ));
+                }
+                let page = &expanded.pages[0];
+                let asset = self
+                    .asset_svc
+                    .ingest_final_file(
+                        owner,
+                        RecordId::new("media", media_id.to_owned()),
+                        page.kind,
+                        page.content_type.into(),
+                        &page.path,
+                    )
+                    .await?;
+                cleanup.track(asset.id.clone());
+                Ok(MediaContent::Image { blob_id: asset.id })
+            }
             UploadedMediaKind::Video | UploadedMediaKind::Audio => {
                 let expected = if kind == UploadedMediaKind::Video {
                     MediaAssetKind::Video
@@ -343,6 +377,56 @@ impl MediaProcessingHandle {
         }
         let staging_path = self.asset_svc.staging_path(operation_id);
         match (&media.content, kind) {
+            (MediaContent::Image { .. }, MediaAssetKind::Image | MediaAssetKind::Svg) => {
+                if replace_page_id.is_some() {
+                    return Err(AppError::invalid_request(
+                        "replace_page is only valid for slide decks",
+                    ));
+                }
+                let expanded = self
+                    .deck_processor
+                    .expand_source(&staging_path, kind, &self.work_parent, 1)
+                    .await
+                    .map_err(app_error_from_failure)?;
+                if expanded.pages.len() != 1 {
+                    return Err(AppError::invalid_request(
+                        "image media requires exactly one image",
+                    ));
+                }
+                let page = &expanded.pages[0];
+                let mut cleanup = FinalAssetCleanup::new(self.asset_svc.clone());
+                let asset = self
+                    .asset_svc
+                    .ingest_final_file(
+                        owner,
+                        RecordId::new("media", media_id.to_owned()),
+                        page.kind,
+                        page.content_type.into(),
+                        &page.path,
+                    )
+                    .await?;
+                cleanup.track(asset.id.clone());
+                let old_ids = content_blob_ids(&media.content);
+                let updated = self
+                    .media_repo
+                    .update_if_current(
+                        &write_teams,
+                        media_id,
+                        &media,
+                        None,
+                        MediaWrite {
+                            title: media.title.clone(),
+                            content: MediaContent::Image { blob_id: asset.id },
+                            pending_revision: None,
+                            is_background: media.is_background,
+                        },
+                    )
+                    .await?;
+                cleanup.disarm();
+                self.cleanup_final_assets(&old_ids.into_iter().collect::<Vec<_>>())
+                    .await;
+                Ok(updated)
+            }
             (MediaContent::Video { .. }, MediaAssetKind::Video)
             | (MediaContent::Audio { .. }, MediaAssetKind::Audio) => {
                 if replace_page_id.is_some() {
@@ -378,6 +462,7 @@ impl MediaProcessingHandle {
                             title: media.title.clone(),
                             content,
                             pending_revision: None,
+                            is_background: media.is_background,
                         },
                     )
                     .await?;
@@ -483,6 +568,7 @@ impl MediaProcessingHandle {
                     title: media.title.clone(),
                     content: media.content.clone(),
                     pending_revision: Some(pending),
+                    is_background: media.is_background,
                 },
             )
             .await?;
@@ -525,6 +611,7 @@ impl MediaProcessingHandle {
                         revision_id: uuid::Uuid::new_v4().to_string(),
                         pages: staged_pages_from_content(&media.content),
                     }),
+                    is_background: media.is_background,
                 },
             )
             .await
@@ -603,6 +690,7 @@ impl MediaProcessingHandle {
                     title: media.title.clone(),
                     content: MediaContent::SlideDeck { pages: committed },
                     pending_revision: None,
+                    is_background: media.is_background,
                 },
             )
             .await?;
@@ -649,9 +737,13 @@ fn validate_source_count(
     sources: &[UploadedSource],
 ) -> Result<(), AppError> {
     match kind {
-        UploadedMediaKind::Video | UploadedMediaKind::Audio if sources.len() != 1 => Err(
-            AppError::invalid_request("audio and video creation require exactly one file"),
-        ),
+        UploadedMediaKind::Image | UploadedMediaKind::Video | UploadedMediaKind::Audio
+            if sources.len() != 1 =>
+        {
+            Err(AppError::invalid_request(
+                "image, audio, and video creation require exactly one file",
+            ))
+        }
         UploadedMediaKind::SlideDeck if sources.is_empty() => Err(AppError::invalid_request(
             "a slide deck requires at least one file",
         )),
@@ -682,6 +774,7 @@ fn staged_pages_from_content(content: &MediaContent) -> Vec<MediaStagedDeckPage>
 
 fn content_blob_ids(content: &MediaContent) -> HashSet<String> {
     match content {
+        MediaContent::Image { blob_id } => HashSet::from([blob_id.clone()]),
         MediaContent::SlideDeck { pages } => {
             pages.iter().map(|page| page.blob_id.clone()).collect()
         }

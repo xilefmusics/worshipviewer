@@ -7,10 +7,10 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 ### Added
 
 - Import songs from searchable CCLI PDFs directly in song creation.
+- Upload image backgrounds to the media library and use them in AV projection.
 - Empty, team-owned Rooms can be created directly from the Rooms hub and entered in Sheet view.
 - Spotify track and playlist Media items with external playback controls in the AV player.
 - Independent grayscale text controls for primary and translated AV lyrics.
-- Two Zeltlager background presets for AV-mode lyric projection.
 - Rooms for synchronized Sheet, AV, and Slide participants across devices, including anonymous invite links and reconnecting presence.
 - Three-panel Rooms with a shared next-song queue, authenticated participant song sharing, and host queue management.
 - Played-state sections in Room queues, with re-upvoted songs returning to the upcoming ranking.
@@ -27,6 +27,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 ### Changed
 
 - Right-clicking a song, setlist, collection, room, or Admin Users row/card now opens its actions drawer.
+- Ray is now the only built-in AV background and is labeled Default.
 - Rendered sheets and PDF exports now honor capo shape settings.
 - Sheet players now use native browser snapping through songs. Mobile standalone and room players open their TOC and header with a middle tap and close them with a left swipe; edge gestures no longer open the TOC or participants.
 - Player chord sections now render in a background worker with cached results, and the table of contents dismisses with a smoother animation.

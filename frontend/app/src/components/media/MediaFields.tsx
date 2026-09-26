@@ -24,6 +24,7 @@ export function MediaFields({
   disabled,
   showTeam,
   uploadFileName,
+  isBackground,
   uploadInput,
   onTitleChange,
   onKindChange,
@@ -31,6 +32,7 @@ export function MediaFields({
   onOwnerChange,
   onFileChange,
   onFilesChange,
+  onBackgroundChange,
 }: {
   title: string
   kind: CreateMediaKind
@@ -42,12 +44,14 @@ export function MediaFields({
   showTeam: boolean
   uploadInput?: ReactNode
   uploadFileName?: string
+  isBackground?: boolean
   onTitleChange: (value: string) => void
   onKindChange: (value: CreateMediaKind) => void
   onUrlChange: (value: string) => void
   onOwnerChange: (value: string) => void
   onFileChange?: (file: File | null) => void
   onFilesChange?: (files: File[]) => void
+  onBackgroundChange?: (value: boolean) => void
 }) {
   const { t } = useTranslation()
   const uploadKind = isUploadMediaKind(kind)
@@ -82,6 +86,7 @@ export function MediaFields({
           <SelectContent>
             <SelectItem value="youtube">{t('media.kinds.youtube')}</SelectItem>
             <SelectItem value="spotify">{t('media.kinds.spotify')}</SelectItem>
+            <SelectItem value="image">{t('media.kinds.image')}</SelectItem>
             <SelectItem value="slide_deck">{t('media.kinds.slide_deck')}</SelectItem>
             <SelectItem value="video">{t('media.kinds.video')}</SelectItem>
             <SelectItem value="audio">{t('media.kinds.audio')}</SelectItem>
@@ -98,7 +103,9 @@ export function MediaFields({
               id="media-file"
               type="file"
               accept={
-                kind === 'slide_deck'
+                kind === 'image'
+                  ? 'image/png,image/jpeg,image/svg+xml,.png,.jpg,.jpeg,.svg'
+                  : kind === 'slide_deck'
                   ? 'image/png,image/jpeg,image/svg+xml,application/pdf,.png,.jpg,.jpeg,.svg,.pdf'
                   : kind === 'video'
                     ? 'video/*,audio/*'
@@ -136,6 +143,17 @@ export function MediaFields({
             className="box-border max-w-full focus-visible:outline-offset-0"
           />
         </div>
+      ) : null}
+      {kind === 'image' && onBackgroundChange ? (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={isBackground ?? false}
+            onChange={(event) => onBackgroundChange(event.target.checked)}
+            disabled={disabled}
+          />
+          {t('media.fields.isBackground')}
+        </label>
       ) : null}
       {showTeam ? (
         <div className="grid gap-1.5">

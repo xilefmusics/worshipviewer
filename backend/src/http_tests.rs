@@ -3839,6 +3839,7 @@ mod media_http {
                 content: CreateMediaContent::YouTube {
                     url: "https://youtu.be/dQw4w9WgXcQ?t=1".into(),
                 },
+                is_background: false,
             })
             .to_request();
         let response = test::call_service(&app, request).await;
@@ -3870,6 +3871,7 @@ mod media_http {
                     url: "https://youtu.be/9bZkp7q19f0".into(),
                 }),
                 owner: None,
+                is_background: None,
             })
             .to_request();
         assert_eq!(
@@ -3940,6 +3942,7 @@ mod media_http {
                 content: CreateMediaContent::Spotify {
                     url: "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=share".into(),
                 },
+                is_background: false,
             })
             .to_request();
         let response = test::call_service(&app, request).await;
@@ -3963,6 +3966,7 @@ mod media_http {
                 content: CreateMediaContent::YouTube {
                     url: "http://youtu.be/dQw4w9WgXcQ".into(),
                 },
+                is_background: false,
             })
             .to_request();
         let response = test::call_service(&app, request).await;
@@ -3979,6 +3983,7 @@ mod media_http {
                 content: CreateMediaContent::Spotify {
                     url: "https://open.spotify.com/album/4iV5W9uYEdYUVa79Axb7Rh".into(),
                 },
+                is_background: false,
             })
             .to_request();
         let response = test::call_service(&app, request).await;
@@ -4032,6 +4037,7 @@ mod media_http {
                 content: CreateMediaContent::YouTube {
                     url: "https://youtu.be/dQw4w9WgXcQ".into(),
                 },
+                is_background: false,
             })
             .to_request();
         let url_media: Media = test::read_body_json(test::call_service(&app, request).await).await;
@@ -4055,7 +4061,9 @@ mod media_asset_http {
     use actix_web::http::StatusCode;
     use actix_web::http::header::{CONTENT_LENGTH, CONTENT_TYPE, RANGE};
     use actix_web::test;
-    use shared::media::{CreateMedia, CreateMediaContent, MediaContent};
+    use shared::media::{
+        CreateMedia, CreateMediaContent, DuplicateMedia, MediaContent, UpdateMedia,
+    };
 
     use crate::http_tests::{build_app_with_api_limits, create_session_token};
     use crate::settings::Settings;
@@ -4081,6 +4089,51 @@ mod media_asset_http {
         }
     }
 
+    fn image_upload_body(
+        boundary: &str,
+        title: &str,
+        owner: &str,
+        is_background: bool,
+        bytes: &[u8],
+    ) -> Vec<u8> {
+        let metadata = serde_json::json!({
+            "title": title,
+            "owner": owner,
+            "is_background": is_background,
+        });
+        let mut body = format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"metadata\"\r\nContent-Type: application/json\r\n\r\n{metadata}\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"background.png\"\r\nContent-Type: image/png\r\n\r\n"
+        )
+        .into_bytes();
+        body.extend_from_slice(bytes);
+        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+        body
+    }
+
+    macro_rules! create_image {
+        ($app:expr, $token:expr, $boundary:expr, $title:expr, $owner:expr, $is_background:expr $(,)?) => {{
+            let bytes = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+            let request = test::TestRequest::post()
+                .uri("/api/v1/media/uploads?kind=image")
+                .insert_header(("Authorization", format!("Bearer {}", $token)))
+                .insert_header((
+                    "Content-Type",
+                    format!("multipart/form-data; boundary={}", $boundary),
+                ))
+                .set_payload(image_upload_body(
+                    $boundary,
+                    $title,
+                    $owner,
+                    $is_background,
+                    &bytes,
+                ))
+                .to_request();
+            let response = test::call_service($app, request).await;
+            assert_eq!(response.status(), StatusCode::CREATED);
+            test::read_body_json(response).await
+        }};
+    }
+
     async fn writer_media(
         db: &std::sync::Arc<crate::database::Database>,
         fixture: &TeamFixture,
@@ -4096,6 +4149,7 @@ mod media_asset_http {
                     content: CreateMediaContent::YouTube {
                         url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ".into(),
                     },
+                    is_background: false,
                 },
             )
             .await
@@ -4167,6 +4221,208 @@ mod media_asset_http {
         assert_eq!(
             test::call_service(&app, request).await.status(),
             StatusCode::OK
+        );
+    }
+
+    #[actix_web::test]
+    async fn image_background_upload_filter_pagination_and_asset_acl() {
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let writer_token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let guest_token = create_session_token(&db, fixture.guest.clone())
+            .await
+            .unwrap();
+        let outsider_token = create_session_token(&db, fixture.non_member.clone())
+            .await
+            .unwrap();
+        let settings = media_test_settings();
+        let app = test::init_service(build_app_with_api_limits(
+            db.clone(),
+            50,
+            200,
+            Some(settings),
+        ))
+        .await;
+
+        let first: shared::media::Media = create_image!(
+            &app,
+            &writer_token,
+            "background-one",
+            "Background one",
+            &fixture.shared_team_id,
+            true,
+        );
+        let regular: shared::media::Media = create_image!(
+            &app,
+            &writer_token,
+            "ordinary-image",
+            "Ordinary image",
+            &fixture.shared_team_id,
+            false,
+        );
+        let second: shared::media::Media = create_image!(
+            &app,
+            &writer_token,
+            "background-two",
+            "Background two",
+            &fixture.shared_team_id,
+            true,
+        );
+        assert!(first.is_background);
+        assert!(!regular.is_background);
+        assert!(second.is_background);
+        let first_asset = match &first.content {
+            MediaContent::Image { blob_id } => blob_id,
+            other => panic!("expected image, got {other:?}"),
+        };
+
+        let request = test::TestRequest::get()
+            .uri("/api/v1/media?is_background=true&page=0&page_size=1")
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers().get("x-total-count").unwrap(), "2");
+        let link = response.headers().get("link").unwrap().to_str().unwrap();
+        assert!(link.contains("is_background=true"));
+        assert!(link.contains("page=1"));
+        let page_zero: Vec<shared::media::Media> = test::read_body_json(response).await;
+        assert_eq!(page_zero.len(), 1);
+        assert!(page_zero[0].is_background);
+
+        let request = test::TestRequest::get()
+            .uri("/api/v1/media?is_background=true&page=1&page_size=1")
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.headers().get("x-total-count").unwrap(), "2");
+        let page_one: Vec<shared::media::Media> = test::read_body_json(response).await;
+        assert_eq!(page_one.len(), 1);
+        assert!(page_one[0].is_background);
+        assert_ne!(page_zero[0].id, page_one[0].id);
+
+        let request = test::TestRequest::get()
+            .uri(&format!(
+                "/api/v1/media/{}/assets/{first_asset}/data",
+                first.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {guest_token}")))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            &test::read_body(response).await[..],
+            &[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]
+        );
+
+        let request = test::TestRequest::post()
+            .uri(&format!("/api/v1/media/{}/duplicate", first.id))
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .set_json(DuplicateMedia::default())
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let duplicate: shared::media::Media = test::read_body_json(response).await;
+        assert!(duplicate.is_background);
+        assert_ne!(duplicate.id, first.id);
+        let duplicate_asset = match duplicate.content {
+            MediaContent::Image { blob_id } => blob_id,
+            other => panic!("expected duplicate image, got {other:?}"),
+        };
+        assert_ne!(duplicate_asset, *first_asset);
+        let request = test::TestRequest::get()
+            .uri(&format!(
+                "/api/v1/media/{}/assets/{first_asset}/data",
+                first.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {outsider_token}")))
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::NOT_FOUND
+        );
+
+        let request = test::TestRequest::get()
+            .uri(&format!("/api/v1/media/{}", first.id))
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        let etag = response
+            .headers()
+            .get("etag")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let request = test::TestRequest::put()
+            .uri(&format!("/api/v1/media/{}", first.id))
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .insert_header(("If-Match", etag))
+            .set_json(UpdateMedia {
+                title: first.title.clone(),
+                content: None,
+                owner: None,
+                is_background: Some(false),
+            })
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let updated: shared::media::Media = test::read_body_json(response).await;
+        assert!(!updated.is_background);
+    }
+
+    #[actix_web::test]
+    async fn background_flag_is_rejected_for_url_media_and_invalid_image_bytes() {
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let app = test::init_service(build_app_with_api_limits(
+            db,
+            50,
+            200,
+            Some(media_test_settings()),
+        ))
+        .await;
+        let request = test::TestRequest::post()
+            .uri("/api/v1/media")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .set_json(CreateMedia {
+                owner: Some(fixture.shared_team_id.clone()),
+                title: "Not an image".into(),
+                content: CreateMediaContent::YouTube {
+                    url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ".into(),
+                },
+                is_background: true,
+            })
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::BAD_REQUEST
+        );
+
+        let boundary = "invalid-image-boundary";
+        let request = test::TestRequest::post()
+            .uri("/api/v1/media/uploads?kind=image")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .insert_header((
+                "Content-Type",
+                format!("multipart/form-data; boundary={boundary}"),
+            ))
+            .set_payload(image_upload_body(
+                boundary,
+                "Invalid image",
+                &fixture.shared_team_id,
+                true,
+                b"not an image",
+            ))
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::BAD_REQUEST
         );
     }
 
@@ -4589,6 +4845,7 @@ mod setlist_items_http {
                 content: CreateMediaContent::YouTube {
                     url: "https://youtu.be/dQw4w9WgXcQ".into(),
                 },
+                is_background: false,
             })
             .to_request();
         let response = test::call_service(&app, request).await;
@@ -4604,6 +4861,7 @@ mod setlist_items_http {
                 content: CreateMediaContent::YouTube {
                     url: "https://youtu.be/9bZkp7q19f0".into(),
                 },
+                is_background: false,
             })
             .to_request();
         let response = test::call_service(&app, request).await;

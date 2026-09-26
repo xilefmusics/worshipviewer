@@ -1,13 +1,13 @@
 import type { CreateMediaContent, Media } from '@/api/media'
 
 export type UrlMediaKind = 'youtube' | 'spotify'
-export type UploadMediaKind = 'video' | 'audio' | 'slide_deck'
+export type UploadMediaKind = 'image' | 'video' | 'audio' | 'slide_deck'
 export type CreateMediaKind = UrlMediaKind | UploadMediaKind
 export type MediaDisplayKind = CreateMediaKind | 'livestream' | 'web_page' | 'unknown'
 export type AssetUploadKind = 'video' | 'audio' | 'image' | 'pdf' | 'svg'
 
 const URL_KINDS = new Set<UrlMediaKind>(['youtube', 'spotify'])
-const UPLOAD_KINDS = new Set<UploadMediaKind>(['video', 'audio', 'slide_deck'])
+const UPLOAD_KINDS = new Set<UploadMediaKind>(['image', 'video', 'audio', 'slide_deck'])
 
 export function isUrlMediaKind(value: string): value is UrlMediaKind {
   return URL_KINDS.has(value as UrlMediaKind)
@@ -29,6 +29,7 @@ export function mediaDisplayKind(media: Media): MediaDisplayKind {
     case 'livestream':
     case 'web_page':
     case 'slide_deck':
+    case 'image':
     case 'video':
     case 'audio':
       return type
@@ -38,7 +39,7 @@ export function mediaDisplayKind(media: Media): MediaDisplayKind {
 }
 
 export function isUploadedDisplayKind(kind: MediaDisplayKind): boolean {
-  return kind === 'video' || kind === 'audio' || kind === 'slide_deck'
+  return kind === 'image' || kind === 'video' || kind === 'audio' || kind === 'slide_deck'
 }
 
 export function mediaCanonicalUrl(media: Media): string | null {

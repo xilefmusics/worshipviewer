@@ -79,9 +79,10 @@ export async function uploadMediaSource(args: {
 }
 
 export async function createUploadedMedia(args: {
-  kind: 'video' | 'audio' | 'slide_deck'
+  kind: 'image' | 'video' | 'audio' | 'slide_deck'
   title: string
   owner?: string
+  isBackground?: boolean
   files: Blob[]
   onProgress?: (ratio: number) => void
   signal?: AbortSignal
@@ -89,7 +90,12 @@ export async function createUploadedMedia(args: {
   const base = apiBase()
   const path = `/api/v1/media/uploads?${new URLSearchParams({ kind: args.kind }).toString()}`
   const form = new FormData()
-  form.append('metadata', new Blob([JSON.stringify({ title: args.title, owner: args.owner })], { type: 'application/json' }))
+  const metadata = {
+    title: args.title,
+    owner: args.owner,
+    ...(args.isBackground ? { is_background: true } : {}),
+  }
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }))
   for (const file of args.files) form.append('file', file)
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()

@@ -2,10 +2,9 @@ use std::sync::Arc;
 
 use reqwest::Url;
 use shared::MoveOwner;
-use shared::api::ListQuery;
 use shared::media::{
-    CreateMedia, CreateMediaContent, DuplicateMedia, Media, MediaContent, SpotifyResourceType,
-    UpdateMedia,
+    CreateMedia, CreateMediaContent, DuplicateMedia, Media, MediaContent, MediaListQuery,
+    SpotifyResourceType, UpdateMedia,
 };
 use tracing::instrument;
 
@@ -50,7 +49,7 @@ impl<R: MediaRepository> MediaService<R> {
     pub async fn list_for_user(
         &self,
         ctx: &AuthorizationContext,
-        query: ListQuery,
+        query: MediaListQuery,
     ) -> Result<Vec<Media>, AppError> {
         let teams = read_teams_for_query(&ctx.read_teams(), query.team.as_deref())?;
         self.repo.list(&teams, query).await
@@ -59,10 +58,10 @@ impl<R: MediaRepository> MediaService<R> {
     pub async fn count_for_user(
         &self,
         ctx: &AuthorizationContext,
-        query: &ListQuery,
+        query: &MediaListQuery,
     ) -> Result<u64, AppError> {
         let teams = read_teams_for_query(&ctx.read_teams(), query.team.as_deref())?;
-        self.repo.count(&teams, query.q.as_deref()).await
+        self.repo.count(&teams, query).await
     }
 
     pub async fn get_for_user(
@@ -87,7 +86,10 @@ impl<R: MediaRepository> MediaService<R> {
                 owner
             }
         };
-        let value = create_write(payload.title, payload.content)?;
+        let is_background = payload.is_background;
+        let mut value = create_write(payload.title, payload.content)?;
+        value.is_background = is_background;
+        validate_background_flag(&value.content, value.is_background)?;
         self.repo.create(owner, value).await
     }
 
@@ -113,7 +115,12 @@ impl<R: MediaRepository> MediaService<R> {
     ) -> Result<Media, AppError> {
         let write_teams = ctx.write_teams();
         let owner = resolve_owner_team(&write_teams, payload.owner)?;
-        let value = update_write(existing, payload.title, payload.content)?;
+        let value = update_write(
+            existing,
+            payload.title,
+            payload.content,
+            payload.is_background,
+        )?;
         self.repo
             .update_if_current(&write_teams, id, existing, owner, value)
             .await
@@ -181,6 +188,7 @@ impl<R: MediaRepository> MediaService<R> {
                         title,
                         content,
                         pending_revision: None,
+                        is_background: source.is_background,
                     },
                 )
                 .await
@@ -199,6 +207,7 @@ impl<R: MediaRepository> MediaService<R> {
                         title,
                         content: source.content.clone(),
                         pending_revision: None,
+                        is_background: source.is_background,
                     },
                 )
                 .await?
@@ -252,6 +261,7 @@ fn update_write(
     existing: &Media,
     title: String,
     content: Option<CreateMediaContent>,
+    is_background: Option<bool>,
 ) -> Result<MediaWrite, AppError> {
     if is_uploaded(&existing.content) {
         if content.is_some() {
@@ -259,21 +269,30 @@ fn update_write(
                 "uploaded media title updates cannot change content",
             ));
         }
+        let is_background = is_background.unwrap_or(existing.is_background);
+        validate_background_flag(&existing.content, is_background)?;
         Ok(MediaWrite {
             title: checked_title(title)?,
             content: existing.content.clone(),
             pending_revision: existing.pending_revision.clone(),
+            is_background,
         })
     } else {
         let content = content.ok_or_else(|| AppError::invalid_request("content is required"))?;
-        content_write(title, content)
+        let mut write = content_write(title, content)?;
+        write.is_background = is_background.unwrap_or(existing.is_background);
+        validate_background_flag(&write.content, write.is_background)?;
+        Ok(write)
     }
 }
 
 fn is_uploaded(content: &MediaContent) -> bool {
     matches!(
         content,
-        MediaContent::Video { .. } | MediaContent::Audio { .. } | MediaContent::SlideDeck { .. }
+        MediaContent::Image { .. }
+            | MediaContent::Video { .. }
+            | MediaContent::Audio { .. }
+            | MediaContent::SlideDeck { .. }
     )
 }
 
@@ -282,7 +301,20 @@ fn content_write(title: String, content: CreateMediaContent) -> Result<MediaWrit
         title: checked_title(title)?,
         content: normalize_content(content)?,
         pending_revision: None,
+        is_background: false,
     })
+}
+
+pub(crate) fn validate_background_flag(
+    content: &MediaContent,
+    is_background: bool,
+) -> Result<(), AppError> {
+    if is_background && !matches!(content, MediaContent::Image { .. }) {
+        return Err(AppError::invalid_request(
+            "only image media can be used as a background",
+        ));
+    }
+    Ok(())
 }
 
 fn checked_title(title: String) -> Result<String, AppError> {
@@ -504,6 +536,7 @@ mod tests {
             content: CreateMediaContent::YouTube {
                 url: "https://youtu.be/dQw4w9WgXcQ".into(),
             },
+            is_background: false,
         }
     }
 
@@ -535,6 +568,7 @@ mod tests {
                     content: CreateMediaContent::YouTube {
                         url: "https://youtu.be/dQw4w9WgXcQ".into(),
                     },
+                    is_background: false,
                 },
             )
             .await
@@ -548,6 +582,7 @@ mod tests {
                     content: CreateMediaContent::YouTube {
                         url: "https://youtu.be/dQw4w9WgXcQ".into(),
                     },
+                    is_background: false,
                 },
             )
             .await
@@ -585,6 +620,7 @@ mod tests {
                             url: "https://youtu.be/dQw4w9WgXcQ".into()
                         }),
                         owner: None,
+                        is_background: None,
                     }
                 )
                 .await,
@@ -616,11 +652,12 @@ mod tests {
         let page = service
             .list_for_user(
                 &guest,
-                ListQuery {
+                MediaListQuery {
                     page: Some(0),
                     page_size: Some(1),
                     q: Some("stream".into()),
                     team: Some(fixture.shared_team_id.clone()),
+                    is_background: None,
                 },
             )
             .await
@@ -651,6 +688,7 @@ mod tests {
                         url: "https://youtu.be/9bZkp7q19f0".into(),
                     }),
                     owner: None,
+                    is_background: None,
                 },
             )
             .await
@@ -687,6 +725,7 @@ mod tests {
                         url: "https://youtu.be/dQw4w9WgXcQ".into(),
                     }),
                     owner: None,
+                    is_background: None,
                 },
             )
             .await
@@ -703,6 +742,7 @@ mod tests {
                         url: "https://youtu.be/dQw4w9WgXcQ".into(),
                     }),
                     owner: None,
+                    is_background: None,
                 },
             )
             .await;

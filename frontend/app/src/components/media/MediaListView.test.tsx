@@ -6,6 +6,7 @@ import { MediaListView } from '@/components/media/MediaListView'
 
 const refetch = vi.fn()
 const setQInput = vi.fn()
+const navigate = vi.hoisted(() => vi.fn())
 let queryResult: Record<string, unknown>
 
 vi.mock('@tanstack/react-query', () => ({
@@ -13,7 +14,7 @@ vi.mock('@tanstack/react-query', () => ({
   useInfiniteQuery: () => queryResult,
   useMutation: () => ({ isPending: false, mutate: vi.fn() }),
 }))
-vi.mock('@tanstack/react-router', () => ({ useNavigate: () => vi.fn() }))
+vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate }))
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, options?: Record<string, string>) =>
@@ -29,6 +30,7 @@ vi.mock('@/hooks/useWritableTeams', () => ({ useWritableTeams: () => ({ teams: [
 
 beforeEach(() => {
   refetch.mockReset()
+  navigate.mockReset()
   queryResult = { data: { pages: [{ items: [], total: 0 }] }, isPending: false, isError: false, isRefetching: false, refetch, hasNextPage: false }
 })
 
@@ -57,5 +59,28 @@ describe('MediaListView', () => {
     expect(screen.getByText('media.list.error')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'hub.error.retry' }))
     expect(refetch).toHaveBeenCalledOnce()
+  })
+
+  it('offers an in-library backgrounds filter', async () => {
+    const user = userEvent.setup()
+    const { rerender } = render(<MediaListView />)
+    const allTab = screen.getByRole('tab', { name: 'media.list.allItems' })
+    const backgroundsTab = screen.getByRole('tab', { name: 'media.list.backgroundItems' })
+    expect(allTab).toHaveAttribute('aria-selected', 'true')
+    expect(backgroundsTab).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'media-library-tab-all')
+
+    await user.click(backgroundsTab)
+    expect(navigate).toHaveBeenCalledWith({ to: '/media', search: { is_background: 'true' } })
+    rerender(<MediaListView backgroundOnly />)
+    expect(backgroundsTab).toHaveAttribute('aria-selected', 'true')
+    expect(allTab).toHaveAttribute('aria-selected', 'false')
+    expect(screen.getByRole('tabpanel')).toHaveAttribute(
+      'aria-labelledby',
+      'media-library-tab-backgrounds',
+    )
+
+    await user.click(allTab)
+    expect(navigate).toHaveBeenLastCalledWith({ to: '/media', search: { is_background: undefined } })
   })
 })

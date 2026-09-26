@@ -11,6 +11,7 @@ pub struct MediaWrite {
     pub title: String,
     pub content: MediaContent,
     pub pending_revision: Option<MediaPendingRevision>,
+    pub is_background: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, SurrealValue)]
@@ -21,6 +22,8 @@ pub struct MediaRecord {
     pub owner: Option<RecordId>,
     pub title: String,
     pub content_json: String,
+    #[serde(default)]
+    pub is_background: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_revision_json: Option<String>,
 }
@@ -37,6 +40,7 @@ impl MediaRecord {
             title: value.title,
             content_json: serde_json::to_string(&value.content)
                 .map_err(|e| AppError::internal_from_err("media.model", e))?,
+            is_background: value.is_background,
             pending_revision_json: value
                 .pending_revision
                 .map(|v| serde_json::to_string(&v))
@@ -52,6 +56,7 @@ impl MediaRecord {
             title: self.title,
             content: serde_json::from_str(&self.content_json)
                 .map_err(|e| AppError::internal_from_err("media.model", e))?,
+            is_background: self.is_background,
             pending_revision: self
                 .pending_revision_json
                 .map(|v| parse_pending_revision(&v))

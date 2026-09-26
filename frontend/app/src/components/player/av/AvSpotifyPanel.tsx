@@ -18,6 +18,7 @@ type AvSpotifyPanelProps = {
   backgroundPreviewText: string
   contentLayer: AvContentLayer
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
+  onSelectBackgroundImage: (image: { mediaId: string; assetId: string }) => void
 }
 
 export function AvSpotifyPanel({
@@ -28,6 +29,7 @@ export function AvSpotifyPanel({
   backgroundPreviewText,
   contentLayer,
   onSelectBackgroundPreset,
+  onSelectBackgroundImage,
 }: AvSpotifyPanelProps) {
   const { t } = useTranslation()
   const previewText = backgroundPreviewText.split('\n')[0]?.trim() || backgroundPreviewText.trim()
@@ -49,10 +51,11 @@ export function AvSpotifyPanel({
         </div>
       </div>
       <AvBackgroundSelector
-        preset={backgroundLayer.preset}
+        backgroundLayer={backgroundLayer}
         previewText={previewText}
         contentLayer={contentLayer}
         onSelectPreset={onSelectBackgroundPreset}
+        onSelectBackgroundImage={onSelectBackgroundImage}
       />
     </div>
   )

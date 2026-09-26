@@ -174,23 +174,24 @@ describe('ProfileMenu Teams destination', () => {
 })
 
 describe('ProfileMenu media destination', () => {
-  it.each(['default', 'admin'] as const)('opens media for the %s role', async (role) => {
+  it.each(['default', 'admin'] as const)('opens AV media and backgrounds for the %s role', async (role) => {
     const { interaction, flushBeforeLeave } = await renderMenu({ role })
-    await interaction.click(screen.getByRole('menuitem', { name: 'AV media' }))
+    await interaction.click(screen.getByRole('menuitem', { name: 'AV media / backgrounds' }))
     expect(flushBeforeLeave).toHaveBeenCalledOnce()
     expect(navigate).toHaveBeenCalledWith({ to: '/media' })
+    expect(screen.queryByRole('menuitem', { name: 'Backgrounds' })).not.toBeInTheDocument()
   })
 
   it('supports keyboard activation with the German label', async () => {
     const { interaction } = await renderMenu({ language: 'de' })
-    screen.getByRole('menuitem', { name: 'AV-Medien' }).focus()
+    screen.getByRole('menuitem', { name: 'AV-Medien / Hintergründe' }).focus()
     await interaction.keyboard('{Enter}')
     expect(navigate).toHaveBeenCalledWith({ to: '/media' })
   })
 
   it('stays in the editor when leaving is blocked', async () => {
     const { interaction } = await renderMenu({ flushBeforeLeave: vi.fn(async () => false) })
-    await interaction.click(screen.getByRole('menuitem', { name: 'AV media' }))
+    await interaction.click(screen.getByRole('menuitem', { name: 'AV media / backgrounds' }))
     expect(navigate).not.toHaveBeenCalled()
   })
 })

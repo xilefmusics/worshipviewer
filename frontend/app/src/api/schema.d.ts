@@ -1323,6 +1323,8 @@ export interface components {
         /** @description Create a synchronously validated URL-backed media resource. */
         CreateMedia: {
             content: components["schemas"]["CreateMediaContent"];
+            /** @description URL-backed media cannot be selected as an AV background in v1. */
+            is_background?: boolean;
             owner?: string | null;
             title: string;
         };
@@ -1399,6 +1401,8 @@ export interface components {
         };
         /** @description Metadata part for synchronous multipart uploaded-media creation. */
         CreateUploadedMedia: {
+            /** @description Whether the uploaded item should appear in AV background selection. */
+            is_background?: boolean;
             owner?: string | null;
             title: string;
         };
@@ -1514,6 +1518,7 @@ export interface components {
         Media: {
             content: components["schemas"]["MediaContent"];
             id: string;
+            is_background?: boolean;
             owner: string;
             pending_revision?: null | components["schemas"]["MediaPendingRevision"];
             title: string;
@@ -1544,6 +1549,10 @@ export interface components {
          */
         MediaAssetStatus: "staging" | "final";
         MediaContent: {
+            blob_id: string;
+            /** @enum {string} */
+            type: "image";
+        } | {
             pages: components["schemas"]["MediaDeckPage"][];
             /** @enum {string} */
             type: "slide_deck";
@@ -2346,6 +2355,8 @@ export interface components {
         };
         UpdateMedia: {
             content?: null | components["schemas"]["CreateMediaContent"];
+            /** @description Omit to preserve the current value. */
+            is_background?: boolean | null;
             owner?: string | null;
             title: string;
         };
@@ -2390,7 +2401,7 @@ export interface components {
          * @description Uploaded media kind accepted by synchronous multipart creation.
          * @enum {string}
          */
-        UploadedMediaKind: "slide_deck" | "video" | "audio";
+        UploadedMediaKind: "image" | "slide_deck" | "video" | "audio";
         /**
          * @example {
          *       "avatar_blob_id": null,
@@ -4072,6 +4083,8 @@ export interface operations {
                 q?: string;
                 /** @description Readable owning team id */
                 team?: string;
+                /** @description Filter by AV background flag */
+                is_background?: boolean;
             };
             header?: never;
             path?: never;
@@ -4153,7 +4166,7 @@ export interface operations {
     create_uploaded_media: {
         parameters: {
             query: {
-                /** @description Uploaded media kind: video, audio, or slide_deck */
+                /** @description Uploaded media kind: image, video, audio, or slide_deck */
                 kind: string;
             };
             header?: never;

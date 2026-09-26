@@ -5,8 +5,8 @@ use actix_web::{
 };
 
 use shared::MoveOwner;
-use shared::api::{ListQuery, PAGE_SIZE_DEFAULT};
-use shared::media::{CommitDeck, CreateMedia, DuplicateMedia, Media, UpdateMedia};
+use shared::api::PAGE_SIZE_DEFAULT;
+use shared::media::{CommitDeck, CreateMedia, DuplicateMedia, Media, MediaListQuery, UpdateMedia};
 
 use crate::auth::AuthorizationContext;
 use crate::docs::Problem;
@@ -40,7 +40,8 @@ pub fn scope(asset_upload_limits: MediaAssetUploadLimits) -> Scope {
         ("page" = Option<u32>, Query, description = "Zero-based page", minimum = 0, nullable = true),
         ("page_size" = Option<u32>, Query, description = "Items per page (1–500, default 50)", minimum = 1, maximum = 500, nullable = true),
         ("q" = Option<String>, Query, description = "Debounced-search-compatible title query"),
-        ("team" = Option<String>, Query, description = "Readable owning team id")
+        ("team" = Option<String>, Query, description = "Readable owning team id"),
+        ("is_background" = Option<bool>, Query, description = "Filter by AV background flag")
     ),
     responses(
         (status = 200, description = "Readable media in stable title/id order; includes X-Total-Count and pagination Link headers", body = [Media]),
@@ -52,7 +53,7 @@ pub async fn list_media(
     req: HttpRequest,
     svc: Data<MediaServiceHandle>,
     ctx: ReqData<AuthorizationContext>,
-    query: Query<ListQuery>,
+    query: Query<MediaListQuery>,
 ) -> Result<HttpResponse, AppError> {
     let query = query
         .into_inner()

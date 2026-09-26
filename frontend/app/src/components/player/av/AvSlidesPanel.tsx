@@ -71,6 +71,7 @@ type AvSlidesPanelProps = {
   transition: AvTransition
   onSelectSlide: (slideIndex: number) => void
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
+  onSelectBackgroundImage: (image: { mediaId: string; assetId: string }) => void
 }
 
 export function AvSlidesPanel({
@@ -82,6 +83,7 @@ export function AvSlidesPanel({
   transition,
   onSelectSlide,
   onSelectBackgroundPreset,
+  onSelectBackgroundImage,
 }: AvSlidesPanelProps) {
   const { t } = useTranslation()
   const [panelRef, multiColumn] = useSlidePanelMultiColumn()
@@ -103,10 +105,11 @@ export function AvSlidesPanel({
           <p className="av-slides-panel__empty">{t('player.av.emptySlide')}</p>
         </div>
         <AvBackgroundSelector
-          preset={backgroundLayer.preset}
+          backgroundLayer={backgroundLayer}
           previewText={backgroundPreviewLine}
           contentLayer={contentLayer}
           onSelectPreset={onSelectBackgroundPreset}
+          onSelectBackgroundImage={onSelectBackgroundImage}
         />
       </div>
     )
@@ -176,10 +179,11 @@ export function AvSlidesPanel({
       })}
       </div>
       <AvBackgroundSelector
-        preset={backgroundLayer.preset}
+        backgroundLayer={backgroundLayer}
         previewText={backgroundPreviewLine}
         contentLayer={contentLayer}
         onSelectPreset={onSelectBackgroundPreset}
+        onSelectBackgroundImage={onSelectBackgroundImage}
       />
     </div>
   )

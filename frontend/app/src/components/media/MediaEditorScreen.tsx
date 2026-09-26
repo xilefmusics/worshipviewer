@@ -13,6 +13,7 @@ import {
   type Media,
 } from '@/api/media'
 import { DeckPagesEditor, type DeckEditorPage } from '@/components/media/DeckPagesEditor'
+import { MediaDeckPageView } from '@/components/media/MediaDeckPageView'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useOnline } from '@/hooks/use-online'
@@ -52,7 +53,12 @@ function deckPagesFromMedia(media: Media): DeckEditorPage[] {
 }
 
 function draftSignatureForMedia(value: Media): string {
-  return JSON.stringify({ title: value.title, owner: value.owner, pages: deckPagesFromMedia(value) })
+  return JSON.stringify({
+    title: value.title,
+    owner: value.owner,
+    is_background: value.is_background,
+    pages: deckPagesFromMedia(value),
+  })
 }
 
 export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
@@ -72,6 +78,7 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
   const [kind, setKind] = useState<UrlMediaKind>('youtube')
   const [url, setUrl] = useState('')
   const [owner, setOwner] = useState('')
+  const [isBackground, setIsBackground] = useState(false)
   const [error, setError] = useState('')
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [deckPages, setDeckPages] = useState<DeckEditorPage[]>([])
@@ -79,8 +86,8 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
   const queuedAutosaveRef = useRef<string | null>(null)
 
   const draftSignature = useMemo(
-    () => JSON.stringify({ title, owner, pages: deckPages }),
-    [deckPages, owner, title],
+    () => JSON.stringify({ title, owner, is_background: isBackground, pages: deckPages }),
+    [deckPages, isBackground, owner, title],
   )
 
   useEffect(() => {
@@ -88,6 +95,7 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the editor draft from the fetched canonical resource
     setTitle(media.title)
     setOwner(media.owner)
+    setIsBackground(media.is_background ?? false)
     setDeckPages(deckPagesFromMedia(media))
     loadedDraftRef.current = draftSignatureForMedia(media)
     const displayKind = mediaDisplayKind(media)
@@ -135,7 +143,11 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
         })
       }
       if (uploaded) {
-        return updateMedia(queryClient, mediaId, { title: title.trim(), owner })
+        return updateMedia(queryClient, mediaId, {
+          title: title.trim(),
+          owner,
+          is_background: media.content.type === 'image' ? isBackground : false,
+        })
       }
       if (!editableUrl) throw new Error(t('media.validation.notEditable'))
       if (!isValidUrlMediaInput(kind, url)) throw new Error(t('media.validation.invalidUrl'))
@@ -166,7 +178,12 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       if (!media || !isUploadedDisplayKind(displayKind) || isDeck) throw new Error(t('media.validation.notEditable'))
-      const uploadKind = displayKind === 'video' ? 'video' : 'audio'
+      const uploadKind = displayKind === 'image'
+        ? sniffAssetUploadKind(file)
+        : displayKind === 'video' ? 'video' : 'audio'
+      if (uploadKind !== 'image' && uploadKind !== 'svg' && uploadKind !== 'video' && uploadKind !== 'audio') {
+        throw new Error(t('media.validation.imageFileType'))
+      }
       setUploadProgress(0)
       return uploadMediaSource({
         mediaId,
@@ -270,11 +287,15 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
   }
 
   const canonicalUrl = mediaCanonicalUrl(media)
+  const isImage = media.content.type === 'image'
   const previewBlobId =
-    media.content.type === 'video' || media.content.type === 'audio'
+    media.content.type === 'video' || media.content.type === 'audio' || media.content.type === 'image'
       ? media.content.blob_id
       : null
   const previewUrl = previewBlobId ? mediaAssetDataUrl(mediaId, previewBlobId) : null
+  const replaceAccept = isImage
+    ? 'image/png,image/jpeg,image/svg+xml,.png,.jpg,.jpeg,.svg'
+    : avFileAccept
   const showUploadedEditor = uploaded
 
   return (
@@ -285,7 +306,7 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
         <div className="grid gap-1">
           <h1 className="text-xl font-semibold">{media.title}</h1>
           <p className="text-sm text-[var(--color-muted-foreground)]">{t(`media.kinds.${displayKind}`)}</p>
-          <div className="pt-2"><Button asChild size="sm"><a href={`/player/media/${encodeURIComponent(media.id)}`}>{t('media.actions.play')}</a></Button></div>
+          {!isImage ? <div className="pt-2"><Button asChild size="sm"><a href={`/player/media/${encodeURIComponent(media.id)}`}>{t('media.actions.play')}</a></Button></div> : null}
         </div>
       )}
 
@@ -295,6 +316,17 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
             <label htmlFor="media-editor-title" className="text-sm font-medium">{t('media.fields.title')}</label>
             <Input id="media-editor-title" value={title} onChange={(event) => setTitle(event.target.value)} disabled={!canEdit || !online || saveMutation.isPending} maxLength={200} />
           </div> : null}
+          {isImage ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={isBackground}
+                onChange={(event) => setIsBackground(event.target.checked)}
+                disabled={!canEdit || !online || saveMutation.isPending}
+              />
+              {t('media.fields.isBackground')}
+            </label>
+          ) : null}
           {media.content.type === 'video' ? (
             <p className="text-sm text-[var(--color-muted-foreground)]">
               {t('media.editor.metadataVideo', {
@@ -314,6 +346,11 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
           ) : null}
           {previewUrl && media.content.type === 'audio' ? (
             <audio className="w-full" controls src={previewUrl} />
+          ) : null}
+          {isImage && previewBlobId ? (
+            <div className="flex max-h-[60vh] items-center justify-center overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-2">
+              <MediaDeckPageView mediaId={mediaId} blobId={previewBlobId} label={media.title} />
+            </div>
           ) : null}
           {isDeck ? (
             <DeckPagesEditor
@@ -340,7 +377,7 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
           ) : null}
           {canEdit && !isDeck ? (
             <div className="flex flex-wrap gap-2">
-              <input ref={fileInputRef} type="file" className="hidden" accept={avFileAccept} onChange={(event) => {
+              <input ref={fileInputRef} type="file" className="hidden" accept={replaceAccept} onChange={(event) => {
                 const file = event.target.files?.[0]
                 if (file) uploadMutation.mutate(file)
                 event.target.value = ''

@@ -14,8 +14,8 @@ export type UpdateMedia = components['schemas']['UpdateMedia']
 
 export const mediaListRootKey = ['media'] as const
 export const mediaDetailKey = (id: string) => [...mediaListRootKey, 'detail', id] as const
-export const mediaListKey = (q: string, teamId?: string | null) =>
-  [...mediaListRootKey, 'list', q, teamId ?? null] as const
+export const mediaListKey = (q: string, teamId?: string | null, isBackground?: boolean) =>
+  [...mediaListRootKey, 'list', q, teamId ?? null, isBackground ?? null] as const
 
 const PAGE_SIZE = 50
 
@@ -36,7 +36,7 @@ async function requireOk<T>(
 
 export async function fetchMediaPage(
   queryClient: QueryClient,
-  args: { page: number; q: string; teamId?: string | null; signal?: AbortSignal },
+  args: { page: number; q: string; teamId?: string | null; isBackground?: boolean; signal?: AbortSignal },
 ): Promise<{ items: Media[]; total: number | undefined }> {
   const result = await api.GET('/api/v1/media', {
     params: {
@@ -45,6 +45,7 @@ export async function fetchMediaPage(
         page_size: PAGE_SIZE,
         q: args.q.trim() || undefined,
         team: args.teamId?.trim() || undefined,
+        is_background: args.isBackground,
       },
     },
     signal: args.signal,

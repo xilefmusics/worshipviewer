@@ -108,7 +108,7 @@
       "offline": "Offline",
       "settings": "Settings",
       "teams": "Teams",
-      "media": "AV media",
+      "media": "AV media / backgrounds",
       "sessions": "Sessions",
       "admin": "Admin dashboard",
       "about": "About",
@@ -371,6 +371,9 @@
       "backgroundTitle": "Background",
       "backgroundExpand": "Expand background selector",
       "backgroundCollapse": "Collapse background selector",
+      "customBackground": "Custom background",
+      "backgroundsError": "Could not load backgrounds.",
+      "backgroundsEmpty": "No custom backgrounds yet.",
       "sectionShortcutsAria": "Jump to section",
       "sectionJump": "Jump to {{section}} ({{key}})",
       "play": "Play",
@@ -723,16 +726,8 @@
       "background": {
         "title": "Background",
         "description": "Choose what appears behind lyrics.",
-        "black": "Black",
-        "blackDescription": "Solid black background.",
-        "red": "Red",
-        "redDescription": "Red radial gradient.",
-        "ray": "Ray",
-        "rayDescription": "Ray light background image.",
-        "zeltlager1": "Zeltlager 1",
-        "zeltlager1Description": "Zeltlager background with a framed lyric area.",
-        "zeltlager2": "Zeltlager 2",
-        "zeltlager2Description": "Zeltlager Powercamp background."
+        "default": "Default",
+        "defaultDescription": "Default Ray background image."
       },
       "transition": {
         "title": "Slide transition",
@@ -1366,6 +1361,7 @@
       "livestream": "Livestream",
       "web_page": "Web page",
       "slide_deck": "Slide deck",
+      "image": "Image",
       "video": "Video",
       "audio": "Audio",
       "unknown": "Unknown media"
@@ -1379,6 +1375,7 @@
       "kind": "Content type",
       "team": "Team",
       "canonicalUrl": "Saved URL",
+      "isBackground": "Use as an AV background",
       "url": {
         "youtube": "YouTube URL",
         "spotify": "Spotify track or playlist URL",
@@ -1386,13 +1383,18 @@
         "web_page": "Web-page URL"
       },
       "file": {
+        "image": "PNG, JPEG, or SVG image",
         "video": "Video file",
         "audio": "Audio file",
         "slide_deck": "PNG, JPEG, SVG, or PDF files"
       }
     },
     "list": {
+      "tabsAria": "Media library views",
+      "allItems": "All media",
+      "backgroundItems": "Backgrounds",
       "empty": "No media yet.",
+      "noBackgrounds": "No backgrounds yet.",
       "filteredEmpty": "No media for this team.",
       "noResults": "No media match your search.",
       "loadingAria": "Loading media",
@@ -1404,7 +1406,7 @@
     },
     "create": {
       "title": "Add media",
-      "description": "Add a reusable YouTube video, Spotify track or playlist, slide deck, or upload audio or video."
+      "description": "Add a reusable YouTube video, Spotify track or playlist, an image background, slide deck, or uploaded audio or video."
     },
     "editor": {
       "backToList": "Back to media",
@@ -1485,7 +1487,8 @@
       "destinationRequired": "Choose a destination team.",
       "notEditable": "This media item cannot be edited.",
       "fileRequired": "Choose a file to upload.",
-      "deckFileType": "Choose PNG, JPEG, SVG, or PDF files."
+      "deckFileType": "Choose PNG, JPEG, SVG, or PDF files.",
+      "imageFileType": "Choose one PNG, JPEG, or SVG image."
     }
   },
   "impersonation": {

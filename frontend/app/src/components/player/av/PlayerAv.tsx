@@ -623,6 +623,14 @@ export function PlayerAv({
     })
   }, [])
 
+  const setBackgroundImage = useCallback((image: { mediaId: string; assetId: string }) => {
+    setPrefs((prev) => {
+      const next = { ...prev, backgroundLayer: { ...prev.backgroundLayer, image } }
+      writeAvPreferences(next)
+      return next
+    })
+  }, [])
+
   const goToSlide = useCallback(
     (slideIndex: number, clearScreenState = true) => {
       if (isTimedAvKind(currentItem.kind)) {
@@ -1112,6 +1120,7 @@ export function PlayerAv({
                 backgroundPreviewText={currentText}
                 contentLayer={prefs.contentLayer}
                 onSelectBackgroundPreset={setBackgroundPreset}
+                onSelectBackgroundImage={setBackgroundImage}
               />
             ) : isTimedAvKind(currentItem.kind) ? (
               <AvMediaTransportPanel
@@ -1152,6 +1161,7 @@ export function PlayerAv({
                 }}
                 onRetry={() => startPlay()}
                 onSelectBackgroundPreset={setBackgroundPreset}
+                onSelectBackgroundImage={setBackgroundImage}
               />
             ) : (
               <AvSlidesPanel
@@ -1163,6 +1173,7 @@ export function PlayerAv({
                 transition={prefs.transition}
                 onSelectSlide={(slideIndex) => goToSlide(slideIndex)}
                 onSelectBackgroundPreset={setBackgroundPreset}
+                onSelectBackgroundImage={setBackgroundImage}
               />
             )}
           </div>

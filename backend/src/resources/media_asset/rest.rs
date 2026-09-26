@@ -73,7 +73,7 @@ struct CreateUploadQuery {
 #[utoipa::path(
     post,
     path = "/api/v1/media/uploads",
-    params(("kind" = String, Query, description = "Uploaded media kind: video, audio, or slide_deck")),
+    params(("kind" = String, Query, description = "Uploaded media kind: image, video, audio, or slide_deck")),
     request_body(content = String, content_type = "multipart/form-data", description = "One JSON metadata part and one or more file parts"),
     responses(
         (status = 201, description = "Uploaded media processed and created", body = Media),
@@ -132,6 +132,7 @@ pub async fn create_uploaded_media(
             let provisional_limit = match kind {
                 UploadedMediaKind::Video => limits.video_max_bytes,
                 UploadedMediaKind::Audio => limits.audio_max_bytes,
+                UploadedMediaKind::Image => limits.image_max_bytes.max(limits.svg_max_bytes),
                 UploadedMediaKind::SlideDeck => limits
                     .pdf_max_bytes
                     .max(limits.image_max_bytes)
@@ -158,6 +159,9 @@ pub async fn create_uploaded_media(
             let asset_kind = match kind {
                 UploadedMediaKind::Video => MediaAssetKind::Video,
                 UploadedMediaKind::Audio => MediaAssetKind::Audio,
+                UploadedMediaKind::Image => {
+                    detect_deck_source_kind(&path).map_err(app_error_from_failure)?
+                }
                 UploadedMediaKind::SlideDeck => {
                     detect_deck_source_kind(&path).map_err(app_error_from_failure)?
                 }

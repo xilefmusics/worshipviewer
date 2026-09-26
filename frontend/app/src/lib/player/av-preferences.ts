@@ -7,12 +7,12 @@ export type AvVerticalAlign = 'top' | 'center' | 'bottom'
 export type AvHorizontalAlign = 'left' | 'center' | 'right'
 export type AvTextShadow = 'none' | 'subtle' | 'medium' | 'strong'
 export type AvTextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize'
-/** Built-in presenter backgrounds: 0 = black, 1 = red, 2 = ray, 3-4 = Zeltlager. */
+/** Preset IDs retained for saved preference compatibility; Ray (2) is the only built-in choice. */
 export type AvBackgroundPreset = 0 | 1 | 2 | 3 | 4
 export type AvTransitionStyle = 'none' | 'fade' | 'slide'
 export type AvScreenState = 'live' | 'blank' | 'blackout'
 
-export const AV_BACKGROUND_PRESETS = [0, 1, 2, 3, 4] as const satisfies readonly AvBackgroundPreset[]
+export const AV_BACKGROUND_PRESETS = [2] as const satisfies readonly AvBackgroundPreset[]
 export const AV_TEXT_LIGHTNESS_MIN = 0
 export const AV_TEXT_LIGHTNESS_MAX = 100
 export const AV_TEXT_SHADOW_LIGHT_THRESHOLD = 50
@@ -32,6 +32,10 @@ export type AvContentLayer = {
 
 export type AvBackgroundLayer = {
   preset: AvBackgroundPreset
+  image?: {
+    mediaId: string
+    assetId: string
+  }
 }
 
 export type AvTransition = {
@@ -98,11 +102,10 @@ function parseEnum<T extends string>(
   return allowed.includes(value as T) ? (value as T) : fallback
 }
 
-function parseBackgroundPreset(value: unknown, fallback: AvBackgroundPreset): AvBackgroundPreset {
+export function normalizeAvBackgroundPreset(value: unknown): AvBackgroundPreset {
   const num = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10)
-  return AV_BACKGROUND_PRESETS.includes(num as AvBackgroundPreset)
-    ? (num as AvBackgroundPreset)
-    : fallback
+  return AV_BACKGROUND_PRESETS.find((preset) => preset === num)
+    ?? DEFAULT_AV_PREFERENCES.backgroundLayer.preset
 }
 
 function mergeContentLayer(raw: Partial<AvContentLayer> | undefined): AvContentLayer {
@@ -146,13 +149,22 @@ function mergeContentLayer(raw: Partial<AvContentLayer> | undefined): AvContentL
 function mergeBackgroundLayer(raw: Partial<AvBackgroundLayer> & Record<string, unknown> | undefined): AvBackgroundLayer {
   const defaults = DEFAULT_AV_PREFERENCES.backgroundLayer
   if (raw?.preset !== undefined) {
-    return { preset: parseBackgroundPreset(raw.preset, defaults.preset) }
+    const preset = normalizeAvBackgroundPreset(raw.preset)
+    const image = raw.image as { mediaId?: unknown; assetId?: unknown } | undefined
+    if (
+      image &&
+      typeof image.mediaId === 'string' &&
+      image.mediaId.trim() &&
+      typeof image.assetId === 'string' &&
+      image.assetId.trim()
+    ) {
+      return { preset, image: { mediaId: image.mediaId, assetId: image.assetId } }
+    }
+    return { preset }
   }
   // Migrate earlier free-form background settings.
   if (typeof raw?.kind === 'string') {
-    if (raw.kind === 'gradient') return { preset: 1 }
-    if (raw.kind === 'image' || raw.kind === 'video') return { preset: 2 }
-    return { preset: 0 }
+    return { preset: 2 }
   }
   return defaults
 }
