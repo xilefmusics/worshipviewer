@@ -27,6 +27,8 @@ export type RenderA4HtmlOptions = {
   language?: number
   /** Scale factor for DIN-A4 layout (player/editor viewport height / 1123). */
   scale?: number
+  /** Capo fret applied by chordlib while rendering the page or sections. */
+  capo?: number
 }
 
 /** Structured song payload (`Song.data` / chordlib wire JSON). */

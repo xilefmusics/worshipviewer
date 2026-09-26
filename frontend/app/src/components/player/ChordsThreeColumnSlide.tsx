@@ -163,6 +163,7 @@ function useMultiColumnSongRender(
   songData: ChordSongData | undefined,
   flow: readonly SongFlowItem[] | null | undefined,
   displayKey: string | null | undefined,
+  capoFret: number | null | undefined,
   languageIndex: number | null | undefined,
   chordFormat: ChordFormatPreference,
   hideChords: boolean,
@@ -177,13 +178,14 @@ function useMultiColumnSongRender(
             songData,
             flow,
             key: displayKey,
+            capo: capoFret,
             language: languageIndex,
             representation,
             hideChords,
             expandSections,
           }
         : null,
-    [displayKey, expandSections, flow, hideChords, languageIndex, representation, songData],
+    [capoFret, displayKey, expandSections, flow, hideChords, languageIndex, representation, songData],
   )
   const renderKey = request ? chordSectionRenderKey(request) : ''
   const localRenderKey = `${renderKey}:${renderPass}`
@@ -421,6 +423,7 @@ export function ChordsThreeColumnSlide({
     songData,
     flow,
     displayKey,
+    capoFret,
     languageIndex,
     chordFormat,
     hideChords,
@@ -433,6 +436,7 @@ export function ChordsThreeColumnSlide({
     nextSongData,
     nextFlow,
     nextDisplayKey,
+    nextCapoFret,
     nextLanguageIndex,
     chordFormat,
     hideChords,

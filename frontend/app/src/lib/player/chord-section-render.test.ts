@@ -45,6 +45,7 @@ describe('Chord section render service', () => {
 
     await service.render(input)
     await service.render({ ...input, key: 'G' })
+    await service.render({ ...input, capo: 2 })
     await service.render({ ...input, language: 1 })
     await service.render({ ...input, representation: 'nashville' })
     await service.render({ ...input, hideChords: true })
@@ -52,7 +53,16 @@ describe('Chord section render service', () => {
     await service.render({ ...input, flow: [{ title: 'Verse', occurrence_index: 0, repeats: 1 }] })
     await service.render({ ...input, flow: [{ title: 'Chorus', occurrence_index: 0, repeats: 1 }] })
 
-    expect(renderInWorker).toHaveBeenCalledTimes(8)
+    expect(renderInWorker).toHaveBeenCalledTimes(9)
+  })
+
+  it('forwards the capo fret to the renderer', async () => {
+    const renderInWorker = vi.fn().mockResolvedValue(rendered)
+    const service = createChordSectionRenderService(renderInWorker, vi.fn())
+
+    await service.render(request({ key: 'A', capo: 2 }))
+
+    expect(renderInWorker).toHaveBeenCalledWith(expect.objectContaining({ key: 'A', capo: 2 }))
   })
 
   it('evicts least recently used completed entries at capacity', async () => {

@@ -7,7 +7,8 @@ use chordlib::inputs::propresenter;
 use chordlib::inputs::songbeamer;
 use chordlib::inputs::ultimate_guitar;
 use chordlib::outputs::{
-    FormatChordPro, FormatHTML, FormatMarkdown, FormatProPresenter, FormatSongBeamer,
+    FormatChordPro, FormatHTML, FormatHTMLWithCapo, FormatMarkdown, FormatProPresenter,
+    FormatSongBeamer,
 };
 use chordlib::types::{ChordRepresentation, SimpleChord, Song, SongFlowItem};
 use wasm_bindgen::prelude::*;
@@ -168,14 +169,23 @@ pub fn render_a4_html(
     representation: Option<String>,
     language: Option<u32>,
     scale: Option<f32>,
+    capo: Option<u32>,
 ) -> Result<HtmlPage, String> {
     let song = parse_song_json(song_json)?;
     let key_ref = parse_key(key)?;
     let rep_ref = parse_representation(representation)?;
     let lang = language.map(|l| l as usize);
-    let (html, css) = (&song)
-        .format_html_page(key_ref.as_ref(), rep_ref.as_ref(), lang, scale)
-        .map_err(|e| e.to_string())?;
+    let result = match capo {
+        Some(capo) => (&song).format_html_page_with_capo(
+            key_ref.as_ref(),
+            rep_ref.as_ref(),
+            lang,
+            scale,
+            capo as u8,
+        ),
+        None => (&song).format_html_page(key_ref.as_ref(), rep_ref.as_ref(), lang, scale),
+    };
+    let (html, css) = result.map_err(|e| e.to_string())?;
     Ok(HtmlPage { html, css })
 }
 
@@ -206,14 +216,23 @@ pub fn render_a4_section_htmls(
     representation: Option<String>,
     language: Option<u32>,
     scale: Option<f32>,
+    capo: Option<u32>,
 ) -> Result<SectionHtmlPage, String> {
     let song = parse_song_json(song_json)?;
     let key_ref = parse_key(key)?;
     let rep_ref = parse_representation(representation)?;
     let lang = language.map(|l| l as usize);
-    let (sections, css) = (&song)
-        .format_html_sections(key_ref.as_ref(), rep_ref.as_ref(), lang, scale)
-        .map_err(|e| e.to_string())?;
+    let result = match capo {
+        Some(capo) => (&song).format_html_sections_with_capo(
+            key_ref.as_ref(),
+            rep_ref.as_ref(),
+            lang,
+            scale,
+            capo as u8,
+        ),
+        None => (&song).format_html_sections(key_ref.as_ref(), rep_ref.as_ref(), lang, scale),
+    };
+    let (sections, css) = result.map_err(|e| e.to_string())?;
     Ok(SectionHtmlPage { sections, css })
 }
 
@@ -313,7 +332,7 @@ mod tests {
     fn render_html_non_empty() {
         let source = "{title: Test}\n{key: C}\n\n[C]Hello";
         let json = parse_chord_pro(source).expect("parse");
-        let page = render_a4_html(&json, None, None, None, Some(1.0)).expect("render");
+        let page = render_a4_html(&json, None, None, None, Some(1.0), None).expect("render");
         assert!(!page.html.is_empty());
         assert!(!page.css.is_empty());
     }
@@ -322,7 +341,8 @@ mod tests {
     fn render_section_htmls_returns_fragments() {
         let source = "{title: Test}\n{key: C}\n{section: Verse}\n[C]One\n{section: Chorus}\n[D]Two";
         let json = parse_chord_pro(source).expect("parse");
-        let page = render_a4_section_htmls(&json, None, None, None, Some(1.0)).expect("render");
+        let page =
+            render_a4_section_htmls(&json, None, None, None, Some(1.0), None).expect("render");
         assert_eq!(page.sections().len(), 2);
         assert!(page.sections()[0].contains("Verse"));
         assert!(page.sections()[1].contains("Chorus"));

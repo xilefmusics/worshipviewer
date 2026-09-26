@@ -38,6 +38,7 @@ function render(request: WorkerRequest['request']): Promise<RenderedChordSection
     }
     return engine.renderA4SectionHtmls(songData, {
       key: request.key ?? undefined,
+      capo: request.capo ?? undefined,
       language: request.language ?? undefined,
       representation: request.representation,
     })

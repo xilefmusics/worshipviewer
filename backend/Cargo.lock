@@ -1127,7 +1127,9 @@ dependencies = [
 
 [[package]]
 name = "chordlib"
-version = "0.16.0"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30b194663c5a2ab6d53d536ef5dc05659d4ff1876ce0d841c3bb887b23060cbc"
 dependencies = [
  "askama",
  "base64 0.22.1",

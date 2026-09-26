@@ -114,6 +114,7 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
           options?.representation,
           options?.language,
           options?.scale,
+          options?.capo,
         ),
       )
       return { html: page.html, css: page.css }
@@ -128,6 +129,7 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
           options?.representation,
           options?.language,
           options?.scale,
+          options?.capo,
         ),
       )
       return { sections: page.sections, css: page.css }
