@@ -20,6 +20,7 @@ import {
   HubActionItem,
   HubActionsDrawer,
 } from '@/components/hub/HubActionsDrawer'
+import { openHubActionsFromContextMenu } from '@/components/hub/hub-action-context-menu'
 import {
   HUB_LIST_ROW_BORDER_CLASS,
   HUB_LIST_ROW_SHELL_CLASS,
@@ -89,7 +90,7 @@ function UserRow({
   const subtitle = `${roleLabel} · ${createdLabel}`
 
   return (
-    <div className={cn('flex items-center', HUB_LIST_ROW_BORDER_CLASS)}>
+    <div className={cn('flex items-center', HUB_LIST_ROW_BORDER_CLASS)} data-hub-resource>
       <div className={cn(HUB_LIST_ROW_SHELL_CLASS, 'min-w-0 flex-1 cursor-default')}>
         <div className="flex min-w-0 flex-1 flex-col justify-center py-0.5">
           <p className={HUB_LIST_TITLE_CLASS} title={user.email}>
@@ -225,7 +226,7 @@ export function AdminUsersView() {
         ) : null}
 
         {!query.isError && !showSkeleton && items.length > 0 ? (
-          <div className="flex flex-col pb-4">
+          <div className="flex flex-col pb-4" onContextMenu={openHubActionsFromContextMenu}>
             {items.map((user) => (
               <UserRow
                 key={user.id}

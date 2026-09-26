@@ -33,6 +33,7 @@ import {
   HubActionSeparator,
   HubActionsDrawer,
 } from '@/components/hub/HubActionsDrawer'
+import { openHubActionsFromContextMenu } from '@/components/hub/hub-action-context-menu'
 import { OfflineCachedIndicator } from '@/components/hub/OfflineCachedIndicator'
 import { SetlistItemCounts } from '@/components/hub/SetlistItemCounts'
 import { CreateRoomDialog, type RoomSource } from '@/components/room/CreateRoomDialog'
@@ -271,7 +272,10 @@ export function EntityListView({ entity }: EntityListViewProps) {
 
   return (
     <>
-      <div className="relative flex w-full min-w-0 flex-col">
+      <div
+        className="relative flex w-full min-w-0 flex-col"
+        onContextMenu={openHubActionsFromContextMenu}
+      >
         {entity === 'songs' ? <PlayAllSongsButton /> : null}
         {!networkOnline && listsUpdatedAt ? (
           <p className="mb-2 text-center text-xs text-[var(--color-muted-foreground)]">
@@ -927,7 +931,7 @@ const CollectionCard = memo(function CollectionCard({
   const { src: coverSrc, onImageError: onCoverError } = useCoverImageSrc(collection.cover)
 
   return (
-    <div className="relative">
+    <div className="relative" data-hub-resource>
       <motion.div
         className="flex cursor-pointer flex-col gap-1.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] sm:gap-2"
         onClick={onClick}
@@ -999,7 +1003,10 @@ const CollectionRow = memo(function CollectionRow({
   const subtitle = ownerLabel ? `${songsCount}, ${ownerLabel}` : songsCount
 
   return (
-    <div className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_INSET_LAST_CLASS, 'cursor-default')}>
+    <div
+      className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_INSET_LAST_CLASS, 'cursor-default')}
+      data-hub-resource
+    >
       <div className={HUB_LIST_AVATAR_CLASS}>
         {coverSrc ? (
           <img
@@ -1071,7 +1078,7 @@ const SongRow = memo(function SongRow({
   const subtitle = ownerLabel ? `${sub}, ${ownerLabel}` : sub
 
   return (
-    <div className={cn('flex items-center', HUB_LIST_ROW_BORDER_CLASS)}>
+    <div className={cn('flex items-center', HUB_LIST_ROW_BORDER_CLASS)} data-hub-resource>
       <motion.div
         className={cn(HUB_LIST_ROW_SHELL_CLASS, 'min-w-0 flex-1')}
         onClick={onClick}
@@ -1127,7 +1134,7 @@ const SetlistRow = memo(function SetlistRow({
   }, [ownerTeam, ownerTeamError, ownerTeamPending, t, user?.id])
 
   return (
-    <div className={cn('flex items-center', HUB_LIST_ROW_BORDER_CLASS)}>
+    <div className={cn('flex items-center', HUB_LIST_ROW_BORDER_CLASS)} data-hub-resource>
       <motion.div
         className={cn(HUB_LIST_ROW_SHELL_CLASS, 'min-w-0 flex-1')}
         onClick={onClick}
