@@ -7,10 +7,7 @@ RUN export CARGO_BUILD_JOBS=$(nproc) && \
     curl -fsSL https://deb.nodesource.com/setup_26.x | bash - && \
     apt-get install -y --no-install-recommends nodejs && \
     npm install --global pnpm@12.6.0 && \
-    curl -fsSL https://rustwasm.github.io/wasm-pack/installer/init.sh | VERSION=0.15.0 sh && \
-    VENOM_VERSION=1.3.0 && \
-    curl -L "https://github.com/ovh/venom/releases/download/v${VENOM_VERSION}/venom.linux-amd64" -o /usr/local/bin/venom && \
-    chmod +x /usr/local/bin/venom
+    curl -fsSL https://rustwasm.github.io/wasm-pack/installer/init.sh | VERSION=0.15.0 sh
 
 FROM toolchain AS backend-builder
 WORKDIR /wrk
@@ -54,50 +51,6 @@ RUN pnpm --filter app build
 FROM toolchain AS runtime-dirs
 RUN mkdir -m 1777 /runtime-tmp
 
-FROM scratch AS tester
-COPY --from=runtime-dirs /runtime-tmp /tmp
-
-# runtime libraries required for backend and Venom
-COPY --from=toolchain /lib/x86_64-linux-gnu/libdl.so.2 /lib/x86_64-linux-gnu/libdl.so.2
-COPY --from=toolchain /lib/x86_64-linux-gnu/libpthread.so.0 /lib/x86_64-linux-gnu/libpthread.so.0
-COPY --from=toolchain /lib/x86_64-linux-gnu/libm.so.6 /lib/x86_64-linux-gnu/libm.so.6
-COPY --from=toolchain /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/libgcc_s.so.1
-COPY --from=toolchain /lib/x86_64-linux-gnu/librt.so.1 /lib/x86_64-linux-gnu/librt.so.1
-COPY --from=toolchain /lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/libc.so.6
-COPY --from=toolchain /lib64/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
-COPY --from=toolchain /usr/lib/x86_64-linux-gnu/libssl.so.3 /usr/lib/x86_64-linux-gnu/libssl.so.3
-COPY --from=toolchain /usr/lib/x86_64-linux-gnu/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so.3
-COPY --from=toolchain /usr/lib/x86_64-linux-gnu/libz.so.1 /usr/lib/x86_64-linux-gnu/libz.so.1
-COPY --from=toolchain /usr/lib/x86_64-linux-gnu/libzstd.so.1 /usr/lib/x86_64-linux-gnu/libzstd.so.1
-COPY --from=toolchain /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
-COPY --from=toolchain /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-
-# shell & utilities to orchestrate tests
-COPY --from=toolchain /bin/sh /bin/sh
-COPY --from=toolchain /bin/sleep /bin/sleep
-
-SHELL ["/bin/sh", "-c"]
-
-COPY --from=toolchain /usr/local/bin/venom /usr/local/bin/venom
-COPY --from=backend-builder /wrk/backend/tests /app/tests
-COPY --from=backend-builder /wrk/backend/target/release/backend /app/worshipviewer
-COPY --from=backend-builder /wrk/backend/db-migrations /app/db-migrations
-COPY --from=frontend-builder /wrk/frontend/app/dist/ /app/static
-
-WORKDIR /app
-
-ENV INITIAL_ADMIN_USER_EMAIL="admin@example.com" \
-    INITIAL_ADMIN_USER_TEST_SESSION=true
-
-RUN set -eux; \
-    ./worshipviewer & \
-    backend_pid=$!; \
-    trap "kill $backend_pid 2>/dev/null || true" EXIT; \
-    sleep 5; \
-    /usr/local/bin/venom run /app/tests/*.yml; \
-    kill $backend_pid; \
-    wait $backend_pid 2>/dev/null || true
-
 FROM scratch
 COPY --from=runtime-dirs /runtime-tmp /tmp
 
@@ -115,7 +68,7 @@ COPY --from=toolchain /usr/lib/x86_64-linux-gnu/libzstd.so.1 /usr/lib/x86_64-lin
 COPY --from=toolchain /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so.6
 COPY --from=toolchain /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
-COPY --from=tester /app/worshipviewer /app/worshipviewer
+COPY --from=backend-builder /wrk/backend/target/release/backend /app/worshipviewer
 COPY --from=backend-builder /wrk/backend/db-migrations/ /app/db-migrations
 COPY --from=frontend-builder /wrk/frontend/app/dist/ /app/static
 

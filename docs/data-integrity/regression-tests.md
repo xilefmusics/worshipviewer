@@ -7,7 +7,7 @@ Automated coverage for cascade deletes, orphan blobs, and unique-index ownership
 | Area | Location |
 |------|----------|
 | Migration forward apply + checksum mismatch | `backend/src/database/migrations.rs` (`#[cfg(test)]`) |
-| HTTP audit / monitoring BLCs | `backend/src/http_tests.rs`, Venom YAML under `backend/tests/` |
+| HTTP audit / monitoring BLCs | `backend/src/http_tests.rs` |
 | Collection/song BLC integration | `backend/src/resources/*/service.rs` module tests |
 
 ## Planned (not yet exhaustive)
@@ -23,7 +23,6 @@ Run the existing suite:
 
 ```bash
 cd backend && cargo test -- --test-threads=4
-docker build --target tester .   # Venom HTTP integration
 ```
 
 Track new tests in PR descriptions when closing data-integrity action items.

@@ -62,10 +62,6 @@ imagesize = "0.15"
 async-stream = "0.3"
 lopdf = { version = "0.44", default-features = false }
 
-[[bin]]
-name = "venom-test"
-path = "src/bin/venom_test.rs"
-
 [dev-dependencies]
 anyhow = "1"
 tempfile = "3"

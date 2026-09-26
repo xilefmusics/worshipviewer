@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CI-equivalent checks (local). Excludes Playwright e2e and Docker/Venom — see CONTRIBUTING.md.
+# CI-equivalent checks (local). Excludes Playwright e2e and Docker builds — see CONTRIBUTING.md.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
