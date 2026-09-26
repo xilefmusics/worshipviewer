@@ -202,7 +202,7 @@ describe('RoomLivePage responsive player layout', () => {
     expect(roomQueuePanelProps).toMatchObject({ currentSongId: null })
   })
 
-  it('keeps the three-panel shell on mobile', () => {
+  it('uses the player TOC without participants on mobile Sheet mode', () => {
     isPhoneViewport = true
     mockRoom(snapshotWithProjection(null))
 
@@ -210,19 +210,22 @@ describe('RoomLivePage responsive player layout', () => {
 
     expect(screen.queryByRole('tablist', { name: 'rooms.panels' })).not.toBeInTheDocument()
     expect(playerBookProps).toEqual(expect.objectContaining({
-      embedded: true,
-      enableEmbeddedSwipeNavigation: true,
+      tocSidebar: expect.anything(),
     }))
-    expect(playerBookProps).not.toHaveProperty('tocSidebar')
-    expect(playerBookProps).not.toHaveProperty('roomSidebar')
+    expect(playerBookProps).not.toHaveProperty('embedded')
+    expect(playerBookProps?.roomSidebar).toBeUndefined()
+    expect(screen.queryByRole('region', { name: 'rooms.panel.queue' })).not.toBeInTheDocument()
   })
 
-  it('does not enable embedded Sheet swipes for desktop rooms', () => {
+  it('keeps the desktop Sheet TOC and participant sidebars', () => {
     mockRoom(snapshotWithProjection(null))
 
     render(<RoomLivePage credentials={{ ...credentials, mode: 'sheet' }} />)
 
-    expect(playerBookProps).not.toHaveProperty('enableEmbeddedSwipeNavigation')
+    expect(playerBookProps).toEqual(expect.objectContaining({
+      tocSidebar: expect.anything(),
+      roomSidebar: expect.anything(),
+    }))
   })
 
   it('keeps AV in the three-panel shell on mobile', () => {

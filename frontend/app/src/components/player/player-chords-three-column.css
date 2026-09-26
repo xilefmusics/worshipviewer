@@ -52,7 +52,8 @@
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  overscroll-behavior: contain;
+  /* Horizontal gestures belong to the surrounding native song viewport. */
+  overscroll-behavior-y: contain;
   padding: 1rem 1.5rem 1.25rem;
 }
 
