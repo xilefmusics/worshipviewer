@@ -242,6 +242,7 @@ async fn get_collection_songs(
         (status = 400, description = "Invalid collection payload", body = Problem, content_type = "application/problem+json"),
         (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
         (status = 404, description = "Target team not found or caller cannot edit that team's library", body = Problem, content_type = "application/problem+json"),
+        (status = 409, description = "A song id is already linked to another collection (BLC-COLL-027)", body = Problem, content_type = "application/problem+json"),
         (status = 429, description = "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers", body = Problem, content_type = "application/problem+json"),
         (status = 500, description = "Failed to create collection", body = Problem, content_type = "application/problem+json")
     ),
@@ -276,7 +277,7 @@ async fn create_collection(
         (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
         (status = 429, description = "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers", body = Problem, content_type = "application/problem+json"),
         (status = 404, description = "Collection not found", body = Problem, content_type = "application/problem+json"),
-        (status = 409, description = "Request would remove a song from the collection (BLC-COLL-024)", body = Problem, content_type = "application/problem+json"),
+        (status = 409, description = "Request would remove a song (BLC-COLL-024) or link a song already present in another collection (BLC-COLL-027)", body = Problem, content_type = "application/problem+json"),
         (status = 412, description = "`If-Match` does not match current weak ETag", body = Problem, content_type = "application/problem+json"),
         (status = 500, description = "Failed to update collection", body = Problem, content_type = "application/problem+json")
     ),
@@ -380,7 +381,7 @@ async fn put_collection_cover(
         (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
         (status = 429, description = "API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers", body = Problem, content_type = "application/problem+json"),
         (status = 404, description = "Collection not found", body = Problem, content_type = "application/problem+json"),
-        (status = 409, description = "Request would remove a song from the collection (BLC-COLL-024)", body = Problem, content_type = "application/problem+json"),
+        (status = 409, description = "Request would remove a song (BLC-COLL-024) or link a song already present in another collection (BLC-COLL-027)", body = Problem, content_type = "application/problem+json"),
         (status = 412, description = "`If-Match` does not match current weak ETag", body = Problem, content_type = "application/problem+json"),
         (status = 500, description = "Failed to patch collection", body = Problem, content_type = "application/problem+json")
     ),

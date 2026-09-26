@@ -4786,3 +4786,221 @@ mod setlist_items_http {
         ));
     }
 }
+
+#[cfg(test)]
+mod collection_membership_http {
+    use super::*;
+    use actix_web::http::StatusCode;
+    use shared::collection::Collection;
+    use shared::song::Song;
+
+    #[actix_web::test]
+    async fn collection_membership_is_unique_across_create_update_and_transfer() {
+        let db = test_db().await.unwrap();
+        let user = create_user(&db, "collection-membership@test.local")
+            .await
+            .unwrap();
+        let token = create_session_token(&db, user).await.unwrap();
+        let auth = format!("Bearer {token}");
+        let app = test::init_service(build_app(db)).await;
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/api/v1/collections")
+                .insert_header(("Authorization", auth.clone()))
+                .set_json(serde_json::json!({
+                    "title": "Membership source",
+                    "cover": "",
+                    "songs": []
+                }))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let source: Collection = test::read_body_json(response).await;
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/api/v1/songs")
+                .insert_header(("Authorization", auth.clone()))
+                .set_json(serde_json::json!({
+                    "collection": source.id.clone(),
+                    "not_a_song": false,
+                    "blobs": [],
+                    "data": { "titles": ["Membership song"], "sections": [] }
+                }))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let song: Song = test::read_body_json(response).await;
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/api/v1/collections")
+                .insert_header(("Authorization", auth.clone()))
+                .set_json(serde_json::json!({
+                    "title": "Membership create conflict",
+                    "cover": "",
+                    "songs": [{ "id": song.id.clone() }]
+                }))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/api/v1/collections")
+                .insert_header(("Authorization", auth.clone()))
+                .set_json(serde_json::json!({
+                    "title": "Membership target",
+                    "cover": "",
+                    "songs": []
+                }))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let target: Collection = test::read_body_json(response).await;
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri(&format!("/api/v1/collections/{}", target.id))
+                .insert_header(("Authorization", auth.clone()))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let etag = response
+            .headers()
+            .get("etag")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let _: Collection = test::read_body_json(response).await;
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::put()
+                .uri(&format!("/api/v1/collections/{}", target.id))
+                .insert_header(("Authorization", auth.clone()))
+                .insert_header(("If-Match", etag))
+                .set_json(serde_json::json!({
+                    "title": "Membership target",
+                    "cover": "",
+                    "songs": [{ "id": song.id.clone() }]
+                }))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri(&format!("/api/v1/collections/{}", target.id))
+                .insert_header(("Authorization", auth.clone()))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let etag = response
+            .headers()
+            .get("etag")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let _: Collection = test::read_body_json(response).await;
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::patch()
+                .uri(&format!("/api/v1/collections/{}", target.id))
+                .insert_header(("Authorization", auth.clone()))
+                .insert_header(("If-Match", etag))
+                .set_json(serde_json::json!({ "songs": [{ "id": song.id.clone() }] }))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri(&format!(
+                    "/api/v1/collections/{}/songs/{}/transfer",
+                    source.id, song.id
+                ))
+                .insert_header(("Authorization", auth.clone()))
+                .set_json(serde_json::json!({ "target": target.id.clone() }))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri(&format!("/api/v1/collections/{}", source.id))
+                .insert_header(("Authorization", auth.clone()))
+                .to_request(),
+        )
+        .await;
+        let source_after: Collection = test::read_body_json(response).await;
+        assert!(source_after.songs.is_empty());
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri(&format!("/api/v1/collections/{}", target.id))
+                .insert_header(("Authorization", auth.clone()))
+                .to_request(),
+        )
+        .await;
+        let target_after: Collection = test::read_body_json(response).await;
+        assert_eq!(target_after.songs.len(), 1);
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri(&format!("/api/v1/collections/{}", target.id))
+                .insert_header(("Authorization", auth.clone()))
+                .to_request(),
+        )
+        .await;
+        let etag = response
+            .headers()
+            .get("etag")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let _: Collection = test::read_body_json(response).await;
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::put()
+                .uri(&format!("/api/v1/collections/{}", target.id))
+                .insert_header(("Authorization", auth))
+                .insert_header(("If-Match", etag))
+                .set_json(serde_json::json!({
+                    "title": "Membership target",
+                    "cover": "",
+                    "songs": [{ "id": song.id.clone() }, { "id": song.id.clone() }]
+                }))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let target_with_repeated_link: Collection = test::read_body_json(response).await;
+        assert_eq!(target_with_repeated_link.songs.len(), 2);
+    }
+}

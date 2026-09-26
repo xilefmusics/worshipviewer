@@ -360,8 +360,8 @@ mod tests {
     use crate::error::AppError;
     use crate::test_helpers::auth_ctx_for_user;
     use crate::test_helpers::{
-        TeamFixture, configure_personal_team_members, create_song_with_title, create_user,
-        personal_team_id, team_service, test_db, two_shared_teams_for_user,
+        TeamFixture, configure_personal_team_members, create_user, personal_team_id, team_service,
+        test_db, two_shared_teams_for_user,
     };
     use shared::MoveOwner;
     use shared::api::ListQuery;
@@ -369,6 +369,30 @@ mod tests {
     use shared::team::{TeamMemberInput, TeamRole, TeamUserRef, UpdateTeam};
 
     use super::CollectionServiceHandle;
+
+    async fn create_unlinked_song_with_title(
+        db: &std::sync::Arc<crate::database::Database>,
+        user: &crate::resources::User,
+        title: &str,
+    ) -> Result<shared::song::Song, crate::error::AppError> {
+        use crate::resources::song::{SongRepository, SurrealSongRepo};
+        use surrealdb::types::RecordId;
+
+        let mut data = crate::test_helpers::minimal_song_data();
+        data.titles = vec![title.to_owned()];
+        let owner_team = personal_team_id(db, user).await.expect("personal team");
+        SurrealSongRepo::new(db.clone())
+            .create_song(
+                RecordId::new("team", owner_team),
+                shared::song::CreateSong {
+                    collection: String::new(),
+                    not_a_song: false,
+                    blobs: vec![],
+                    data,
+                },
+            )
+            .await
+    }
 
     #[tokio::test]
     async fn blc_collection_crud_and_acl() {
@@ -387,7 +411,7 @@ mod tests {
         .await
         .expect("acl");
 
-        let song = create_song_with_title(&db, &owner, "Coll Song")
+        let song = create_unlinked_song_with_title(&db, &owner, "Coll Song")
             .await
             .expect("song");
 
@@ -470,6 +494,61 @@ mod tests {
         svc.delete_collection_for_user(&owner_perms, &col.id)
             .await
             .expect("delete");
+    }
+
+    #[tokio::test]
+    async fn concurrent_collection_creates_cannot_link_the_same_song() {
+        let db = test_db().await.expect("db");
+        let svc = CollectionServiceHandle::build(db.clone());
+        let owner = create_user(&db, "coll-membership-race@test.local")
+            .await
+            .expect("owner");
+        let owner_perms = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let song = create_unlinked_song_with_title(&db, &owner, "Concurrent membership")
+            .await
+            .expect("song");
+
+        let make_collection = |title: &str| CreateCollection {
+            owner: None,
+            title: title.into(),
+            cover: "".into(),
+            songs: vec![SongLink {
+                id: song.id.clone(),
+                nr: None,
+                key: None,
+                tempo: None,
+                language: None,
+            }],
+        };
+
+        let (first, second) = tokio::join!(
+            svc.create_collection_for_user(&owner_perms, make_collection("Concurrent A")),
+            svc.create_collection_for_user(&owner_perms, make_collection("Concurrent B")),
+        );
+
+        assert_eq!(usize::from(first.is_ok()) + usize::from(second.is_ok()), 1);
+        let rejected = if let Err(error) = first {
+            error
+        } else {
+            second.expect_err("one create must lose the membership race")
+        };
+        assert!(
+            matches!(rejected, AppError::Conflict(_)),
+            "expected conflict, got {rejected:?}"
+        );
+
+        let collections = svc
+            .list_collections_for_user(&owner_perms, ListQuery::default())
+            .await
+            .expect("collections");
+        assert_eq!(
+            collections
+                .iter()
+                .flat_map(|collection| &collection.songs)
+                .filter(|link| link.id == song.id)
+                .count(),
+            1
+        );
     }
 
     /// Build a four-user collection fixture: owner, content_maintainer, guest, non_member.
@@ -598,7 +677,7 @@ mod tests {
         let owner = create_user(&db, "coll-del-block@test.local")
             .await
             .expect("o");
-        let song = create_song_with_title(&db, &owner, "Block Del")
+        let song = create_unlinked_song_with_title(&db, &owner, "Block Del")
             .await
             .expect("song");
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
@@ -631,7 +710,7 @@ mod tests {
         let svc = CollectionServiceHandle::build(db.clone());
         let song_svc = crate::resources::song::SongServiceHandle::build(db.clone());
         let owner = create_user(&db, "coll-del-ok@test.local").await.expect("o");
-        let song = create_song_with_title(&db, &owner, "Allow Del")
+        let song = create_unlinked_song_with_title(&db, &owner, "Allow Del")
             .await
             .expect("song");
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
@@ -850,11 +929,10 @@ mod tests {
     /// BLC-COLL-011: authorized user can list songs in a collection.
     #[tokio::test]
     async fn blc_coll_011_songs_sub_route_authorized() {
-        use crate::test_helpers::create_song_with_title;
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
         let svc = CollectionServiceHandle::build(db.clone());
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
-        let song = create_song_with_title(&db, &owner, "CollSongSub")
+        let song = create_unlinked_song_with_title(&db, &owner, "CollSongSub")
             .await
             .expect("song");
         let col = svc
@@ -1018,7 +1096,7 @@ mod tests {
         let blob_svc = crate::test_helpers::blob_service(&db, blob_dir);
         let svc = CollectionServiceHandle::build(db.clone());
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
-        let song = create_song_with_title(&db, &owner, "Cover Keep")
+        let song = create_unlinked_song_with_title(&db, &owner, "Cover Keep")
             .await
             .expect("song");
 
@@ -1109,10 +1187,10 @@ mod tests {
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
         let svc = CollectionServiceHandle::build(db.clone());
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
-        let s1 = create_song_with_title(&db, &owner, "Keep Me")
+        let s1 = create_unlinked_song_with_title(&db, &owner, "Keep Me")
             .await
             .expect("s1");
-        let s2 = create_song_with_title(&db, &owner, "Also Keep")
+        let s2 = create_unlinked_song_with_title(&db, &owner, "Also Keep")
             .await
             .expect("s2");
         let col = svc
@@ -1178,7 +1256,7 @@ mod tests {
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
         let svc = CollectionServiceHandle::build(db.clone());
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
-        let s1 = create_song_with_title(&db, &owner, "Transfer Me")
+        let s1 = create_unlinked_song_with_title(&db, &owner, "Transfer Me")
             .await
             .expect("s1");
         let source = svc
@@ -1250,12 +1328,12 @@ mod tests {
 
     #[tokio::test]
     async fn transfer_unlinks_source_when_song_already_in_target() {
-        use shared::collection::{PatchCollection, TransferCollectionSong};
+        use shared::collection::TransferCollectionSong;
 
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
         let svc = CollectionServiceHandle::build(db.clone());
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
-        let s1 = create_song_with_title(&db, &owner, "Duplicate slot")
+        let s1 = create_unlinked_song_with_title(&db, &owner, "Duplicate slot")
             .await
             .expect("s1");
         let source = svc
@@ -1288,24 +1366,25 @@ mod tests {
             )
             .await
             .expect("target");
-        svc.patch_collection_for_user(
-            &owner_p,
-            &target.id,
-            PatchCollection {
-                title: None,
-                cover: None,
-                songs: Some(vec![shared::song::Link {
-                    id: s1.id.clone(),
-                    nr: Some("9".into()),
-                    key: None,
-                    tempo: None,
-                    language: None,
-                }]),
-                owner: None,
-            },
-        )
-        .await
-        .expect("seed target");
+        let seed = db
+            .db
+            .query("UPDATE type::record('collection', $id) SET songs = $songs")
+            .bind(("id", target.id.clone()))
+            .bind((
+                "songs",
+                vec![crate::resources::common::SongLinkRecord::from(
+                    shared::song::Link {
+                        id: s1.id.clone(),
+                        nr: Some("9".into()),
+                        key: None,
+                        tempo: None,
+                        language: None,
+                    },
+                )],
+            ))
+            .await
+            .expect("seed legacy duplicate");
+        seed.check().expect("seed legacy duplicate");
 
         let result = svc
             .transfer_song_between_collections_for_user(
@@ -1334,7 +1413,7 @@ mod tests {
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
         let svc = CollectionServiceHandle::build(db.clone());
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
-        let s1 = create_song_with_title(&db, &owner, "Patch Keep")
+        let s1 = create_unlinked_song_with_title(&db, &owner, "Patch Keep")
             .await
             .expect("s1");
         let col = svc
@@ -1377,10 +1456,10 @@ mod tests {
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
         let svc = CollectionServiceHandle::build(db.clone());
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
-        let s1 = create_song_with_title(&db, &owner, "First")
+        let s1 = create_unlinked_song_with_title(&db, &owner, "First")
             .await
             .expect("s1");
-        let s2 = create_song_with_title(&db, &owner, "Second")
+        let s2 = create_unlinked_song_with_title(&db, &owner, "Second")
             .await
             .expect("s2");
         let col = svc
@@ -1465,14 +1544,14 @@ mod tests {
         let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
         let svc = CollectionServiceHandle::build(db.clone());
         let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
-        let s1 = create_song_with_title(&db, &owner, "Song One")
-            .await
-            .expect("s1");
-        let s2 = create_song_with_title(&db, &owner, "Song Two")
+        let s2 = create_unlinked_song_with_title(&db, &owner, "Song Two")
             .await
             .expect("s2");
 
         for mask in 0u8..8 {
+            let s1 = create_unlinked_song_with_title(&db, &owner, &format!("Song One {mask}"))
+                .await
+                .expect("s1");
             let created = svc
                 .create_collection_for_user(
                     &owner_p,

@@ -37,7 +37,7 @@ describe('duplicate hub entity', () => {
     })
   })
 
-  it('builds collection create payload including cover', () => {
+  it('builds an empty collection copy preserving title, owner, and cover', () => {
     const source: components['schemas']['Collection'] = {
       id: 'col-1',
       title: 'Hymns',
@@ -49,7 +49,7 @@ describe('duplicate hub entity', () => {
       title: 'Hymns (Kopie)',
       owner: 'team-b',
       cover: 'blob-cover-id',
-      songs: [{ id: 'song-3' }],
+      songs: [],
     })
   })
 })

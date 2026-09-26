@@ -4696,6 +4696,16 @@
             },
             "description": "Target team not found or caller cannot edit that team's library"
           },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "A song id is already linked to another collection (BLC-COLL-027)"
+          },
           "429": {
             "content": {
               "application/problem+json": {
@@ -4993,7 +5003,7 @@
                 }
               }
             },
-            "description": "Request would remove a song from the collection (BLC-COLL-024)"
+            "description": "Request would remove a song (BLC-COLL-024) or link a song already present in another collection (BLC-COLL-027)"
           },
           "412": {
             "content": {
@@ -5110,7 +5120,7 @@
                 }
               }
             },
-            "description": "Request would remove a song from the collection (BLC-COLL-024)"
+            "description": "Request would remove a song (BLC-COLL-024) or link a song already present in another collection (BLC-COLL-027)"
           },
           "412": {
             "content": {
