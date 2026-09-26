@@ -263,6 +263,15 @@ mod room_http {
                 assert_eq!(snapshot.queue[0].song_id, song.id);
                 assert_eq!(snapshot.content.toc[0].title, "Room source song");
                 assert!(snapshot.content.items[0].song.blobs.is_empty());
+            } else if source_type == RoomSourceType::Collection {
+                assert_eq!(snapshot.queue.len(), snapshot.content.items.len());
+                for (queue_item, content_item) in snapshot.queue.iter().zip(&snapshot.content.items)
+                {
+                    assert_eq!(queue_item.song_id, content_item.song.id);
+                    assert_eq!(queue_item.added_by, fixture.writer.email);
+                    assert_eq!(queue_item.upvotes, 0);
+                    assert!(!queue_item.played);
+                }
             } else {
                 assert!(snapshot.queue.is_empty());
             }

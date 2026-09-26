@@ -214,7 +214,9 @@ pub async fn create_room(
                 let player = collection_svc
                     .collection_player_for_user(&ctx, &source_id)
                     .await?;
-                (RoomContent::from(&player), Vec::new())
+                let content = RoomContent::from(&player);
+                let initial_queue = queue_from_content(&content, &ctx.user.email);
+                (content, initial_queue)
             }
             RoomSourceType::Setlist => {
                 setlist_svc.get_setlist_for_user(&ctx, &source_id).await?;
@@ -222,10 +224,8 @@ pub async fn create_room(
                     .setlist_player_for_user(&ctx, &source_id)
                     .await?;
                 let content = RoomContent::from(&player);
-                (
-                    content.clone(),
-                    queue_from_content(&content, &ctx.user.email),
-                )
+                let initial_queue = queue_from_content(&content, &ctx.user.email);
+                (content, initial_queue)
             }
         },
         _ => {
