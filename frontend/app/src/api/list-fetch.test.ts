@@ -9,7 +9,12 @@ vi.mock('@/api/client', () => ({
   },
 }))
 
-import { fetchCollectionsPage, fetchSetlistsPage, fetchSongsPage } from '@/api/list-fetch'
+import {
+  fetchAllAccessibleSongs,
+  fetchCollectionsPage,
+  fetchSetlistsPage,
+  fetchSongsPage,
+} from '@/api/list-fetch'
 
 const queryClient = {} as QueryClient
 
@@ -122,6 +127,57 @@ describe('hub list fetchers', () => {
           q: undefined,
           team: undefined,
           sort: undefined,
+        },
+      },
+      signal: undefined,
+    })
+  })
+
+  it('fetches every accessible song page without inheriting hub search or team filters', async () => {
+    const firstPage = Array.from({ length: 500 }, (_, index) => ({ id: `song-${index}` }))
+    const secondPage = [{ id: 'song-500' }]
+    getMock
+      .mockResolvedValueOnce({
+        data: firstPage,
+        error: undefined,
+        response: new Response(JSON.stringify(firstPage), {
+          status: 200,
+          headers: { 'x-total-count': '501' },
+        }),
+      })
+      .mockResolvedValueOnce({
+        data: secondPage,
+        error: undefined,
+        response: new Response(JSON.stringify(secondPage), {
+          status: 200,
+          headers: { 'x-total-count': '501' },
+        }),
+      })
+
+    const songs = await fetchAllAccessibleSongs(queryClient)
+
+    expect(songs).toHaveLength(501)
+    expect(getMock).toHaveBeenCalledTimes(2)
+    expect(getMock).toHaveBeenNthCalledWith(1, '/api/v1/songs', {
+      params: {
+        query: {
+          page: 0,
+          page_size: 500,
+          q: undefined,
+          team: undefined,
+          sort: 'id',
+        },
+      },
+      signal: undefined,
+    })
+    expect(getMock).toHaveBeenNthCalledWith(2, '/api/v1/songs', {
+      params: {
+        query: {
+          page: 1,
+          page_size: 500,
+          q: undefined,
+          team: undefined,
+          sort: 'id',
         },
       },
       signal: undefined,

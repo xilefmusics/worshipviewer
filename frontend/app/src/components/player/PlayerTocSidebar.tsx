@@ -14,6 +14,7 @@ type PlayerTocSidebarProps = {
   currentSourceIdx: number
   currentLanguageIndex: number | null
   onSelect: (sourceIdx: number, languageIndex: number | null) => void
+  primaryTitleOnly?: boolean
   className?: string
 }
 
@@ -23,6 +24,7 @@ export function PlayerTocSidebar({
   currentSourceIdx,
   currentLanguageIndex,
   onSelect,
+  primaryTitleOnly = false,
   className,
 }: PlayerTocSidebarProps) {
   const { t } = useTranslation()
@@ -35,7 +37,7 @@ export function PlayerTocSidebar({
     activeTagIds,
     toggleTagId,
   } = usePlayerTocSearchSync()
-  const languageAwareSelection = multilingual || mode === 'alphabetical'
+  const languageAwareSelection = !primaryTitleOnly && (multilingual || mode === 'alphabetical')
 
   return (
     <TocSidebar
@@ -46,7 +48,8 @@ export function PlayerTocSidebar({
       onSelect={(sourceIdx, languageIndex) =>
         onSelect(sourceIdx, languageAwareSelection ? languageIndex : null)
       }
-      expandAlphabeticalTranslations
+      expandAlphabeticalTranslations={!primaryTitleOnly}
+      primaryTitleOnly={primaryTitleOnly}
       mode={mode}
       onModeChange={setMode}
       activeLanguageIds={activeLanguageIds}

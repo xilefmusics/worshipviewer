@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildPlayerSearch, buildPlayerSearchParams, type PlayerEntityType } from '@/lib/player-route'
+import {
+  buildPlayerSearch,
+  buildPlayerSearchParams,
+  parsePlayerRouteSearch,
+  type PlayerEntityType,
+} from '@/lib/player-route'
 import { tocTagFilterId } from '@/lib/player/toc-filters'
 import {
   parseTocDisplayMode,
@@ -12,10 +17,17 @@ import {
 
 describe('buildPlayerSearchParams', () => {
   it('returns type and id for each entity', () => {
-    const types: PlayerEntityType[] = ['collection', 'song', 'setlist']
+    const types: PlayerEntityType[] = ['collection', 'song', 'setlist', 'library']
     for (const type of types) {
       expect(buildPlayerSearchParams(type, 'abc-123')).toEqual({ type, id: 'abc-123' })
     }
+  })
+
+  it('accepts the synthetic all-songs library player type', () => {
+    expect(parsePlayerRouteSearch({ type: 'library', id: 'all-songs' })).toMatchObject({
+      type: 'library',
+      id: 'all-songs',
+    })
   })
 })
 

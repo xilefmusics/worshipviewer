@@ -1,7 +1,9 @@
+import type { QueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/schema'
 
 import { api } from '@/api/client'
 import { problemMessageFromBody } from '@/api/problem'
+import { fetchAllAccessibleSongs } from '@/api/list-fetch'
 import {
   appDb,
   playerMirrorId,
@@ -13,6 +15,7 @@ import {
   MAX_OFFLINE_PLAYER_BYTES,
 } from '@/lib/offline/player-mirror-constants'
 import type { PlayerEntityType } from '@/lib/player-route'
+import { ALL_SONGS_LIBRARY_ID, buildAllSongsPlayer } from '@/lib/all-songs-player'
 
 type Player = components['schemas']['Player']
 
@@ -184,7 +187,25 @@ export async function fetchPlayerFromNetwork(
   entityId: string,
   signal?: AbortSignal,
   view: 'book' | 'av' = 'book',
+  queryClient?: QueryClient,
 ): Promise<{ player: Player } | { error: string; status: number }> {
+  if (entityType === 'library') {
+    if (entityId !== ALL_SONGS_LIBRARY_ID) {
+      return { error: 'Unknown song library', status: 404 }
+    }
+    if (!queryClient) {
+      return { error: 'Could not load the song library', status: 500 }
+    }
+    try {
+      const songs = await fetchAllAccessibleSongs(queryClient, signal)
+      return { player: buildAllSongsPlayer(songs) }
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error.message : String(error),
+        status: error instanceof Error && error.name === 'ApiUnauthorizedError' ? 401 : 500,
+      }
+    }
+  }
   if (entityType === 'setlist') {
     return fetchSetlistPlayerFromNetwork(entityId, signal, view)
   }
