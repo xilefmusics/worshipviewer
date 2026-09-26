@@ -3244,6 +3244,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description A song id is already linked to another collection (BLC-COLL-027) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description API rate limit exceeded; see `Retry-After` and `X-RateLimit-*` response headers */
             429: {
                 headers: {
@@ -3391,7 +3400,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Request would remove a song from the collection (BLC-COLL-024) */
+            /** @description Request would remove a song (BLC-COLL-024) or link a song already present in another collection (BLC-COLL-027) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3565,7 +3574,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Request would remove a song from the collection (BLC-COLL-024) */
+            /** @description Request would remove a song (BLC-COLL-024) or link a song already present in another collection (BLC-COLL-027) */
             409: {
                 headers: {
                     [name: string]: unknown;

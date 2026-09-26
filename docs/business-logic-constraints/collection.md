@@ -6,7 +6,7 @@
 - **BLC-COLL-002:** Read paths (metadata, songs list, player) require **read** access to that team’s library; create/update/delete require **library edit** access. Platform **admin** MAY read but MUST NOT mutate collections solely by admin role (see [platform-admin-content.md](./platform-admin-content.md)).
 - **BLC-COLL-003:** **`PUT`** replaces **title**, **cover** (blob id), and the ordered **songs** list; **`PUT`** and **`PATCH`** MAY set **`owner`** when the body includes it and the caller may write both the current and target owning teams; omitting **`owner`** leaves it unchanged.
 - **BLC-COLL-026:** **`PUT /collections/{id}/cover`** uploads a cover image: **`Content-Type`** MUST be **`image/jpeg`** or **`image/png`**; body size is capped per server configuration (same limit as blob uploads); the server creates a **blob** on the collection’s **owning team**, stores the bytes, sets **`cover`** to the new blob id, and deletes the previous cover blob when present and deletable. Does not require **`If-Match`** (unlike **`PUT`**/**`PATCH`** on the collection JSON body).
-- **BLC-COLL-004:** **POST**/**PUT** MAY accept **song** ids the caller cannot read or ids that do not exist; the API MAY still return **201**/**200** and persist those references.
+- **BLC-COLL-004:** **POST**/**PUT** MAY accept **song** ids the caller cannot read or ids that do not exist; the API MAY still return **201**/**200** and persist those references, subject to the cross-collection membership rule in **BLC-COLL-027**.
 
 ## List pagination and search
 
@@ -28,6 +28,7 @@
 - **BLC-COLL-016:** WHEN a song IS appended to a collection on **POST /songs** (required **`collection`** on create) THEN the caller MUST be allowed to **edit** that collection’s owning team’s library; the append MUST fail with **404** if the collection id is unknown or not writable (so the song is not left orphaned).
 - **BLC-COLL-024:** WHEN **PUT** or **PATCH** would drop a **song** id that is currently in the collection’s **`songs`** list (same id regardless of **nr** / **key**) THEN the API responds **409 Conflict**. Callers MAY add songs, reorder entries, or change **nr** / **key** on existing ids. Removing a song from collections MUST be done by **DELETE** `/songs/{id}` (server cascade updates collection **`songs`**).
 - **BLC-COLL-025:** WHEN **DELETE** `/collections/{id}` runs AND the collection’s **`songs`** list is non-empty THEN the API responds **409 Conflict**. Callers MUST remove every song from the collection first (**DELETE** `/songs/{id}` cascades and clears slots per **BLC-COLL-019** / **BLC-COLL-024**). Team or user teardown cascades (**BLC-COLL-018**) are out of scope for this rule.
+- **BLC-COLL-027:** WHEN **POST** creates a collection, **PUT**/**PATCH** updates a collection, or another collection write adds a **song id** already present in a different collection THEN the API responds **409 Conflict**. Repeated links to the same song within one collection remain allowed. Moving a song between collections MUST use the transfer endpoint.
 
 ## Cascading deletes
 

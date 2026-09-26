@@ -35,7 +35,7 @@ export function buildDuplicateCollectionBody(
   return {
     title: duplicateTitle(source.title, titleSuffix),
     cover: source.cover,
-    songs: source.songs,
+    songs: [],
     owner: source.owner,
   }
 }

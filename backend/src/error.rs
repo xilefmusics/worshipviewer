@@ -171,6 +171,12 @@ impl From<surrealdb::Error> for AppError {
         if msg.contains("field `title`") && msg.contains("string::len(string::trim($value)) > 0") {
             return Self::invalid_request("title must not be empty");
         }
+        // SurrealDB commit conflicts may arrive without structured query details,
+        // even though query-time conflicts carry `TransactionConflict` details.
+        if msg.starts_with("Transaction conflict:") {
+            error!("database conflict: {err}");
+            return Self::conflict("request conflicts with existing data");
+        }
 
         match err.details() {
             ErrorDetails::AlreadyExists(_) => {
