@@ -243,6 +243,7 @@ export function HubActionsDrawer({
           size="icon"
           className={triggerClassName ?? 'size-8 shrink-0 text-[var(--color-muted-foreground)]'}
           aria-label={triggerAriaLabel}
+          data-hub-actions-trigger
           onMouseEnter={() => setMenuHot(true)}
           onMouseLeave={() => setMenuHot(false)}
           onFocus={() => setMenuHot(true)}

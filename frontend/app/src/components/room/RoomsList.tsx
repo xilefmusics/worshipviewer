@@ -13,6 +13,7 @@ import {
   HubActionSeparator,
   HubActionsDrawer,
 } from '@/components/hub/HubActionsDrawer'
+import { openHubActionsFromContextMenu } from '@/components/hub/hub-action-context-menu'
 import {
   HUB_LIST_META_CLASS,
   HUB_LIST_ROW_BORDER_CLASS,
@@ -81,7 +82,10 @@ function RoomListRow({
     setItemHot(hot ? key : null)
 
   return (
-    <div className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_BORDER_CLASS, 'w-full cursor-default gap-3')}>
+    <div
+      className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_BORDER_CLASS, 'w-full cursor-default gap-3')}
+      data-hub-resource
+    >
       <motion.button
         type="button"
         className="min-w-0 flex-1 border-0 bg-transparent text-left"
@@ -209,7 +213,7 @@ export function RoomsList() {
 
   return (
     <>
-      <div className="flex flex-col gap-0 pb-4">
+      <div className="flex flex-col gap-0 pb-4" onContextMenu={openHubActionsFromContextMenu}>
         {query.data.items.map((room) => (
           <RoomListRow
             key={room.id}

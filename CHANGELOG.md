@@ -26,6 +26,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Changed
 
+- Right-clicking a song, setlist, collection, room, or Admin Users row/card now opens its actions drawer.
 - Rendered sheets and PDF exports now honor capo shape settings.
 - Sheet players now use native browser snapping through songs. Mobile standalone and room players open their TOC and header with a middle tap and close them with a left swipe; edge gestures no longer open the TOC or participants.
 - Player chord sections now render in a background worker with cached results, and the table of contents dismisses with a smoother animation.
