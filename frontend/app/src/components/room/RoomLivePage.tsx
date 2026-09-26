@@ -199,16 +199,15 @@ export function RoomLivePage({ credentials }: { credentials: RoomCredentials }) 
     />
   ) : (
     <PlayerBook
-      key={`room-book-${isPhoneViewport ? 'embedded' : 'desktop'}`}
+      key={`room-book-${isPhoneViewport ? 'mobile' : 'desktop'}`}
       {...shared}
-      {...(isPhoneViewport
-        ? { embedded: true, enableEmbeddedSwipeNavigation: true }
-        : { tocSidebar: queuePanel, roomSidebar: roomDetails })}
+      tocSidebar={queuePanel}
+      roomSidebar={isPhoneViewport ? undefined : roomDetails}
       mode="sheet"
     />
   )
 
-  return isPhoneViewport ? (
+  return isPhoneViewport && credentials.mode === 'av' ? (
     <RoomThreePanelShell queue={queuePanel} player={player} details={roomDetails} />
   ) : (
     player

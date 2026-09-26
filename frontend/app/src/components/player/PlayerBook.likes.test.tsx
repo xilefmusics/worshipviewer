@@ -186,15 +186,17 @@ function savedCapoPlayer(): Player {
   }
 }
 
+function activeSong() {
+  return within(screen.getByTestId('player-snap-viewport').querySelector('[aria-hidden="false"]') as HTMLElement)
+}
+
 function renderPlayer(
   value: Player,
   roomSidebar: React.ReactNode = <div>room</div>,
   tocSidebar?: React.ReactNode,
-  embedded = false,
   roomMusicalState?: { item_index: number; started: boolean; language: string | null; transposition: string | null },
   canControlRoomMusicalState = false,
   initialIndex?: number,
-  enableEmbeddedSwipeNavigation = false,
 ) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
@@ -205,8 +207,6 @@ function renderPlayer(
         player={value}
         initialIndex={initialIndex}
         allowNetworkFetch
-        embedded={embedded}
-        enableEmbeddedSwipeNavigation={enableEmbeddedSwipeNavigation}
         roomSidebar={roomSidebar}
         tocSidebar={tocSidebar}
         roomMusicalState={roomMusicalState}
@@ -252,25 +252,24 @@ describe('PlayerBook likes', () => {
     )
 
     fireEvent.keyDown(window, { key: 'ArrowRight' })
-    expect(screen.getByText('song-1')).toBeInTheDocument()
+    expect(activeSong().getByText('song-1')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'queue' }))
     expect(queueClick).toHaveBeenCalledOnce()
-    expect(screen.getByText('song-1')).toBeInTheDocument()
+    expect(activeSong().getByText('song-1')).toBeInTheDocument()
 
     fireEvent.keyDown(window, { key: 'm' })
     fireEvent.keyDown(window, { key: 'ArrowRight' })
     fireEvent.keyDown(window, { key: 'ArrowRight' })
-    expect(screen.getByText('song-2')).toBeInTheDocument()
+    expect(activeSong().getByText('song-2')).toBeInTheDocument()
 
     fireEvent.click(main, { clientX: 1, clientY: 50, detail: 1 })
-    expect(screen.getByText('song-1')).toBeInTheDocument()
+    expect(activeSong().getByText('song-1')).toBeInTheDocument()
   })
 
   it('pinches only the chord surface without navigating', () => {
     renderPlayer(player(), null)
-    const main = screen.getByRole('main')
-    const chordSurface = screen.getByText('song-1')
+    const chordSurface = activeSong().getByText('song-1')
     const first = { clientX: 0, clientY: 0 }
     const second = { clientX: 100, clientY: 0 }
     const expandedSecond = { clientX: 200, clientY: 0 }
@@ -280,7 +279,7 @@ describe('PlayerBook likes', () => {
     fireEvent.touchEnd(chordSurface, { touches: [], changedTouches: [first, expandedSecond] })
 
     expect(window.localStorage.getItem('wv_chord_song_font_scale')).toBe('2')
-    expect(within(main).getByText('song-1')).toBeInTheDocument()
+    expect(activeSong().getByText('song-1')).toBeInTheDocument()
   })
 
   it('ignores two-finger gestures outside the chord surface', () => {
@@ -296,151 +295,45 @@ describe('PlayerBook likes', () => {
     expect(window.localStorage.getItem('wv_chord_song_font_scale')).toBeNull()
   })
 
-  it('keeps one-finger swipe navigation working', () => {
+  it('lets native scrolling select songs only after settlement', () => {
+    renderPlayer(player(), null)
+    const viewport = screen.getByTestId('player-snap-viewport')
+    Object.defineProperty(viewport, 'clientWidth', { value: 100 })
+    viewport.scrollLeft = 200
+    fireEvent.scroll(viewport)
+    expect(activeSong().getByText('song-1')).toBeInTheDocument()
+    fireEvent(viewport, new Event('scrollend'))
+    expect(activeSong().getByText('song-2')).toBeInTheDocument()
+  })
+
+  it('does not intercept an edge swipe or open the TOC', () => {
+    mocks.isPhoneViewport = true
     renderPlayer(player(), null)
     const main = screen.getByRole('main')
-    const start = { clientX: 100, clientY: 50 }
-    const end = { clientX: 0, clientY: 50 }
-
-    fireEvent.touchStart(main, { touches: [start] })
-    fireEvent.touchEnd(main, { changedTouches: [end] })
-    fireEvent.touchStart(main, { touches: [start] })
-    fireEvent.touchEnd(main, { changedTouches: [end] })
-
-    expect(within(main).getByText('song-2')).toBeInTheDocument()
-    expect(window.localStorage.getItem('wv_chord_song_font_scale')).toBeNull()
-  })
-
-  it('navigates songs after a short horizontal swipe', () => {
-    renderPlayer(player(), null, undefined, false, undefined, false, 1)
-    const main = screen.getByRole('main')
-
-    fireEvent.touchStart(main, { touches: [{ clientX: 100, clientY: 50 }] })
-    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 88, clientY: 50 }] })
-
-    expect(within(main).getByText('song-2')).toBeInTheDocument()
-  })
-
-  it('swipes right to the previous item away from the left edge', () => {
-    mocks.isPhoneViewport = true
-    renderPlayer(player(), null, undefined, false, undefined, false, 2)
-    const main = screen.getByRole('main')
-
-    fireEvent.touchStart(main, { touches: [{ clientX: 100, clientY: 50 }] })
-    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 180, clientY: 50 }] })
-
-    expect(within(main).getByText('song-1')).toBeInTheDocument()
-  })
-
-  it('supports touch pointer events at every standalone viewport width', () => {
-    renderPlayer(player(), null, undefined, false, undefined, false, 2)
-    const main = screen.getByRole('main')
-
-    expect(main).toHaveStyle({ touchAction: 'pan-y', overscrollBehaviorX: 'none' })
-    fireEvent.pointerDown(main, { pointerId: 1, pointerType: 'touch', clientX: 100, clientY: 50 })
-    fireEvent.pointerUp(main, { pointerId: 1, pointerType: 'touch', clientX: 20, clientY: 50 })
-
-    expect(within(main).getByText('song-2')).toBeInTheDocument()
-  })
-
-  it('opens the TOC for a left-edge swipe at non-phone widths', () => {
-    renderPlayer(player(), null, undefined, false, undefined, false, 2)
-    const main = screen.getByRole('main')
-
-    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
+    expect(fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })).toBe(true)
+    expect(fireEvent.touchMove(main, { touches: [{ clientX: 60, clientY: 50 }] })).toBe(true)
     fireEvent.touchEnd(main, { changedTouches: [{ clientX: 80, clientY: 50 }] })
-
-    expect(screen.getByTestId('liked-toc')).toBeInTheDocument()
-    expect(within(main).getByText('song-2')).toBeInTheDocument()
+    expect(screen.queryByTestId('liked-toc')).not.toBeInTheDocument()
+    expect(activeSong().getByText('song-1')).toBeInTheDocument()
   })
 
-  it('keeps adjacent songs beside the current song and snaps after a swipe', () => {
+  it('opens the mobile TOC and its header with a middle click', async () => {
     mocks.isPhoneViewport = true
-    renderPlayer(player(), null, undefined, false, undefined, false, 1)
+    renderPlayer(player(), null)
     const main = screen.getByRole('main')
-    vi.spyOn(main, 'getBoundingClientRect').mockReturnValue(
-      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
-    )
-
-    fireEvent.touchStart(main, { touches: [{ clientX: 80, clientY: 50 }] })
-    fireEvent.touchMove(main, { touches: [{ clientX: 30, clientY: 50 }] })
-
-    const track = screen.getByTestId('player-swipe-track')
-    expect(track.style.transform).toContain('-50px')
-    expect(within(main).getAllByText('song-1')).toHaveLength(2)
-    expect(within(main).getByText('song-2')).toBeInTheDocument()
-
-    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 0, clientY: 50 }] })
-    expect(track.style.transition).toContain('transform')
-    fireEvent.transitionEnd(track, { propertyName: 'transform' })
-
-    expect(screen.queryByTestId('player-swipe-track')).not.toBeInTheDocument()
-    expect(within(main).getByText('song-2')).toBeInTheDocument()
-  })
-
-  it('uses the swipe track animation for click-zone navigation', async () => {
-    renderPlayer(player(), null, undefined, false, undefined, false, 2)
-    const main = screen.getByRole('main')
-    vi.spyOn(main, 'getBoundingClientRect').mockReturnValue(
-      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
-    )
-
-    fireEvent.click(main, { clientX: 10, clientY: 50, detail: 1 })
-
-    const track = screen.getByTestId('player-swipe-track')
-    await waitFor(() => expect(track.style.transform).toContain('100px'))
-    expect(track.style.transition).toContain('transform')
-    fireEvent.transitionEnd(track, { propertyName: 'transform' })
-
-    expect(screen.queryByTestId('player-swipe-track')).not.toBeInTheDocument()
-    expect(within(main).getByText('song-1')).toBeInTheDocument()
-  })
-
-  it('does not finish the previous-song animation on a nested transition', async () => {
-    renderPlayer(player(), null, undefined, false, undefined, false, 2)
-    const main = screen.getByRole('main')
-    vi.spyOn(main, 'getBoundingClientRect').mockReturnValue(
-      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
-    )
-
-    fireEvent.click(main, { clientX: 10, clientY: 50, detail: 1 })
-
-    const track = screen.getByTestId('player-swipe-track')
-    await waitFor(() => expect(track.style.transform).toContain('100px'))
-    fireEvent.transitionEnd(track.firstElementChild as HTMLElement, { propertyName: 'transform' })
-
-    expect(screen.getByTestId('player-swipe-track')).toBeInTheDocument()
-    expect(within(main).getAllByText('song-2')).toHaveLength(2)
-
-    fireEvent.transitionEnd(track, { propertyName: 'transform' })
-    expect(screen.queryByTestId('player-swipe-track')).not.toBeInTheDocument()
-    expect(within(main).getByText('song-1')).toBeInTheDocument()
-  })
-
-  it('opens the full-width TOC for a right swipe from the left edge', () => {
-    mocks.isPhoneViewport = true
-    renderPlayer(player(), null, undefined, false, undefined, false, 2)
-    const main = screen.getByRole('main')
-
-    expect(main).toHaveStyle({ touchAction: 'pan-y', overscrollBehaviorX: 'none' })
-
-    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
-    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 80, clientY: 50 }] })
-
-    const toc = screen.getByTestId('liked-toc')
+    vi.spyOn(main, 'getBoundingClientRect').mockReturnValue(DOMRect.fromRect({ width: 100 }))
+    expect(screen.queryByRole('banner')).not.toBeInTheDocument()
+    fireEvent.click(main, { clientX: 50, detail: 1 })
+    const toc = await screen.findByTestId('liked-toc')
     expect(toc).toHaveClass('w-full', 'border-r-0')
-    expect(toc.parentElement).toHaveClass('w-full')
-    expect(screen.getByRole('banner')).toBeInTheDocument()
-    expect(within(main).getByText('song-2')).toBeInTheDocument()
+    expect(toc.parentElement).toContainElement(screen.getByRole('banner'))
   })
 
   it('dismisses the fullscreen TOC after selecting a row without waiting for a track transition', async () => {
     mocks.isPhoneViewport = true
-    renderPlayer(player(), null, undefined, false, undefined, false, 2)
-    const main = screen.getByRole('main')
+    renderPlayer(player(), null, undefined, undefined, false, 2)
 
-    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
-    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 80, clientY: 50 }] })
+    fireEvent.keyDown(window, { key: 'm' })
 
     const toc = screen.getByTestId('liked-toc')
     const tocOverlay = toc.parentElement?.parentElement
@@ -451,18 +344,16 @@ describe('PlayerBook likes', () => {
 
     fireEvent.click(within(toc).getByRole('button', { name: 'Other' }))
 
-    expect(within(main).getByText('song-2')).toBeInTheDocument()
+    expect(activeSong().getByText('song-2')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByTestId('liked-toc')).not.toBeInTheDocument())
     await waitFor(() => expect(screen.queryByRole('banner')).not.toBeInTheDocument())
   })
 
   it('swipes left inside the fullscreen TOC to return to the song', async () => {
     mocks.isPhoneViewport = true
-    renderPlayer(player(), null, undefined, false, undefined, false, 2)
-    const main = screen.getByRole('main')
+    renderPlayer(player(), null, undefined, undefined, false, 2)
 
-    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
-    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 80, clientY: 50 }] })
+    fireEvent.keyDown(window, { key: 'm' })
 
     const toc = screen.getByTestId('liked-toc')
     const tocOverlay = toc.parentElement?.parentElement
@@ -476,21 +367,19 @@ describe('PlayerBook likes', () => {
 
     const track = screen.getByTestId('player-toc-swipe-track')
     expect(track.style.transform).toContain('-50px')
-    expect(within(main).getByText('song-2')).toBeInTheDocument()
+    expect(activeSong().getByText('song-2')).toBeInTheDocument()
 
     fireEvent.touchEnd(toc, { changedTouches: [{ clientX: 130, clientY: 50 }] })
     await waitFor(() => expect(screen.queryByTestId('liked-toc')).not.toBeInTheDocument())
-    expect(within(main).getByText('song-2')).toBeInTheDocument()
+    expect(activeSong().getByText('song-2')).toBeInTheDocument()
     await waitFor(() => expect(screen.queryByRole('banner')).not.toBeInTheDocument())
   })
 
   it('keeps the fullscreen TOC open for vertical and non-dismissal swipes', () => {
     mocks.isPhoneViewport = true
-    renderPlayer(player(), null, undefined, false, undefined, false, 2)
-    const main = screen.getByRole('main')
+    renderPlayer(player(), null, undefined, undefined, false, 2)
 
-    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
-    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 80, clientY: 50 }] })
+    fireEvent.keyDown(window, { key: 'm' })
 
     const toc = screen.getByTestId('liked-toc')
     const tocOverlay = toc.parentElement?.parentElement
@@ -517,72 +406,6 @@ describe('PlayerBook likes', () => {
     expect(track.style.transition).toContain('transform')
     fireEvent.transitionEnd(track, { propertyName: 'transform' })
     expect(screen.getByTestId('liked-toc')).toBeInTheDocument()
-  })
-
-  it('reserves a left swipe from the left edge without navigating', () => {
-    mocks.isPhoneViewport = true
-    renderPlayer(player(), null, undefined, false, undefined, false, 2)
-    const main = screen.getByRole('main')
-
-    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
-    fireEvent.touchEnd(main, { changedTouches: [{ clientX: -80, clientY: 50 }] })
-
-    expect(within(main).getByText('song-2')).toBeInTheDocument()
-    expect(screen.queryByTestId('liked-toc')).not.toBeInTheDocument()
-  })
-
-  it('leaves one-finger swipe navigation to the room shell when embedded', () => {
-    renderPlayer(player(), null, undefined, true)
-    const main = screen.getByRole('main')
-    const start = { clientX: 100, clientY: 50 }
-    const end = { clientX: 0, clientY: 50 }
-
-    fireEvent.touchStart(main, { touches: [start] })
-    fireEvent.touchEnd(main, { changedTouches: [end] })
-    fireEvent.touchStart(main, { touches: [start] })
-    fireEvent.touchEnd(main, { changedTouches: [end] })
-
-    expect(within(main).queryByText('song-2')).not.toBeInTheDocument()
-  })
-
-  it('navigates songs for embedded room swipes away from both panel edges', () => {
-    mocks.isPhoneViewport = true
-    renderPlayer(player(), null, undefined, true, undefined, false, 1, true)
-    const main = screen.getByRole('main')
-    vi.spyOn(main, 'getBoundingClientRect').mockReturnValue(
-      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
-    )
-
-    fireEvent.touchStart(main, { touches: [{ clientX: 50, clientY: 50 }] })
-    fireEvent.touchMove(main, { touches: [{ clientX: 0, clientY: 50 }] })
-
-    const track = screen.getByTestId('player-swipe-track')
-    expect(track.style.transform).toContain('-50px')
-
-    fireEvent.touchEnd(main, { changedTouches: [{ clientX: -50, clientY: 50 }] })
-    fireEvent.transitionEnd(track, { propertyName: 'transform' })
-
-    expect(within(main).getByText('song-2')).toBeInTheDocument()
-  })
-
-  it('leaves both embedded room edge swipes to the room panel shell', () => {
-    mocks.isPhoneViewport = true
-    renderPlayer(player(), null, undefined, true, undefined, false, 1, true)
-    const main = screen.getByRole('main')
-    vi.spyOn(main, 'getBoundingClientRect').mockReturnValue(
-      DOMRect.fromRect({ x: 0, width: 100, height: 100 }),
-    )
-
-    fireEvent.touchStart(main, { touches: [{ clientX: 0, clientY: 50 }] })
-    fireEvent.touchMove(main, { touches: [{ clientX: 60, clientY: 50 }] })
-    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 80, clientY: 50 }] })
-
-    fireEvent.touchStart(main, { touches: [{ clientX: 100, clientY: 50 }] })
-    fireEvent.touchMove(main, { touches: [{ clientX: 40, clientY: 50 }] })
-    fireEvent.touchEnd(main, { changedTouches: [{ clientX: 20, clientY: 50 }] })
-
-    expect(screen.queryByTestId('player-swipe-track')).not.toBeInTheDocument()
-    expect(within(main).getByText('song-1')).toBeInTheDocument()
   })
 
   it('unlikes exactly once for a native mouse double-click', async () => {
@@ -694,7 +517,7 @@ describe('PlayerBook capo controls', () => {
     expect(screen.getByTestId('capo-shape-C')).toBeVisible()
 
     fireEvent.click(screen.getByTestId('key-option-D'))
-    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'D')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-sounding-key', 'D')
   })
 
   it('shows every comfortable key as a capo shape option in guitar mode', () => {
@@ -711,18 +534,18 @@ describe('PlayerBook capo controls', () => {
   it('loads the saved setlist capo and restores it after a local override is reset', () => {
     renderPlayer(savedCapoPlayer())
 
-    expect(screen.getByText('song-1')).toHaveAttribute('data-display-key', 'G')
-    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'A')
-    expect(screen.getByText('song-1')).toHaveAttribute('data-capo-fret', '2')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-display-key', 'G')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-sounding-key', 'A')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-capo-fret', '2')
 
     fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
     fireEvent.click(screen.getByTestId('capo-shape-C'))
-    expect(screen.getByText('song-1')).toHaveAttribute('data-display-key', 'C')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-display-key', 'C')
 
     fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
     fireEvent.keyDown(window, { key: 'r' })
-    expect(screen.getByText('song-1')).toHaveAttribute('data-display-key', 'G')
-    expect(screen.getByText('song-1')).toHaveAttribute('data-capo-fret', '2')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-display-key', 'G')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-capo-fret', '2')
   })
 
   it('renders capo-shaped chords and resets the guitar capo', () => {
@@ -731,14 +554,14 @@ describe('PlayerBook capo controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
     fireEvent.click(screen.getByTestId('capo-shape-G'))
 
-    const surface = screen.getByText('song-1')
+    const surface = activeSong().getByText('song-1')
     expect(surface).toHaveAttribute('data-display-key', 'G')
     expect(surface).toHaveAttribute('data-sounding-key', 'A')
     expect(surface).toHaveAttribute('data-capo-fret', '2')
 
     fireEvent.keyDown(window, { key: 'r' })
-    expect(screen.getByText('song-1')).toHaveAttribute('data-display-key', 'A')
-    expect(screen.getByText('song-1')).toHaveAttribute('data-capo-fret', '')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-display-key', 'A')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-capo-fret', '')
   })
 
   it('offers keyboard transposition offsets from -5 through +6', () => {
@@ -757,8 +580,8 @@ describe('PlayerBook capo controls', () => {
     expect(screen.queryByTestId('capo-shape-G')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('transpose-offset--2'))
-    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'G')
-    expect(screen.getByText('song-1')).toHaveAttribute('data-transpose-offset', '-2')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-sounding-key', 'G')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-transpose-offset', '-2')
   })
 
   it('anchors keyboard transpose offsets to the selected key', () => {
@@ -775,7 +598,7 @@ describe('PlayerBook capo controls', () => {
     expect(screen.getByTestId('transpose-offset--1')).toHaveTextContent('C (+1)')
     expect(screen.getByTestId('transpose-offset-0')).toHaveTextContent('player.transpose.default')
     expect(screen.getByTestId('transpose-offset-6')).toHaveTextContent('G (-6)')
-    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'Db')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-sounding-key', 'Db')
   })
 
   it('keeps the sounding transpose target when changing the selected key', () => {
@@ -784,14 +607,14 @@ describe('PlayerBook capo controls', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
     fireEvent.click(screen.getByTestId('transpose-offset--2'))
-    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'G')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-sounding-key', 'G')
 
     fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
     fireEvent.click(screen.getByTestId('key-option-C'))
 
-    expect(screen.getByText('song-1')).toHaveAttribute('data-selected-key', 'C')
-    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'G')
-    expect(screen.getByText('song-1')).toHaveAttribute('data-transpose-offset', '-5')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-selected-key', 'C')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-sounding-key', 'G')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-transpose-offset', '-5')
 
     fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
     expect(screen.getByTestId('transpose-offset--5')).toHaveTextContent('G (+5)')
@@ -807,9 +630,9 @@ describe('PlayerBook capo controls', () => {
     renderPlayer(capoPlayer())
 
     expect(screen.getByRole('button', { name: 'player.key.current' })).toHaveTextContent('Db')
-    expect(screen.getByText('song-1')).toHaveAttribute('data-selected-key', 'Db')
-    expect(screen.getByText('song-1')).toHaveAttribute('data-sounding-key', 'A')
-    expect(screen.getByText('song-1')).toHaveAttribute('data-transpose-offset', '-4')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-selected-key', 'Db')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-sounding-key', 'A')
+    expect(activeSong().getByText('song-1')).toHaveAttribute('data-transpose-offset', '-4')
   })
 
   it('clears capo controls in shared Room playback', () => {
@@ -817,7 +640,6 @@ describe('PlayerBook capo controls', () => {
       savedCapoPlayer(),
       <div>room</div>,
       undefined,
-      false,
       { item_index: 0, started: true, language: null, transposition: null },
       true,
     )

@@ -27,7 +27,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 ### Changed
 
 - Rendered sheets and PDF exports now honor capo shape settings.
-- Song navigation in the player now commits after a 10 px horizontal swipe.
+- Sheet players now use native browser snapping through songs. Mobile standalone and room players open their TOC and header with a middle tap and close them with a left swipe; edge gestures no longer open the TOC or participants.
 - Player chord sections now render in a background worker with cached results, and the table of contents dismisses with a smoother animation.
 - Demodata fixtures are reapplied on every backend startup when `DEMODATA=generic` is enabled; the seed marker table has been removed.
 - Room queue browsing now uses the current queue for order, A–Z, and personal Liked views; hosts control whether members may add new library songs.
