@@ -13,6 +13,7 @@ type SongCreateChooserSheetProps = {
   canImport: boolean
   onNewSong: () => void
   onImport: () => void
+  onImportCcliPdf: () => void
   onImportUltimateGuitar: () => void
 }
 
@@ -23,6 +24,7 @@ export function SongCreateChooserSheet({
   canImport,
   onNewSong,
   onImport,
+  onImportCcliPdf,
   onImportUltimateGuitar,
 }: SongCreateChooserSheetProps) {
   const { t } = useTranslation()
@@ -126,6 +128,25 @@ export function SongCreateChooserSheet({
                       }}
                     >
                       {t('hub.createChooser.importFiles')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!online || !canImport}
+                      title={
+                        !online
+                          ? t('hub.createChooser.importOfflineHint')
+                          : !canImport
+                            ? t('hub.createOfflineHint')
+                            : undefined
+                      }
+                      onClick={() => {
+                        if (!online || !canImport) return
+                        onOpenChange(false)
+                        onImportCcliPdf()
+                      }}
+                    >
+                      {t('hub.createChooser.importCcliPdf')}
                     </Button>
                     <Button
                       type="button"

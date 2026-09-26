@@ -202,9 +202,10 @@
     },
     "createChooser": {
       "title": "Add to library",
-      "description": "Create a blank song, import files, or import from Ultimate Guitar.",
+      "description": "Create a blank song, import files, or import from a searchable CCLI PDF or Ultimate Guitar.",
       "newSong": "New song",
       "importFiles": "Import files",
+      "importCcliPdf": "Import CCLI PDF",
       "importUltimateGuitar": "Import from Ultimate Guitar",
       "importOfflineHint": "Import requires an internet connection."
     },
@@ -1130,6 +1131,22 @@
       "failed": "Ultimate Guitar import failed.",
       "offlineHint": "Import requires an internet connection.",
       "noCollectionPrompt": "No collection yet",
+      "noCollectionDescription": "Create a collection in your personal team, then import the song there.",
+      "defaultCollectionTitle": "My Songs",
+      "createCollectionAndImport": "Create collection & import"
+    },
+    "ccliPdfImport": {
+      "title": "Import CCLI PDF",
+      "description": "Choose a searchable SongSelect PDF. Scanned PDFs and image-only PDFs are not supported; OCR is not performed.",
+      "chooseFile": "Choose PDF",
+      "noFile": "No PDF selected.",
+      "tooLarge": "The PDF must be 2 MB or smaller.",
+      "invalidFile": "Choose a PDF file.",
+      "parseFailed": "Could not import the PDF: {{error}}",
+      "failed": "Could not save the imported song.",
+      "processing": "Importing…",
+      "import": "Import and open",
+      "offlineHint": "Import requires an internet connection.",
       "noCollectionDescription": "Create a collection in your personal team, then import the song there.",
       "defaultCollectionTitle": "My Songs",
       "createCollectionAndImport": "Create collection & import"
