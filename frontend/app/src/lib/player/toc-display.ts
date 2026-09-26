@@ -39,6 +39,7 @@ export type TocMetadataFilters = {
 export type TocDisplayFilters = TocMetadataFilters & {
   items: PlayerItem[]
   multilingualToc: boolean
+  primaryTitleOnly?: boolean
 }
 
 function firstLanguageId(ids: ReadonlySet<string>): string | undefined {
@@ -123,20 +124,21 @@ function displayEntriesForRow(
   multilingualToc: boolean,
   languageId: string | undefined,
   mode: TocDisplayMode,
+  primaryTitleOnly: boolean,
 ): TocDisplayEntry[] {
   const item = items[row.idx]
-  const showNumber = mode === 'order' || !multilingualToc
+  const showNumber = mode === 'order' || (!multilingualToc && !primaryTitleOnly)
 
   if (item?.type !== 'chords') {
     return [displayEntryForRow(row, items, showNumber)]
   }
 
-  if (multilingualToc && languageId) {
+  if (multilingualToc && languageId && !primaryTitleOnly) {
     const strictEntry = strictEntryForLanguageId(row, items, languageId)
     return strictEntry ? [{ ...strictEntry, showNumber: mode === 'order' }] : []
   }
 
-  if (multilingualToc && item?.type === 'chords' && mode !== 'order') {
+  if (multilingualToc && !primaryTitleOnly && item?.type === 'chords' && mode !== 'order') {
     const variants = songTitleVariantsForDisplay(item.song.data as Record<string, unknown>, row.title)
     return variants.map((variant) => ({
       key: displayEntryKey(row.idx, variant.languageIndex, row.id ?? undefined),
@@ -191,6 +193,7 @@ export function displayTocEntries(
           metadataFilters.multilingualToc,
           languageId,
           mode,
+          metadataFilters.primaryTitleOnly ?? false,
         ),
       )
       .map((entry) => ({
@@ -207,6 +210,7 @@ export function displayTocEntries(
         metadataFilters.multilingualToc,
         languageId,
         mode,
+        metadataFilters.primaryTitleOnly ?? false,
       ),
     )
     entries.sort(compareDisplayEntries)
@@ -222,6 +226,7 @@ export function displayTocEntries(
       metadataFilters.multilingualToc,
       languageId,
       mode,
+      metadataFilters.primaryTitleOnly ?? false,
     ),
   )
 }

@@ -24,6 +24,7 @@ export type TocSidebarProps = {
   onModeChange: (mode: TocDisplayMode) => void
   displayModes?: readonly TocDisplayMode[]
   expandAlphabeticalTranslations?: boolean
+  primaryTitleOnly?: boolean
   activeLanguageIds: ReadonlySet<string>
   onLanguageIdsChange: (ids: readonly string[]) => void
   activeTagIds: ReadonlySet<string>
@@ -53,6 +54,7 @@ export function TocSidebar({
   onModeChange,
   displayModes,
   expandAlphabeticalTranslations = false,
+  primaryTitleOnly = false,
   activeLanguageIds,
   onLanguageIdsChange,
   activeTagIds,
@@ -68,7 +70,8 @@ export function TocSidebar({
 }: TocSidebarProps) {
   const { t } = useTranslation()
   const multilingual = useTocMultilingualPreference()
-  const multilingualEntries = multilingual || (expandAlphabeticalTranslations && mode === 'alphabetical')
+  const multilingualEntries =
+    !primaryTitleOnly && (multilingual || (expandAlphabeticalTranslations && mode === 'alphabetical'))
   const [hoveredMode, setHoveredMode] = useState<TocDisplayMode | null>(null)
   const metadata = useMemo(() => buildTocMetadataBySongId(items), [items])
   const languages = useMemo(() => collectTocLanguageFilterOptions(metadata), [metadata])
@@ -90,8 +93,9 @@ export function TocSidebar({
       activeLanguageIds: visibleLanguages,
       activeTagIds: visibleTags,
       multilingualToc: multilingualEntries,
+      primaryTitleOnly,
     }),
-    [items, metadata, mode, toc, visibleLanguages, visibleTags, multilingualEntries],
+    [items, metadata, mode, toc, visibleLanguages, visibleTags, multilingualEntries, primaryTitleOnly],
   )
   const labels: Record<TocDisplayMode, string> = {
     order: t('player.toc.sortOrder'),

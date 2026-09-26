@@ -33,6 +33,18 @@ describe('resolvePlayerForRoute', () => {
     })
   })
 
+  it('returns an all-songs-specific offline message when its library mirror is missing', async () => {
+    vi.stubGlobal('navigator', { onLine: false })
+    loadOfflinePlayer.mockResolvedValue(null)
+
+    const res = await resolvePlayerForRoute('library', 'all-songs')
+
+    expect(res).toEqual({
+      status: 'offline_unavailable',
+      message: 'offlinePlayer.allSongsNotCached',
+    })
+  })
+
   it('returns ready from offline cache for setlist', async () => {
     vi.stubGlobal('navigator', { onLine: false })
     loadOfflinePlayer.mockResolvedValue({ items: [] })
@@ -60,6 +72,24 @@ describe('resolvePlayerForRoute', () => {
 
     expect(fetchPlayerFromNetwork).toHaveBeenCalledWith('setlist', 's1', undefined, 'av')
     expect(persistPlayerMirror).not.toHaveBeenCalled()
+    expect(res.status).toBe('ready')
+  })
+
+  it('mirrors the all-songs library when opened in AV mode because its content is mode-independent', async () => {
+    fetchPlayerFromNetwork.mockResolvedValue({ player: { items: [] } })
+    persistPlayerMirror.mockResolvedValue(undefined)
+    const queryClient = {} as never
+
+    const res = await resolvePlayerForRoute('library', 'all-songs', undefined, 'av', queryClient)
+
+    expect(fetchPlayerFromNetwork).toHaveBeenCalledWith(
+      'library',
+      'all-songs',
+      undefined,
+      'av',
+      queryClient,
+    )
+    expect(persistPlayerMirror).toHaveBeenCalledWith('library', 'all-songs', { items: [] })
     expect(res.status).toBe('ready')
   })
 })

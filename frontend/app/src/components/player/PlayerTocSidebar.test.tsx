@@ -110,6 +110,40 @@ describe('PlayerTocSidebar', () => {
     expect(onSelect).toHaveBeenCalledWith(0, 1)
   })
 
+  it('keeps all-songs alphabetical mode on primary titles and the numbered sequence', async () => {
+    tocMultilingualEnabled = true
+    tocMode = 'alphabetical'
+    const onSelect = vi.fn()
+    const tocWithSecondSong = [
+      toc[0]!,
+      { idx: 1, nr: '2', title: 'Boat', id: 'song-b', liked: false },
+    ]
+    const itemsWithSecondSong = [
+      items[0]!,
+      chordPlayerItem('song-b', {
+        languages: ['en', 'de'],
+        titles: ['Boat', 'Boot'],
+      }),
+    ]
+
+    render(
+      <PlayerTocSidebar
+        toc={tocWithSecondSong}
+        items={itemsWithSecondSong}
+        currentSourceIdx={0}
+        currentLanguageIndex={0}
+        onSelect={onSelect}
+        primaryTitleOnly
+      />,
+    )
+
+    const rows = screen.getAllByRole('option')
+    expect(rows.map((row) => row.textContent?.trim())).toEqual(['Anchor', 'Boat'])
+
+    await userEvent.click(screen.getByRole('option', { name: /Anchor/ }))
+    expect(onSelect).toHaveBeenCalledWith(0, null)
+  })
+
   it('renders liked multilingual rows with hearts and no numbers', async () => {
     tocMultilingualEnabled = true
     tocMode = 'liked'

@@ -14,6 +14,7 @@ export class ApiUnauthorizedError extends Error {
 }
 
 const PAGE_SIZE = 50
+const ALL_SONGS_PAGE_SIZE = 500
 
 function listErrorMessage(status: number, body: unknown): string {
   if (body && typeof body === 'object' && 'title' in body) {
@@ -97,4 +98,45 @@ export async function fetchSongsPage(
     throw new Error(listErrorMessage(response.status, error))
   }
   return { items: data ?? [], total: parseTotalCount(response) }
+}
+
+/** Fetch every song visible to the caller, without applying hub search or team filters. */
+export async function fetchAllAccessibleSongs(
+  queryClient: QueryClient,
+  signal?: AbortSignal,
+): Promise<Song[]> {
+  const songs: Song[] = []
+  let page = 0
+  let total: number | undefined
+
+  while (true) {
+    const { data, response, error } = await api.GET('/api/v1/songs', {
+      params: {
+        query: {
+          page,
+          page_size: ALL_SONGS_PAGE_SIZE,
+          q: undefined,
+          team: undefined,
+          sort: 'id',
+        },
+      },
+      signal,
+    })
+    if (response.status === 401) return on401(queryClient)
+    if (!response.ok) {
+      throw new Error(listErrorMessage(response.status, error))
+    }
+
+    const items = data ?? []
+    songs.push(...items)
+    total = parseTotalCount(response)
+
+    if (total !== undefined ? songs.length >= total : items.length < ALL_SONGS_PAGE_SIZE) {
+      break
+    }
+    if (items.length === 0) break
+    page += 1
+  }
+
+  return songs
 }

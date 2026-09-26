@@ -180,6 +180,8 @@ function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs'
       return '/collections'
     case 'song':
       return '/songs'
+    case 'library':
+      return '/songs'
     case 'setlist':
       return '/setlists'
   }
@@ -190,6 +192,8 @@ function backAriaKeyForPlayerType(type: PlayerEntityType): string {
     case 'collection':
       return 'collections.editor.backToList'
     case 'song':
+      return 'songs.editor.backToList'
+    case 'library':
       return 'songs.editor.backToList'
     case 'setlist':
       return 'setlists.editor.backToList'
@@ -2184,6 +2188,7 @@ export function PlayerBook({
                       currentSourceIdx={nav.index}
                       currentLanguageIndex={currentLanguageIndex}
                       onSelect={handleTocSelect}
+                      primaryTitleOnly={type === 'library'}
                       className={isPhoneViewport ? 'w-full border-r-0' : undefined}
                     />
                   )}

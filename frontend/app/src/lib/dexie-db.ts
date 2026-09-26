@@ -9,7 +9,7 @@ type PlaceholderRow = { id: string }
 /** String key/value rows for app-level persistence (e.g. React Query cache blobs). */
 export type KvRow = { key: string; value: string }
 
-export type PlayerMirrorEntityType = 'setlist' | 'collection' | 'song'
+export type PlayerMirrorEntityType = 'setlist' | 'collection' | 'song' | 'library'
 
 /** Mirrored `GET .../player` JSON for offline playback. */
 export type PlayerMirrorRow = {

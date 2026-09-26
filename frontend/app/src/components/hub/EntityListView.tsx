@@ -26,6 +26,7 @@ import { RoomIcon } from '@/components/icons/lucide-animated/room-icon'
 import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
 import { TocSortLikedIcon } from '@/components/icons/toc-sort-icons'
 import { AddSongToSetlistDialog } from '@/components/hub/AddSongToSetlistDialog'
+import { PlayAllSongsButton } from '@/components/hub/PlayAllSongsButton'
 import {
   HUB_ACTION_ICON_CLASS,
   HubActionItem,
@@ -271,6 +272,7 @@ export function EntityListView({ entity }: EntityListViewProps) {
   return (
     <>
       <div className="relative flex w-full min-w-0 flex-col">
+        {entity === 'songs' ? <PlayAllSongsButton /> : null}
         {!networkOnline && listsUpdatedAt ? (
           <p className="mb-2 text-center text-xs text-[var(--color-muted-foreground)]">
             {t('hub.offline.lastUpdated', {

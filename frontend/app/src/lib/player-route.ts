@@ -11,7 +11,7 @@ import { parsePlayerMode } from '@/lib/player/player-mode'
 import type { HubEntity } from '@/lib/hub-entity'
 import type { PlayerMode } from '@/lib/player/player-mode'
 
-export type PlayerEntityType = 'collection' | 'song' | 'setlist'
+export type PlayerEntityType = 'collection' | 'song' | 'setlist' | 'library'
 
 export type PlayerRouteSearchState = {
   type: PlayerEntityType
@@ -63,7 +63,9 @@ export function parsePlayerRouteSearch(search: Record<string, unknown>): {
 } {
   const typeRaw = search.type
   const type =
-    typeRaw === 'song' || typeRaw === 'setlist' || typeRaw === 'collection' ? typeRaw : undefined
+    typeRaw === 'song' || typeRaw === 'setlist' || typeRaw === 'collection' || typeRaw === 'library'
+      ? typeRaw
+      : undefined
   const id = typeof search.id === 'string' ? search.id : ''
 
   return {

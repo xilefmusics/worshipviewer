@@ -22,7 +22,7 @@ export function hasChordsItems(items: PlayerItem[]): boolean {
 /** Resolve display key for a chords item at `itemIndex`. */
 export function resolvePlayerItemKey(
   item: Extract<PlayerItem, { type: 'chords' }>,
-  playerType: 'collection' | 'song' | 'setlist',
+  playerType: 'collection' | 'song' | 'setlist' | 'library',
   slotKey: string | null | undefined,
   localOverride: string | null | undefined,
 ): string | null {

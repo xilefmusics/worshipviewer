@@ -33,17 +33,25 @@ function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs'
       return '/collections'
     case 'song':
       return '/songs'
+    case 'library':
+      return '/songs'
     case 'setlist':
       return '/setlists'
   }
 }
 
-function usePlayerResourceTitle(type: PlayerEntityType, id: string, enabled: boolean): string | undefined {
+function usePlayerResourceTitle(
+  type: PlayerEntityType,
+  id: string,
+  enabled: boolean,
+  translate: (key: string) => string,
+): string | undefined {
   const queryClient = useQueryClient()
   const { data } = useQuery({
     queryKey: playerResourceTitleKey(type, id),
-    enabled,
+    enabled: enabled && type !== 'library',
     queryFn: async ({ signal }) => {
+      if (type === 'library') return translate('player.allSongsTitle')
       if (type === 'setlist') {
         const detail = await fetchSetlistDetail(queryClient, { id, signal })
         queryClient.setQueryData(setlistDetailKey(id), detail)
@@ -61,15 +69,23 @@ function usePlayerResourceTitle(type: PlayerEntityType, id: string, enabled: boo
     },
     staleTime: 60_000,
   })
-  return data
+  return type === 'library' ? translate('player.allSongsTitle') : data
 }
 
 export function PlayerRouteInner({ type, id, initialIndex, mode }: PlayerRouteInnerProps) {
   const { t } = useTranslation()
   const online = useOnline()
+  const queryClient = useQueryClient()
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: playerQueryKey(type, id, mode === 'av' ? 'av' : 'book'),
-    queryFn: ({ signal }) => resolvePlayerForRoute(type, id, signal, mode === 'av' ? 'av' : 'book'),
+    queryFn: ({ signal }) =>
+      resolvePlayerForRoute(
+        type,
+        id,
+        signal,
+        mode === 'av' ? 'av' : 'book',
+        type === 'library' ? queryClient : undefined,
+      ),
     refetchOnMount: 'always',
     networkMode: 'always',
   })
@@ -82,7 +98,7 @@ export function PlayerRouteInner({ type, id, initialIndex, mode }: PlayerRouteIn
       ? data.source === 'network'
       : typeof navigator !== 'undefined' && navigator.onLine
 
-  const resourceTitle = usePlayerResourceTitle(type, id, Boolean(player))
+  const resourceTitle = usePlayerResourceTitle(type, id, Boolean(player), t)
   const backTo = useMemo(() => hubPathForPlayerType(type), [type])
 
   if (isPending && !data) {

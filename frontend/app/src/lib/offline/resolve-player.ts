@@ -1,3 +1,4 @@
+import type { QueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/schema'
 
 import {
@@ -19,6 +20,7 @@ const NOT_CACHED_MESSAGE: Record<PlayerEntityType, string> = {
   setlist: 'offlinePlayer.setlistNotCached',
   collection: 'offlinePlayer.collectionNotCached',
   song: 'offlinePlayer.songNotCached',
+  library: 'offlinePlayer.allSongsNotCached',
 }
 
 function isOnline(): boolean {
@@ -29,8 +31,9 @@ export async function fetchNonSetlistPlayer(
   type: Exclude<PlayerEntityType, 'setlist'>,
   id: string,
   signal?: AbortSignal,
+  queryClient?: QueryClient,
 ): Promise<{ player: Player } | { error: string }> {
-  const res = await fetchPlayerFromNetwork(type, id, signal)
+  const res = await fetchPlayerFromNetwork(type, id, signal, 'book', queryClient)
   if ('error' in res) {
     return { error: res.error }
   }
@@ -45,9 +48,13 @@ export async function resolvePlayerForRoute(
   id: string,
   signal?: AbortSignal,
   view: 'book' | 'av' = 'book',
+  queryClient?: QueryClient,
 ): Promise<ResolvedPlayerState> {
   if (isOnline()) {
-    const res = await fetchPlayerFromNetwork(type, id, signal, view)
+    const res =
+      type === 'library'
+        ? await fetchPlayerFromNetwork(type, id, signal, view, queryClient)
+        : await fetchPlayerFromNetwork(type, id, signal, view)
     if ('error' in res) {
       const reconciled = await reconcilePlayer404(type, id, res.status)
       if (reconciled.kind === 'reconciled') {
@@ -61,7 +68,7 @@ export async function resolvePlayerForRoute(
       return { status: 'error', message: res.error }
     }
     try {
-      if (view === 'book') await persistPlayerMirror(type, id, res.player)
+      if (view === 'book' || type === 'library') await persistPlayerMirror(type, id, res.player)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       return { status: 'error', message: msg }

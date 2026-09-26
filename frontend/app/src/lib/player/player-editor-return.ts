@@ -11,7 +11,7 @@ export type PlayerEditorReturnContext = {
 }
 
 function parsePlayerType(raw: unknown): PlayerEntityType | undefined {
-  if (raw === 'song' || raw === 'setlist' || raw === 'collection') return raw
+  if (raw === 'song' || raw === 'setlist' || raw === 'collection' || raw === 'library') return raw
   return undefined
 }
 

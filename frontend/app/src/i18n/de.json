@@ -169,6 +169,7 @@
       "general": "Allgemein",
       "edit": "Bearbeiten",
       "play": "Abspielen",
+      "playAllSongs": "Alle Lieder abspielen",
       "showSheets": "Noten anzeigen",
       "controlAvSlides": "AV-Folien steuern",
       "createRoom": "Raum erstellen",
@@ -243,6 +244,7 @@
     "setlistNotCached": "Diese Setliste ist offline nicht verfügbar. Öffne sie einmal online im Player oder nutze „Für offline speichern“.",
     "collectionNotCached": "Diese Sammlung ist offline nicht verfügbar. Öffne sie einmal online im Player oder nutze „Für offline speichern“.",
     "songNotCached": "Dieses Lied ist offline nicht verfügbar. Öffne es einmal online im Player oder nutze „Für offline speichern“.",
+    "allSongsNotCached": "Der Player mit allen Liedern ist offline noch nicht verfügbar. Öffne ihn einmal online, um ihn aufzubauen und offline zu speichern.",
     "storageEvicted": "Speicher voll — die älteste Offline-Kopie wurde entfernt."
   },
   "player": {
@@ -262,6 +264,7 @@
     "online": "Online",
     "offline": "Offline",
     "untitled": "Ohne Titel",
+    "allSongsTitle": "Alle Lieder",
     "mainAria": "Player — {{title}}",
     "itemAnnounce": "Element {{current}} von {{total}} — {{title}}",
     "setlistDeleted": "Diese Setliste wurde vom Team entfernt — lokaler Cache wird ein letztes Mal abgespielt.",
