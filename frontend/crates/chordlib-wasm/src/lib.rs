@@ -2,6 +2,7 @@
 
 use chordlib::inputs::chord_pro;
 use chordlib::inputs::markdown;
+use chordlib::inputs::pdf;
 use chordlib::inputs::propresenter;
 use chordlib::inputs::songbeamer;
 use chordlib::inputs::ultimate_guitar;
@@ -48,6 +49,13 @@ pub fn parse_chord_pro(source: &str) -> Result<String, String> {
 #[wasm_bindgen(js_name = parseMarkdown)]
 pub fn parse_markdown(source: &str) -> Result<String, String> {
     let song = markdown::load_string(source).map_err(|e| e.to_string())?;
+    serde_json::to_string(&song).map_err(|e| e.to_string())
+}
+
+/// Parse a searchable CCLI/SongSelect PDF into song JSON.
+#[wasm_bindgen(js_name = parsePdf)]
+pub fn parse_pdf(bytes: &[u8]) -> Result<String, String> {
+    let song = pdf::load_bytes(bytes).map_err(|e| e.to_string())?;
     serde_json::to_string(&song).map_err(|e| e.to_string())
 }
 

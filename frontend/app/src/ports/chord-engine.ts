@@ -46,6 +46,7 @@ export type SongFlowItem = {
 export interface ChordEngine {
   parseChordPro(source: string): ChordSongData
   parseMarkdown(source: string): ChordSongData
+  parsePdf(bytes: Uint8Array): ChordSongData
   parseSongBeamer(bytes: Uint8Array): ChordSongData
   parseProPresenter(bytes: Uint8Array): ChordSongData
   parseUltimateGuitarHtml(html: string): ChordSongData

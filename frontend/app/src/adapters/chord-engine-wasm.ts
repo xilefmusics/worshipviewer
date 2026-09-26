@@ -52,6 +52,10 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
       return wrapWasmError(() => parseSongJson(wasm.parseMarkdown(source)))
     },
 
+    parsePdf(bytes: Uint8Array) {
+      return wrapWasmError(() => parseSongJson(wasm.parsePdf(bytes)))
+    },
+
     parseSongBeamer(bytes: Uint8Array) {
       return wrapWasmError(() => parseSongJson(wasm.parseSongBeamer(bytes)))
     },

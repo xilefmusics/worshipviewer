@@ -268,6 +268,9 @@ flowchart TD
     sheet --> importBtn{"Import files: online AND a writable team?"}
     importBtn -->|Yes| importDlg["→ Import songs dialog (D5)"]
     importBtn -->|No| impDisabled["Disabled (offline / no edit hint)"]
+    sheet --> pdfBtn{"Import CCLI PDF: online AND a writable team?"}
+    pdfBtn -->|Yes| pdfDlg["→ CCLI PDF import sheet (D8)"]
+    pdfBtn -->|No| pdfDisabled["Disabled (offline / no edit hint)"]
     sheet --> ugBtn{"Import from Ultimate Guitar: online AND a writable team?"}
     ugBtn -->|Yes| ugDlg["→ Ultimate Guitar import sheet (D7)"]
     ugBtn -->|No| ugDisabled["Disabled (offline / no edit hint)"]
@@ -375,6 +378,28 @@ flowchart TD
     post -->|Failure| apiErr["Show error and keep sheet open"] --> dlg
     post -->|Success| editor(["→ /songs/:songId editor"])
     dlg -->|Cancel / drag| songs(["/songs"])
+```
+
+### D8. Import a song from a CCLI / SongSelect PDF
+
+```mermaid
+flowchart TD
+    chooser(["Song create chooser sheet"]) --> gate{"Online AND writable team?"}
+    gate -->|No| disabled["Disabled (offline / no edit hint)"]
+    gate -->|Yes| dlg(["CCLI PDF import sheet"])
+    dlg --> choose["Choose one PDF (up to 2 MiB)"]
+    choose --> process["Import: read bytes → chordlib WASM searchable-text parser"]
+    process -->|Invalid, scanned, or unsupported layout| parseErr["Show parser error; do not save"] --> dlg
+    process -->|Parsed| col{"Editable collection?"}
+    col -->|2+| pick["Choose collection (last-used default)"]
+    col -->|1| auto["Auto target"]
+    col -->|0| create["Create personal 'My Songs' collection"]
+    pick --> post["POST /api/v1/songs with parsed data"]
+    auto --> post
+    create --> post
+    post -->|Failure| apiErr["Show save error; keep sheet open"] --> dlg
+    post -->|Success| editor["Invalidate song/collection lists → /songs/:songId editor"]
+    dlg -->|Cancel| songs(["/songs"])
 ```
 
 ---

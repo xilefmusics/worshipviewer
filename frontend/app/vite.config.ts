@@ -97,6 +97,8 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
+          // chordlib's searchable PDF parser brings the WASM runtime above Workbox's 2 MiB default.
+          maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
           navigateFallback: 'index.html',
           navigateFallbackDenylist: [/^\/api\//, /^\/auth\//, /^\/player\/output/],
         },

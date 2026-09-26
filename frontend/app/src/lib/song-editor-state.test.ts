@@ -51,6 +51,9 @@ function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
     parseMarkdown(source: string) {
       return { ...sample, raw: source }
     },
+    parsePdf() {
+      return sample
+    },
     parseUltimateGuitarHtml() {
       return sample
     },
