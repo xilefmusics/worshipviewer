@@ -27,6 +27,8 @@ export type RenderA4HtmlOptions = {
   language?: number
   /** Scale factor for DIN-A4 layout (player/editor viewport height / 1123). */
   scale?: number
+  /** Capo fret applied by chordlib while rendering the page or sections. */
+  capo?: number
 }
 
 /** Structured song payload (`Song.data` / chordlib wire JSON). */
@@ -46,6 +48,7 @@ export type SongFlowItem = {
 export interface ChordEngine {
   parseChordPro(source: string): ChordSongData
   parseMarkdown(source: string): ChordSongData
+  parsePdf(bytes: Uint8Array): ChordSongData
   parseSongBeamer(bytes: Uint8Array): ChordSongData
   parseProPresenter(bytes: Uint8Array): ChordSongData
   parseUltimateGuitarHtml(html: string): ChordSongData

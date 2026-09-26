@@ -32,6 +32,7 @@ const songInC: ChordSongData = {
 const engine = {
   parseChordPro: (source: string) => JSON.parse(source) as ChordSongData,
   parseMarkdown: (source: string) => JSON.parse(source) as ChordSongData,
+  parsePdf: () => ({}),
   parseSongBeamer: () => ({}),
   parseProPresenter: () => ({}),
   parseUltimateGuitarHtml: () => ({}),

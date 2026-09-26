@@ -16,6 +16,9 @@ const mockEngine: ChordEngine = {
   parseMarkdown() {
     return {}
   },
+  parsePdf() {
+    return {}
+  },
   parseSongBeamer() {
     return {}
   },

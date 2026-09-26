@@ -442,12 +442,14 @@ function renderA4ExportPage(
   language: number | undefined,
   chordFormat: ChordFormatPreference,
   hideChords: boolean = readHideChordsPreference(),
+  capo?: number,
 ): PdfExportPage {
   const page = engine.renderA4Html(data, {
     key,
     language,
     representation: chordFormatToRepresentation(chordFormat),
     scale: 1,
+    capo,
   })
   if (!hideChords) return page
   return { html: stripChordsFromChordlibHtml(page.html), css: page.css }
@@ -456,6 +458,7 @@ function renderA4ExportPage(
 export type HubExportSong = {
   data: ChordSongData
   key?: string
+  capo?: number
   language?: number
 }
 
@@ -523,7 +526,7 @@ export async function exportSetlistPdf(
     throw new Error('No exportable songs')
   }
   const pages = songs.map((song) =>
-    renderA4ExportPage(engine, song.data, song.key, song.language, chordFormat, hideChords),
+    renderA4ExportPage(engine, song.data, song.key, song.language, chordFormat, hideChords, song.capo),
   )
   const title = sanitizeDownloadBasename(setlistTitle)
   await printPdfDocument(pages, title)

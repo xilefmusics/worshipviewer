@@ -757,11 +757,12 @@ export function PlayerBook({
           try {
             if (freeColumnCount != null) {
               const languageIndex = renderLanguageIndexForItem(nextItem, prefetchIndex)
-              const key = keyStateForItem(nextItem, prefetchIndex).displayKey
+              const keyState = keyStateForItem(nextItem, prefetchIndex)
               await renderChordSections({
                 songData: nextItem.song.data as ChordSongData,
                 flow: nextItem.flow,
-                key,
+                key: keyState.displayKey,
+                capo: keyState.capoFret,
                 language: languageIndex,
                 representation: chordFormatToRepresentation(chordFormat),
                 hideChords,
@@ -769,7 +770,7 @@ export function PlayerBook({
               })
             } else {
               const engine = await getChordEngine()
-              const key = resolveSongDataKey(nextItem.song.data as Record<string, unknown>)
+              const keyState = keyStateForItem(nextItem, prefetchIndex)
               const languageOptions = songLanguageOptions(nextItem.song.data as Record<string, unknown>)
               const slotLanguageIndex = languageIndexForSongLink(
                 nextItem.song.data as Record<string, unknown>,
@@ -781,7 +782,8 @@ export function PlayerBook({
               )
               const languageIndex = selectedLanguageIndex > 0 ? selectedLanguageIndex : null
               const renderOptions = {
-                key: key ?? undefined,
+                key: keyState.displayKey ?? undefined,
+                capo: keyState.capoFret ?? undefined,
                 language: languageIndex ?? undefined,
                 representation: chordFormatToRepresentation(chordFormat),
               }

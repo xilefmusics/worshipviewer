@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { fetchSongForHubSlot } from '@/api/setlists-detail'
 import { getChordEngine } from '@/lib/chord-engine'
 import type { ChordFormatPreference } from '@/lib/chord-format'
+import { capoFretForKeys, type CapoShapeKey } from '@/lib/player/capo'
 import { applyFlowToSongDataAsync } from '@/lib/player/apply-song-flow'
 import {
   exportOrderedSongsZip,
@@ -20,6 +21,7 @@ import type { ChordSongData, SongFlowItem } from '@/ports/chord-engine'
 export type HubExportSongLink = {
   id: string
   key?: unknown
+  capoShapeKey?: CapoShapeKey | null
   language?: unknown
   flow?: SongFlowItem[] | null
 }
@@ -38,8 +40,14 @@ export async function hydrateSongLinksForHubExport(
         coerceMusicalKeyString(link.key) ??
         resolveSongDataKey(data as Record<string, unknown>) ??
         undefined
+      const capo = link.capoShapeKey ? capoFretForKeys(key, link.capoShapeKey) : null
       const language = languageIndexForSongLink(data as Record<string, unknown>, link.language)
-      const row: HubExportSong = { data, key, language }
+      const row: HubExportSong = {
+        data,
+        key: capo != null && link.capoShapeKey ? link.capoShapeKey : key,
+        capo: capo ?? undefined,
+        language,
+      }
       return row
     }),
   )

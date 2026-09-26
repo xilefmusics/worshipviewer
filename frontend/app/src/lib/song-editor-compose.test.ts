@@ -216,6 +216,9 @@ function mockEngine(): ChordEngine {
     parseMarkdown() {
       return sample
     },
+    parsePdf() {
+      return sample
+    },
     parseUltimateGuitarHtml() {
       return sample
     },

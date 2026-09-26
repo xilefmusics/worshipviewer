@@ -182,6 +182,7 @@ ${
           language: languageIndex ?? undefined,
           scale: 1,
           representation,
+          capo: capoFret ?? undefined,
         })
         if (cancelled) return
         const keyLine = selectedKey

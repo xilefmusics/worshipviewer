@@ -6,6 +6,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Added
 
+- Import songs from searchable CCLI PDFs directly in song creation.
 - Empty, team-owned Rooms can be created directly from the Rooms hub and entered in Sheet view.
 - Spotify track and playlist Media items with external playback controls in the AV player.
 - Independent grayscale text controls for primary and translated AV lyrics.
@@ -25,6 +26,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Changed
 
+- Rendered sheets and PDF exports now honor capo shape settings.
 - Song navigation in the player now commits after a 10 px horizontal swipe.
 - Player chord sections now render in a background worker with cached results, and the table of contents dismisses with a smoother animation.
 - Demodata fixtures are reapplied on every backend startup when `DEMODATA=generic` is enabled; the seed marker table has been removed.
@@ -36,6 +38,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Fixed
 
+- Markdown rendering now uses the corrected `chordlib` 0.17.0 implementation.
 - Song editor key changes now preserve the selected transpose-or-keep chord behavior when autosaving.
 - Dark and light AV lyrics remain visible over checkerboard slide-selector previews.
 - Unliked songs disappear immediately from the sheet player's Liked table of contents and show inverse heart feedback.

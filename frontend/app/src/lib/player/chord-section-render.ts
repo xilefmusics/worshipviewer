@@ -6,6 +6,7 @@ export type ChordSectionRenderRequest = {
   songData: ChordSongData
   flow?: readonly SongFlowItem[] | null
   key?: string | null
+  capo?: number | null
   language?: number | null
   representation: ChordRepresentation
   hideChords: boolean
@@ -29,6 +30,7 @@ function renderRequestWithoutPresentationOptions(
     songData: request.songData,
     flow: request.flow,
     key: request.key,
+    capo: request.capo,
     language: request.language,
     representation: request.representation,
     expandSections: request.expandSections,
@@ -50,6 +52,7 @@ function renderOnMainThread(request: WorkerRenderRequest): Promise<RenderedChord
     }
     return engine.renderA4SectionHtmls(songData, {
       key: request.key ?? undefined,
+      capo: request.capo ?? undefined,
       language: request.language ?? undefined,
       representation: request.representation,
     })
@@ -162,6 +165,7 @@ export function createChordSectionRenderService(
       objectId(request.songData),
       request.flow?.length ? objectId(request.flow) : 0,
       request.key ?? null,
+      request.capo ?? null,
       request.language ?? null,
       request.representation,
       request.hideChords,

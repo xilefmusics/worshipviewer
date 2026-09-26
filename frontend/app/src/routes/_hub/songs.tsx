@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 
 import { fetchTeamsPage } from '@/api/teams-sessions-fetch'
+import { CcliPdfImportSheet } from '@/components/songs/CcliPdfImportSheet'
 import { CreateSongDialog } from '@/components/songs/CreateSongDialog'
 import { ImportSongsDialog } from '@/components/songs/ImportSongsDialog'
 import { SongCreateChooserSheet } from '@/components/songs/SongCreateChooserSheet'
@@ -30,12 +31,14 @@ function SongsRoute() {
   const [chooserOpen, setChooserOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [ccliPdfImportOpen, setCcliPdfImportOpen] = useState(false)
   const [ultimateGuitarImportOpen, setUltimateGuitarImportOpen] = useState(false)
 
   const teamsQ = useInfiniteQuery({
     queryKey: [...teamsListRootKey, 'songCreateChooser', ''] as const,
     initialPageParam: 0,
-    enabled: chooserOpen || createOpen || importOpen || ultimateGuitarImportOpen,
+    enabled:
+      chooserOpen || createOpen || importOpen || ccliPdfImportOpen || ultimateGuitarImportOpen,
     queryFn: async ({ pageParam, signal }) => {
       return fetchTeamsPage(queryClient, { page: pageParam as number, q: '', signal })
     },
@@ -72,6 +75,7 @@ function SongsRoute() {
         canImport={canImport}
         onNewSong={() => setCreateOpen(true)}
         onImport={() => setImportOpen(true)}
+        onImportCcliPdf={() => setCcliPdfImportOpen(true)}
         onImportUltimateGuitar={() => setUltimateGuitarImportOpen(true)}
       />
       <CreateSongDialog
@@ -87,6 +91,19 @@ function SongsRoute() {
         }}
       />
       <ImportSongsDialog open={importOpen} onOpenChange={setImportOpen} online={online} />
+      <CcliPdfImportSheet
+        open={ccliPdfImportOpen}
+        onOpenChange={setCcliPdfImportOpen}
+        online={online}
+        onImported={(id) => {
+          setCcliPdfImportOpen(false)
+          void navigate({
+            to: '/songs/$songId',
+            params: { songId: id },
+            search: emptyEditorReturnSearch(),
+          })
+        }}
+      />
       <UltimateGuitarImportSheet
         open={ultimateGuitarImportOpen}
         onOpenChange={setUltimateGuitarImportOpen}

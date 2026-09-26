@@ -52,6 +52,10 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
       return wrapWasmError(() => parseSongJson(wasm.parseMarkdown(source)))
     },
 
+    parsePdf(bytes: Uint8Array) {
+      return wrapWasmError(() => parseSongJson(wasm.parsePdf(bytes)))
+    },
+
     parseSongBeamer(bytes: Uint8Array) {
       return wrapWasmError(() => parseSongJson(wasm.parseSongBeamer(bytes)))
     },
@@ -110,6 +114,7 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
           options?.representation,
           options?.language,
           options?.scale,
+          options?.capo,
         ),
       )
       return { html: page.html, css: page.css }
@@ -124,6 +129,7 @@ export async function createWasmChordEngine(): Promise<ChordEngine> {
           options?.representation,
           options?.language,
           options?.scale,
+          options?.capo,
         ),
       )
       return { sections: page.sections, css: page.css }

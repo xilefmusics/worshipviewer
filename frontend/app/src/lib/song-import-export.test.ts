@@ -21,6 +21,7 @@ function mockEngine(overrides?: Partial<ChordEngine>): ChordEngine {
   return {
     parseChordPro: vi.fn(() => ({ titles: ['Hello'], sections: [] })),
     parseMarkdown: vi.fn(() => ({ titles: ['Hello'], sections: [] })),
+    parsePdf: vi.fn(() => ({ titles: ['Hello'], sections: [] })),
     parseSongBeamer: vi.fn(() => ({ titles: ['Hello'], sections: [] })),
     parseProPresenter: vi.fn(() => ({ titles: ['Hello'], sections: [] })),
     parseUltimateGuitarHtml: vi.fn(),
