@@ -5,9 +5,14 @@
 # zip 9 or later.
 # RSA is used to verify OIDC signatures only; the backend does not decrypt with
 # RSA private keys, which is the operation covered by the Marvin timing attack.
+# crypto-bigint 0.5.5 is only in SurrealDB's wasm-target jsonwebtoken dependency.
+# The backend is built and deployed for native targets; its OpenID Connect
+# verifier uses 0.14 curves and patched crypto-bigint 0.7.10. Remove this ignore
+# if the backend adds a Wasm build or SurrealDB updates its Wasm crypto stack.
 ignore = [
     "RUSTSEC-2026-0367",
     "RUSTSEC-2026-0368",
     "RUSTSEC-2026-0369",
     "RUSTSEC-2023-0071",
+    "RUSTSEC-2026-0387",
 ]
