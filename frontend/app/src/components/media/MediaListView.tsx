@@ -13,6 +13,17 @@ import {
   moveMedia,
   type Media,
 } from '@/api/media'
+import { mediaAssetDataUrl } from '@/api/media-upload'
+import { ArrowRightLeftIcon } from '@/components/icons/arrow-right-left-icon'
+import { CopyIcon } from '@/components/icons/lucide-animated/copy-icon'
+import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
+import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
+import {
+  HUB_ACTION_ICON_CLASS,
+  HubActionItem,
+  HubActionSeparator,
+  HubActionsDrawer,
+} from '@/components/hub/HubActionsDrawer'
 import { Button } from '@/components/ui/button'
 import { emptyEditorReturnSearch } from '@/lib/player/player-editor-return'
 import {
@@ -24,13 +35,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useHubSearch } from '@/hooks/useHubSearch'
 import { useSession } from '@/hooks/useSession'
@@ -142,11 +146,53 @@ function MediaSkeleton() {
   return <div className="flex flex-col" aria-label={t('media.list.loadingAria')}><div className="h-16 animate-pulse border-b border-[var(--color-border)] bg-[var(--color-muted)]/30" /><div className="h-16 animate-pulse border-b border-[var(--color-border)] bg-[var(--color-muted)]/20" /><div className="h-16 animate-pulse border-b border-[var(--color-border)] bg-[var(--color-muted)]/10" /></div>
 }
 
+function MediaRowPreview({ media }: { media: Media }) {
+  const imageUrl = media.content.type === 'image'
+    ? mediaAssetDataUrl(media.id, media.content.blob_id)
+    : null
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
+
+  return (
+    <span
+      className="flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-muted)]/30 text-[var(--color-muted-foreground)]"
+      aria-hidden="true"
+    >
+      {imageUrl && failedImageUrl !== imageUrl ? (
+        <img
+          src={imageUrl}
+          alt=""
+          loading="lazy"
+          crossOrigin="use-credentials"
+          draggable={false}
+          className="size-full object-cover"
+          onError={() => setFailedImageUrl(imageUrl)}
+        />
+      ) : (
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <path d="M14 2v6h6" />
+          <path d="M8 13h8M8 17h8" />
+        </svg>
+      )}
+    </span>
+  )
+}
+
 function MediaRow({ media, canMove, onOpen, onMove, onDelete }: { media: Media; canMove: boolean; onOpen: () => void; onMove: () => void; onDelete: () => void }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { data: user } = useSession()
   const ownerTeam = useTeamDetail(media.owner)
+  const [itemHot, setItemHot] = useState<string | null>(null)
   const canEdit = Boolean(ownerTeam.data && user?.id && canEditTeamLibrary(ownerTeam.data, user.id))
   const kind = mediaDisplayKind(media)
   const duplicateMutation = useMutation({
@@ -160,21 +206,51 @@ function MediaRow({ media, canMove, onOpen, onMove, onDelete }: { media: Media; 
   const identity = mediaCanonicalUrl(media)
   return (
     <div className="flex min-h-16 items-center gap-3 border-b border-[var(--color-border)] py-2 last:border-b-0">
-      <button type="button" onClick={onOpen} className="min-w-0 flex-1 rounded-md px-1 py-1 text-left outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-primary)]" aria-label={t('media.row.openAria', { title: media.title, kind: t(`media.kinds.${kind}`) })}>
-        <span className="block truncate font-medium">{media.title}</span>
-        <span className="flex min-w-0 items-center gap-2 text-sm text-[var(--color-muted-foreground)]"><span>{t(`media.kinds.${kind}`)}</span>{identity ? <><span aria-hidden>·</span><span className="truncate">{identity}</span></> : null}</span>
+      <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-1 py-1 text-left outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-primary)]" aria-label={t('media.row.openAria', { title: media.title, kind: t(`media.kinds.${kind}`) })}>
+        <MediaRowPreview media={media} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">{media.title}</span>
+          <span className="flex min-w-0 items-center gap-2 text-sm text-[var(--color-muted-foreground)]"><span>{t(`media.kinds.${kind}`)}</span>{identity ? <><span aria-hidden>·</span><span className="truncate">{identity}</span></> : null}</span>
+        </span>
       </button>
       {canEdit ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label={t('media.row.actionsAria', { title: media.title })}>•••</Button></DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={onOpen}>{t('media.actions.edit')}</DropdownMenuItem>
-            <DropdownMenuItem disabled={duplicateMutation.isPending} onSelect={() => duplicateMutation.mutate()}>{t('media.actions.duplicate')}</DropdownMenuItem>
-            {canMove ? <DropdownMenuItem onSelect={onMove}>{t('media.actions.move')}</DropdownMenuItem> : null}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-[var(--color-destructive)]" onSelect={onDelete}>{t('media.actions.delete')}</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <HubActionsDrawer
+          title={media.title}
+          triggerAriaLabel={t('media.row.actionsAria', { title: media.title })}
+        >
+          <div role="group" aria-label={t('hub.actions.general')}>
+            <div className="px-2 pb-1 text-xs font-semibold text-[var(--color-muted-foreground)]">
+              {t('hub.actions.general')}
+            </div>
+            <HubActionItem onSelect={onOpen} onHoverChange={(hot) => setItemHot(hot ? 'edit' : null)}>
+              <PencilIcon isHovered={itemHot === 'edit'} size={16} className={HUB_ACTION_ICON_CLASS} />
+              {t('media.actions.edit')}
+            </HubActionItem>
+            <HubActionItem
+              disabled={duplicateMutation.isPending}
+              onSelect={() => duplicateMutation.mutate()}
+              onHoverChange={(hot) => setItemHot(hot ? 'duplicate' : null)}
+            >
+              <CopyIcon isHovered={itemHot === 'duplicate'} size={16} className={HUB_ACTION_ICON_CLASS} />
+              {t('media.actions.duplicate')}
+            </HubActionItem>
+            {canMove ? (
+              <HubActionItem onSelect={onMove} onHoverChange={(hot) => setItemHot(hot ? 'move' : null)}>
+                <ArrowRightLeftIcon size={16} className={HUB_ACTION_ICON_CLASS} />
+                {t('media.actions.move')}
+              </HubActionItem>
+            ) : null}
+          </div>
+          <HubActionSeparator />
+          <HubActionItem
+            destructive
+            onSelect={onDelete}
+            onHoverChange={(hot) => setItemHot(hot ? 'delete' : null)}
+          >
+            <TrashIcon isHovered={itemHot === 'delete'} size={16} className="shrink-0" />
+            {t('media.actions.delete')}
+          </HubActionItem>
+        </HubActionsDrawer>
       ) : null}
     </div>
   )
