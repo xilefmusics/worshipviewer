@@ -114,6 +114,38 @@ describe('@worshipviewer/chordlib-wasm pkg', () => {
       expect(sectionsPage.sections.length).toBeGreaterThan(0)
       expect(sectionsPage.css.length).toBeGreaterThan(0)
 
+      const translatedLeadingFragment = wasm.parseChordPro(
+        [
+          '{title: Minimal reproduction}',
+          '{key: G}',
+          '{language: de}',
+          '{language2: en}',
+          '{section: Test}',
+          'D[G]u bist meine H[D]offnung',
+          '&[G]All my hope [D]is in You',
+          'D[G]u bist meine H[D]offnung',
+          '&[G]All my hope is [D]in You',
+        ].join('\n'),
+      )
+      const translatedSections = wasm.renderA4SectionHtmls(
+        translatedLeadingFragment,
+        undefined,
+        undefined,
+        1,
+        1,
+      )
+      const translatedHtml = translatedSections.sections.join('')
+      expect(translatedHtml).not.toContain('<span class="text">D</span>')
+      expect(translatedHtml).not.toContain('<span class="text">-</span>')
+      expect(translatedHtml).toContain(
+        '<span class="chord">G</span><span class="text">All',
+      )
+      const translatedText = Array.from(
+        translatedHtml.matchAll(/<span class="text">([^<]*)<\/span>/g),
+        ([, text]) => text,
+      ).join('')
+      expect(translatedText).toBe('All my hope is in YouAll my hope is in You')
+
       const filled = wasm.fillSectionReferences(json)
       expect(JSON.parse(filled)).toBeTruthy()
 
