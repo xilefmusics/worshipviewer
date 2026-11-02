@@ -24,6 +24,7 @@ export function PlayerSnapViewport({ ref, pages, nav, disabled, reduceMotion, on
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const touchingRef = useRef(false)
   const frameRef = useRef<number | null>(null)
+  const pendingProgrammaticTargetRef = useRef<PlayerNavState | null>(null)
   const activeIndex = Math.max(0, pages.findIndex((page) => page.index === nav.index))
   const [visibleIndex, setVisibleIndex] = useState(activeIndex)
   const latest = useRef({ pages, nav, disabled, onNavigate, onScrollGesture, activeIndex })
@@ -40,9 +41,18 @@ export function PlayerSnapViewport({ ref, pages, nav, disabled, reduceMotion, on
     const index = Math.max(0, Math.min(state.pages.length - 1, Math.round(viewport.scrollLeft / viewport.clientWidth)))
     const page = state.pages[index]
     if (state.disabled || !page) {
+      pendingProgrammaticTargetRef.current = null
       viewport.scrollLeft = state.activeIndex * viewport.clientWidth
       return
     }
+    const pendingTarget = pendingProgrammaticTargetRef.current
+    if (
+      pendingTarget &&
+      (page.index !== pendingTarget.index || page.pageOffset !== pendingTarget.pageOffset)
+    ) {
+      return
+    }
+    pendingProgrammaticTargetRef.current = null
     if (page.index !== state.nav.index || page.pageOffset !== state.nav.pageOffset) state.onNavigate(page)
   }, [])
 
@@ -50,10 +60,14 @@ export function PlayerSnapViewport({ ref, pages, nav, disabled, reduceMotion, on
     navigate(target, smooth) {
       const viewport = viewportRef.current
       const index = pages.findIndex((page) => page.index === target.index)
+      if (timerRef.current != null) clearTimeout(timerRef.current)
+      timerRef.current = null
       if (!viewport || viewport.clientWidth <= 0 || index < 0) {
+        pendingProgrammaticTargetRef.current = null
         onNavigate(target)
         return
       }
+      pendingProgrammaticTargetRef.current = target
       viewport.scrollTo({ left: index * viewport.clientWidth, behavior: smooth && !reduceMotion ? 'smooth' : 'instant' })
       if (!smooth || reduceMotion) onNavigate(target)
     },
@@ -87,13 +101,18 @@ export function PlayerSnapViewport({ ref, pages, nav, disabled, reduceMotion, on
       data-testid="player-snap-viewport"
       className="flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory overscroll-x-contain"
       style={{ overflowX: disabled ? 'hidden' : 'auto', touchAction: 'pan-x pan-y', scrollbarWidth: 'none' }}
-      onTouchStart={() => { touchingRef.current = true }}
+      onTouchStart={() => {
+        touchingRef.current = true
+        pendingProgrammaticTargetRef.current = null
+      }}
       onTouchEnd={() => {
         touchingRef.current = false
         if (timerRef.current != null) clearTimeout(timerRef.current)
         timerRef.current = setTimeout(settle, 160)
       }}
       onTouchCancel={() => { touchingRef.current = false }}
+      onPointerDown={() => { pendingProgrammaticTargetRef.current = null }}
+      onWheel={() => { pendingProgrammaticTargetRef.current = null }}
       onScroll={(event) => {
         if (event.target !== event.currentTarget) return
         latest.current.onScrollGesture()
