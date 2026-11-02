@@ -3303,7 +3303,7 @@
             ]
           },
           "nr": {
-            "description": "Optional slot number override from the editor row.",
+            "description": "Optional destination slot number override. When omitted, the destination assigns the next number.",
             "type": [
               "string",
               "null"

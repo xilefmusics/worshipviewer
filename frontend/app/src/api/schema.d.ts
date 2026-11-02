@@ -2325,7 +2325,7 @@ export interface components {
          */
         TransferCollectionSong: {
             key?: components["schemas"]["SimpleChord"] | null;
-            /** @description Optional slot number override from the editor row. */
+            /** @description Optional destination slot number override. When omitted, the destination assigns the next number. */
             nr?: string | null;
             /** @description Destination collection id. */
             target: string;

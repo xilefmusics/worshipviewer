@@ -5097,6 +5097,17 @@ mod collection_membership_http {
 
         let response = test::call_service(
             &app,
+            test::TestRequest::get()
+                .uri(&format!("/api/v1/collections/{}", source.id))
+                .insert_header(("Authorization", auth.clone()))
+                .to_request(),
+        )
+        .await;
+        let source_after_create: Collection = test::read_body_json(response).await;
+        assert_eq!(source_after_create.songs[0].nr.as_deref(), Some("1"));
+
+        let response = test::call_service(
+            &app,
             test::TestRequest::post()
                 .uri("/api/v1/collections")
                 .insert_header(("Authorization", auth.clone()))
@@ -5225,6 +5236,7 @@ mod collection_membership_http {
         .await;
         let target_after: Collection = test::read_body_json(response).await;
         assert_eq!(target_after.songs.len(), 1);
+        assert_eq!(target_after.songs[0].nr.as_deref(), Some("1"));
 
         let response = test::call_service(
             &app,
@@ -5260,5 +5272,70 @@ mod collection_membership_http {
         assert_eq!(response.status(), StatusCode::OK);
         let target_with_repeated_link: Collection = test::read_body_json(response).await;
         assert_eq!(target_with_repeated_link.songs.len(), 2);
+        assert_eq!(target_with_repeated_link.songs[0].nr, None);
+        assert_eq!(target_with_repeated_link.songs[1].nr.as_deref(), Some("2"));
+    }
+
+    #[actix_web::test]
+    async fn collection_patch_assigns_next_number_to_new_unlabelled_song_links() {
+        let db = test_db().await.unwrap();
+        let user = create_user(&db, "collection-numbering@test.local")
+            .await
+            .unwrap();
+        let token = create_session_token(&db, user).await.unwrap();
+        let auth = format!("Bearer {token}");
+        let app = test::init_service(build_app(db)).await;
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/api/v1/collections")
+                .insert_header(("Authorization", auth.clone()))
+                .set_json(serde_json::json!({
+                    "title": "Numbered collection",
+                    "cover": "",
+                    "songs": [{ "id": "number_seed", "nr": "8" }]
+                }))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let collection: Collection = test::read_body_json(response).await;
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri(&format!("/api/v1/collections/{}", collection.id))
+                .insert_header(("Authorization", auth.clone()))
+                .to_request(),
+        )
+        .await;
+        let etag = response
+            .headers()
+            .get("etag")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let _: Collection = test::read_body_json(response).await;
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::patch()
+                .uri(&format!("/api/v1/collections/{}", collection.id))
+                .insert_header(("Authorization", auth))
+                .insert_header(("If-Match", etag))
+                .set_json(serde_json::json!({
+                    "songs": [
+                        { "id": "number_seed", "nr": "8" },
+                        { "id": "number_added" }
+                    ]
+                }))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let updated: Collection = test::read_body_json(response).await;
+        assert_eq!(updated.songs[1].nr.as_deref(), Some("9"));
     }
 }

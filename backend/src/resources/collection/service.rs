@@ -234,7 +234,7 @@ impl<R: CollectionRepository, L: LikedSongIds> CollectionService<R, L> {
         let link = SongLink {
             id: from_source.id.clone(),
             key: payload.key.or_else(|| from_source.key.clone()),
-            nr: payload.nr.or_else(|| from_source.nr.clone()),
+            nr: payload.nr,
             tempo: None,
             language: None,
         };
@@ -1324,6 +1324,98 @@ mod tests {
             )
             .await;
         assert!(matches!(r, Err(AppError::NotFound(_))));
+    }
+
+    #[tokio::test]
+    async fn transfer_without_number_uses_next_destination_number() {
+        use shared::collection::TransferCollectionSong;
+
+        let (db, owner, _cm, _guest, _nm, _tid) = four_user_coll_fixture().await;
+        let svc = CollectionServiceHandle::build(db.clone());
+        let owner_p = auth_ctx_for_user(&db, &owner).await.expect("auth");
+        let moved_song = create_unlinked_song_with_title(&db, &owner, "Transfer numbered")
+            .await
+            .expect("moved song");
+        let seed_one = create_unlinked_song_with_title(&db, &owner, "Seed one")
+            .await
+            .expect("seed one");
+        let seed_two = create_unlinked_song_with_title(&db, &owner, "Seed two")
+            .await
+            .expect("seed two");
+        let seed_three = create_unlinked_song_with_title(&db, &owner, "Seed three")
+            .await
+            .expect("seed three");
+        let source = svc
+            .create_collection_for_user(
+                &owner_p,
+                CreateCollection {
+                    owner: None,
+                    title: "Number source".into(),
+                    cover: "".into(),
+                    songs: vec![shared::song::Link {
+                        id: moved_song.id.clone(),
+                        nr: Some("2a".into()),
+                        key: None,
+                        tempo: None,
+                        language: None,
+                    }],
+                },
+            )
+            .await
+            .expect("source");
+        let target = svc
+            .create_collection_for_user(
+                &owner_p,
+                CreateCollection {
+                    owner: None,
+                    title: "Number target".into(),
+                    cover: "".into(),
+                    songs: vec![
+                        shared::song::Link {
+                            id: seed_one.id,
+                            nr: Some("4".into()),
+                            key: None,
+                            tempo: None,
+                            language: None,
+                        },
+                        shared::song::Link {
+                            id: seed_two.id,
+                            nr: None,
+                            key: None,
+                            tempo: None,
+                            language: None,
+                        },
+                        shared::song::Link {
+                            id: seed_three.id,
+                            nr: Some("9".into()),
+                            key: None,
+                            tempo: None,
+                            language: None,
+                        },
+                    ],
+                },
+            )
+            .await
+            .expect("target");
+
+        let result = svc
+            .transfer_song_between_collections_for_user(
+                &owner_p,
+                &source.id,
+                &moved_song.id,
+                TransferCollectionSong {
+                    target: target.id.clone(),
+                    key: None,
+                    nr: None,
+                },
+            )
+            .await
+            .expect("transfer");
+
+        assert_eq!(
+            result.target.songs.last().unwrap().nr.as_deref(),
+            Some("10")
+        );
     }
 
     #[tokio::test]

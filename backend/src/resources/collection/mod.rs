@@ -4,6 +4,7 @@ pub use shared::collection::{
 };
 
 mod model;
+mod numbering;
 mod repository;
 pub mod service;
 mod surreal_repo;

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -21,6 +21,7 @@ use crate::resources::common::{
 use crate::resources::team::thing_record_key;
 
 use super::model::CollectionRecord;
+use super::numbering::next_collection_song_number;
 use super::repository::CollectionRepository;
 
 #[derive(Deserialize, SurrealValue)]
@@ -275,7 +276,7 @@ impl CollectionRepository for SurrealCollectionRepo {
         &self,
         write_teams: &[RecordId],
         id: &str,
-        collection: CreateCollection,
+        mut collection: CreateCollection,
         owner: Option<RecordId>,
     ) -> Result<Collection, AppError> {
         let db = self.inner();
@@ -297,8 +298,30 @@ impl CollectionRepository for SurrealCollectionRepo {
                 .map(CollectionRecord::into_collection)
                 .ok_or_else(|| AppError::NotFound("collection not found".into()))?;
 
+            let mut current_song_counts: HashMap<String, usize> = HashMap::new();
+            for link in &current.songs {
+                *current_song_counts
+                    .entry(thing_record_key(&song_thing(&link.id)))
+                    .or_default() += 1;
+            }
+            let mut number_context = current.songs.clone();
+            let mut has_new_song_links = false;
+            for link in &mut collection.songs {
+                let key = thing_record_key(&song_thing(&link.id));
+                let existing_count = current_song_counts.entry(key).or_default();
+                if *existing_count > 0 {
+                    *existing_count -= 1;
+                    continue;
+                }
+                has_new_song_links = true;
+                if link.nr.is_none() {
+                    link.nr = Some(next_collection_song_number(&number_context));
+                }
+                number_context.push(link.clone());
+            }
+
             let new_song_ids = new_song_record_ids(&current.songs, &collection.songs);
-            if !new_song_ids.is_empty() {
+            if has_new_song_links {
                 serialize_song_membership_write(&transaction).await?;
             }
             if song_links_exist_elsewhere(
@@ -409,13 +432,32 @@ impl CollectionRepository for SurrealCollectionRepo {
         &self,
         write_teams: &[RecordId],
         id: &str,
-        song_link: SongLink,
+        mut song_link: SongLink,
     ) -> Result<(), AppError> {
         let db = self.inner();
         let target_id = RecordId::new("collection", id.to_owned());
         let transaction = db.db.clone().begin().await?;
         let result = async {
             serialize_song_membership_write(&transaction).await?;
+            let mut current_response = transaction
+                .query(
+                    r#"SELECT * FROM type::record("collection", $id) WHERE owner IN $teams"#,
+                )
+                .bind(("id", id.to_owned()))
+                .bind(("teams", write_teams.to_vec()))
+                .await?;
+            surreal_take_errors("collection.add_song_to_collection.current", &mut current_response)?;
+            let current = current_response
+                .take::<Vec<CollectionRecord>>(0)?
+                .into_iter()
+                .next()
+                .map(CollectionRecord::into_collection)
+                .ok_or_else(|| AppError::NotFound("collection not found".into()))?;
+
+            if song_link.nr.is_none() {
+                song_link.nr = Some(next_collection_song_number(&current.songs));
+            }
+
             if song_links_exist_elsewhere(
                 &transaction,
                 &[song_thing(&song_link.id)],
@@ -459,7 +501,7 @@ impl CollectionRepository for SurrealCollectionRepo {
         let db = self.inner();
         let song_rid = song_thing(song_id);
         let source_rid = RecordId::new("collection", source_id.to_owned());
-        let link_record = SongLinkRecord::from(link);
+        let mut link = link;
         let teams = write_teams.to_vec();
 
         let transaction = db.db.clone().begin().await?;
@@ -477,6 +519,31 @@ impl CollectionRepository for SurrealCollectionRepo {
                 ));
             }
 
+            let mut target_response = transaction
+                .query(
+                    r#"SELECT * FROM type::record("collection", $target_id) WHERE owner IN $teams"#,
+                )
+                .bind(("target_id", target_id.to_owned()))
+                .bind(("teams", teams.clone()))
+                .await?;
+            surreal_take_errors(
+                "collection.transfer_song_link_between_collections.target",
+                &mut target_response,
+            )?;
+            let target = target_response
+                .take::<Vec<CollectionRecord>>(0)?
+                .into_iter()
+                .next()
+                .map(CollectionRecord::into_collection)
+                .ok_or_else(|| {
+                    AppError::NotFound(
+                        "target collection not found, not writable, or song already present".into(),
+                    )
+                })?;
+            if link.nr.is_none() {
+                link.nr = Some(next_collection_song_number(&target.songs));
+            }
+
             let mut response = transaction
                 .query(
                     r#"UPDATE type::record("collection", $source_id)
@@ -491,7 +558,7 @@ UPDATE type::record("collection", $target_id)
                 .bind(("source_id", source_id.to_owned()))
                 .bind(("target_id", target_id.to_owned()))
                 .bind(("song_rid", song_rid))
-                .bind(("link", link_record))
+                .bind(("link", SongLinkRecord::from(link)))
                 .bind(("teams", teams))
                 .await?;
 

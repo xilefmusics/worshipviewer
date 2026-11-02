@@ -119,7 +119,7 @@ pub struct TransferCollectionSong {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "backend", schema(value_type = Option<SimpleChordSchema>))]
     pub key: Option<SimpleChord>,
-    /// Optional slot number override from the editor row.
+    /// Optional destination slot number override. When omitted, the destination assigns the next number.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nr: Option<String>,
 }
