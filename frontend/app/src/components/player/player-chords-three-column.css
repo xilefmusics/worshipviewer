@@ -90,6 +90,8 @@
 .player-chords-three-column--scroll .player-chords-three-column__scroll {
   overflow-x: hidden;
   overflow-y: hidden;
+  /* Keep measured column width stable when classic scrollbars appear (Firefox/Windows). */
+  scrollbar-gutter: stable;
 }
 
 .player-chords-three-column--scroll .player-chords-three-column__scroll--scrollable {
