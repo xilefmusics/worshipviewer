@@ -65,6 +65,25 @@ describe('Chord section render service', () => {
     expect(renderInWorker).toHaveBeenCalledWith(expect.objectContaining({ key: 'A', capo: 2 }))
   })
 
+  it('removes the generated hyphen before a translated line that starts at a chord', async () => {
+    const chordSection: RenderedChordSections = {
+      sections: [
+        '<p><span class="part"><span class="text"> </span></span><span class="text">-</span><span class="part part-has-chord"><span class="chord">G</span><span class="text">All</span></span><br><span class="part"><span class="text"> </span></span><span class="text">-</span><span class="part part-has-chord"><span class="chord">G</span><span class="text">All</span></span><br></p>',
+      ],
+      css: '.verse {}',
+    }
+    const renderInWorker = vi.fn().mockResolvedValue(chordSection)
+    const service = createChordSectionRenderService(renderInWorker, vi.fn())
+
+    const translated = await service.render(request({ language: 1 }))
+    const primary = await service.render(request())
+
+    expect(translated.sections[0]).toBe(
+      '<p><span class="part part-has-chord"><span class="chord">G</span><span class="text">All</span></span><br><span class="part part-has-chord"><span class="chord">G</span><span class="text">All</span></span><br></p>',
+    )
+    expect(primary.sections[0]).toContain('<span class="text">-</span>')
+  })
+
   it('evicts least recently used completed entries at capacity', async () => {
     const renderInWorker = vi.fn().mockResolvedValue(rendered)
     const service = createChordSectionRenderService(renderInWorker, vi.fn(), 2)

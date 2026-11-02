@@ -136,9 +136,27 @@ function finalizeRender(
   request: ChordSectionRenderRequest,
   rendered: RenderedChordSections,
 ): RenderedChordSections {
+  const translatedSections =
+    request.language != null && request.language > 0
+      ? rendered.sections.map(stripEmptyTranslatedFragmentHyphens)
+      : rendered.sections
+  const withTranslatedSections = { ...rendered, sections: translatedSections }
+
   return request.hideChords
-    ? { ...rendered, sections: rendered.sections.map(stripChordsFromChordlibHtml) }
-    : rendered
+    ? {
+        ...withTranslatedSections,
+        sections: withTranslatedSections.sections.map(stripChordsFromChordlibHtml),
+      }
+    : withTranslatedSections
+}
+
+function stripEmptyTranslatedFragmentHyphens(html: string): string {
+  // chordlib 0.18.1 preserves empty translation fragments but still adds a
+  // word-join hyphen before the next chorded part; that hyphen is not lyric text.
+  return html.replace(
+    /<span class="part"><span class="text"> <\/span><\/span><span class="text">-<\/span><span class="part part-has-chord">/g,
+    '<span class="part part-has-chord">',
+  )
 }
 
 export function createChordSectionRenderService(

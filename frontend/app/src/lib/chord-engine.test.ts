@@ -114,6 +114,30 @@ describe('@worshipviewer/chordlib-wasm pkg', () => {
       expect(sectionsPage.sections.length).toBeGreaterThan(0)
       expect(sectionsPage.css.length).toBeGreaterThan(0)
 
+      const translatedLeadingFragment = wasm.parseChordPro(
+        [
+          '{title: Minimal reproduction}',
+          '{key: G}',
+          '{language: de}',
+          '{language2: en}',
+          '{section: Test}',
+          'D[G]u',
+          '&[G]All',
+        ].join('\n'),
+      )
+      const translatedSections = wasm.renderA4SectionHtmls(
+        translatedLeadingFragment,
+        undefined,
+        undefined,
+        1,
+        1,
+      )
+      const translatedHtml = translatedSections.sections.join('')
+      expect(translatedHtml).not.toContain('<span class="text">D</span>')
+      expect(translatedHtml).toContain(
+        '<span class="part part-has-chord"><span class="chord">G</span><span class="text">All</span></span>',
+      )
+
       const filled = wasm.fillSectionReferences(json)
       expect(JSON.parse(filled)).toBeTruthy()
 
