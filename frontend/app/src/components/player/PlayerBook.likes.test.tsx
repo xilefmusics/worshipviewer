@@ -267,6 +267,22 @@ describe('PlayerBook likes', () => {
     expect(activeSong().getByText('song-1')).toBeInTheDocument()
   })
 
+  it('keeps desktop TOC selection working after next and previous navigation', () => {
+    renderPlayer(player())
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    fireEvent.click(within(screen.getByTestId('liked-toc')).getByRole('button', { name: 'Other' }))
+    expect(screen.getByTestId('player-snap-viewport').querySelector('[aria-hidden="false"]'))
+      .toHaveAttribute('data-player-snap-index', '2')
+    expect(activeSong().getByText('song-2')).toBeInTheDocument()
+
+    fireEvent.keyDown(window, { key: 'ArrowLeft' })
+    fireEvent.click(within(screen.getByTestId('liked-toc')).getByRole('button', { name: 'Current' }))
+    expect(screen.getByTestId('player-snap-viewport').querySelector('[aria-hidden="false"]'))
+      .toHaveAttribute('data-player-snap-index', '0')
+    expect(activeSong().getByText('song-1')).toBeInTheDocument()
+  })
+
   it('pinches only the chord surface without navigating', () => {
     renderPlayer(player(), null)
     const chordSurface = activeSong().getByText('song-1')

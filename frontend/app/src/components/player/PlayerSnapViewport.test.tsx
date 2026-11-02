@@ -99,6 +99,34 @@ describe('PlayerSnapViewport', () => {
     expect(onNavigate).toHaveBeenCalledWith({ index: 1, pageOffset: 0 })
   })
 
+  it('ignores stale scroll settlements after an imperative jump', () => {
+    vi.useFakeTimers()
+    const { viewport, ref, onNavigate } = setup()
+
+    act(() => ref.current?.navigate({ index: 1, pageOffset: 0 }, true))
+    scroll(viewport, 100)
+    act(() => ref.current?.navigate({ index: 4, pageOffset: 0 }, false))
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith({ index: 4, pageOffset: 0 })
+
+    // The pending idle fallback from the previous navigation must have been canceled.
+    act(() => vi.advanceTimersByTime(160))
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith({ index: 4, pageOffset: 0 })
+
+    // A late scrollend or scroll event can still report the previous position.
+    viewport.scrollLeft = 100
+    end(viewport)
+    fireEvent.scroll(viewport)
+    act(() => vi.advanceTimersByTime(160))
+    expect(onNavigate).toHaveBeenCalledExactlyOnceWith({ index: 4, pageOffset: 0 })
+
+    // A new user gesture takes over and can settle on a different page.
+    fireEvent.touchStart(viewport)
+    scroll(viewport, 200)
+    fireEvent.touchEnd(viewport)
+    act(() => vi.advanceTimersByTime(160))
+    expect(onNavigate).toHaveBeenLastCalledWith({ index: 2, pageOffset: 0 })
+  })
+
   it('jumps directly from an open TOC and honors reduced motion', () => {
     const { ref, onNavigate, scrollTo } = setup({ disabled: true, reduceMotion: true })
     act(() => ref.current?.navigate({ index: 80, pageOffset: 0 }, true))
