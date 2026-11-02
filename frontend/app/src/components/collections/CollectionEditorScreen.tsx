@@ -51,6 +51,7 @@ import { hubListRootKey } from '@/lib/hub-list-keys'
 import { collectionDetailKey, songDetailQueryKey } from '@/lib/setlist-detail-key'
 import {
   coerceMusicalKeyString,
+  nextCollectionSongNumber,
   normalizeSongLinkNr,
   normalizeSongLinksForCollectionEditor,
   resolveSongDataKey,
@@ -249,7 +250,10 @@ export function CollectionEditorScreen({ collectionId }: { collectionId: string 
       canInsert: !patchInFlight,
       flushBeforeInsert: flushNow,
       insertSongLink: (link: EditorSongLink) => {
-        setSlotRows((prev) => [...prev, makeSlotRow({ ...link, nr: normalizeSongLinkNr(link.nr) })])
+        setSlotRows((prev) => [
+          ...prev,
+          makeSlotRow({ ...link, nr: nextCollectionSongNumber(prev.map((row) => row.link)) }),
+        ])
         queueMicrotask(() => notifyDraftEdited())
       },
       ...BRIDGE_KEYS,
@@ -635,6 +639,16 @@ export function CollectionEditorScreen({ collectionId }: { collectionId: string 
                     duplicateBadgeKey="common.duplicateBadge"
                     duplicateContainerKey="common.containerCollection"
                     moveUiReady={moveUiReady}
+                    onNumberChange={(nr) => {
+                      setSlotRows((rows) =>
+                        rows.map((candidate) =>
+                          candidate.slotId === row.slotId
+                            ? { ...candidate, link: { ...candidate.link, nr } }
+                            : candidate,
+                        ),
+                      )
+                      queueMicrotask(() => notifyDraftEdited())
+                    }}
                     onOpenMoveSheet={(songTitlePreview) =>
                       setMoveDialogSlot({ index: idx, titlePreview: songTitlePreview })
                     }
@@ -679,6 +693,7 @@ type CollectionSortProps = {
   duplicateBadgeKey: string
   duplicateContainerKey: string
   moveUiReady: boolean
+  onNumberChange: (nr: string | null) => void
   onOpenMoveSheet: (songTitlePreview: string) => void
 }
 
@@ -696,6 +711,7 @@ const CollectionSortableRow = memo(function CollectionSortableRow(props: Collect
     duplicateBadgeKey,
     duplicateContainerKey,
     moveUiReady,
+    onNumberChange,
     onOpenMoveSheet,
   } = props
   const touchStartX = useRef<number | null>(null)
@@ -765,14 +781,24 @@ const CollectionSortableRow = memo(function CollectionSortableRow(props: Collect
       >
         <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1">
           {hydrationPending && !brokenHydration ? (
-            <div className="col-span-2 h-4 w-2/3 max-w-full animate-pulse rounded bg-[var(--color-muted)]" />
+            <div className="h-4 w-2/3 max-w-full animate-pulse rounded bg-[var(--color-muted)]" />
           ) : (
+            <p className={cn('min-w-0 line-clamp-2 font-medium leading-snug', brokenHydration && 'text-[var(--color-danger)]')}>
+              {titleLabel || '—'}
+            </p>
+          )}
+          <Input
+            aria-label={t('collections.editor.songNumberAria', {
+              title: titleLabel || t('setlists.editor.unavailable'),
+            })}
+            className="h-8 w-16 px-2 py-0 text-sm"
+            placeholder={t('collections.editor.songNumberPlaceholder')}
+            value={row.link.nr ?? ''}
+            disabled={blockingAll || !canEditUi}
+            onChange={(event) => onNumberChange(normalizeSongLinkNr(event.currentTarget.value))}
+          />
+          {!hydrationPending || brokenHydration ? (
             <>
-              <p className={cn('min-w-0 line-clamp-2 font-medium leading-snug', brokenHydration && 'text-[var(--color-danger)]')}>
-                {titleLabel || '—'}
-              </p>
-              <div className="inline-flex max-w-[11rem] min-w-0 shrink-0 justify-self-end" aria-hidden />
-
               <div className="min-w-0">
                 {!brokenHydration && artistsLine ? (
                   <p className="truncate text-xs text-[var(--color-muted-foreground)]">{artistsLine}</p>
@@ -811,7 +837,7 @@ const CollectionSortableRow = memo(function CollectionSortableRow(props: Collect
                 ) : null}
               </div>
             </>
-          )}
+          ) : null}
           {dup > 1 ? (
             <p className="col-span-2 mt-0.5 text-[0.65rem] uppercase text-[var(--color-muted-foreground)]">
               {t(duplicateBadgeKey, { container: t(duplicateContainerKey), count: dup })}

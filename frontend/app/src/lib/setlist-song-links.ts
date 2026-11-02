@@ -453,6 +453,17 @@ export function normalizeSongLinksForCollectionEditor(
   }))
 }
 
+/** Next collection display number, considering custom integer labels and row-order fallbacks. */
+export function nextCollectionSongNumber(links: readonly Pick<EditorSongLink, 'nr'>[]): string {
+  let maximum = 0n
+  for (const [index, link] of links.entries()) {
+    const nr = normalizeSongLinkNr(link.nr)
+    const candidate = nr == null ? BigInt(index + 1) : /^\d+$/.test(nr) ? BigInt(nr) : null
+    if (candidate != null && candidate > maximum) maximum = candidate
+  }
+  return (maximum + 1n).toString()
+}
+
 /** One wire `SongLink` for collection PATCH bodies (`key` wire + `nr`). */
 export function songLinkForCollectionMutation(link: EditorSongLink): CollectionSongLink {
   return {

@@ -5,6 +5,7 @@ import type { SongFlowItem } from '@/ports/chord-engine'
 import {
   normalizeCapoShapeKey,
   normalizeSongLinksForEditor,
+  nextCollectionSongNumber,
   songLinkForSetlistMutation,
   type SetlistSongLink,
 } from '@/lib/setlist-song-links'
@@ -16,6 +17,28 @@ function flow(title: string, occurrence_index = 0, repeats = 1): SongFlowItem {
 }
 
 describe('setlist song links', () => {
+  it('chooses the next collection number above custom numeric labels and blank row fallbacks', () => {
+    expect(
+      nextCollectionSongNumber([
+        { nr: '5' },
+        { nr: null },
+        { nr: '2a' },
+        { nr: '12' },
+      ]),
+    ).toBe('13')
+  })
+
+  it('uses row positions for blank numbers and ignores non-numeric labels', () => {
+    expect(nextCollectionSongNumber([{ nr: null }, { nr: '' }, { nr: '1a' }])).toBe('3')
+    expect(nextCollectionSongNumber([{ nr: '2a' }, { nr: 'intro' }])).toBe('1')
+  })
+
+  it('increments large numeric labels without precision loss', () => {
+    expect(nextCollectionSongNumber([{ nr: '999999999999999999999999999999' }])).toBe(
+      '1000000000000000000000000000000',
+    )
+  })
+
   it('preserves nr and flow when normalizing setlist links for the editor', () => {
     const links: SetlistSongLink[] = [
       {

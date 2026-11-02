@@ -926,6 +926,8 @@
       "pickerSearchAria": "Lieder zum Hinzufügen suchen",
       "pickerExcluded": "Dieser Eintrag kann nicht zu Sammlungen hinzugefügt werden.",
       "dragHandleAria": "Zum Sortieren ziehen",
+      "songNumberAria": "Nummer für {{title}}",
+      "songNumberPlaceholder": "Nr.",
       "moveAria": "In eine andere Sammlung verschieben",
       "moveToCollection": {
         "title": "Lied in Sammlung verschieben",

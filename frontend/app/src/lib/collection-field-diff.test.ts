@@ -67,6 +67,19 @@ describe('buildCollectionPatchBody', () => {
     })
   })
 
+  it('preserves custom textual slot numbers', () => {
+    expect(
+      buildCollectionPatchBody(base, {
+        title: 'A',
+        cover: '',
+        owner: 'team-a',
+        songs: [{ id: 'x', key: 'C', nr: '2a' }],
+      }),
+    ).toEqual({
+      songs: [{ id: 'x', key: { level: 3 }, nr: '2a' }],
+    })
+  })
+
   it('clears nr to null in PATCH body', () => {
     expect(
       buildCollectionPatchBody(base, {

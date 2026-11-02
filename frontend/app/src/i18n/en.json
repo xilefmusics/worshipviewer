@@ -926,6 +926,8 @@
       "pickerSearchAria": "Search songs to add",
       "pickerExcluded": "This item can’t be added to collections.",
       "dragHandleAria": "Drag to reorder",
+      "songNumberAria": "Number for {{title}}",
+      "songNumberPlaceholder": "No.",
       "moveAria": "Move to another collection",
       "moveToCollection": {
         "title": "Move song to collection",

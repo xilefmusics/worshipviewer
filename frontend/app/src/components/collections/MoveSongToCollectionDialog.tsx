@@ -22,7 +22,6 @@ import { getNextPageIndex } from '@/lib/list-pagination'
 import { collectionDetailKey } from '@/lib/setlist-detail-key'
 import {
   normalizeSongLinkId,
-  normalizeSongLinkNr,
   songLinkKeyEditorToWire,
   type EditorSongLink,
 } from '@/lib/setlist-song-links'
@@ -96,7 +95,6 @@ export function MoveSongToCollectionDialog({
 
       const songId = normalizeSongLinkId(songLink.id)
       const key = songLinkKeyEditorToWire(songLink.key)
-      const nr = normalizeSongLinkNr(songLink.nr)
 
       const { data: result, error, response } = await api.POST(
         '/api/v1/collections/{id}/songs/{song_id}/transfer',
@@ -105,7 +103,6 @@ export function MoveSongToCollectionDialog({
           body: {
             target: targetCollectionId,
             ...(key != null ? { key } : {}),
-            ...(nr != null ? { nr } : {}),
           },
         },
       )

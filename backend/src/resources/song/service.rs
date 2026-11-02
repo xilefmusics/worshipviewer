@@ -1320,6 +1320,27 @@ mod tests {
         let song_ids: Vec<&str> = songs.iter().map(|s| s.id.as_str()).collect();
         assert!(song_ids.contains(&song1.id.as_str()));
         assert!(song_ids.contains(&song2.id.as_str()));
+
+        let collection = coll_svc
+            .get_collection_for_user(&perms2, &coll_id)
+            .await
+            .expect("collection with slot numbers");
+        assert_eq!(
+            collection
+                .songs
+                .iter()
+                .find(|link| link.id == song1.id)
+                .and_then(|link| link.nr.as_deref()),
+            Some("1")
+        );
+        assert_eq!(
+            collection
+                .songs
+                .iter()
+                .find(|link| link.id == song2.id)
+                .and_then(|link| link.nr.as_deref()),
+            Some("2")
+        );
     }
 
     #[tokio::test]
