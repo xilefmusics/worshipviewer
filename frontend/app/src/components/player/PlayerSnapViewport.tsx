@@ -3,6 +3,9 @@ import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, u
 import { observeElementResize } from '@/lib/browser-apis'
 import type { PlayerNavState } from '@/lib/player/next-player-state'
 
+const SCROLL_SETTLE_DELAY_MS = 160
+const MAX_PROGRAMMATIC_ALIGNMENT_RETRIES = 3
+
 export type PlayerSnapHandle = {
   navigate: (target: PlayerNavState, smooth: boolean) => void
 }
@@ -25,6 +28,8 @@ export function PlayerSnapViewport({ ref, pages, nav, disabled, reduceMotion, on
   const touchingRef = useRef(false)
   const frameRef = useRef<number | null>(null)
   const pendingProgrammaticTargetRef = useRef<PlayerNavState | null>(null)
+  const programmaticAlignmentRetriesRef = useRef(0)
+  const settleRef = useRef<() => void>(() => {})
   const activeIndex = Math.max(0, pages.findIndex((page) => page.index === nav.index))
   const [visibleIndex, setVisibleIndex] = useState(activeIndex)
   const latest = useRef({ pages, nav, disabled, onNavigate, onScrollGesture, activeIndex })
@@ -42,6 +47,7 @@ export function PlayerSnapViewport({ ref, pages, nav, disabled, reduceMotion, on
     const page = state.pages[index]
     if (state.disabled || !page) {
       pendingProgrammaticTargetRef.current = null
+      programmaticAlignmentRetriesRef.current = 0
       viewport.scrollLeft = state.activeIndex * viewport.clientWidth
       return
     }
@@ -50,11 +56,26 @@ export function PlayerSnapViewport({ ref, pages, nav, disabled, reduceMotion, on
       pendingTarget &&
       (page.index !== pendingTarget.index || page.pageOffset !== pendingTarget.pageOffset)
     ) {
+      // iOS can finish an earlier native scroll after an instant programmatic jump.
+      // Keep the requested nav state, but realign the viewport when that stale position settles.
+      const targetIndex = state.pages.findIndex((candidate) =>
+        candidate.index === pendingTarget.index && candidate.pageOffset === pendingTarget.pageOffset,
+      )
+      if (targetIndex >= 0 && programmaticAlignmentRetriesRef.current < MAX_PROGRAMMATIC_ALIGNMENT_RETRIES) {
+        programmaticAlignmentRetriesRef.current += 1
+        viewport.scrollLeft = targetIndex * viewport.clientWidth
+        timerRef.current = setTimeout(() => settleRef.current(), SCROLL_SETTLE_DELAY_MS)
+      }
       return
     }
     pendingProgrammaticTargetRef.current = null
+    programmaticAlignmentRetriesRef.current = 0
     if (page.index !== state.nav.index || page.pageOffset !== state.nav.pageOffset) state.onNavigate(page)
   }, [])
+
+  useLayoutEffect(() => {
+    settleRef.current = settle
+  }, [settle])
 
   useImperativeHandle(ref, () => ({
     navigate(target, smooth) {
@@ -64,10 +85,12 @@ export function PlayerSnapViewport({ ref, pages, nav, disabled, reduceMotion, on
       timerRef.current = null
       if (!viewport || viewport.clientWidth <= 0 || index < 0) {
         pendingProgrammaticTargetRef.current = null
+        programmaticAlignmentRetriesRef.current = 0
         onNavigate(target)
         return
       }
       pendingProgrammaticTargetRef.current = target
+      programmaticAlignmentRetriesRef.current = 0
       viewport.scrollTo({ left: index * viewport.clientWidth, behavior: smooth && !reduceMotion ? 'smooth' : 'instant' })
       if (!smooth || reduceMotion) onNavigate(target)
     },
@@ -104,15 +127,22 @@ export function PlayerSnapViewport({ ref, pages, nav, disabled, reduceMotion, on
       onTouchStart={() => {
         touchingRef.current = true
         pendingProgrammaticTargetRef.current = null
+        programmaticAlignmentRetriesRef.current = 0
       }}
       onTouchEnd={() => {
         touchingRef.current = false
         if (timerRef.current != null) clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(settle, 160)
+        timerRef.current = setTimeout(settle, SCROLL_SETTLE_DELAY_MS)
       }}
       onTouchCancel={() => { touchingRef.current = false }}
-      onPointerDown={() => { pendingProgrammaticTargetRef.current = null }}
-      onWheel={() => { pendingProgrammaticTargetRef.current = null }}
+      onPointerDown={() => {
+        pendingProgrammaticTargetRef.current = null
+        programmaticAlignmentRetriesRef.current = 0
+      }}
+      onWheel={() => {
+        pendingProgrammaticTargetRef.current = null
+        programmaticAlignmentRetriesRef.current = 0
+      }}
       onScroll={(event) => {
         if (event.target !== event.currentTarget) return
         latest.current.onScrollGesture()
@@ -122,7 +152,7 @@ export function PlayerSnapViewport({ ref, pages, nav, disabled, reduceMotion, on
           if (viewport.clientWidth > 0) setVisibleIndex(Math.round(viewport.scrollLeft / viewport.clientWidth))
         })
         if (timerRef.current != null) clearTimeout(timerRef.current)
-        timerRef.current = setTimeout(settle, 160)
+        timerRef.current = setTimeout(settle, SCROLL_SETTLE_DELAY_MS)
       }}
     >
       {pages.map((page, index) => (

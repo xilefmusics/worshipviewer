@@ -99,13 +99,14 @@ describe('PlayerSnapViewport', () => {
     expect(onNavigate).toHaveBeenCalledWith({ index: 1, pageOffset: 0 })
   })
 
-  it('ignores stale scroll settlements after an imperative jump', () => {
+  it('realigns stale scroll settlements after an imperative jump', () => {
     vi.useFakeTimers()
-    const { viewport, ref, onNavigate } = setup()
+    const { props, rerender, viewport, ref, onNavigate } = setup()
 
     act(() => ref.current?.navigate({ index: 1, pageOffset: 0 }, true))
     scroll(viewport, 100)
     act(() => ref.current?.navigate({ index: 4, pageOffset: 0 }, false))
+    rerender(<PlayerSnapViewport {...props} nav={{ index: 4, pageOffset: 0 }} />)
     expect(onNavigate).toHaveBeenCalledExactlyOnceWith({ index: 4, pageOffset: 0 })
 
     // The pending idle fallback from the previous navigation must have been canceled.
@@ -115,6 +116,7 @@ describe('PlayerSnapViewport', () => {
     // A late scrollend or scroll event can still report the previous position.
     viewport.scrollLeft = 100
     end(viewport)
+    expect(viewport.scrollLeft).toBe(400)
     fireEvent.scroll(viewport)
     act(() => vi.advanceTimersByTime(160))
     expect(onNavigate).toHaveBeenCalledExactlyOnceWith({ index: 4, pageOffset: 0 })
