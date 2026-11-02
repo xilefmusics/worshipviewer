@@ -4,7 +4,7 @@ packages:
 
 overrides:
   esbuild: 0.28.1
-  undici: 7.29.1
+  undici: 7.30.1
   serialize-javascript: '>=7.0.5'
   'js-yaml@>=4.0.0 <4.3.2': 4.3.2
   'fast-uri@>=3.0.0 <3.1.7': 3.1.7
