@@ -1,6 +1,6 @@
 import type { components } from '@/api/schema'
 
-export type RoomDisplayMode = 'sheet' | 'av'
+export type RoomDisplayMode = 'sheet' | 'av' | 'slide'
 export type RoomSourceType = 'song' | 'collection' | 'setlist'
 export type MessageRoomSummary = {
   id: string
@@ -18,20 +18,26 @@ export type MessageRoomCredentials = {
   mode: RoomDisplayMode
 }
 export type MessageRoomOrder = { epoch: number; sequence: number }
+export type RoomBackground = {
+  preset: number
+  image?: { media_id: string; asset_id: string } | null
+}
 export type RoomMessage = {
   id: string
   room_id: string
   visit_id: string
   order: MessageRoomOrder
   change:
-    | { type: 'selection'; song: number; slide: number; activate: boolean }
+    | { type: 'selection'; song: number; section?: number; slide: number; activate: boolean }
     | { type: 'vote'; song: number; voted: boolean }
+    | { type: 'set_background'; background: RoomBackground }
 }
-export type RoomMember = { visit_id: string; display_name: string }
+export type RoomMember = { visit_id: string; display_name: string; joined_at?: string }
 export type RoomContent = components['schemas']['RoomContent']
 export type RoomReplayResponse = {
   room: RoomContent
   room_name: string
+  created_at?: string
   history: RoomMessage[]
   boundary: MessageRoomOrder
 }
@@ -42,7 +48,6 @@ export type StoredCredentials = Omit<MessageRoomCredentials, 'connection_ticket'
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const credentialKey = (roomId: string) => `message-room:${roomId}:credentials`
-const debugPreferenceKey = 'room:debug-options'
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
@@ -66,7 +71,7 @@ export function readMessageRoomCredentials(roomId: string): StoredCredentials | 
       value.room_id !== roomId ||
       typeof value.visit_id !== 'string' ||
       typeof value.resume_credential !== 'string' ||
-      (value.mode !== 'sheet' && value.mode !== 'av')
+      (value.mode !== 'sheet' && value.mode !== 'av' && value.mode !== 'slide')
     ) return null
     return value as StoredCredentials
   } catch {
@@ -153,12 +158,4 @@ export async function fetchMessageRoomReplay(
     `/api/v1/rooms/${encodeURIComponent(roomId)}/history?epoch=${boundary.epoch}&sequence=${boundary.sequence}`,
     { headers: { 'x-room-resume': credentials.resume_credential } },
   )
-}
-
-export function roomDebugOptionsEnabled(): boolean {
-  try { return localStorage.getItem(debugPreferenceKey) === 'true' } catch { return false }
-}
-
-export function setRoomDebugOptionsEnabled(enabled: boolean): void {
-  try { localStorage.setItem(debugPreferenceKey, String(enabled)) } catch { /* optional local preference */ }
 }

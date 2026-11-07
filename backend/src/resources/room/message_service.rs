@@ -201,9 +201,9 @@ impl MessageRoomService {
         {
             return Err(AppError::unauthorized());
         }
-        let room = self
+        let (room, created_at) = self
             .store
-            .get(room_id)
+            .get_with_created_at(room_id)
             .await
             .map_err(AppError::database)?
             .ok_or_else(|| AppError::NotFound("room not found".into()))?;
@@ -225,6 +225,7 @@ impl MessageRoomService {
         Ok(MessageRoomReplay {
             room: room.content,
             room_name,
+            created_at,
             history,
             boundary,
         })
@@ -324,7 +325,7 @@ impl MessageRoomService {
             .reserve_epoch()
             .await
             .map_err(AppError::database)?;
-        let slide_counts = content
+        let section_counts = content
             .items
             .iter()
             .map(|item| item.song.data.sections.len().max(1))
@@ -334,7 +335,7 @@ impl MessageRoomService {
             live: MessageRoomLive::new(
                 room_id.to_owned(),
                 epoch,
-                slide_counts,
+                section_counts,
                 self.store.clone(),
                 PERSISTENCE_QUEUE_LIMIT,
                 CLIENT_EVENT_BUFFER,
@@ -373,6 +374,7 @@ impl From<OnlineVisit> for MessageRoomMember {
         Self {
             visit_id: visit.visit_id,
             display_name: visit.display_name,
+            joined_at: visit.joined_at,
         }
     }
 }

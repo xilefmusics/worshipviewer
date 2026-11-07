@@ -548,7 +548,7 @@ describe('PlayerAv', () => {
     expect(nextPayload.content?.contentText).toBe('Second song line')
   })
 
-  it('publishes absolute song and slide selections for the shared room player', async () => {
+  it('publishes absolute song, section and slide selections for the shared room player', async () => {
     const user = userEvent.setup()
     const onSharedSelectionChange = vi.fn()
 
@@ -563,11 +563,11 @@ describe('PlayerAv', () => {
     )
 
     await user.click(screen.getByRole('button', { name: 'Select slide 1' }))
-    expect(onSharedSelectionChange).toHaveBeenLastCalledWith(0, 1, false)
+    expect(onSharedSelectionChange).toHaveBeenLastCalledWith(0, 1, 1, false)
 
     await user.keyboard('n')
     expect(screen.getByText('Second Song')).toBeInTheDocument()
-    expect(onSharedSelectionChange).toHaveBeenLastCalledWith(1, 0, true)
+    expect(onSharedSelectionChange).toHaveBeenLastCalledWith(1, 0, 0, true)
   })
 
   const deckPlayer = {

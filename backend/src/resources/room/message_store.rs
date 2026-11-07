@@ -106,6 +106,16 @@ impl MessageRoomStore {
     }
 
     pub async fn get(&self, id: &str) -> Result<Option<CapturedRoom>> {
+        Ok(self
+            .get_with_created_at(id)
+            .await?
+            .map(|(room, _created_at)| room))
+    }
+
+    pub async fn get_with_created_at(
+        &self,
+        id: &str,
+    ) -> Result<Option<(CapturedRoom, DateTime<Utc>)>> {
         let mut response = self
             .db
             .db
@@ -114,11 +124,13 @@ impl MessageRoomStore {
             .await?;
         let room: Option<StoredRoom> = response.take(0)?;
         room.map(|room| {
-            Ok(CapturedRoom {
+            let created_at = room.created_at;
+            let captured = CapturedRoom {
                 owner: room.owner,
                 name: room.name,
                 content: serde_json::from_str(&room.content_json)?,
-            })
+            };
+            Ok((captured, created_at))
         })
         .transpose()
     }

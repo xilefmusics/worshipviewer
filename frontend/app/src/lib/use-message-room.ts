@@ -5,7 +5,7 @@ import {
   appendRoomDebugEntry,
   createRoomDebugLog,
   type RoomDebugLog,
-  type RoomDebugEntry,
+  type RoomDebugEntryInput,
 } from '@/lib/room-message-debug'
 import {
   fetchMessageRoomReplay,
@@ -34,6 +34,7 @@ function apiWebSocketUrl(): string {
 export function useMessageRoom(roomId: string, credentials: MessageRoomCredentials | null) {
   const [content, setContent] = useState<RoomContent | null>(null)
   const [roomName, setRoomName] = useState<string>('')
+  const [roomCreatedAt, setRoomCreatedAt] = useState<string | null>(null)
   const [replay, setReplay] = useState<RoomReplay | null>(null)
   const [members, setMembers] = useState<RoomMember[]>([])
   const [status, setStatus] = useState<RoomStatus>('joining')
@@ -43,7 +44,7 @@ export function useMessageRoom(roomId: string, credentials: MessageRoomCredentia
   const replayRef = useRef<RoomReplay | null>(null)
   const debugLogRef = useRef(debugLog)
 
-  const appendDebug = useCallback((entry: RoomDebugEntry) => {
+  const appendDebug = useCallback((entry: RoomDebugEntryInput) => {
     const next = appendRoomDebugEntry(debugLogRef.current, entry)
     debugLogRef.current = next
     setDebugLog(next)
@@ -61,6 +62,7 @@ export function useMessageRoom(roomId: string, credentials: MessageRoomCredentia
       if (disposed) return
       setContent(null)
       setRoomName('')
+      setRoomCreatedAt(null)
       setReplay(null)
       setMembers([])
       setError(null)
@@ -138,6 +140,7 @@ export function useMessageRoom(roomId: string, credentials: MessageRoomCredentia
             replayRef.current = nextReplay
             setContent(response.room)
             setRoomName(response.room_name)
+            setRoomCreatedAt(response.created_at ?? null)
             setReplay(nextReplay)
             ws.send(JSON.stringify({ type: 'history_ready' }))
             replayReady = true
@@ -222,5 +225,5 @@ export function useMessageRoom(roomId: string, credentials: MessageRoomCredentia
     return true
   }, [])
 
-  return { content, roomName, replay, members, status, error, debugLog, sendChange }
+  return { content, roomName, roomCreatedAt, replay, members, status, error, debugLog, sendChange }
 }

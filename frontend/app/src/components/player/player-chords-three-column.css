@@ -127,13 +127,6 @@
   margin: 0 0 2.3077em;
 }
 
-.player-chords-three-column__section[data-room-selected='true'] {
-  border-radius: 0.25rem;
-  outline: 2px solid var(--color-primary);
-  outline-offset: 4px;
-  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
-}
-
 .player-chords-three-column__preview-section {
   color: var(--color-muted-foreground);
   opacity: 0.72;

@@ -7,6 +7,7 @@ use std::{
 };
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use shared::room_message::{RoomChange, RoomMessage, RoomMessageOrder};
 use tokio::sync::{Notify, broadcast, mpsc};
 
@@ -48,7 +49,7 @@ const RECENT_MESSAGE_IDS: usize = 4096;
 pub struct MessageRoomLive {
     room_id: String,
     epoch: u64,
-    slides: Vec<usize>,
+    sections: Vec<usize>,
     state: Arc<Mutex<State>>,
     wake: Arc<Notify>,
     outgoing: broadcast::Sender<RoomMessage>,
@@ -59,7 +60,7 @@ impl MessageRoomLive {
     pub fn new(
         room_id: String,
         epoch: u64,
-        slides: Vec<usize>,
+        sections: Vec<usize>,
         writer: Arc<dyn MessageWriter>,
         queue_limit: usize,
         client_buffer: usize,
@@ -110,7 +111,7 @@ impl MessageRoomLive {
         Self {
             room_id,
             epoch,
-            slides,
+            sections,
             state,
             wake,
             outgoing,
@@ -144,12 +145,22 @@ impl MessageRoomLive {
             return Err(AcceptError::Invalid);
         }
         match change {
-            RoomChange::Vote { song, .. } if song >= self.slides.len() => {
+            RoomChange::Vote { song, .. } if song >= self.sections.len() => {
                 return Err(AcceptError::Invalid);
             }
-            RoomChange::Selection { song, slide, .. }
-                if self.slides.get(song).is_none_or(|&count| slide >= count) =>
+            RoomChange::Selection {
+                song,
+                section,
+                slide,
+                ..
+            } if self
+                .sections
+                .get(song)
+                .is_none_or(|&count| section.unwrap_or(slide) >= count) =>
             {
+                return Err(AcceptError::Invalid);
+            }
+            RoomChange::SetBackground { ref background } if !background.is_valid() => {
                 return Err(AcceptError::Invalid);
             }
             _ => {}
@@ -217,6 +228,7 @@ impl MessageRoomLive {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shared::room_message::{RoomBackground, RoomBackgroundImage};
     use tokio::sync::Semaphore;
 
     struct StalledWriter {
@@ -303,8 +315,22 @@ mod tests {
                 "v".into(),
                 RoomChange::Selection {
                     song: 0,
+                    section: Some(1),
                     slide: 1,
                     activate: true
+                }
+            ),
+            Err(AcceptError::Invalid)
+        );
+        assert_eq!(
+            room.accept(
+                "bad-background".into(),
+                "v".into(),
+                RoomChange::SetBackground {
+                    background: RoomBackground {
+                        preset: 5,
+                        image: None,
+                    },
                 }
             ),
             Err(AcceptError::Invalid)
@@ -314,6 +340,23 @@ mod tests {
             room.accept("same".into(), "v".into(), vote(true)).unwrap(),
             first
         );
+        let background = room
+            .accept(
+                "background".into(),
+                "v".into(),
+                RoomChange::SetBackground {
+                    background: RoomBackground {
+                        preset: 2,
+                        image: Some(RoomBackgroundImage {
+                            media_id: "media:one".into(),
+                            asset_id: "asset:one".into(),
+                        }),
+                    },
+                },
+            )
+            .unwrap();
+        assert_eq!(receiver.recv().await.unwrap(), first);
+        assert_eq!(receiver.recv().await.unwrap(), background);
         assert_eq!(
             room.accept("same".into(), "other".into(), vote(true)),
             Err(AcceptError::Conflict)
@@ -333,7 +376,7 @@ mod tests {
             sequences.push(task.await.unwrap());
         }
         sequences.sort();
-        assert_eq!(sequences, (2..=11).collect::<Vec<_>>());
+        assert_eq!(sequences, (3..=12).collect::<Vec<_>>());
         assert!(matches!(
             receiver.recv().await,
             Err(broadcast::error::RecvError::Lagged(_))
@@ -346,10 +389,12 @@ mod tests {
 pub struct OnlineVisit {
     pub visit_id: String,
     pub display_name: String,
+    pub joined_at: DateTime<Utc>,
 }
 
 struct VisitPresence {
     display_name: String,
+    joined_at: DateTime<Utc>,
     connections: std::collections::HashSet<String>,
     generation: u64,
 }
@@ -377,6 +422,7 @@ impl PresenceInner {
             .map(|(visit_id, visit)| OnlineVisit {
                 visit_id: visit_id.clone(),
                 display_name: visit.display_name.clone(),
+                joined_at: visit.joined_at,
             })
             .collect()
     }
@@ -419,6 +465,7 @@ impl RoomPresence {
             .entry(visit_id)
             .or_insert_with(|| VisitPresence {
                 display_name: display_name.clone(),
+                joined_at: Utc::now(),
                 connections: Default::default(),
                 generation: 0,
             });
@@ -547,6 +594,7 @@ mod handoff_tests {
                 "b".into(),
                 RoomChange::Selection {
                     song: 0,
+                    section: Some(0),
                     slide: 0,
                     activate: true,
                 },

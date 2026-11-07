@@ -1,13 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   clearMessageRoomCredentials,
   fetchMessageRoomReplay,
   joinMessageRoom,
   readMessageRoomCredentials,
-  roomDebugOptionsEnabled,
   saveMessageRoomCredentials,
-  setRoomDebugOptionsEnabled,
 } from '@/lib/room-message-api'
 
 const credentials = {
@@ -16,19 +14,6 @@ const credentials = {
   resume_credential: 'resume-secret',
   connection_ticket: 'ticket-secret',
 }
-
-const localStorageState = new Map<string, string>()
-const localStorageMock = {
-  getItem: (key: string) => localStorageState.get(key) ?? null,
-  setItem: (key: string, value: string) => localStorageState.set(key, value),
-  removeItem: (key: string) => localStorageState.delete(key),
-  clear: () => localStorageState.clear(),
-}
-
-beforeEach(() => {
-  localStorageState.clear()
-  vi.stubGlobal('localStorage', localStorageMock)
-})
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -76,12 +61,5 @@ describe('message room API credentials', () => {
     expect(url).toContain('epoch=2&sequence=3')
     expect(url).not.toContain('resume-secret')
     expect(new Headers(init.headers).get('x-room-resume')).toBe('resume-secret')
-  })
-
-  it('stores the local diagnostics option without involving room APIs', () => {
-    expect(roomDebugOptionsEnabled()).toBe(false)
-    setRoomDebugOptionsEnabled(true)
-    expect(roomDebugOptionsEnabled()).toBe(true)
-    expect(localStorage.getItem('room:debug-options')).toBe('true')
   })
 })

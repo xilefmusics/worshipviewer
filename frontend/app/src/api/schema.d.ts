@@ -1466,10 +1466,14 @@ export interface components {
         };
         MessageRoomMember: {
             display_name: string;
+            /** Format: date-time */
+            joined_at: string;
             visit_id: string;
         };
         MessageRoomReplay: {
             boundary: components["schemas"]["RoomMessageOrder"];
+            /** Format: date-time */
+            created_at: string;
             history: components["schemas"]["RoomMessage"][];
             room: components["schemas"]["RoomContent"];
             room_name: string;
@@ -1754,9 +1758,22 @@ export interface components {
         };
         /** @enum {string} */
         Role: "default" | "admin";
-        /** @description Song and slide indices are scoped to the immutable captured room, not the library. */
+        /** @description A preset plus an optional custom media image reference for the room AV background. */
+        RoomBackground: {
+            image?: components["schemas"]["RoomBackgroundImage"] | null;
+            /** Format: int32 */
+            preset: number;
+        };
+        RoomBackgroundImage: {
+            asset_id: string;
+            media_id: string;
+        };
+        /** @description Ordered navigation, vote and AV background events for a fixed room snapshot. */
         RoomChange: {
             activate: boolean;
+            /** @description Source section index. Absent only for legacy messages that used `slide` for this value. */
+            section?: number | null;
+            /** @description Zero-based rendered AV slide index within the selected song. */
             slide: number;
             song: number;
             /** @enum {string} */
@@ -1766,6 +1783,10 @@ export interface components {
             /** @enum {string} */
             type: "vote";
             voted: boolean;
+        } | {
+            background: components["schemas"]["RoomBackground"];
+            /** @enum {string} */
+            type: "set_background";
         };
         /** @description Immutable chord-song content captured from the selected source at creation. */
         RoomContent: {

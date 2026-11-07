@@ -77,7 +77,6 @@ type ChordsThreeColumnSlideProps = {
   expandSections?: boolean
   fillParent?: boolean
   fontScale?: number
-  focusSectionIndex?: number
 }
 
 const COLUMN_GAP_PX = 24 // 1.5rem — keep in sync with player-chords-three-column.css
@@ -350,7 +349,7 @@ ${CONTENT_HOST_SELECTOR} .columns {
   return css
 }
 
-function renderColumnSection(section: ColumnSection | undefined, index: number, selected: boolean) {
+function renderColumnSection(section: ColumnSection | undefined, index: number) {
   if (!section) return null
 
   return (
@@ -358,7 +357,6 @@ function renderColumnSection(section: ColumnSection | undefined, index: number, 
       key={index}
       className="player-chords-three-column__section"
       data-section-index={index}
-      data-room-selected={selected ? 'true' : undefined}
     >
       <div dangerouslySetInnerHTML={{ __html: section.html }} />
     </div>
@@ -399,7 +397,6 @@ export function ChordsThreeColumnSlide({
   expandSections = false,
   fillParent = false,
   fontScale = 1,
-  focusSectionIndex,
 }: ChordsThreeColumnSlideProps) {
   const { t } = useTranslation()
   const hideChords = useHideChordsPreference()
@@ -756,9 +753,7 @@ export function ChordsThreeColumnSlide({
                     }}
                     aria-hidden
                   >
-                    {columnSections.map((section, index) =>
-                      renderColumnSection(section, index, index === focusSectionIndex),
-                    )}
+                    {columnSections.map((section, index) => renderColumnSection(section, index))}
                   </div>
                 ) : null}
                 {layoutReady && columnLayout && packedColumns ? (
@@ -793,11 +788,7 @@ export function ChordsThreeColumnSlide({
                         }}
                       >
                         {sectionIndices.map((sectionIndex) =>
-                          renderColumnSection(
-                            columnSections[sectionIndex],
-                            sectionIndex,
-                            sectionIndex === focusSectionIndex,
-                          ),
+                          renderColumnSection(columnSections[sectionIndex], sectionIndex),
                         )}
                       </div>
                     ))}

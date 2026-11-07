@@ -574,6 +574,10 @@
       "av": "AV-Modus",
       "avDescription": "Lyrik-Projektion mit getrennten Inhalts- und Hintergrundebenen."
     },
+    "developerOptions": {
+      "label": "Entwickleroptionen",
+      "description": "Zeige die Nachrichtenprotokoll-Ansicht in Räumen an."
+    },
     "lyricWhitespace": {
       "title": "Lyrik-Abstände",
       "description": "Steuere, wie Leerzeichen in projizierten Liedtexten erscheinen.",
@@ -1272,6 +1276,27 @@
       "details": "Teilnehmende und Einstellungen"
     },
     "connected": "Verbunden",
+    "members": "Mitglieder",
+    "participants": "Teilnehmende",
+    "sidebarTabs": "Raumnavigation",
+    "protocol": {
+      "title": "Nachrichtenprotokoll",
+      "downloadJson": "JSON herunterladen",
+      "empty": "Es wurden noch keine Nachrichten aufgezeichnet.",
+      "unknownTime": "Unbekannte Zeit",
+      "songNumber": "Song {{number}}",
+      "untitledSection": "Unbenannter Abschnitt",
+      "songSelected": "{{title}} wurde ausgewählt",
+      "slideSelected": "Folie {{slide}} in {{section}} von {{title}} wurde ausgewählt",
+      "voteAdded": "Es wurde für {{title}} gestimmt",
+      "voteRemoved": "Eine Stimme für {{title}} wurde zurückgenommen",
+      "backgroundSet": "AV-Hintergrund geändert",
+      "presenceUpdated": "Teilnehmerliste aktualisiert ({{count}} verbunden)"
+    },
+    "you": "Du",
+    "emptyMembers": "Aktuell sind keine Mitglieder verbunden.",
+    "openedSince": "Geöffnet seit {{time}}",
+    "joinedAt": "Beigetreten {{time}}",
     "reconnecting": "Verbindung wird wiederhergestellt …",
     "ended": "Der Raum wurde beendet",
     "onlineRequired": "Räume benötigen eine Internetverbindung.",
@@ -1281,13 +1306,6 @@
     "signInToJoin": "Raumlinks sind für angemeldete Teilnehmende. Melde dich an und öffne danach den Raumlink erneut.",
     "connectionFailed": "Verbindung zum Raum fehlgeschlagen",
     "connectionFailedDescription": "Prüfe deine Verbindung und den Raumlink und versuche es erneut.",
-    "details": "Raumdetails",
-    "copyLink": "Raumlink kopieren",
-    "sections": "Abschnitte",
-    "untitledSection": "Unbenannter Abschnitt",
-    "emptyPool": "Dieser Raum enthält keine Songs.",
-    "played": "Gespielt",
-    "notPlayed": "Noch nicht gespielt",
     "voteForSong": "Für {{title}} stimmen",
     "roomSongCount": "{{count}} Songs",
     "page": "Seite {{page}} von {{total}}",
@@ -1297,23 +1315,14 @@
     "deleteConfirmTitle": "Diesen Raum löschen?",
     "deleteConfirmDescription": "Der Raum und seine gespeicherten Nachrichten werden dauerhaft gelöscht.",
     "deleteConfirm": "Raum löschen",
-    "debugOptions": "Raumnachrichten-Diagnose",
-    "debug": {
-      "open": "Raumnachrichten ansehen",
-      "close": "Nachrichtenansicht schließen",
-      "download": "JSON herunterladen",
-      "truncated": "Ältere Einträge wurden entfernt, damit das Sitzungsprotokoll innerhalb des Limits von 1.000 Einträgen / 512 KB bleibt."
-    },
-    "participants": "Teilnehmende",
     "empty": "Keine aktiven Räume.",
     "join": "Beitreten",
+    "joinAv": "Im AV-Modus beitreten",
+    "joinSlide": "Im Folienmodus beitreten",
     "sourceType": {
       "song": "Song",
       "collection": "Sammlung",
       "setlist": "Setliste"
-    },
-    "queue": {
-      "title": "Nächste Songs"
     }
   },
   "media": {

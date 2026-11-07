@@ -18,20 +18,54 @@ pub struct RoomMessageOrder {
     pub sequence: u64,
 }
 
-/// Song and slide indices are scoped to the immutable captured room, not the library.
+/// A preset plus an optional custom media image reference for the room AV background.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct RoomBackground {
+    pub preset: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image: Option<RoomBackgroundImage>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct RoomBackgroundImage {
+    pub media_id: String,
+    pub asset_id: String,
+}
+
+impl RoomBackground {
+    pub fn is_valid(&self) -> bool {
+        self.preset <= 4
+            && self.image.as_ref().is_none_or(|image| {
+                !image.media_id.trim().is_empty()
+                    && image.media_id.len() <= 128
+                    && !image.asset_id.trim().is_empty()
+                    && image.asset_id.len() <= 128
+            })
+    }
+}
+
+/// Ordered navigation, vote and AV background events for a fixed room snapshot.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RoomChange {
     /// Selecting a song for the first time or selecting it again is an activation.
-    /// Slide-only navigation sets `activate` to false.
+    /// Section or slide-only navigation sets `activate` to false.
     Selection {
         song: usize,
+        /// Source section index. Absent only for legacy messages that used `slide` for this value.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        section: Option<usize>,
+        /// Zero-based rendered AV slide index within the selected song.
         slide: usize,
         activate: bool,
     },
     /// Sets this visit's vote, rather than toggling its current value.
     Vote { song: usize, voted: bool },
+    /// Replaces the shared AV background layer.
+    SetBackground { background: RoomBackground },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,6 +105,7 @@ pub struct MessageRoomCredentials {
 pub struct MessageRoomReplay {
     pub room: crate::room::RoomContent,
     pub room_name: String,
+    pub created_at: DateTime<Utc>,
     pub history: Vec<RoomMessage>,
     pub boundary: RoomMessageOrder,
 }
@@ -87,6 +122,7 @@ pub struct MessageRoomJoin {
 pub struct MessageRoomMember {
     pub visit_id: String,
     pub display_name: String,
+    pub joined_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -122,7 +158,7 @@ pub enum RoomReplayError {
     WrongRoom,
     #[error("message has an empty identifier or invalid order")]
     InvalidEnvelope,
-    #[error("song or slide does not exist in the captured room")]
+    #[error("song or section does not exist in the captured room")]
     InvalidReference,
     #[error("message ID was reused for a different message")]
     ConflictingId,
@@ -140,22 +176,23 @@ struct SongState {
 #[derive(Debug, Clone)]
 pub struct RoomReplay {
     room_id: String,
-    slide_counts: Vec<usize>,
+    section_counts: Vec<usize>,
     songs: Vec<SongState>,
-    selection: Option<(usize, usize)>,
+    selection: Option<(usize, usize, usize)>,
+    background: Option<RoomBackground>,
     last_order: Option<RoomMessageOrder>,
     seen: HashMap<String, RoomMessage>,
 }
 
 impl RoomReplay {
-    /// One entry per captured song, in source order. Each count must describe
-    /// the actual selectable slides of that song; zero means none are selectable.
-    pub fn new(room_id: String, slide_counts: Vec<usize>) -> Self {
+    /// One source-section count per captured song, in source order.
+    pub fn new(room_id: String, section_counts: Vec<usize>) -> Self {
         Self {
             room_id,
-            songs: vec![SongState::default(); slide_counts.len()],
-            slide_counts,
+            songs: vec![SongState::default(); section_counts.len()],
+            section_counts,
             selection: None,
+            background: None,
             last_order: None,
             seen: HashMap::new(),
         }
@@ -187,17 +224,22 @@ impl RoomReplay {
         match message.change {
             RoomChange::Selection {
                 song,
+                section,
                 slide,
                 activate,
             } => {
+                // Older persisted messages used `slide` for the source section.
+                let legacy_message = section.is_none();
+                let section = section.unwrap_or(slide);
+                let slide = if legacy_message { 0 } else { slide };
                 if self
-                    .slide_counts
+                    .section_counts
                     .get(song)
-                    .is_none_or(|count| slide >= *count)
+                    .is_none_or(|count| section >= *count)
                 {
                     return Err(RoomReplayError::InvalidReference);
                 }
-                self.selection = Some((song, slide));
+                self.selection = Some((song, section, slide));
                 if activate {
                     self.songs[song].played = true;
                     self.songs[song].voters.clear();
@@ -215,14 +257,24 @@ impl RoomReplay {
                     state.voters.remove(&message.visit_id);
                 }
             }
+            RoomChange::SetBackground { ref background } => {
+                if !background.is_valid() {
+                    return Err(RoomReplayError::InvalidReference);
+                }
+                self.background = Some(background.clone());
+            }
         }
         self.last_order = Some(message.order);
         self.seen.insert(message.id.clone(), message);
         Ok(())
     }
 
-    pub fn selection(&self) -> Option<(usize, usize)> {
+    pub fn selection(&self) -> Option<(usize, usize, usize)> {
         self.selection
+    }
+
+    pub fn background(&self) -> Option<&RoomBackground> {
+        self.background.as_ref()
     }
 
     /// Unplayed first, then descending votes, then the immutable source index.
@@ -275,6 +327,7 @@ mod tests {
                 "first",
                 RoomChange::Selection {
                     song: 0,
+                    section: Some(1),
                     slide: 1,
                     activate: true,
                 },
@@ -307,7 +360,7 @@ mod tests {
         for change in changes {
             replay.apply(change).unwrap();
         }
-        assert_eq!(replay.selection(), Some((0, 1)));
+        assert_eq!(replay.selection(), Some((0, 1, 1)));
         assert_eq!(replay.votes(0), Some(1));
         assert_eq!(replay.played(0), Some(false));
         assert_eq!(replay.ranked_songs(), vec![0, 1, 2]);
@@ -317,6 +370,7 @@ mod tests {
                 "first",
                 RoomChange::Selection {
                     song: 0,
+                    section: Some(0),
                     slide: 0,
                     activate: true,
                 },
@@ -330,6 +384,7 @@ mod tests {
                 "first",
                 RoomChange::Selection {
                     song: 1,
+                    section: Some(0),
                     slide: 0,
                     activate: false,
                 },
@@ -356,6 +411,7 @@ mod tests {
                 "visit",
                 RoomChange::Selection {
                     song: 0,
+                    section: Some(0),
                     slide: 0,
                     activate: false,
                 },
@@ -385,6 +441,7 @@ mod tests {
                 "visit",
                 RoomChange::Selection {
                     song: 0,
+                    section: Some(1),
                     slide: 1,
                     activate: true
                 }
@@ -403,7 +460,7 @@ mod tests {
         after_restart.order.epoch = 2;
         replay.apply(after_restart).unwrap();
         assert_eq!(replay.votes(0), Some(0));
-        assert_eq!(replay.selection(), Some((0, 0)));
+        assert_eq!(replay.selection(), Some((0, 0, 0)));
     }
 
     #[test]
@@ -415,12 +472,50 @@ mod tests {
                 "visit",
                 RoomChange::Selection {
                     song: 0,
+                    section: Some(0),
                     slide: 0,
                     activate: false,
                 },
             ))
             .unwrap();
-        assert_eq!(replay.selection(), Some((0, 0)));
+        assert_eq!(replay.selection(), Some((0, 0, 0)));
         assert_eq!(replay.played(0), Some(false));
+    }
+
+    #[test]
+    fn replays_latest_valid_background_and_rejects_invalid_values() {
+        let background = RoomBackground {
+            preset: 2,
+            image: Some(RoomBackgroundImage {
+                media_id: "media:one".into(),
+                asset_id: "asset:one".into(),
+            }),
+        };
+        let mut replay = RoomReplay::new("room".into(), vec![1]);
+        replay
+            .apply(message(
+                1,
+                "visit",
+                RoomChange::SetBackground {
+                    background: background.clone(),
+                },
+            ))
+            .unwrap();
+        assert_eq!(replay.background(), Some(&background));
+        assert_eq!(replay.selection(), None);
+
+        assert_eq!(
+            replay.apply(message(
+                2,
+                "visit",
+                RoomChange::SetBackground {
+                    background: RoomBackground {
+                        preset: 5,
+                        image: None,
+                    },
+                },
+            )),
+            Err(RoomReplayError::InvalidReference)
+        );
     }
 }

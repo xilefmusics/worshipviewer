@@ -8,8 +8,6 @@ const mocks = vi.hoisted(() => ({
   deleteRoom: vi.fn(),
   joinRoom: vi.fn(),
   listRooms: vi.fn(),
-  setDebugEnabled: vi.fn(),
-  debugEnabled: false,
 }))
 
 vi.mock('react-i18next', async (importOriginal) => {
@@ -22,8 +20,6 @@ vi.mock('@/lib/room-message-api', () => ({
   deleteMessageRoom: mocks.deleteRoom,
   joinMessageRoom: mocks.joinRoom,
   listMessageRooms: mocks.listRooms,
-  roomDebugOptionsEnabled: () => mocks.debugEnabled,
-  setRoomDebugOptionsEnabled: mocks.setDebugEnabled,
 }))
 
 const room = {
@@ -44,19 +40,20 @@ beforeEach(() => {
   mocks.deleteRoom.mockReset().mockResolvedValue(undefined)
   mocks.joinRoom.mockReset().mockResolvedValue({})
   mocks.listRooms.mockReset()
-  mocks.setDebugEnabled.mockReset()
-  mocks.debugEnabled = false
 })
 
 describe('RoomsList', () => {
-  it('shows the fixed pool and offers sheet and AV entry', async () => {
+  it('shows the room row and offers AV and projector entry actions', async () => {
     renderRooms()
 
     expect(await screen.findByRole('heading', { name: 'Sunday Setlist' })).toBeInTheDocument()
     expect(screen.getByRole('listitem').querySelector('p')).toHaveTextContent('rooms.roomSongCount')
-    expect(screen.getAllByRole('button', { name: 'rooms.join' })).toHaveLength(1)
-    expect(screen.getByRole('button', { name: 'AV' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'rooms.delete' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Sunday Setlist' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'hub.actions.menuAria' }))
+    expect(await screen.findByRole('menuitem', { name: 'rooms.joinAv' })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: 'rooms.joinSlide' })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: 'rooms.delete' })).toBeInTheDocument()
   })
 
   it('hides delete from users without team editor rights', async () => {
@@ -69,19 +66,11 @@ describe('RoomsList', () => {
   it('confirms deletion before calling the room API', async () => {
     renderRooms()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'rooms.delete' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'hub.actions.menuAria' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'rooms.delete' }))
     expect(screen.getByRole('heading', { name: 'rooms.deleteConfirmTitle' })).toBeInTheDocument()
     expect(mocks.deleteRoom).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'rooms.deleteConfirm' }))
     await waitFor(() => expect(mocks.deleteRoom).toHaveBeenCalledWith('room-1'))
-  })
-
-  it('persists the local diagnostics setting', async () => {
-    renderRooms()
-    const checkbox = await screen.findByRole('checkbox', { name: 'rooms.debugOptions' })
-
-    fireEvent.click(checkbox)
-
-    expect(mocks.setDebugEnabled).toHaveBeenCalledWith(true)
   })
 })

@@ -574,6 +574,10 @@
       "av": "AV mode",
       "avDescription": "Lyric projection with separate content and background layers."
     },
+    "developerOptions": {
+      "label": "Developer options",
+      "description": "Show the message protocol view in rooms."
+    },
     "lyricWhitespace": {
       "title": "Lyrics spacing",
       "description": "Control how spaces appear in projected lyrics.",
@@ -1272,6 +1276,27 @@
       "details": "Members and settings"
     },
     "connected": "Connected",
+    "members": "Members",
+    "participants": "Participants",
+    "sidebarTabs": "Room navigation",
+    "protocol": {
+      "title": "Message protocol",
+      "downloadJson": "Download JSON",
+      "empty": "No messages have been recorded yet.",
+      "unknownTime": "Unknown time",
+      "songNumber": "Song {{number}}",
+      "untitledSection": "Untitled section",
+      "songSelected": "{{title}} was selected",
+      "slideSelected": "Slide {{slide}} in {{section}} of {{title}} was selected",
+      "voteAdded": "A vote was added for {{title}}",
+      "voteRemoved": "A vote was removed for {{title}}",
+      "backgroundSet": "AV background changed",
+      "presenceUpdated": "Participant list updated ({{count}} connected)"
+    },
+    "you": "You",
+    "emptyMembers": "No members are currently connected.",
+    "openedSince": "Open since {{time}}",
+    "joinedAt": "Joined {{time}}",
     "reconnecting": "Reconnecting…",
     "ended": "Room has ended",
     "onlineRequired": "Rooms require an internet connection.",
@@ -1281,13 +1306,6 @@
     "signInToJoin": "Room links are for signed-in participants. Sign in, then open the room link again.",
     "connectionFailed": "Could not connect to this room",
     "connectionFailedDescription": "Check your connection and room link, then try again.",
-    "details": "Room details",
-    "copyLink": "Copy room link",
-    "sections": "Sections",
-    "untitledSection": "Untitled section",
-    "emptyPool": "This room has no songs.",
-    "played": "Played",
-    "notPlayed": "Not played",
     "voteForSong": "Vote for {{title}}",
     "roomSongCount": "{{count}} songs",
     "page": "Page {{page}} of {{total}}",
@@ -1297,23 +1315,14 @@
     "deleteConfirmTitle": "Delete this room?",
     "deleteConfirmDescription": "The room and its saved messages will be permanently deleted.",
     "deleteConfirm": "Delete room",
-    "debugOptions": "Room message diagnostics",
-    "debug": {
-      "open": "View room messages",
-      "close": "Close message viewer",
-      "download": "Download JSON",
-      "truncated": "Older entries were removed to keep this session log within its 1,000-entry / 512 KB limit."
-    },
-    "participants": "Participants",
     "empty": "No active Rooms.",
     "join": "Join",
+    "joinAv": "Join in AV mode",
+    "joinSlide": "Join in slide mode",
     "sourceType": {
       "song": "Song",
       "collection": "Collection",
       "setlist": "Setlist"
-    },
-    "queue": {
-      "title": "Next songs"
     }
   },
   "media": {

@@ -81,7 +81,7 @@ const replayResponse = {
   boundary: { epoch: 1, sequence: 2 },
   history: [
     message(1, { type: 'vote', song: 0, voted: true }),
-    message(2, { type: 'selection', song: 0, slide: 0, activate: false }),
+    message(2, { type: 'selection', song: 0, section: 0, slide: 0, activate: false }),
   ],
 }
 
@@ -121,7 +121,7 @@ describe('useMessageRoom', () => {
     expect(result.current.status).toBe('replaying')
     expect(api.fetchReplay).toHaveBeenCalledWith('room-1', credentials, { epoch: 1, sequence: 2 })
 
-    const live = message(3, { type: 'selection', song: 0, slide: 0, activate: true })
+    const live = message(3, { type: 'selection', song: 0, section: 0, slide: 0, activate: true })
     await act(async () => socket.message(JSON.stringify({ type: 'change', message: live })))
     expect(result.current.replay).toBeNull()
 
@@ -135,7 +135,7 @@ describe('useMessageRoom', () => {
     expect(socket.sent.map((entry) => JSON.parse(entry))).toContainEqual({ type: 'history_ready' })
 
     await act(async () => socket.message(JSON.stringify({ type: 'change', message: live })))
-    expect(result.current.replay?.selection).toEqual({ song: 0, slide: 0 })
+    expect(result.current.replay?.selection).toEqual({ song: 0, section: 0, slide: 0 })
     expect(result.current.replay?.songs[0]?.played).toBe(true)
     await act(async () => socket.message(JSON.stringify({
       type: 'presence',

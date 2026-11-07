@@ -26,6 +26,8 @@ import { useComfortableKeysPreference } from '@/hooks/useComfortableKeysPreferen
 import { usePlayerInstrumentPreference } from '@/hooks/usePlayerInstrumentPreference'
 import { useIsPhoneWidth, useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerLayoutPreference } from '@/hooks/usePlayerScrollPreference'
+import type { TocDisplayEntry } from '@/lib/player/toc-display'
+import type { RoomDebugLog } from '@/lib/room-message-debug'
 import { useOnline } from '@/hooks/use-online'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useResolvedSongWithFlow } from '@/lib/player/apply-song-flow'
@@ -336,7 +338,6 @@ export function ResolvedBookChords({
         expandSections={expandSections}
         fillParent={fillParent}
         fontScale={fontScale}
-        focusSectionIndex={renderedFocusSectionIndex}
       />
     )
   }
@@ -386,8 +387,14 @@ type PlayerBookProps = {
   deletedReconciled?: boolean
   allowLibraryActions?: boolean
   tocSidebar?: ReactNode
-  sharedSelection?: { song: number; slide: number } | null
-  onSharedSelectionChange?: (song: number, slide: number, activate: boolean) => void
+  renderTocRowSuffix?: (entry: TocDisplayEntry) => ReactNode
+  roomQueueOrder?: readonly number[]
+  roomMembers?: readonly { visit_id: string; display_name: string; joined_at?: string }[]
+  roomOpenedAt?: string | null
+  roomVisitId?: string
+  roomDebugLog?: RoomDebugLog | null
+  sharedSelection?: { song: number; section: number; slide: number } | null
+  onSharedSelectionChange?: (song: number, section: number, slide: number, activate: boolean) => void
 }
 
 export function PlayerBook({
@@ -403,6 +410,12 @@ export function PlayerBook({
   deletedReconciled,
   allowLibraryActions = true,
   tocSidebar,
+  renderTocRowSuffix,
+  roomQueueOrder,
+  roomMembers,
+  roomOpenedAt,
+  roomVisitId,
+  roomDebugLog,
   sharedSelection,
   onSharedSelectionChange,
 }: PlayerBookProps) {
@@ -536,7 +549,7 @@ export function PlayerBook({
     if (!sharedSelection || sharedSelection.song < 0 || sharedSelection.song >= itemsLen) return
     const item = player.items[sharedSelection.song]
     const sectionCount = item?.type === 'chords' ? item.song.data.sections.length : 1
-    const pageOffset = Math.max(0, Math.min(sharedSelection.slide, Math.max(0, sectionCount - 1)))
+    const pageOffset = Math.max(0, Math.min(sharedSelection.section, Math.max(0, sectionCount - 1)))
     queueMicrotask(() => {
       setNav((state) => state.index === sharedSelection.song && state.pageOffset === pageOffset
         ? state
@@ -573,16 +586,16 @@ export function PlayerBook({
     if (!onSharedSelectionChange || next.index >= itemsLen) return
     const item = player.items[next.index]
     const sectionCount = item?.type === 'chords' ? Math.max(1, item.song.data.sections.length) : 1
-    const slide = Math.min(next.pageOffset, sectionCount - 1)
-    const key = `${next.index}:${slide}`
+    const section = Math.min(next.pageOffset, sectionCount - 1)
+    const key = `${next.index}:${section}`
     if (!force && key === lastSentSharedSelectionRef.current) return
     lastSentSharedSelectionRef.current = key
-    onSharedSelectionChange(next.index, slide, activate)
+    onSharedSelectionChange(next.index, section, 0, activate)
   }, [itemsLen, onSharedSelectionChange, player.items])
 
   useEffect(() => {
     lastSentSharedSelectionRef.current = sharedSelection
-      ? `${sharedSelection.song}:${sharedSelection.slide}`
+      ? `${sharedSelection.song}:${sharedSelection.section}`
       : null
   }, [sharedSelection])
 
@@ -1115,7 +1128,7 @@ export function PlayerBook({
         overflowStyle={layoutPreference.overflowStyle}
         expandSections={layoutPreference.expandSections}
         fontScale={chordSongFontScale}
-        focusSectionIndex={roomSelection?.slide}
+        focusSectionIndex={roomSelection?.section}
         onSectionChange={reportRoomSlide}
       />
     )
@@ -1929,6 +1942,12 @@ export function PlayerBook({
                       currentSourceIdx={nav.index}
                       currentLanguageIndex={currentLanguageIndex}
                       onSelect={handleTocSelect}
+                      renderRowSuffix={renderTocRowSuffix}
+                      queueOrder={roomQueueOrder}
+                      members={roomMembers}
+                      roomOpenedAt={roomOpenedAt}
+                      currentVisitId={roomVisitId}
+                      protocolLog={roomDebugLog}
                       primaryTitleOnly={type === 'library'}
                       className={isPhoneViewport ? 'w-full flex-1 min-h-0 h-auto shrink border-r-0' : undefined}
                     />

@@ -1,7 +1,23 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { OutputIcon } from '@/components/icons/lucide-animated/output-icon'
+import { ProjectorIcon } from '@/components/icons/lucide-animated/projector-icon'
+import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
+import {
+  HUB_ACTION_ICON_CLASS,
+  HubActionItem,
+  HubActionSeparator,
+  HubActionsDrawer,
+} from '@/components/hub/HubActionsDrawer'
+import {
+  HUB_LIST_ROW_BORDER_CLASS,
+  HUB_LIST_ROW_SHELL_CLASS,
+  HUB_LIST_SUBTITLE_CLASS,
+  HUB_LIST_TITLE_CLASS,
+} from '@/components/hub/hub-list-styles'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,14 +31,16 @@ import {
 import { Button } from '@/components/ui/button'
 import { useHubSearch } from '@/hooks/useHubSearch'
 import { useOnline } from '@/hooks/use-online'
+import { useSession } from '@/hooks/useSession'
+import { useTeamDetail } from '@/hooks/useTeamDetail'
 import {
   deleteMessageRoom,
   listMessageRooms,
-  setRoomDebugOptionsEnabled,
-  roomDebugOptionsEnabled,
   type MessageRoomSummary,
   type RoomDisplayMode,
 } from '@/lib/room-message-api'
+import { cn } from '@/lib/utils'
+import { getTeamDisplayName } from '@/lib/team-display-name'
 
 export function RoomsList() {
   const { t } = useTranslation()
@@ -32,7 +50,6 @@ export function RoomsList() {
   const [joiningId, setJoiningId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<MessageRoomSummary | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [debugEnabled, setDebugEnabled] = useState(roomDebugOptionsEnabled)
   const [page, setPage] = useState(0)
   useEffect(() => {
     queueMicrotask(() => setPage(0))
@@ -71,40 +88,15 @@ export function RoomsList() {
 
   return (
     <>
-      <div className="flex items-center justify-end px-4 py-2">
-        <label className="flex items-center gap-2 text-xs text-[var(--color-muted-foreground)]">
-          <input
-            type="checkbox"
-            checked={debugEnabled}
-            onChange={(event) => {
-              setDebugEnabled(event.target.checked)
-              setRoomDebugOptionsEnabled(event.target.checked)
-            }}
-          />
-          {t('rooms.debugOptions')}
-        </label>
-      </div>
       <ul className="flex flex-col gap-0 pb-4">
         {query.data.items.map((room) => (
-          <li key={room.id} className="flex items-center gap-3 border-b border-[var(--color-border)] px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <h2 className="truncate text-sm font-semibold">{room.name}</h2>
-              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                {t('rooms.roomSongCount', { count: room.song_count })} · {new Date(room.created_at).toLocaleString()}
-              </p>
-            </div>
-            <Button type="button" size="sm" variant="outline" disabled={joiningId === room.id} onClick={() => void join(room, 'sheet')}>
-              {t('rooms.join')}
-            </Button>
-            <Button type="button" size="sm" variant="outline" disabled={joiningId === room.id} onClick={() => void join(room, 'av')}>
-              AV
-            </Button>
-            {room.can_delete ? (
-              <Button type="button" size="sm" variant="ghost" disabled={joiningId === room.id} onClick={() => setDeleteTarget(room)}>
-                {t('rooms.delete')}
-              </Button>
-            ) : null}
-          </li>
+          <RoomListItem
+            key={room.id}
+            room={room}
+            joining={joiningId === room.id}
+            onJoin={join}
+            onDeleteRequest={setDeleteTarget}
+          />
         ))}
       </ul>
       {query.data.items.length === 0 ? (
@@ -136,5 +128,83 @@ export function RoomsList() {
         </AlertDialogContent>
       </AlertDialog>
     </>
+  )
+}
+
+function RoomListItem({
+  room,
+  joining,
+  onJoin,
+  onDeleteRequest,
+}: {
+  room: MessageRoomSummary
+  joining: boolean
+  onJoin: (room: MessageRoomSummary, mode: RoomDisplayMode) => void
+  onDeleteRequest: (room: MessageRoomSummary) => void
+}) {
+  const { t } = useTranslation()
+  const { data: user } = useSession()
+  const reduceMotion = useReducedMotion()
+  const { data: team, isPending: teamPending, isError: teamError } = useTeamDetail(room.team_id)
+
+  const teamLabel = useMemo(() => {
+    if (teamPending) return null
+    if (teamError || !team) return t('setlists.editor.teamUnavailable')
+    return getTeamDisplayName(team, user?.id, t)
+  }, [team, teamError, teamPending, t, user?.id])
+
+  return (
+    <li className={cn('flex items-center', HUB_LIST_ROW_BORDER_CLASS)}>
+      <motion.div
+        className={cn(HUB_LIST_ROW_SHELL_CLASS, 'min-w-0 flex-1')}
+        role="button"
+        tabIndex={0}
+        aria-label={room.name}
+        aria-disabled={joining}
+        whileTap={reduceMotion ? undefined : { scale: 0.985 }}
+        transition={{ duration: 0.12, ease: [0.25, 0.1, 0.25, 1] }}
+        onClick={() => onJoin(room, 'sheet')}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onJoin(room, 'sheet')
+          }
+        }}
+      >
+        <div className="flex min-w-0 flex-1 flex-col justify-center py-0.5">
+          <h2 className={HUB_LIST_TITLE_CLASS}>{room.name}</h2>
+          <p className={cn(HUB_LIST_SUBTITLE_CLASS, 'truncate')}>
+            {t('rooms.roomSongCount', { count: room.song_count })}
+            {teamLabel ? `, ${teamLabel}` : null}
+          </p>
+        </div>
+      </motion.div>
+      <HubActionsDrawer
+        title={room.name}
+        triggerAriaLabel={t('hub.actions.menuAria', { title: room.name })}
+      >
+        <HubActionItem disabled={joining} onSelect={() => onJoin(room, 'av')}>
+          <OutputIcon size={16} className={HUB_ACTION_ICON_CLASS} />
+          {t('rooms.joinAv')}
+        </HubActionItem>
+        <HubActionItem disabled={joining} onSelect={() => onJoin(room, 'slide')}>
+          <ProjectorIcon size={16} className={HUB_ACTION_ICON_CLASS} />
+          {t('rooms.joinSlide')}
+        </HubActionItem>
+        {room.can_delete ? (
+          <>
+            <HubActionSeparator />
+            <HubActionItem
+              destructive
+              disabled={joining}
+              onSelect={() => onDeleteRequest(room)}
+            >
+              <TrashIcon size={16} className="shrink-0" />
+              {t('rooms.delete')}
+            </HubActionItem>
+          </>
+        ) : null}
+      </HubActionsDrawer>
+    </li>
   )
 }

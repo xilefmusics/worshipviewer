@@ -3,7 +3,11 @@ import { createFileRoute } from '@tanstack/react-router'
 import { MessageRoomPage } from '@/components/room/MessageRoomPage'
 
 export const Route = createFileRoute('/rooms/$roomId')({
-  validateSearch: (search: Record<string, unknown>) => ({ mode: search.mode === 'av' ? 'av' as const : 'sheet' as const }),
+  validateSearch: (search: Record<string, unknown>) => {
+    const mode: 'av' | 'slide' | 'sheet' =
+      search.mode === 'av' || search.mode === 'slide' ? search.mode : 'sheet'
+    return { mode }
+  },
   component: RoomRoute,
 })
 

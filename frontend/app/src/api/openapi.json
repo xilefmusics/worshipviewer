@@ -1172,13 +1172,18 @@
           "display_name": {
             "type": "string"
           },
+          "joined_at": {
+            "format": "date-time",
+            "type": "string"
+          },
           "visit_id": {
             "type": "string"
           }
         },
         "required": [
           "visit_id",
-          "display_name"
+          "display_name",
+          "joined_at"
         ],
         "type": "object"
       },
@@ -1186,6 +1191,10 @@
         "properties": {
           "boundary": {
             "$ref": "#/components/schemas/RoomMessageOrder"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
           },
           "history": {
             "items": {
@@ -1203,6 +1212,7 @@
         "required": [
           "room",
           "room_name",
+          "created_at",
           "history",
           "boundary"
         ],
@@ -2084,16 +2094,64 @@
         ],
         "type": "string"
       },
+      "RoomBackground": {
+        "description": "A preset plus an optional custom media image reference for the room AV background.",
+        "properties": {
+          "image": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RoomBackgroundImage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preset": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "preset"
+        ],
+        "type": "object"
+      },
+      "RoomBackgroundImage": {
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "media_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "media_id",
+          "asset_id"
+        ],
+        "type": "object"
+      },
       "RoomChange": {
-        "description": "Song and slide indices are scoped to the immutable captured room, not the library.",
+        "description": "Ordered navigation, vote and AV background events for a fixed room snapshot.",
         "oneOf": [
           {
-            "description": "Selecting a song for the first time or selecting it again is an activation.\nSlide-only navigation sets `activate` to false.",
+            "description": "Selecting a song for the first time or selecting it again is an activation.\nSection or slide-only navigation sets `activate` to false.",
             "properties": {
               "activate": {
                 "type": "boolean"
               },
+              "section": {
+                "description": "Source section index. Absent only for legacy messages that used `slide` for this value.",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
               "slide": {
+                "description": "Zero-based rendered AV slide index within the selected song.",
                 "minimum": 0,
                 "type": "integer"
               },
@@ -2136,6 +2194,25 @@
             "required": [
               "song",
               "voted",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "Replaces the shared AV background layer.",
+            "properties": {
+              "background": {
+                "$ref": "#/components/schemas/RoomBackground"
+              },
+              "type": {
+                "enum": [
+                  "set_background"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "background",
               "type"
             ],
             "type": "object"

@@ -16,7 +16,7 @@ Setlist/collection embed **`shared::song::Link`** (id, key, tempo). A dedicated 
 
 ## AV custom media (future epics M-1, M-2)
 
-AV mode uses preset backgrounds and lyric-derived slides only. Custom slide blobs and uploaded backgrounds need blob/media model + projection sync payload extensions (action plan §5.17).
+AV mode supports lyric-derived slides and preset or uploaded image backgrounds. Room messages now synchronize the selected background preset and optional media reference; custom slide blob workflows remain future work (action plan §5.17).
 
 ## External formats (future epic M-4)
 
