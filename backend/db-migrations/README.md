@@ -47,6 +47,10 @@ For zero-downtime deploys with many replicas, consider a **single-instance migra
 
 Removed tables, fields, and events may leave harmless `DEFINE` residue in older scripts. See [`docs/data-integrity/forward-only-migrations.md`](../../docs/data-integrity/forward-only-migrations.md) for the cleanup policy.
 
+## Room messaging cutover
+
+`20261106120000_prepare_message_rooms.surql` deletes legacy `room` and `room_session` records, removes those obsolete table definitions, then creates the message-room schema. This intentionally discards old room snapshots, participants, invites and mutable queue state; there is no automatic conversion or mixed-client compatibility. The migration itself does not run against a deployed database during development. Before a production rollout, take and verify a database backup, stop/drain all old room WebSockets, and deploy the replacement backend and frontend as one cutover. Retain the backup for rollback because new message rooms cannot be read by the old application.
+
 ## Local commands
 
 From `backend/`:

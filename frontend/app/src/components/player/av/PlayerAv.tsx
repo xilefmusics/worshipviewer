@@ -9,8 +9,6 @@ import { AvOutlinePanel } from '@/components/player/av/AvOutlinePanel'
 import { AvSectionShortcuts } from '@/components/player/av/AvSectionShortcuts'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
 import { AvSlidesPanel } from '@/components/player/av/AvSlidesPanel'
-import { UsersIcon } from '@/components/icons/lucide-animated/users-icon'
-import { LayersIcon } from '@/components/icons/lucide-animated/layers-icon'
 import { PlayerEditMenu } from '@/components/player/PlayerEditMenu'
 import { PlayerTocSidebar } from '@/components/player/PlayerTocSidebar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
@@ -22,6 +20,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useAvBilingualPreference } from '@/hooks/useAvBilingualPreference'
 import { useResolvedPlayerItemChordData } from '@/lib/player/apply-song-flow'
+import type { TocDisplayEntry } from '@/lib/player/toc-display'
 import {
   avItemTitle,
   avNextItemIndex,
@@ -45,8 +44,13 @@ import {
 } from '@/lib/player/av-lyric-slides'
 import { readLyricCollapseWhitespacePreference } from '@/lib/lyric-whitespace-preference'
 import {
+  roomRenderedSectionToSourceSlide,
+  roomSourceSlideToRenderedSection,
+} from '@/lib/room-slide-index'
+import {
   readAvPreferences,
   writeAvPreferences,
+  type AvBackgroundLayer,
   type AvBackgroundPreset,
   type AvPreferences,
   type AvScreenState,
@@ -62,7 +66,6 @@ import {
 } from '@/lib/player/av-projection-playback'
 import {
   buildAvProjectionCommand,
-  lyricsPayloadFromCommand,
   slideViewPropsFromCommand,
   type AvProjectionCommand,
   type AvProjectionContent,
@@ -104,6 +107,7 @@ import {
 } from '@/lib/player/player-chrome'
 import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { tocEntryForIndex } from '@/lib/player/player-helpers'
+import type { RoomDebugLog } from '@/lib/room-message-debug'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { songLanguageOptions } from '@/lib/player/song-language'
 import { buildSettingsSearch } from '@/lib/settings-route'
@@ -120,19 +124,25 @@ type PlayerAvProps = {
   initialIndex?: number
   allowNetworkFetch: boolean
   embedded?: boolean
+  showEmbeddedToc?: boolean
+  showEmbeddedRightPanel?: boolean
+  slideOnly?: boolean
   backToOverride?: '/rooms' | '/media'
   resourceTitle?: string
   deletedReconciled?: boolean
-  roomMusicalState?: { item_index: number; started: boolean; language: string | null; transposition: string | null }
-  roomStateRevision?: number
-  canControlRoomMusicalState?: boolean
-  canControlRoomProjection?: boolean
-  onRoomMusicalStateChange?: (state: { item_index: number; started: boolean; language: string | null; transposition: string | null }) => void
-  onRoomProjectionChange?: (payload: import('@/lib/player/av-preferences').AvProjectionPayload) => void
   allowLibraryActions?: boolean
   tocSidebar?: ReactNode
+  renderTocRowSuffix?: (entry: TocDisplayEntry) => ReactNode
+  roomQueueOrder?: readonly number[]
+  roomMembers?: readonly { visit_id: string; display_name: string; joined_at?: string }[]
+  roomOpenedAt?: string | null
+  roomVisitId?: string
+  roomDebugLog?: RoomDebugLog | null
   backAriaKeyOverride?: string
-  roomSidebar?: ReactNode
+  sharedSelection?: { song: number; section: number; slide: number } | null
+  onSharedSelectionChange?: (song: number, section: number, slide: number, activate: boolean) => void
+  sharedBackgroundLayer?: AvBackgroundLayer | null
+  onSharedBackgroundChange?: (background: AvBackgroundLayer) => void
 }
 
 function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs' | '/setlists' {
@@ -177,24 +187,31 @@ export function PlayerAv({
   player,
   initialIndex,
   embedded = false,
+  showEmbeddedToc = false,
+  showEmbeddedRightPanel = false,
+  slideOnly = false,
   backToOverride,
   resourceTitle,
-  roomMusicalState,
-  roomStateRevision,
-  canControlRoomMusicalState = false,
-  canControlRoomProjection = false,
-  onRoomMusicalStateChange,
-  onRoomProjectionChange,
   allowLibraryActions = true,
   tocSidebar,
+  renderTocRowSuffix,
+  roomQueueOrder,
+  roomMembers,
+  roomOpenedAt,
+  roomVisitId,
+  roomDebugLog,
   backAriaKeyOverride,
-  roomSidebar,
+  sharedSelection,
+  onSharedSelectionChange,
+  sharedBackgroundLayer,
+  onSharedBackgroundChange,
 }: PlayerAvProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const bilingualEnabled = useAvBilingualPreference()
   const [prefs, setPrefs] = useState<AvPreferences>(() => readAvPreferences())
+  const backgroundLayer = sharedBackgroundLayer ?? prefs.backgroundLayer
   const [viewState, setViewState] = useState<PlayerViewState>(() => readPlayerViewState(type, id))
   const [session, setSession] = useState<AvSessionState>(() => {
     const saved = readAvSessionState(type, id)
@@ -209,8 +226,7 @@ export function PlayerAv({
     const startSlide = initialIndex != null ? 0 : saved.slideIndex
     return { ...saved, itemIndex: startItem, slideIndex: startSlide }
   })
-  const tocVisible = !embedded
-  const [rightPanel, setRightPanel] = useState<'av' | 'room'>(() => (roomSidebar ? 'room' : 'av'))
+  const tocVisible = !embedded || showEmbeddedToc
   const [languagePopoverOpen, setLanguagePopoverOpen] = useState(false)
   const resolveLanguageIndexForItem = useCallback(
     (itemIndex: number) => viewState.languageByItem?.[itemIndex],
@@ -221,7 +237,6 @@ export function PlayerAv({
   const syncRef = useRef<AvProjectionChannel | null>(null)
   const skipProjectionBroadcastRef = useRef(true)
   const lastProjectionBroadcastRef = useRef<string | null>(null)
-  const lastRoomProjectionRef = useRef<string | null>(null)
   const controllerRef = useRef<AvControllerProjectionState>(INITIAL_CONTROLLER_PROJECTION_STATE)
   const [outputRegistry, setOutputRegistry] = useState<AvControllerProjectionState>(
     INITIAL_CONTROLLER_PROJECTION_STATE,
@@ -241,15 +256,15 @@ export function PlayerAv({
     resourceTitle || tocRow?.title,
     resolveLanguageIndexForItem,
   )
-  const showToc = !embedded && (tocSidebar != null || player.toc.length > 0)
-  const navBlocked = Boolean(roomMusicalState && !canControlRoomMusicalState)
+  const showToc = tocVisible && (tocSidebar != null || player.toc.length > 0)
   const backTo = backToOverride ?? hubPathForPlayerType(type)
 
   usePlayerIndexSearchSync(type, id, session.itemIndex, 'av')
 
   useEffect(() => {
+    if (slideOnly) return
     writePlayerViewState(type, id, viewState)
-  }, [type, id, viewState])
+  }, [id, slideOnly, type, viewState])
 
   const collapseLyricWhitespace = readLyricCollapseWhitespacePreference()
 
@@ -306,6 +321,40 @@ export function PlayerAv({
   )
 
   const slideCount = currentItem.slides.length
+
+  useEffect(() => {
+    if (!sharedSelection) return
+    const targetItem = player.items[sharedSelection.song]
+    if (!targetItem || targetItem.type !== 'chords') return
+    if (session.itemIndex !== sharedSelection.song) {
+      queueMicrotask(() => {
+        setSession((state) => ({ ...state, itemIndex: sharedSelection.song, slideIndex: 0, screenState: 'live' }))
+        setProjected((state) => ({ ...state, itemIndex: sharedSelection.song, slideIndex: 0, screenState: 'live' }))
+      })
+      return
+    }
+    const renderedSectionIndex = roomSourceSlideToRenderedSection(
+      targetItem.song.data.sections,
+      targetItem.flow,
+      sharedSelection.section,
+    )
+    const selectedSection = renderedSectionIndex == null
+      ? null
+      : currentItem.outline[renderedSectionIndex] ?? null
+    const sectionStart = selectedSection?.outlineIdx ?? 0
+    const presentationSlide = sharedSelection.slide < currentItem.slides.length
+      ? sharedSelection.slide
+      : sectionStart
+    if (presentationSlide == null) return
+    queueMicrotask(() => {
+      setSession((state) => state.slideIndex === presentationSlide && state.screenState === 'live'
+        ? state
+        : { ...state, slideIndex: presentationSlide, screenState: 'live' })
+      setProjected((state) => state.slideIndex === presentationSlide && state.screenState === 'live'
+        ? state
+        : { ...state, slideIndex: presentationSlide, screenState: 'live' })
+    })
+  }, [currentItem.outline, currentItem.slides.length, player.items, session.itemIndex, sharedSelection])
   const announcement = useMemo(() => {
     if (session.screenState === 'blackout') return t('player.av.blackoutOn')
     if (session.screenState === 'blank') return t('player.av.blankOn')
@@ -389,50 +438,6 @@ export function PlayerAv({
     `L${(currentLanguageIndex ?? 0) + 1}`
   const showLanguageSelector = rawItem?.type === 'chords' && currentLanguageOptions.length > 1
 
-  useEffect(() => {
-    if (!roomMusicalState || canControlRoomMusicalState) return
-    const roomItem = player.items[roomMusicalState.item_index]
-    const roomLanguageOptions =
-      roomItem?.type === 'chords'
-        ? songLanguageOptions(roomItem.song.data as Record<string, unknown>)
-        : []
-    queueMicrotask(() => {
-      setSession((state) => {
-        if (state.itemIndex === roomMusicalState.item_index) return state
-        return { ...state, itemIndex: roomMusicalState.item_index, slideIndex: 0 }
-      })
-      if (roomItem?.type !== 'chords') return
-      const languageIndex =
-        roomMusicalState.language == null
-          ? 0
-          : roomLanguageOptions.findIndex((option) => option.label === roomMusicalState.language)
-      setViewState((state) => {
-        const target = languageIndex > 0 ? languageIndex : undefined
-        if (state.languageByItem?.[roomMusicalState.item_index] === target) return state
-        return languageIndex > 0
-          ? setLanguageForItem(state, roomMusicalState.item_index, languageIndex)
-          : clearLanguageForItem(state, roomMusicalState.item_index)
-      })
-    })
-  }, [
-    roomMusicalState,
-    roomStateRevision,
-    canControlRoomMusicalState,
-    session.itemIndex,
-    player.items,
-  ])
-
-  const lastRoomMusicalStateRef = useRef('')
-  useEffect(() => {
-    if (!canControlRoomMusicalState || !onRoomMusicalStateChange) return
-    const stateWithoutStarted = { item_index: session.itemIndex, language: rawItem?.type === 'chords' && currentLanguageOptions.length > 0 ? currentLanguageLabel : null, transposition: roomMusicalState?.transposition ?? null }
-    const serialized = JSON.stringify(stateWithoutStarted)
-    if (serialized === lastRoomMusicalStateRef.current) return
-    const wasPreviouslySynced = lastRoomMusicalStateRef.current !== ''
-    lastRoomMusicalStateRef.current = serialized
-    onRoomMusicalStateChange({ ...stateWithoutStarted, started: roomMusicalState?.started === true || wasPreviouslySynced })
-  }, [canControlRoomMusicalState, currentLanguageLabel, currentLanguageOptions.length, onRoomMusicalStateChange, rawItem, roomMusicalState?.started, roomMusicalState?.transposition, session.itemIndex])
-
   const navigateToSongEditor = useCallback(() => {
     const item = player.items[session.itemIndex]
     if (item?.type !== 'chords') return
@@ -472,10 +477,12 @@ export function PlayerAv({
   }, [id, navigate, playerReturnContext, type])
 
   useEffect(() => {
+    if (slideOnly) return
     writeAvSessionState(type, id, session)
-  }, [type, id, session])
+  }, [id, session, slideOnly, type])
 
   useEffect(() => {
+    if (slideOnly) return
     const channel = createAvProjectionChannel(sessionId, (message) => {
       const next = reduceControllerProjection(
         controllerRef.current,
@@ -499,7 +506,7 @@ export function PlayerAv({
       channel.close()
       syncRef.current = null
     }
-  }, [sessionId])
+  }, [sessionId, slideOnly])
 
   const openOutputWindow = useCallback(() => {
     const url = `/player/output?s=${encodeURIComponent(sessionId)}`
@@ -538,7 +545,7 @@ export function PlayerAv({
         commandId: 0,
         content: projectedContent,
         contentLayer: prefs.contentLayer,
-        backgroundLayer: prefs.backgroundLayer,
+        backgroundLayer,
         transition: prefs.transition,
         screenState: projected.screenState,
         itemTitle: projectedTitle || t('player.untitled'),
@@ -548,7 +555,7 @@ export function PlayerAv({
       }),
     [
       livePlayback,
-      prefs.backgroundLayer,
+      backgroundLayer,
       prefs.contentLayer,
       prefs.transition,
       projected.screenState,
@@ -566,6 +573,7 @@ export function PlayerAv({
   const outputSummary = summarizeAvOutputs(outputRegistry)
 
   useEffect(() => {
+    if (slideOnly) return
     if (skipProjectionBroadcastRef.current) {
       skipProjectionBroadcastRef.current = false
       return
@@ -599,40 +607,59 @@ export function PlayerAv({
     }
     syncRef.current?.send(command)
 
-    const roomPayload = lyricsPayloadFromCommand(command)
-    if (canControlRoomProjection && onRoomProjectionChange && roomPayload) {
-      const serializedRoom = JSON.stringify(roomPayload)
-      if (lastRoomProjectionRef.current !== serializedRoom) {
-        lastRoomProjectionRef.current = serializedRoom
-        onRoomProjectionChange(roomPayload)
-      }
-    }
   }, [
-    canControlRoomProjection,
     livePlayback,
-    onRoomProjectionChange,
     projectedCommand,
     projectedItem.kind,
+    slideOnly,
   ])
 
   const setBackgroundPreset = useCallback((preset: AvBackgroundPreset) => {
+    if (onSharedBackgroundChange) {
+      onSharedBackgroundChange({ preset })
+      return
+    }
     setPrefs((prev) => {
       const next = { ...prev, backgroundLayer: { preset } }
       writeAvPreferences(next)
       return next
     })
-  }, [])
+  }, [onSharedBackgroundChange])
 
   const setBackgroundImage = useCallback((image: { mediaId: string; assetId: string }) => {
+    if (onSharedBackgroundChange) {
+      onSharedBackgroundChange({ ...backgroundLayer, image })
+      return
+    }
     setPrefs((prev) => {
       const next = { ...prev, backgroundLayer: { ...prev.backgroundLayer, image } }
       writeAvPreferences(next)
       return next
     })
-  }, [])
+  }, [backgroundLayer, onSharedBackgroundChange])
 
   const goToSlide = useCallback(
     (slideIndex: number, clearScreenState = true) => {
+      const clampedSlide = Math.max(0, Math.min(slideIndex, Math.max(slideCount - 1, 0)))
+      let sectionOffset = 0
+      let renderedSectionIndex: number | null = null
+      for (const [sectionIndex, section] of currentItem.outline.entries()) {
+        if (clampedSlide >= sectionOffset && clampedSlide < sectionOffset + section.len) {
+          renderedSectionIndex = sectionIndex
+          break
+        }
+        sectionOffset += section.len
+      }
+      if (onSharedSelectionChange && currentPlayerItem?.type === 'chords') {
+        const sourceSlide = renderedSectionIndex == null
+          ? 0
+          : roomRenderedSectionToSourceSlide(
+              currentPlayerItem.song.data.sections,
+              currentPlayerItem.flow,
+              renderedSectionIndex,
+            ) ?? 0
+        onSharedSelectionChange(session.itemIndex, sourceSlide, clampedSlide, false)
+      }
       if (isTimedAvKind(currentItem.kind)) {
         setSession((state) => ({
           ...state,
@@ -653,18 +680,18 @@ export function PlayerAv({
         return next
       })
     },
-    [currentItem.kind, slideCount],
+    [currentItem.kind, currentItem.outline, currentPlayerItem, onSharedSelectionChange, session.itemIndex, slideCount],
   )
 
   const goToItem = useCallback((itemIndex: number) => {
-    if (navBlocked) return
+    if (player.items[itemIndex]?.type === 'chords') onSharedSelectionChange?.(itemIndex, 0, 0, true)
     setSession((state) => ({
       ...state,
       itemIndex,
       slideIndex: 0,
       screenState: 'live',
     }))
-  }, [navBlocked])
+  }, [onSharedSelectionChange, player.items])
 
   const pauseLivePlayback = useCallback(() => {
     setLivePlayback((prev) =>
@@ -818,12 +845,12 @@ export function PlayerAv({
   )
 
   useEffect(() => {
+    if (slideOnly) return
     function onKeyDown(e: KeyboardEvent) {
       const action = avKeyboardAction(e.key, e.target, { tocOpen: tocVisible })
       if (!action && (e.key === 'n' || e.key === 'N')) {
         if (isEditableTarget(e.target)) return
         e.preventDefault()
-        if (navBlocked) return
         if (e.key === 'n') goNextItem()
         else goPrevItem()
         return
@@ -898,7 +925,6 @@ export function PlayerAv({
     goPrevItem,
     goToSlide,
     jumpToSection,
-    navBlocked,
     navigate,
     openOutputWindow,
     slideCount,
@@ -908,10 +934,9 @@ export function PlayerAv({
     tocVisible,
     languagePopoverOpen,
     currentItem.kind,
+    slideOnly,
   ])
 
-  const showAvRightPanel = !embedded && (!roomSidebar || rightPanel === 'av')
-  const showRoomSidebar = Boolean(roomSidebar) && rightPanel === 'room'
   const outputSummaryLabel =
     outputSummary.total === 0
       ? t('player.av.outputSummaryNone')
@@ -921,6 +946,24 @@ export function PlayerAv({
             failed: outputSummary.failed,
           })
         : t('player.av.outputSummary', { ready: outputSummary.ready })
+
+  if (slideOnly) {
+    return (
+      <div
+        className="av-output-page h-dvh w-dvw overflow-hidden bg-black"
+        onDoubleClick={() => void document.documentElement.requestFullscreen?.()}
+        aria-label={t('player.av.outputAria')}
+      >
+        <AvSlideView
+          {...projectedSlideView}
+          contentLayer={prefs.contentLayer}
+          backgroundLayer={backgroundLayer}
+          transition={prefs.transition}
+          screenState={sharedSelection ? projected.screenState : 'blank'}
+        />
+      </div>
+    )
+  }
 
   if (itemsLen === 0 || slideCount === 0) {
     return (
@@ -986,7 +1029,6 @@ export function PlayerAv({
                   aria-label={t('player.language.current', {
                     language: currentLanguageLabel,
                   })}
-                  disabled={navBlocked}
                 >
                   <span className={cn(playerHeaderIconClass, 'text-xs font-semibold leading-none')}>
                     {currentLanguageLabel}
@@ -1042,23 +1084,6 @@ export function PlayerAv({
             onEditMedia={navigateToMediaEditor}
             onEditResource={navigateToResourceEditor}
           /> : null}
-          {roomSidebar ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className={playerHeaderIconButtonClass}
-              aria-label={showRoomSidebar ? t('player.av.showAvPanel') : t('rooms.togglePanel')}
-              aria-pressed={showRoomSidebar}
-              onClick={() => setRightPanel((panel) => (panel === 'room' ? 'av' : 'room'))}
-            >
-              {showRoomSidebar ? (
-                <LayersIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
-              ) : (
-                <UsersIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
-              )}
-            </Button>
-          ) : null}
           <Button
             type="button"
             variant="outline"
@@ -1093,6 +1118,12 @@ export function PlayerAv({
                   }
                   goToItem(idx)
                 }}
+                renderRowSuffix={renderTocRowSuffix}
+                queueOrder={roomQueueOrder}
+                members={roomMembers}
+                roomOpenedAt={roomOpenedAt}
+                currentVisitId={roomVisitId}
+                protocolLog={roomDebugLog}
               />
             )}
           </div>
@@ -1116,7 +1147,7 @@ export function PlayerAv({
                 title={title || t('player.untitled')}
                 resourceType={currentItem.spotifyResourceType}
                 canonicalUrl={currentItem.canonicalUrl}
-                backgroundLayer={prefs.backgroundLayer}
+                backgroundLayer={backgroundLayer}
                 backgroundPreviewText={currentText}
                 contentLayer={prefs.contentLayer}
                 onSelectBackgroundPreset={setBackgroundPreset}
@@ -1136,7 +1167,7 @@ export function PlayerAv({
                 volume={controllerVolume}
                 muted={controllerMuted}
                 loop={controllerLoop}
-                backgroundLayer={prefs.backgroundLayer}
+                backgroundLayer={backgroundLayer}
                 backgroundPreviewText={currentText}
                 contentLayer={prefs.contentLayer}
                 onPlay={() => startPlay()}
@@ -1168,7 +1199,7 @@ export function PlayerAv({
                 entries={slideDeckEntries}
                 currentSlideIndex={selectedDeckSlideIndex}
                 contentLayer={prefs.contentLayer}
-                backgroundLayer={prefs.backgroundLayer}
+                backgroundLayer={backgroundLayer}
                 backgroundPreviewText={currentText}
                 transition={prefs.transition}
                 onSelectSlide={(slideIndex) => goToSlide(slideIndex)}
@@ -1179,12 +1210,9 @@ export function PlayerAv({
           </div>
         </div>
 
-        {!embedded ? (
+        {!embedded || showEmbeddedRightPanel ? (
           <aside className={cn('player-av__right shrink-0', PLAYER_TOC_WIDTH_CLASS)}>
-            {showRoomSidebar ? (
-              roomSidebar
-            ) : showAvRightPanel ? (
-              <>
+            <>
               <div className="player-av__preview">
                 <AvSlideView
                   preview
@@ -1197,7 +1225,7 @@ export function PlayerAv({
                       : undefined
                   }
                   contentLayer={prefs.contentLayer}
-                  backgroundLayer={prefs.backgroundLayer}
+                  backgroundLayer={backgroundLayer}
                   transition={prefs.transition}
                   screenState={projected.screenState}
                 />
@@ -1207,8 +1235,7 @@ export function PlayerAv({
                 rows={outlineRows}
                 onSelectSlide={(slideIndex) => goToSlide(slideIndex)}
               />
-              </>
-            ) : null}
+            </>
           </aside>
         ) : null}
       </div>

@@ -26,6 +26,8 @@ import { useComfortableKeysPreference } from '@/hooks/useComfortableKeysPreferen
 import { usePlayerInstrumentPreference } from '@/hooks/usePlayerInstrumentPreference'
 import { useIsPhoneWidth, useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerLayoutPreference } from '@/hooks/usePlayerScrollPreference'
+import type { TocDisplayEntry } from '@/lib/player/toc-display'
+import type { RoomDebugLog } from '@/lib/room-message-debug'
 import { useOnline } from '@/hooks/use-online'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useResolvedSongWithFlow } from '@/lib/player/apply-song-flow'
@@ -79,7 +81,6 @@ import {
 } from '@/lib/player/transpose-key'
 import {
   readPlayerViewState,
-  clearTransposeForItem,
   clearCapoForItem,
   clearPlayerKeyForItem,
   clearLanguageForItem,
@@ -87,7 +88,6 @@ import {
   setPlayerKeyForItem,
   setTransposeOffsetForItem,
   setCapoForItem,
-  setTransposeForItem,
   setLanguageForItem,
   writePlayerViewState,
   type PlayerViewState,
@@ -104,6 +104,10 @@ import type { PlayerEntityType } from '@/lib/player-route'
 import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { resolveSongLanguageIndex, songLanguageOptions } from '@/lib/player/song-language'
 import { renderChordSections } from '@/lib/player/chord-section-render'
+import {
+  roomRenderedSectionToSourceSlide,
+  roomSourceSlideToRenderedSection,
+} from '@/lib/room-slide-index'
 import { buildSettingsSearch } from '@/lib/settings-route'
 import { writeChordSongFontScale } from '@/lib/player/chord-song-font-scale-preference'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
@@ -263,6 +267,8 @@ type ResolvedBookChordsProps = {
   overflowStyle?: PlayerOverflowStyle
   expandSections?: boolean
   fontScale?: number
+  focusSectionIndex?: number
+  onSectionChange?: (sectionIndex: number) => void
 }
 
 export function ResolvedBookChords({
@@ -290,10 +296,21 @@ export function ResolvedBookChords({
   overflowStyle,
   expandSections,
   fontScale = 1,
+  focusSectionIndex,
+  onSectionChange,
 }: ResolvedBookChordsProps) {
   const resolveFlowOnMainThread = freeColumnCount == null
   const resolvedSong = useResolvedSongWithFlow(song, flow, resolveFlowOnMainThread)
   const resolvedSelectedKey = selectedKey ?? soundingKey
+  const renderedFocusSectionIndex = focusSectionIndex == null
+    ? undefined
+    : roomSourceSlideToRenderedSection(song.data.sections, flow, focusSectionIndex) ?? undefined
+  const reportRoomSectionChange = onSectionChange
+    ? (renderedSectionIndex: number) => {
+        const sourceSlide = roomRenderedSectionToSourceSlide(song.data.sections, flow, renderedSectionIndex)
+        if (sourceSlide != null) onSectionChange(sourceSlide)
+      }
+    : undefined
 
   if (freeColumnCount != null) {
     return (
@@ -340,6 +357,8 @@ export function ResolvedBookChords({
       fillParent={fillParent}
       fontScale={fontScale}
       overflowStyle={overflowStyle}
+      focusSectionIndex={renderedFocusSectionIndex}
+      onSectionChange={reportRoomSectionChange}
     />
   )
 }
@@ -366,14 +385,16 @@ type PlayerBookProps = {
   backAriaKeyOverride?: string
   resourceTitle?: string
   deletedReconciled?: boolean
-  roomMusicalState?: { item_index: number; started: boolean; language: string | null; transposition: string | null }
-  roomStateRevision?: number
-  canControlRoomMusicalState?: boolean
-  onRoomMusicalStateChange?: (state: { item_index: number; started: boolean; language: string | null; transposition: string | null }) => void
-  onRoomQueueNext?: () => void
   allowLibraryActions?: boolean
   tocSidebar?: ReactNode
-  roomSidebar?: ReactNode
+  renderTocRowSuffix?: (entry: TocDisplayEntry) => ReactNode
+  roomQueueOrder?: readonly number[]
+  roomMembers?: readonly { visit_id: string; display_name: string; joined_at?: string }[]
+  roomOpenedAt?: string | null
+  roomVisitId?: string
+  roomDebugLog?: RoomDebugLog | null
+  sharedSelection?: { song: number; section: number; slide: number } | null
+  onSharedSelectionChange?: (song: number, section: number, slide: number, activate: boolean) => void
 }
 
 export function PlayerBook({
@@ -387,14 +408,16 @@ export function PlayerBook({
   backAriaKeyOverride,
   resourceTitle,
   deletedReconciled,
-  roomMusicalState,
-  roomStateRevision,
-  canControlRoomMusicalState = false,
-  onRoomMusicalStateChange,
-  onRoomQueueNext,
   allowLibraryActions = true,
   tocSidebar,
-  roomSidebar,
+  renderTocRowSuffix,
+  roomQueueOrder,
+  roomMembers,
+  roomOpenedAt,
+  roomVisitId,
+  roomDebugLog,
+  sharedSelection,
+  onSharedSelectionChange,
 }: PlayerBookProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -415,7 +438,7 @@ export function PlayerBook({
   const chromeTransition = reduceMotion ? { duration: 0 } : { duration: 0.22, ease: PLAYER_CHROME_EASE }
   const [keyPopoverOpen, setKeyPopoverOpen] = useState(false)
   const [languagePopoverOpen, setLanguagePopoverOpen] = useState(false)
-  const [chromeVisible, setChromeVisible] = useState(() => !isPhoneViewport && (tocSidebar != null || roomSidebar != null))
+  const [chromeVisible, setChromeVisible] = useState(() => !isPhoneViewport && tocSidebar != null)
 
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const tocTouchStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -521,6 +544,18 @@ export function PlayerBook({
     }),
     [itemsLen, player.between_items, navScrollType, player.items],
   )
+
+  useEffect(() => {
+    if (!sharedSelection || sharedSelection.song < 0 || sharedSelection.song >= itemsLen) return
+    const item = player.items[sharedSelection.song]
+    const sectionCount = item?.type === 'chords' ? item.song.data.sections.length : 1
+    const pageOffset = Math.max(0, Math.min(sharedSelection.section, Math.max(0, sectionCount - 1)))
+    queueMicrotask(() => {
+      setNav((state) => state.index === sharedSelection.song && state.pageOffset === pageOffset
+        ? state
+        : { index: sharedSelection.song, pageOffset })
+    })
+  }, [itemsLen, player.items, sharedSelection])
   const snapPages = useMemo(() => {
     const pages: PlayerNavState[] = []
     for (let index = 0; index < itemsLen;) {
@@ -546,25 +581,32 @@ export function PlayerBook({
   const showToc = tocSidebar != null || displayToc.length > 0
   const fullscreenToc = isPhoneViewport && chromeVisible && showToc
   const showChordsControls = hasChordsItems(player.items)
-  const navBlocked = Boolean(roomMusicalState && !canControlRoomMusicalState)
+  const lastSentSharedSelectionRef = useRef<string | null>(null)
+  const publishSharedSelection = useCallback((next: PlayerNavState, activate: boolean, force = false) => {
+    if (!onSharedSelectionChange || next.index >= itemsLen) return
+    const item = player.items[next.index]
+    const sectionCount = item?.type === 'chords' ? Math.max(1, item.song.data.sections.length) : 1
+    const section = Math.min(next.pageOffset, sectionCount - 1)
+    const key = `${next.index}:${section}`
+    if (!force && key === lastSentSharedSelectionRef.current) return
+    lastSentSharedSelectionRef.current = key
+    onSharedSelectionChange(next.index, section, 0, activate)
+  }, [itemsLen, onSharedSelectionChange, player.items])
+
+  useEffect(() => {
+    lastSentSharedSelectionRef.current = sharedSelection
+      ? `${sharedSelection.song}:${sharedSelection.section}`
+      : null
+  }, [sharedSelection])
 
   const dispatch = useCallback(
     (action: Parameters<typeof nextPlayerState>[1]) => {
-      if (navBlocked) return
       const next = nextPlayerState(nav, action, navConfig)
-      if (
-        action.type === 'next' &&
-        onRoomQueueNext &&
-        next.index === nav.index &&
-        next.pageOffset === nav.pageOffset
-      ) {
-        onRoomQueueNext()
-        return
-      }
+      publishSharedSelection(next, action.type === 'jump' || next.index !== nav.index, action.type === 'jump')
       if (snapViewportRef.current) snapViewportRef.current.navigate(next, action.type === 'next' || action.type === 'prev')
       else setNav(next)
     },
-    [nav, navBlocked, navConfig, onRoomQueueNext, setNav],
+    [nav, navConfig, publishSharedSelection, setNav],
   )
 
   usePlayerIndexSearchSync(type, id, nav.index, mode)
@@ -717,8 +759,6 @@ export function PlayerBook({
     hideChords,
     layoutPreference.expandSections,
     playerInstrument,
-    roomMusicalState,
-    canControlRoomMusicalState,
     type,
     freeColumnCount,
   ])
@@ -734,13 +774,11 @@ export function PlayerBook({
     currentItem?.type === 'chords' ? keyStateForItem(currentItem, nav.index) : EMPTY_PLAYER_KEY_STATE
   const { soundingKey, capoShapeKey } = currentKeyState
   const showCapoControls =
-    !roomMusicalState &&
     playerInstrument === 'guitar' &&
     currentItem?.type === 'chords' &&
     soundingKey != null &&
     MUSICAL_KEYS.includes(soundingKey as (typeof MUSICAL_KEYS)[number])
-  const showTransposeControls =
-    (playerInstrument === 'keyboard' || Boolean(roomMusicalState)) && currentItem?.type === 'chords'
+  const showTransposeControls = playerInstrument === 'keyboard' && currentItem?.type === 'chords'
   const { selectedKey, transposeOffset } = currentKeySelection
   const transposeOptions = TRANSPOSE_OFFSETS.map((offset) => ({
     offset,
@@ -770,64 +808,7 @@ export function PlayerBook({
     `L${(currentLanguageIndex ?? 0) + 1}`
   const showLanguageSelector = currentItem?.type === 'chords' && currentLanguageOptions.length > 1
 
-  useEffect(() => {
-    if (!roomMusicalState || canControlRoomMusicalState) return
-    const roomItem = player.items[roomMusicalState.item_index]
-    const roomLanguageOptions =
-      roomItem?.type === 'chords'
-        ? songLanguageOptions(roomItem.song.data as Record<string, unknown>)
-        : []
-    queueMicrotask(() => {
-      setNav((state) => {
-        if (state.index === roomMusicalState.item_index) return state
-        return nextPlayerState(state, { type: 'jump', index: roomMusicalState.item_index }, navConfig)
-      })
-      if (roomItem?.type !== 'chords') return
-      const languageIndex =
-        roomMusicalState.language == null
-          ? 0
-          : roomLanguageOptions.findIndex((option) => option.label === roomMusicalState.language)
-      setViewState((state) => {
-        const targetLanguage = languageIndex > 0 ? languageIndex : undefined
-        const targetTranspose = roomMusicalState.transposition ?? undefined
-        if (
-          state.languageByItem?.[roomMusicalState.item_index] === targetLanguage &&
-          state.transposeByItem[roomMusicalState.item_index] === targetTranspose
-        ) {
-          return state
-        }
-        let next =
-          languageIndex > 0
-            ? setLanguageForItem(state, roomMusicalState.item_index, languageIndex)
-            : clearLanguageForItem(state, roomMusicalState.item_index)
-        next = roomMusicalState.transposition
-          ? setTransposeForItem(next, roomMusicalState.item_index, roomMusicalState.transposition)
-          : clearTransposeForItem(next, roomMusicalState.item_index)
-        return next
-      })
-    })
-  }, [
-    roomMusicalState,
-    roomStateRevision,
-    canControlRoomMusicalState,
-    nav.index,
-    navConfig,
-    player.items,
-  ])
-
-  const lastRoomStateRef = useRef('')
-  useEffect(() => {
-    if (!canControlRoomMusicalState || !onRoomMusicalStateChange) return
-    const stateWithoutStarted = { item_index: nav.index, language: currentItem?.type === 'chords' && currentLanguageOptions.length > 0 ? currentLanguageLabel : null, transposition: currentItem?.type === 'chords' ? soundingKey : null }
-    const serialized = JSON.stringify(stateWithoutStarted)
-    if (serialized === lastRoomStateRef.current) return
-    const wasPreviouslySynced = lastRoomStateRef.current !== ''
-    lastRoomStateRef.current = serialized
-    onRoomMusicalStateChange({ ...stateWithoutStarted, started: roomMusicalState?.started === true || wasPreviouslySynced })
-  }, [canControlRoomMusicalState, currentItem, currentLanguageLabel, currentLanguageOptions.length, nav.index, onRoomMusicalStateChange, roomMusicalState?.started, soundingKey])
-
   function handleTocSelect(sourceIdx: number, languageIndex: number | null) {
-    if (navBlocked) return
     if (languageIndex != null) {
       setViewState((state) => setLanguageForItem(state, sourceIdx, languageIndex))
     }
@@ -879,22 +860,22 @@ export function PlayerBook({
 
       if (action === 'prev') {
         e.preventDefault()
-        if (!navBlocked) dispatch({ type: 'prev' })
+        dispatch({ type: 'prev' })
         return
       }
       if (action === 'next') {
         e.preventDefault()
-        if (!navBlocked) dispatch({ type: 'next' })
+        dispatch({ type: 'next' })
         return
       }
       if (action === 'home') {
         e.preventDefault()
-        if (!navBlocked) dispatch({ type: 'home' })
+        dispatch({ type: 'home' })
         return
       }
       if (action === 'end') {
         e.preventDefault()
-        if (!navBlocked) dispatch({ type: 'end' })
+        dispatch({ type: 'end' })
         return
       }
       if (action === 'escape') {
@@ -941,7 +922,7 @@ export function PlayerBook({
 
       if (currentItem?.type !== 'chords') return
 
-      if (!roomMusicalState && playerInstrument === 'guitar') {
+      if (playerInstrument === 'guitar') {
         if (action === 'resetTranspose') {
           e.preventDefault()
           setViewState((state) => clearCapoForItem(state, nav.index))
@@ -1010,13 +991,11 @@ export function PlayerBook({
     showTransposeControls,
     navigateToSongEditor,
     nav.index,
-    navBlocked,
     navigate,
     keyPopoverOpen,
     languagePopoverOpen,
     chromeVisible,
     playerInstrument,
-    roomMusicalState,
     layoutPreferences,
     sheetOrientation,
     cancelPendingChromeOpen,
@@ -1039,16 +1018,12 @@ export function PlayerBook({
     const baseKey = baseKeyForItem(item)
     const legacyKey = viewState.transposeByItem[itemIndex]
     const selectedKeyOverride = viewState.selectedKeyByItem?.[itemIndex]
-    const isRoomFollower = Boolean(roomMusicalState && !canControlRoomMusicalState)
-    const selectedKeyCandidate = isRoomFollower
-      ? legacyKey
-      : selectedKeyOverride ?? legacyKey ?? baseKey
+    const selectedKeyCandidate = selectedKeyOverride ?? legacyKey ?? baseKey
     const selectedKey = MUSICAL_KEYS.includes(selectedKeyCandidate as (typeof MUSICAL_KEYS)[number])
       ? selectedKeyCandidate
       : baseKey
     const configuredOffset = viewState.transposeOffsetByItem?.[itemIndex]
     const transposeOffset =
-      !isRoomFollower &&
       typeof configuredOffset === 'number' &&
       Number.isInteger(configuredOffset) &&
       configuredOffset >= TRANSPOSE_OFFSETS[0] &&
@@ -1061,7 +1036,7 @@ export function PlayerBook({
       selectedKey,
       soundingKey,
       transposeOffset,
-      hasKeyOverride: !isRoomFollower && (selectedKeyOverride != null || legacyKey != null),
+      hasKeyOverride: selectedKeyOverride != null || legacyKey != null,
     }
   }
 
@@ -1069,10 +1044,7 @@ export function PlayerBook({
     const keySelection = keySelectionForItem(item, itemIndex)
     const savedCapoShape = type === 'setlist' ? normalizeCapoShapeKey(item.capo_shape) : null
     const localCapoShape = viewState.capoByItem?.[itemIndex]
-    const capoShape =
-      roomMusicalState || playerInstrument !== 'guitar'
-        ? null
-        : localCapoShape ?? savedCapoShape
+    const capoShape = playerInstrument !== 'guitar' ? null : localCapoShape ?? savedCapoShape
     return resolvePlayerKeyState(keySelection.baseKey, keySelection.soundingKey, capoShape)
   }
 
@@ -1121,6 +1093,10 @@ export function PlayerBook({
     const nextFlow = nextItem?.type === 'chords' ? nextItem.flow : undefined
     const keySelection = keySelectionForItem(item, itemIndex)
     const keyState = keyStateForItem(item, itemIndex)
+    const roomSelection = sharedSelection?.song === itemIndex ? sharedSelection : null
+    const reportRoomSlide = onSharedSelectionChange
+      ? (slide: number) => publishSharedSelection({ index: itemIndex, pageOffset: slide }, false)
+      : undefined
     const nextKeySelection =
       nextItem?.type === 'chords' ? keySelectionForItem(nextItem, itemIndex + 1) : null
     const nextKeyState = nextItem?.type === 'chords' ? keyStateForItem(nextItem, itemIndex + 1) : null
@@ -1152,6 +1128,8 @@ export function PlayerBook({
         overflowStyle={layoutPreference.overflowStyle}
         expandSections={layoutPreference.expandSections}
         fontScale={chordSongFontScale}
+        focusSectionIndex={roomSelection?.section}
+        onSectionChange={reportRoomSlide}
       />
     )
   }
@@ -1409,16 +1387,12 @@ export function PlayerBook({
 
       if (zone === 'left') {
         cancelPendingChromeOpen()
-        if (!navBlocked) {
-          dispatch({ type: 'prev' })
-        }
+        dispatch({ type: 'prev' })
         return true
       }
       if (zone === 'right') {
         cancelPendingChromeOpen()
-        if (!navBlocked) {
-          dispatch({ type: 'next' })
-        }
+        dispatch({ type: 'next' })
         return true
       }
 
@@ -1646,7 +1620,6 @@ export function PlayerBook({
                             aria-label={t('player.language.current', {
                               language: currentLanguageLabel,
                             })}
-                            disabled={navBlocked}
                           >
                             <span className={cn(playerHeaderIconClass, 'text-xs font-semibold leading-none')}>
                               {currentLanguageLabel}
@@ -1689,7 +1662,6 @@ export function PlayerBook({
                           aria-label={t('player.key.current', {
                             key: selectedKey ?? t('player.transpose.default'),
                           })}
-                          disabled={navBlocked}
                         >
                           <span className={cn(playerHeaderIconClass, 'text-sm font-semibold leading-none')}>
                             {selectedKey ?? '♮'}
@@ -1887,7 +1859,6 @@ export function PlayerBook({
             }
             animate={{
               paddingLeft: chromeVisible && showToc && !isPhoneViewport ? tocInsetPx : 0,
-              paddingRight: chromeVisible && roomSidebar ? tocInsetPx : 0,
             }}
             transition={chromeTransition}
             onClick={onMainClick}
@@ -1921,9 +1892,12 @@ export function PlayerBook({
               ref={snapViewportRef}
               pages={snapPages}
               nav={nav}
-              disabled={navBlocked}
+              disabled={false}
               reduceMotion={Boolean(reduceMotion)}
-              onNavigate={setNav}
+              onNavigate={(next) => {
+                setNav(next)
+                if (next.index !== nav.index) publishSharedSelection(next, true)
+              }}
               onScrollGesture={() => {
                 cancelPendingChromeOpen()
                 suppressClicksUntilRef.current = gestureTimestamp() + TOUCH_CLICK_SUPPRESSION_MS
@@ -1968,6 +1942,12 @@ export function PlayerBook({
                       currentSourceIdx={nav.index}
                       currentLanguageIndex={currentLanguageIndex}
                       onSelect={handleTocSelect}
+                      renderRowSuffix={renderTocRowSuffix}
+                      queueOrder={roomQueueOrder}
+                      members={roomMembers}
+                      roomOpenedAt={roomOpenedAt}
+                      currentVisitId={roomVisitId}
+                      protocolLog={roomDebugLog}
                       primaryTitleOnly={type === 'library'}
                       className={isPhoneViewport ? 'w-full flex-1 min-h-0 h-auto shrink border-r-0' : undefined}
                     />
@@ -1977,20 +1957,6 @@ export function PlayerBook({
             ) : null}
           </AnimatePresence>
 
-          <AnimatePresence initial={false}>
-            {chromeVisible && roomSidebar ? (
-              <motion.div
-                key="room-sidebar"
-                className="pointer-events-auto absolute inset-y-0 right-0 z-10 flex overflow-hidden"
-                initial={reduceMotion ? false : { x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={chromeTransition}
-              >
-                {roomSidebar}
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
         </motion.div>
       </div>
     </LayoutGroup>

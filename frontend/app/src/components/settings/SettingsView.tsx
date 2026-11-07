@@ -57,6 +57,10 @@ import {
 } from '@/lib/player/av-preferences'
 import { readPlayerDefaultMode, writePlayerDefaultMode } from '@/lib/player/player-mode-preference'
 import {
+  readDeveloperOptionsPreference,
+  writeDeveloperOptionsPreference,
+} from '@/lib/developer-options-preference'
+import {
   readComfortableKeysPreference,
   writeComfortableKeysPreference,
   type ComfortableKey,
@@ -509,6 +513,7 @@ export function SettingsView({
   const [invertSheetImages, setInvertSheetImagesState] = useState(readSheetImageInvertPreference)
   const [layoutPreferences, setLayoutPreferences] = useState(readPlayerLayoutPreferences)
   const [defaultPlayerMode, setDefaultPlayerModeState] = useState<PlayerMode>(readPlayerDefaultMode)
+  const [developerOptions, setDeveloperOptions] = useState(readDeveloperOptionsPreference)
   const [comfortableKeys, setComfortableKeys] = useState(readComfortableKeysPreference)
   const [playerInstrument, setPlayerInstrument] = useState(readPlayerInstrumentPreference)
   const [collapseLyricWhitespace, setCollapseLyricWhitespaceState] = useState(
@@ -945,6 +950,30 @@ export function SettingsView({
             value={defaultPlayerMode}
             onChange={setDefaultPlayerMode}
           />
+
+          <Card>
+            <CardContent className="p-4">
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
+                  aria-label={t('settings.developerOptions.label')}
+                  checked={developerOptions}
+                  onChange={(event) => {
+                    const enabled = event.target.checked
+                    setDeveloperOptions(enabled)
+                    writeDeveloperOptionsPreference(enabled)
+                  }}
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span>{t('settings.developerOptions.label')}</span>
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
+                    {t('settings.developerOptions.description')}
+                  </span>
+                </span>
+              </label>
+            </CardContent>
+          </Card>
 
           {sessionUser ? <SettingsProfilePictureSection user={sessionUser} /> : null}
 

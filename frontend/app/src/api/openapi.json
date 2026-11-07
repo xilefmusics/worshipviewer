@@ -31,23 +31,6 @@
         ],
         "type": "object"
       },
-      "AddRoomQueueItem": {
-        "properties": {
-          "revision": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "song_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "song_id",
-          "revision"
-        ],
-        "type": "object"
-      },
       "Blob": {
         "example": {
           "file_type": "image/png",
@@ -558,25 +541,6 @@
         ],
         "type": "object"
       },
-      "CreatedRoom": {
-        "properties": {
-          "credentials": {
-            "$ref": "#/components/schemas/RoomCredentials"
-          },
-          "invite_secret": {
-            "type": "string"
-          },
-          "room": {
-            "$ref": "#/components/schemas/RoomSummary"
-          }
-        },
-        "required": [
-          "room",
-          "credentials",
-          "invite_secret"
-        ],
-        "type": "object"
-      },
       "DuplicateMedia": {
         "additionalProperties": false,
         "properties": {
@@ -759,65 +723,6 @@
         "required": [
           "enabled",
           "active"
-        ],
-        "type": "object"
-      },
-      "InspectRoomInvite": {
-        "properties": {
-          "invite_secret": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "invite_secret"
-        ],
-        "type": "object"
-      },
-      "JoinRoom": {
-        "properties": {
-          "hide_chords": {
-            "type": "boolean"
-          },
-          "mode": {
-            "$ref": "#/components/schemas/RoomMode"
-          },
-          "resume_credential": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "mode"
-        ],
-        "type": "object"
-      },
-      "JoinRoomInvite": {
-        "properties": {
-          "display_name": {
-            "type": "string"
-          },
-          "hide_chords": {
-            "type": "boolean"
-          },
-          "invite_secret": {
-            "type": "string"
-          },
-          "mode": {
-            "$ref": "#/components/schemas/RoomMode"
-          },
-          "resume_credential": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "invite_secret",
-          "display_name",
-          "mode"
         ],
         "type": "object"
       },
@@ -1225,6 +1130,123 @@
         "required": [
           "id",
           "blob_id"
+        ],
+        "type": "object"
+      },
+      "MessageRoomCredentials": {
+        "properties": {
+          "connection_ticket": {
+            "type": "string"
+          },
+          "resume_credential": {
+            "type": "string"
+          },
+          "room_id": {
+            "type": "string"
+          },
+          "visit_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_id",
+          "visit_id",
+          "resume_credential",
+          "connection_ticket"
+        ],
+        "type": "object"
+      },
+      "MessageRoomJoin": {
+        "properties": {
+          "resume_credential": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "MessageRoomMember": {
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "joined_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "visit_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "visit_id",
+          "display_name",
+          "joined_at"
+        ],
+        "type": "object"
+      },
+      "MessageRoomReplay": {
+        "properties": {
+          "boundary": {
+            "$ref": "#/components/schemas/RoomMessageOrder"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/RoomMessage"
+            },
+            "type": "array"
+          },
+          "room": {
+            "$ref": "#/components/schemas/RoomContent"
+          },
+          "room_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "room",
+          "room_name",
+          "created_at",
+          "history",
+          "boundary"
+        ],
+        "type": "object"
+      },
+      "MessageRoomSummary": {
+        "properties": {
+          "can_delete": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "song_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "team_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "team_id",
+          "song_count",
+          "created_at"
         ],
         "type": "object"
       },
@@ -2065,26 +2087,6 @@
         "title": "ProblemDetails",
         "type": "object"
       },
-      "ReorderRoomQueue": {
-        "properties": {
-          "queue_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "revision": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "queue_ids",
-          "revision"
-        ],
-        "type": "object"
-      },
       "Role": {
         "enum": [
           "default",
@@ -2092,7 +2094,133 @@
         ],
         "type": "string"
       },
+      "RoomBackground": {
+        "description": "A preset plus an optional custom media image reference for the room AV background.",
+        "properties": {
+          "image": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RoomBackgroundImage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preset": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "preset"
+        ],
+        "type": "object"
+      },
+      "RoomBackgroundImage": {
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "media_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "media_id",
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "RoomChange": {
+        "description": "Ordered navigation, vote and AV background events for a fixed room snapshot.",
+        "oneOf": [
+          {
+            "description": "Selecting a song for the first time or selecting it again is an activation.\nSection or slide-only navigation sets `activate` to false.",
+            "properties": {
+              "activate": {
+                "type": "boolean"
+              },
+              "section": {
+                "description": "Source section index. Absent only for legacy messages that used `slide` for this value.",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "slide": {
+                "description": "Zero-based rendered AV slide index within the selected song.",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "song": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": {
+                "enum": [
+                  "selection"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "song",
+              "slide",
+              "activate",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "Sets this visit's vote, rather than toggling its current value.",
+            "properties": {
+              "song": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": {
+                "enum": [
+                  "vote"
+                ],
+                "type": "string"
+              },
+              "voted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "song",
+              "voted",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "Replaces the shared AV background layer.",
+            "properties": {
+              "background": {
+                "$ref": "#/components/schemas/RoomBackground"
+              },
+              "type": {
+                "enum": [
+                  "set_background"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "background",
+              "type"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "RoomContent": {
+        "description": "Immutable chord-song content captured from the selected source at creation.",
         "properties": {
           "items": {
             "items": {
@@ -2113,305 +2241,53 @@
         ],
         "type": "object"
       },
-      "RoomCredentials": {
+      "RoomMessage": {
         "properties": {
-          "connection_ticket": {
-            "type": "string"
+          "change": {
+            "$ref": "#/components/schemas/RoomChange"
           },
           "id": {
             "type": "string"
           },
-          "mode": {
-            "$ref": "#/components/schemas/RoomMode"
-          },
-          "resume_credential": {
-            "type": "string"
+          "order": {
+            "$ref": "#/components/schemas/RoomMessageOrder"
           },
           "room_id": {
+            "type": "string"
+          },
+          "visit_id": {
+            "description": "Set from the authenticated connection, never from the submitted payload.",
             "type": "string"
           }
         },
         "required": [
-          "room_id",
           "id",
-          "mode",
-          "resume_credential",
-          "connection_ticket"
-        ],
-        "type": "object"
-      },
-      "RoomInviteInfo": {
-        "properties": {
-          "av_occupied": {
-            "type": "boolean"
-          },
-          "guest_access_allowed": {
-            "type": "boolean"
-          },
-          "host_email": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "new_joins_locked": {
-            "type": "boolean"
-          },
-          "room_id": {
-            "type": "string"
-          }
-        },
-        "required": [
           "room_id",
-          "name",
-          "host_email",
-          "av_occupied"
+          "visit_id",
+          "order",
+          "change"
         ],
         "type": "object"
       },
-      "RoomMode": {
-        "enum": [
-          "sheet",
-          "av",
-          "slide"
-        ],
-        "type": "string"
-      },
-      "RoomMusicalState": {
+      "RoomMessageOrder": {
+        "description": "An epoch is reserved durably before a server starts accepting room changes.\nSequence numbers start at one in each epoch and may have gaps in history.",
         "properties": {
-          "item_index": {
+          "epoch": {
+            "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "language": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "started": {
-            "type": "boolean"
-          },
-          "transposition": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "item_index"
-        ],
-        "type": "object"
-      },
-      "RoomProjectionPayload": {
-        "properties": {
-          "background_layer": {
-            "type": "object"
-          },
-          "content_layer": {
-            "type": "object"
-          },
-          "content_lines": {
-            "type": [
-              "object",
-              "null"
-            ]
-          },
-          "content_text": {
-            "type": "string"
-          },
-          "item_title": {
-            "type": "string"
-          },
-          "next_preview": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "screen_state": {
-            "type": "string"
-          },
-          "transition": {
-            "type": "object"
-          }
-        },
-        "required": [
-          "content_text",
-          "content_layer",
-          "background_layer",
-          "transition",
-          "screen_state",
-          "item_title"
-        ],
-        "type": "object"
-      },
-      "RoomQueueItem": {
-        "properties": {
-          "added_by": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "played": {
-            "type": "boolean"
-          },
-          "song_id": {
-            "type": "string"
-          },
-          "upvotes": {
+          "sequence": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           }
         },
         "required": [
-          "id",
-          "song_id",
-          "added_by"
+          "epoch",
+          "sequence"
         ],
         "type": "object"
-      },
-      "RoomQueueLikes": {
-        "properties": {
-          "song_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "song_ids"
-        ],
-        "type": "object"
-      },
-      "RoomQueueRevision": {
-        "properties": {
-          "revision": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "revision"
-        ],
-        "type": "object"
-      },
-      "RoomSession": {
-        "properties": {
-          "anonymous": {
-            "type": "boolean"
-          },
-          "avatar_url": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "connected": {
-            "type": "boolean"
-          },
-          "display_name": {
-            "type": "string"
-          },
-          "hide_chords": {
-            "type": "boolean"
-          },
-          "id": {
-            "type": "string"
-          },
-          "is_av_host": {
-            "type": "boolean"
-          },
-          "is_host": {
-            "type": "boolean"
-          },
-          "mode": {
-            "$ref": "#/components/schemas/RoomMode"
-          }
-        },
-        "required": [
-          "id",
-          "mode",
-          "display_name",
-          "anonymous",
-          "connected",
-          "is_host",
-          "is_av_host"
-        ],
-        "type": "object"
-      },
-      "RoomSnapshot": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/RoomSummary"
-          },
-          {
-            "properties": {
-              "content": {
-                "$ref": "#/components/schemas/RoomContent"
-              },
-              "guest_access_allowed": {
-                "type": "boolean"
-              },
-              "host_lease_expires_at": {
-                "format": "date-time",
-                "type": "string"
-              },
-              "musical_state": {
-                "$ref": "#/components/schemas/RoomMusicalState"
-              },
-              "new_joins_locked": {
-                "type": "boolean"
-              },
-              "projection": {
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/RoomProjectionPayload"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "queue": {
-                "items": {
-                  "$ref": "#/components/schemas/RoomQueueItem"
-                },
-                "type": "array"
-              },
-              "revision": {
-                "format": "int64",
-                "minimum": 0,
-                "type": "integer"
-              },
-              "sessions": {
-                "items": {
-                  "$ref": "#/components/schemas/RoomSession"
-                },
-                "type": "array"
-              },
-              "voted_queue_ids": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              }
-            },
-            "required": [
-              "content",
-              "musical_state",
-              "sessions",
-              "revision",
-              "host_lease_expires_at"
-            ],
-            "type": "object"
-          }
-        ]
       },
       "RoomSourceType": {
         "enum": [
@@ -2420,49 +2296,6 @@
           "setlist"
         ],
         "type": "string"
-      },
-      "RoomSummary": {
-        "properties": {
-          "av_occupied": {
-            "type": "boolean"
-          },
-          "can_close": {
-            "type": "boolean"
-          },
-          "created_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "host_email": {
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "queue_additions_allowed": {
-            "type": "boolean"
-          },
-          "session_count": {
-            "minimum": 0,
-            "type": "integer"
-          },
-          "team_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "team_id",
-          "host_email",
-          "session_count",
-          "av_occupied",
-          "created_at"
-        ],
-        "type": "object"
       },
       "RootSpellingHint": {
         "description": "Accidental spelling hint from the parsed root token (`#` vs `b`).",
@@ -3428,23 +3261,6 @@
         },
         "required": [
           "title"
-        ],
-        "type": "object"
-      },
-      "UpdateRoomQueueAccess": {
-        "properties": {
-          "queue_additions_allowed": {
-            "type": "boolean"
-          },
-          "revision": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "queue_additions_allowed",
-          "revision"
         ],
         "type": "object"
       },
@@ -7058,13 +6874,33 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/RoomSummary"
+                    "$ref": "#/components/schemas/MessageRoomSummary"
                   },
                   "type": "array"
                 }
               }
             },
             "description": "The request succeeded."
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Team not found"
           }
         },
         "security": [
@@ -7096,11 +6932,61 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreatedRoom"
+                  "$ref": "#/components/schemas/MessageRoomSummary"
                 }
               }
             },
             "description": "The resource was created."
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid room request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Insufficient team role"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Source or team not found"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Room creation failed"
           }
         },
         "security": [
@@ -7116,69 +7002,9 @@
         ]
       }
     },
-    "/api/v1/rooms/invite/inspect": {
-      "post": {
-        "operationId": "inspect_invite",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/InspectRoomInvite"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoomInviteInfo"
-                }
-              }
-            },
-            "description": "The request succeeded."
-          }
-        },
-        "tags": [
-          "Rooms"
-        ]
-      }
-    },
-    "/api/v1/rooms/invite/join": {
-      "post": {
-        "operationId": "join_invite",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/JoinRoomInvite"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoomCredentials"
-                }
-              }
-            },
-            "description": "The request succeeded."
-          }
-        },
-        "tags": [
-          "Rooms"
-        ]
-      }
-    },
     "/api/v1/rooms/{id}": {
       "delete": {
-        "operationId": "close_room",
+        "operationId": "delete_room",
         "parameters": [
           {
             "in": "path",
@@ -7191,7 +7017,37 @@
         ],
         "responses": {
           "204": {
-            "description": "The request succeeded with no response body."
+            "description": "Room deleted"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Insufficient team role"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Room not found"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Room deletion failed"
           }
         },
         "security": [
@@ -7205,13 +7061,44 @@
         "tags": [
           "Rooms"
         ]
-      },
+      }
+    },
+    "/api/v1/rooms/{id}/history": {
       "get": {
-        "operationId": "get_room",
+        "operationId": "get_room_history",
         "parameters": [
           {
             "in": "path",
             "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "epoch",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sequence",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Account-bound room resume credential",
+            "in": "header",
+            "name": "x-room-resume",
             "required": true,
             "schema": {
               "type": "string"
@@ -7223,11 +7110,51 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RoomSnapshot"
+                  "$ref": "#/components/schemas/MessageRoomReplay"
                 }
               }
             },
             "description": "The request succeeded."
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid history boundary"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Authentication or resume credential rejected"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Room not found"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "History read failed"
           }
         },
         "security": [
@@ -7260,7 +7187,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/JoinRoom"
+                "$ref": "#/components/schemas/MessageRoomJoin"
               }
             }
           },
@@ -7271,197 +7198,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RoomCredentials"
-                }
-              }
-            },
-            "description": "The request succeeded."
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          },
-          {
-            "SessionToken": []
-          }
-        ],
-        "tags": [
-          "Rooms"
-        ]
-      }
-    },
-    "/api/v1/rooms/{id}/queue": {
-      "post": {
-        "operationId": "add_queue_item",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddRoomQueueItem"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "The request succeeded with no response body."
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The request is invalid."
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Authentication is required or invalid."
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The requested resource was not found."
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The request conflicts with the current resource state."
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          },
-          {
-            "SessionToken": []
-          }
-        ],
-        "tags": [
-          "Rooms"
-        ]
-      }
-    },
-    "/api/v1/rooms/{id}/queue-access": {
-      "put": {
-        "operationId": "update_queue_access",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateRoomQueueAccess"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "The request succeeded with no response body."
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The caller is not permitted to perform this action."
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The requested resource was not found."
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The request conflicts with the current resource state."
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          },
-          {
-            "SessionToken": []
-          }
-        ],
-        "tags": [
-          "Rooms"
-        ]
-      }
-    },
-    "/api/v1/rooms/{id}/queue/likes": {
-      "get": {
-        "operationId": "get_queue_likes",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoomQueueLikes"
+                  "$ref": "#/components/schemas/MessageRoomCredentials"
                 }
               }
             },
@@ -7475,7 +7212,7 @@
                 }
               }
             },
-            "description": "Authentication is required or invalid."
+            "description": "Authentication or resume credential rejected"
           },
           "404": {
             "content": {
@@ -7485,7 +7222,27 @@
                 }
               }
             },
-            "description": "The requested resource was not found."
+            "description": "Room not found"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Room is full"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Room join failed"
           }
         },
         "security": [
@@ -7496,285 +7253,6 @@
             "SessionToken": []
           }
         ],
-        "tags": [
-          "Rooms"
-        ]
-      }
-    },
-    "/api/v1/rooms/{id}/queue/order": {
-      "put": {
-        "operationId": "reorder_queue",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReorderRoomQueue"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "The request succeeded with no response body."
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The request is invalid."
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The caller is not permitted to perform this action."
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The requested resource was not found."
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The request conflicts with the current resource state."
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          },
-          {
-            "SessionToken": []
-          }
-        ],
-        "tags": [
-          "Rooms"
-        ]
-      }
-    },
-    "/api/v1/rooms/{id}/queue/{queue_id}": {
-      "delete": {
-        "operationId": "remove_queue_item",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "queue_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "revision",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "minimum": 0,
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "The request succeeded with no response body."
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The caller is not permitted to perform this action."
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The requested resource was not found."
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The request conflicts with the current resource state."
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          },
-          {
-            "SessionToken": []
-          }
-        ],
-        "tags": [
-          "Rooms"
-        ]
-      }
-    },
-    "/api/v1/rooms/{id}/queue/{queue_id}/promote": {
-      "post": {
-        "operationId": "promote_queue_item",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "queue_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RoomQueueRevision"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "The request succeeded with no response body."
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The caller is not permitted to perform this action."
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The requested resource was not found."
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "The request conflicts with the current resource state."
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          },
-          {
-            "SessionToken": []
-          }
-        ],
-        "tags": [
-          "Rooms"
-        ]
-      }
-    },
-    "/api/v1/rooms/{id}/reconnect": {
-      "post": {
-        "operationId": "reconnect_room",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/JoinRoom"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RoomCredentials"
-                }
-              }
-            },
-            "description": "The request succeeded."
-          }
-        },
         "tags": [
           "Rooms"
         ]
@@ -13246,7 +12724,7 @@
       "name": "Teams"
     },
     {
-      "description": "Persisted cross-device chord-song sessions, invitations, and realtime synchronization.",
+      "description": "Fixed room content with authenticated link access, ordered messages, replay, and live presence.",
       "externalDocs": {
         "description": "Business logic constraints (markdown in repository).",
         "url": "https://github.com/xilefmusics/worshipviewer/blob/main/docs/business-logic-constraints/room.md"

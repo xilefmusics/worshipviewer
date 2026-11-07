@@ -73,6 +73,10 @@ type ChordsSlideProps = {
   fillParent?: boolean
   fontScale?: number
   overflowStyle?: PlayerOverflowStyle
+  /** Section selected by the shared room player. */
+  focusSectionIndex?: number
+  /** Reports a section reached by scrolling the sheet. */
+  onSectionChange?: (sectionIndex: number) => void
 }
 
 export function ChordsSlide({
@@ -89,11 +93,14 @@ export function ChordsSlide({
   fillParent = false,
   fontScale = 1,
   overflowStyle = 'scroll',
+  focusSectionIndex,
+  onSectionChange,
 }: ChordsSlideProps) {
   const { t } = useTranslation()
   const hideChords = useHideChordsPreference()
   const viewportRef = useRef<HTMLDivElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
+  const lastReportedSectionRef = useRef<number | null>(null)
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
   const [renderCache, setRenderCache] = useState<{ key: string; state: RenderState }>({
     key: '',
@@ -228,6 +235,36 @@ ${
     return observeElementResize(el, measure)
   }, [fontScale, overflowStyle, renderKey, renderState])
 
+  useLayoutEffect(() => {
+    if (focusSectionIndex == null || renderState.status !== 'ready') return
+    const viewport = viewportRef.current
+    const headings = pageRef.current?.querySelectorAll<HTMLElement>('.keyword')
+    if (!viewport || !headings?.length) return
+
+    const sectionIndex = Math.max(0, Math.min(focusSectionIndex, headings.length - 1))
+    lastReportedSectionRef.current = sectionIndex
+    const heading = headings[sectionIndex]
+    if (!heading) return
+    const offset = heading.getBoundingClientRect().top - viewport.getBoundingClientRect().top
+    if (Math.abs(offset) > 1) viewport.scrollTop += offset
+  }, [cssScale, focusSectionIndex, renderKey, renderState])
+
+  const handleViewportScroll = useCallback(() => {
+    if (!onSectionChange || renderState.status !== 'ready') return
+    const viewport = viewportRef.current
+    const headings = pageRef.current?.querySelectorAll<HTMLElement>('.keyword')
+    if (!viewport || !headings?.length) return
+
+    const markerTop = viewport.getBoundingClientRect().top + 32
+    let sectionIndex = 0
+    headings.forEach((heading, index) => {
+      if (heading.getBoundingClientRect().top <= markerTop) sectionIndex = index
+    })
+    if (lastReportedSectionRef.current === sectionIndex) return
+    lastReportedSectionRef.current = sectionIndex
+    onSectionChange(sectionIndex)
+  }, [onSectionChange, renderState.status])
+
   const scaledReady = renderState.status === 'ready' && cssScale != null
   const measuring = renderState.status === 'ready' && cssScale == null
   const visibleHeight =
@@ -239,6 +276,7 @@ ${
     <div
       ref={viewportRef}
       data-player-chord-surface
+      onScroll={handleViewportScroll}
       className={cn(
         'player-chord-song-surface player-chords-viewport flex min-h-0 flex-1 flex-col',
         fillParent && 'h-full w-full',

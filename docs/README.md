@@ -10,6 +10,7 @@ Central map of Worship Viewer engineering docs. User-facing product copy lives i
 | [backend-resource.md](architecture/backend-resource.md) | Per-resource layered pattern (DTO → repo → service → REST) |
 | [frontend-navigation-graph.md](architecture/frontend-navigation-graph.md) | SPA routes, overlays, and transitions |
 | [frontend-user-flows.md](architecture/frontend-user-flows.md) | Product flow catalog |
+| [room-message-contract.md](architecture/room-message-contract.md) | Fixed-pool room messages, replay, presence, and persistence behavior |
 | [search-contract.md](architecture/search-contract.md) | List `q` search — API vs client surfaces |
 | [frontend-error-ux.md](architecture/frontend-error-ux.md) | Problem → toast/banner/inline taxonomy |
 | [offline-export-import-security.md](architecture/offline-export-import-security.md) | Chord HTML trust boundary, offline cache, export policy |
@@ -42,7 +43,7 @@ Central map of Worship Viewer engineering docs. User-facing product copy lives i
 | Document | Description |
 |----------|-------------|
 | [logging-review.md](logging-review.md) | Canonical log fields and audit event catalog |
-| [architecture/room-realtime.md](architecture/room-realtime.md) | Room HTTP/WebSocket split, revisions, and deployment boundary |
+| [architecture/room-realtime.md](architecture/room-realtime.md) | Room HTTP/WebSocket flow, ordered messages, and deployment boundary |
 | [business-logic-constraints/monitoring.md](business-logic-constraints/monitoring.md) | HTTP audit and admin metrics BLCs |
 
 ## Licensing & third party

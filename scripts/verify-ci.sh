@@ -11,7 +11,13 @@ echo "== Rust fmt =="
 (cd shared && cargo fmt --check)
 
 echo "== cargo audit =="
-(cd backend && cargo audit)
+# Temporary exceptions while the backend stays on SurrealDB 3.x:
+# 0454 is fixed in SurrealDB 4.0; 0194/0195 come from quick-xml 0.39.4
+# required by SurrealDB 3.x's object_store 0.13 dependency.
+(cd backend && cargo audit \
+  --ignore RUSTSEC-2026-0454 \
+  --ignore RUSTSEC-2026-0194 \
+  --ignore RUSTSEC-2026-0195)
 (cd cli && cargo audit)
 (cd shared && cargo audit)
 (cd frontend/crates/chordlib-wasm && cargo audit)

@@ -35,6 +35,11 @@
   white-space: nowrap;
 }
 
+.player-outline-list__item--with-suffix {
+  width: auto;
+  margin: 0;
+}
+
 .player-outline-list__item:hover:not(:disabled) {
   background: var(--color-muted);
   color: var(--color-primary);

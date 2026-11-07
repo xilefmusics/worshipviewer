@@ -25,7 +25,7 @@ pub fn scope(
         .wrap(Governor::new(&api_governor))
         .wrap(AuditRateLimit429)
         .service(about::get_about)
-        .service(room::rest::scope())
+        .service(room::message_rest::scope())
         .service(
             web::scope("")
                 .wrap(RequireUser)

@@ -61,7 +61,7 @@ async-trait = "0.1.92"
 lettre = { version = "0.11.23", features = ["tokio1-native-tls"] }
 ring = "0.17.14"
 hex = "0.4.3"
-actix-files = "0.7.0"
+actix-files = "0.7.4"
 actix-ws = "0.4"
 actix-governor = "0.10"
 shared = { path = "../shared", features = ["backend"] }

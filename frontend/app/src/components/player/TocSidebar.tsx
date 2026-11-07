@@ -41,7 +41,7 @@ export type TocSidebarProps = {
 
 const MODES: TocDisplayMode[] = ['order', 'alphabetical', 'liked']
 const MODE_ICONS = { order: TocSortOrderIcon, alphabetical: TocSortAlphabeticalIcon, liked: TocSortLikedIcon } as const
-const TOC_SORT_BUTTON_CLASS = 'flex min-w-0 flex-1 items-center justify-center rounded-md px-[0.6rem] py-[0.7rem] transition-colors'
+export const TOC_SORT_BUTTON_CLASS = 'flex min-w-0 flex-1 items-center justify-center rounded-md px-[0.6rem] py-[0.7rem] transition-colors'
 const TOC_FILTER_CHIP_CLASS = 'rounded-md px-[0.72rem] py-[0.36rem] text-sm leading-snug font-medium transition-colors'
 
 export function TocSidebar({
@@ -190,7 +190,7 @@ export function TocSidebar({
           </div>
         ) : null}
       </div>
-      <ul className="player-outline-list player-outline-list--fill" role="listbox" aria-label={ariaLabel ?? t('player.toc.title')}>
+      <ul className="player-outline-list player-outline-list--fill" role={renderRowSuffix ? 'list' : 'listbox'} aria-label={ariaLabel ?? t('player.toc.title')}>
         {entries.length === 0 ? (
           <li className="px-2 py-4 text-center text-xs text-[var(--color-muted-foreground)]">{emptyMessageOverride ?? emptyMessage}</li>
         ) : entries.map((row, index) => {
@@ -198,13 +198,13 @@ export function TocSidebar({
           return (
             <Fragment key={row.key}>
               {renderSeparatorBefore?.(row, entries[index - 1], entries)}
-              <li className={renderRowSuffix ? 'flex items-center gap-1 pr-2' : undefined}>
+              <li className={renderRowSuffix ? 'flex items-center gap-1 px-2' : undefined}>
                 <button
                   type="button"
-                  role="option"
+                  role={renderRowSuffix ? undefined : 'option'}
                   aria-current={active ? 'true' : undefined}
                   aria-label={getRowAriaLabel?.(row) ?? row.title}
-                  className={cn('player-outline-list__item', renderRowSuffix && 'min-w-0 flex-1', active && 'player-outline-list__item--selected')}
+                  className={cn('player-outline-list__item', renderRowSuffix && 'player-outline-list__item--with-suffix min-w-0 flex-1', active && 'player-outline-list__item--selected')}
                   onClick={() => onSelect(row.sourceIdx, row.languageIndex)}
                 >
                   {row.showNumber ? `${tocDisplayNr(toc, row.sourceIdx)}. ` : ''}{row.title}

@@ -627,7 +627,7 @@ flowchart TD
     note["Transpose and local capo changes are per-item, persisted locally (not in URL)"]
     saved["Setlist items load their saved capo_shape as the standalone sheet baseline"]
     saved -.-> note
-    room["Room playback ignores saved/local capo controls and keeps existing transpose behavior"]
+    room["Room song/slide selection and AV background are shared; chord format, capo/transpose, and layout remain local"]
     capo -.-> note2["With a capo shape selected, key changes move the sounding key and recalculate the capo while keeping the shape"]
 ```
 
@@ -700,7 +700,7 @@ flowchart TD
     av -->|AV settings gear| settings["→ /settings?tab=playerRoles (return context)"]
 ```
 
-TOC/item changes stay on the controller. Deck pages use the same replace command as lyrics; Media is not sent through Rooms. Missing `?s` defaults to the shared session.
+TOC/item changes stay on the controller. Deck pages use the same replace command as lyrics; deck-page media is not sent through Rooms. AV background changes are shared as a preset and optional custom image reference. Missing `?s` defaults to the shared session.
 
 ### I4. Uploaded audio/video projection
 
@@ -888,17 +888,22 @@ flowchart LR
     create --> teams{"Writable teams"}
     teams -->|"one"| confirm["Confirm"]
     teams -->|"multiple"| choose["Choose team"] --> confirm
-    confirm --> empty["Empty host Sheet surface"]
-    list --> chooser["Fixed mode chooser"]
-    invite["Public fragment invite"] --> name["Display name"] --> chooser
-    chooser --> sheet["Sheet follower"]
-    chooser --> av["Single AV host"]
-    chooser --> slide["Passive Slide output"]
-    empty --> host["Host controls"]
-    av -->|"structured projection"| slide
+    confirm --> room["Fixed room pool"]
+    list -->|"open"| room
+    room -->|"copy link"| link["/rooms/:roomId"]
+    room -->|"has songs"| player["Sheet or AV view"]
+    link --> signedIn{"Signed in?"}
+    signedIn -->|"No"| login["Sign in, then return to room"]
+    signedIn -->|"Yes"| player
+    player --> toc["Table of contents"]
+    toc --> vote["Vote for any song"]
+    toc --> select["Select any song/slide"]
+    vote --> ranking["Order view: unplayed, votes, source order"]
+    list -.->|"team editor"| delete["Delete room"]
+    room -->|"no songs"| empty["Empty room message"]
 ```
 
-Room creation is online-only. The Rooms hub can create an independent room, while collection, song, and setlist context menus open the same dialog with a source preselected. Source-backed rooms capture the selected content server-side; the user chooses any writable owning team and may edit the initial source title-based room name. Setlist-backed rooms also prefill the shared next-song queue in setlist order. If no writable team is available, the dialog keeps its normal disabled create state. New independent rooms have no source content and show a dedicated empty state while preserving host controls. All room surfaces show reconnecting without discarding their last snapshot. Room discovery is loaded only after navigating to the Rooms hub; unrelated legacy hub pages do not poll or prefetch room data. An ended room is terminal and public failures do not reveal team or source data.
+Room creation is online-only. Team editors can create and delete rooms from the Rooms hub; collection, song and setlist actions open the same dialog with a source preselected. Creation captures a fixed song pool on the server. Later source edits do not change that pool, and every captured song remains visible in the table of contents. Its Order view follows the virtual queue: unplayed songs rank first, then songs with more visit votes, then original source order. Other TOC views keep their regular alphabetical and liked ordering. AV mode keeps the normal contents and right-side slide outline panels in the room player. Any connected participant can vote, select any song and slide, or set the shared AV background; selections and backgrounds are echoed in server order to every participant, including their sender. A custom background image is shared by reference and uses each participant's normal media access, with the preset shown if the image is unavailable. Room links use `/rooms/:roomId`; any signed-in link holder can join, while anonymous visitors must sign in. Other sheet/AV presentation and chord display settings are local to each participant. An actual join/REST failure is shown as a connection error; room deletion shows an ended state. There is no host role, anonymous guest mode, in-room close action or separately editable queue. Empty rooms show an empty-state message. Room discovery is loaded only after navigating to the Rooms hub; unrelated hub pages do not poll or prefetch room data.
 
 ---
 

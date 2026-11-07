@@ -353,7 +353,11 @@ function renderColumnSection(section: ColumnSection | undefined, index: number) 
   if (!section) return null
 
   return (
-    <div key={index} className="player-chords-three-column__section" data-section-index={index}>
+    <div
+      key={index}
+      className="player-chords-three-column__section"
+      data-section-index={index}
+    >
       <div dangerouslySetInnerHTML={{ __html: section.html }} />
     </div>
   )

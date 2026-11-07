@@ -1,4 +1,6 @@
-pub mod rest;
-pub mod service;
+pub mod message_live;
+pub mod message_rest;
+pub mod message_service;
+pub mod message_store;
 
-pub use service::RoomService;
+pub use message_service::MessageRoomService;
