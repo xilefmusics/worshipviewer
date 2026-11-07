@@ -190,16 +190,9 @@ function activeSong() {
   return within(screen.getByTestId('player-snap-viewport').querySelector('[aria-hidden="false"]') as HTMLElement)
 }
 
-function renderPlayer(
-  value: Player,
-  roomSidebar: React.ReactNode = <div>room</div>,
-  tocSidebar?: React.ReactNode,
-  roomMusicalState?: { item_index: number; started: boolean; language: string | null; transposition: string | null },
-  canControlRoomMusicalState = false,
-  initialIndex?: number,
-) {
+function renderPlayer(value: Player, tocSidebar?: React.ReactNode, initialIndex?: number) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <PlayerBook
         type="setlist"
@@ -207,13 +200,14 @@ function renderPlayer(
         player={value}
         initialIndex={initialIndex}
         allowNetworkFetch
-        roomSidebar={roomSidebar}
         tocSidebar={tocSidebar}
-        roomMusicalState={roomMusicalState}
-        canControlRoomMusicalState={canControlRoomMusicalState}
       />
     </QueryClientProvider>,
   )
+  if (!mocks.isPhoneViewport && tocSidebar == null) {
+    fireEvent.keyDown(window, { key: 'm' })
+  }
+  return view
 }
 
 beforeEach(() => {
@@ -229,20 +223,17 @@ describe('PlayerBook likes', () => {
   it('renders a supplied TOC sidebar in the player chrome', () => {
     renderPlayer(
       player(),
-      <div data-testid="room-sidebar-slot">room</div>,
       <div data-testid="toc-sidebar-slot">queue</div>,
     )
 
     expect(screen.getByTestId('toc-sidebar-slot')).toBeInTheDocument()
-    expect(screen.getByTestId('room-sidebar-slot')).toBeInTheDocument()
     expect(screen.queryByTestId('liked-toc')).not.toBeInTheDocument()
   })
 
-  it('keeps keyboard and click-zone navigation with supplied room sidebars', () => {
+  it('keeps keyboard and click-zone navigation with a supplied TOC', () => {
     const queueClick = vi.fn()
     renderPlayer(
       player(),
-      <div data-testid="room-sidebar-slot">room</div>,
       <button type="button" onClick={queueClick}>queue</button>,
     )
 
@@ -347,7 +338,7 @@ describe('PlayerBook likes', () => {
 
   it('dismisses the fullscreen TOC after selecting a row without waiting for a track transition', async () => {
     mocks.isPhoneViewport = true
-    renderPlayer(player(), null, undefined, undefined, false, 2)
+    renderPlayer(player(), undefined, 2)
 
     fireEvent.keyDown(window, { key: 'm' })
 
@@ -367,7 +358,7 @@ describe('PlayerBook likes', () => {
 
   it('swipes left inside the fullscreen TOC to return to the song', async () => {
     mocks.isPhoneViewport = true
-    renderPlayer(player(), null, undefined, undefined, false, 2)
+    renderPlayer(player(), undefined, 2)
 
     fireEvent.keyDown(window, { key: 'm' })
 
@@ -393,7 +384,7 @@ describe('PlayerBook likes', () => {
 
   it('keeps the fullscreen TOC open for vertical and non-dismissal swipes', () => {
     mocks.isPhoneViewport = true
-    renderPlayer(player(), null, undefined, undefined, false, 2)
+    renderPlayer(player(), undefined, 2)
 
     fireEvent.keyDown(window, { key: 'm' })
 
@@ -481,7 +472,6 @@ describe('PlayerBook likes', () => {
           id="setlist-1"
           player={structuredClone(original)}
           allowNetworkFetch
-          roomSidebar={<div>room</div>}
         />
       </QueryClientProvider>,
     )
@@ -651,17 +641,11 @@ describe('PlayerBook capo controls', () => {
     expect(activeSong().getByText('song-1')).toHaveAttribute('data-transpose-offset', '-4')
   })
 
-  it('clears capo controls in shared Room playback', () => {
-    renderPlayer(
-      savedCapoPlayer(),
-      <div>room</div>,
-      undefined,
-      { item_index: 0, started: true, language: null, transposition: null },
-      true,
-    )
+  it('keeps per-user capo controls available in every player session', () => {
+    localStorageState.set('wv_player_instrument', 'guitar')
+    renderPlayer(savedCapoPlayer())
 
     fireEvent.click(screen.getByRole('button', { name: 'player.key.current' }))
-    expect(screen.queryByText('player.capo.title')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('capo-shape-G')).not.toBeInTheDocument()
+    expect(screen.getByText('player.capo.title')).toBeInTheDocument()
   })
 })

@@ -627,7 +627,7 @@ flowchart TD
     note["Transpose and local capo changes are per-item, persisted locally (not in URL)"]
     saved["Setlist items load their saved capo_shape as the standalone sheet baseline"]
     saved -.-> note
-    room["Room playback ignores saved/local capo controls and keeps existing transpose behavior"]
+    room["Room song/slide selection is shared; chord format, capo/transpose, and layout remain local"]
     capo -.-> note2["With a capo shape selected, key changes move the sounding key and recalculate the capo while keeping the shape"]
 ```
 
@@ -888,17 +888,22 @@ flowchart LR
     create --> teams{"Writable teams"}
     teams -->|"one"| confirm["Confirm"]
     teams -->|"multiple"| choose["Choose team"] --> confirm
-    confirm --> empty["Empty host Sheet surface"]
-    list --> chooser["Fixed mode chooser"]
-    invite["Public fragment invite"] --> name["Display name"] --> chooser
-    chooser --> sheet["Sheet follower"]
-    chooser --> av["Single AV host"]
-    chooser --> slide["Passive Slide output"]
-    empty --> host["Host controls"]
-    av -->|"structured projection"| slide
+    confirm --> room["Fixed room pool"]
+    list -->|"open"| room
+    room -->|"copy link"| link["/rooms/:roomId"]
+    room -->|"has songs"| player["Sheet or AV view"]
+    link --> signedIn{"Signed in?"}
+    signedIn -->|"No"| login["Sign in, then return to room"]
+    signedIn -->|"Yes"| player
+    player --> queue["Every captured song stays visible"]
+    queue --> vote["Vote or select any song/slide"]
+    vote --> ranking["Virtual order: unplayed, votes, source order"]
+    player --> presence["Current online participants"]
+    list -.->|"team editor"| delete["Delete room"]
+    room -->|"no songs"| empty["Empty room message"]
 ```
 
-Room creation is online-only. The Rooms hub can create an independent room, while collection, song, and setlist context menus open the same dialog with a source preselected. Source-backed rooms capture the selected content server-side; the user chooses any writable owning team and may edit the initial source title-based room name. Setlist-backed rooms also prefill the shared next-song queue in setlist order. If no writable team is available, the dialog keeps its normal disabled create state. New independent rooms have no source content and show a dedicated empty state while preserving host controls. All room surfaces show reconnecting without discarding their last snapshot. Room discovery is loaded only after navigating to the Rooms hub; unrelated legacy hub pages do not poll or prefetch room data. An ended room is terminal and public failures do not reveal team or source data.
+Room creation is online-only. Team editors can create and delete rooms from the Rooms hub; collection, song and setlist actions open the same dialog with a source preselected. Creation captures a fixed song pool on the server. Later source edits do not change that pool, and every captured song remains visible. The table order is virtual: unplayed songs rank first, then songs with more visit votes, then original source order. Any connected participant can vote or select any song and slide; each selection is echoed in server order to every participant, including its sender. Room links use `/rooms/:roomId`; any signed-in link holder can join, while anonymous visitors must sign in. Sheet/AV presentation and chord display settings are local to each participant. The room shows the current online participants and reconnecting state. An actual join/REST failure is shown as a connection error; room deletion shows an ended state. There is no host role, anonymous guest flow, in-room close action or editable queue. Empty rooms show an empty-state message. Room discovery is loaded only after navigating to the Rooms hub; unrelated hub pages do not poll or prefetch room data.
 
 ---
 

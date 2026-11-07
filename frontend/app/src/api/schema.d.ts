@@ -405,38 +405,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/rooms/invite/inspect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["inspect_invite"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/rooms/invite/join": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["join_invite"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/rooms/{id}": {
         parameters: {
             query?: never;
@@ -444,10 +412,26 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["get_room"];
+        get?: never;
         put?: never;
         post?: never;
-        delete: operations["close_room"];
+        delete: operations["delete_room"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rooms/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_room_history"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -463,118 +447,6 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["join_room"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/rooms/{id}/queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["add_queue_item"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/rooms/{id}/queue-access": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["update_queue_access"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/rooms/{id}/queue/likes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get_queue_likes"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/rooms/{id}/queue/order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["reorder_queue"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/rooms/{id}/queue/{queue_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["remove_queue_item"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/rooms/{id}/queue/{queue_id}/promote": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["promote_queue_item"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/rooms/{id}/reconnect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["reconnect_room"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1204,11 +1076,6 @@ export interface components {
             /** @description Semver from `Cargo.toml` at compile time (`CARGO_PKG_VERSION`). */
             version: string;
         };
-        AddRoomQueueItem: {
-            /** Format: int64 */
-            revision: number;
-            song_id: string;
-        };
         /**
          * @example {
          *       "file_type": "image/png",
@@ -1416,11 +1283,6 @@ export interface components {
             email: string;
             role?: components["schemas"]["Role"];
         };
-        CreatedRoom: {
-            credentials: components["schemas"]["RoomCredentials"];
-            invite_secret: string;
-            room: components["schemas"]["RoomSummary"];
-        };
         DuplicateMedia: {
             /** @description Destination team. Omit to keep the source owner. */
             owner?: string | null;
@@ -1485,21 +1347,6 @@ export interface components {
             /** Format: date-time */
             started_at?: string | null;
             subject?: components["schemas"]["User"] | null;
-        };
-        InspectRoomInvite: {
-            invite_secret: string;
-        };
-        JoinRoom: {
-            hide_chords?: boolean;
-            mode: components["schemas"]["RoomMode"];
-            resume_credential?: string | null;
-        };
-        JoinRoomInvite: {
-            display_name: string;
-            hide_chords?: boolean;
-            invite_secret: string;
-            mode: components["schemas"]["RoomMode"];
-            resume_credential?: string | null;
         };
         /**
          * @description Chord quality on the wire (`kind` field of [`ChordSchema`]).
@@ -1607,6 +1454,34 @@ export interface components {
             blob_id: string;
             id: string;
             section_title?: string | null;
+        };
+        MessageRoomCredentials: {
+            connection_ticket: string;
+            resume_credential: string;
+            room_id: string;
+            visit_id: string;
+        };
+        MessageRoomJoin: {
+            resume_credential?: string | null;
+        };
+        MessageRoomMember: {
+            display_name: string;
+            visit_id: string;
+        };
+        MessageRoomReplay: {
+            boundary: components["schemas"]["RoomMessageOrder"];
+            history: components["schemas"]["RoomMessage"][];
+            room: components["schemas"]["RoomContent"];
+            room_name: string;
+        };
+        MessageRoomSummary: {
+            can_delete?: boolean;
+            /** Format: date-time */
+            created_at: string;
+            id: string;
+            name: string;
+            song_count: number;
+            team_id: string;
         };
         MonitoringDurationMetrics: {
             /** Format: double */
@@ -1877,104 +1752,46 @@ export interface components {
             title: string;
             type: string;
         };
-        ReorderRoomQueue: {
-            queue_ids: string[];
-            /** Format: int64 */
-            revision: number;
-        };
         /** @enum {string} */
         Role: "default" | "admin";
+        /** @description Song and slide indices are scoped to the immutable captured room, not the library. */
+        RoomChange: {
+            activate: boolean;
+            slide: number;
+            song: number;
+            /** @enum {string} */
+            type: "selection";
+        } | {
+            song: number;
+            /** @enum {string} */
+            type: "vote";
+            voted: boolean;
+        };
+        /** @description Immutable chord-song content captured from the selected source at creation. */
         RoomContent: {
             items: components["schemas"]["PlayerChordsItem"][];
             toc: components["schemas"]["TocItem"][];
         };
-        RoomCredentials: {
-            connection_ticket: string;
+        RoomMessage: {
+            change: components["schemas"]["RoomChange"];
             id: string;
-            mode: components["schemas"]["RoomMode"];
-            resume_credential: string;
+            order: components["schemas"]["RoomMessageOrder"];
             room_id: string;
+            /** @description Set from the authenticated connection, never from the submitted payload. */
+            visit_id: string;
         };
-        RoomInviteInfo: {
-            av_occupied: boolean;
-            guest_access_allowed?: boolean;
-            host_email: string;
-            name: string;
-            new_joins_locked?: boolean;
-            room_id: string;
-        };
-        /** @enum {string} */
-        RoomMode: "sheet" | "av" | "slide";
-        RoomMusicalState: {
-            item_index: number;
-            language?: string | null;
-            started?: boolean;
-            transposition?: string | null;
-        };
-        RoomProjectionPayload: {
-            background_layer: Record<string, never>;
-            content_layer: Record<string, never>;
-            content_lines?: Record<string, never> | null;
-            content_text: string;
-            item_title: string;
-            next_preview?: string | null;
-            screen_state: string;
-            transition: Record<string, never>;
-        };
-        RoomQueueItem: {
-            added_by: string;
-            id: string;
-            played?: boolean;
-            song_id: string;
+        /**
+         * @description An epoch is reserved durably before a server starts accepting room changes.
+         *     Sequence numbers start at one in each epoch and may have gaps in history.
+         */
+        RoomMessageOrder: {
             /** Format: int64 */
-            upvotes?: number;
-        };
-        RoomQueueLikes: {
-            song_ids: string[];
-        };
-        RoomQueueRevision: {
+            epoch: number;
             /** Format: int64 */
-            revision: number;
-        };
-        RoomSession: {
-            anonymous: boolean;
-            avatar_url?: string | null;
-            connected: boolean;
-            display_name: string;
-            hide_chords?: boolean;
-            id: string;
-            is_av_host: boolean;
-            is_host: boolean;
-            mode: components["schemas"]["RoomMode"];
-        };
-        RoomSnapshot: components["schemas"]["RoomSummary"] & {
-            content: components["schemas"]["RoomContent"];
-            guest_access_allowed?: boolean;
-            /** Format: date-time */
-            host_lease_expires_at: string;
-            musical_state: components["schemas"]["RoomMusicalState"];
-            new_joins_locked?: boolean;
-            projection?: components["schemas"]["RoomProjectionPayload"] | null;
-            queue?: components["schemas"]["RoomQueueItem"][];
-            /** Format: int64 */
-            revision: number;
-            sessions: components["schemas"]["RoomSession"][];
-            voted_queue_ids?: string[];
+            sequence: number;
         };
         /** @enum {string} */
         RoomSourceType: "song" | "collection" | "setlist";
-        RoomSummary: {
-            av_occupied: boolean;
-            can_close?: boolean;
-            /** Format: date-time */
-            created_at: string;
-            host_email: string;
-            id: string;
-            name: string;
-            queue_additions_allowed?: boolean;
-            session_count: number;
-            team_id: string;
-        };
         /**
          * @description Accidental spelling hint from the parsed root token (`#` vs `b`).
          * @enum {string}
@@ -2359,11 +2176,6 @@ export interface components {
             is_background?: boolean | null;
             owner?: string | null;
             title: string;
-        };
-        UpdateRoomQueueAccess: {
-            queue_additions_allowed: boolean;
-            /** Format: int64 */
-            revision: number;
         };
         /** @description Full replacement body for `PUT /api/v1/setlists/{id}`. */
         UpdateSetlist: {
@@ -4893,7 +4705,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoomSummary"][];
+                    "application/json": components["schemas"]["MessageRoomSummary"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Team not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -4917,60 +4747,57 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreatedRoom"];
+                    "application/json": components["schemas"]["MessageRoomSummary"];
                 };
             };
-        };
-    };
-    inspect_invite: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InspectRoomInvite"];
-            };
-        };
-        responses: {
-            /** @description The request succeeded. */
-            200: {
+            /** @description Invalid room request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoomInviteInfo"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-        };
-    };
-    join_invite: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["JoinRoomInvite"];
-            };
-        };
-        responses: {
-            /** @description The request succeeded. */
-            200: {
+            /** @description Authentication required */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoomCredentials"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Insufficient team role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Source or team not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Room creation failed */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
     };
-    get_room: {
+    delete_room: {
         parameters: {
             query?: never;
             header?: never;
@@ -4981,34 +4808,103 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The request succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoomSnapshot"];
-                };
-            };
-        };
-    };
-    close_room: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The request succeeded with no response body. */
+            /** @description Room deleted */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Insufficient team role */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Room not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Room deletion failed */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    get_room_history: {
+        parameters: {
+            query: {
+                epoch: number;
+                sequence: number;
+            };
+            header: {
+                /** @description Account-bound room resume credential */
+                "x-room-resume": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageRoomReplay"];
+                };
+            };
+            /** @description Invalid history boundary */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Authentication or resume credential rejected */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Room not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description History read failed */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
             };
         };
     };
@@ -5023,7 +4919,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["JoinRoom"];
+                "application/json": components["schemas"]["MessageRoomJoin"];
             };
         };
         responses: {
@@ -5033,43 +4929,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoomCredentials"];
+                    "application/json": components["schemas"]["MessageRoomCredentials"];
                 };
             };
-        };
-    };
-    add_queue_item: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddRoomQueueItem"];
-            };
-        };
-        responses: {
-            /** @description The request succeeded with no response body. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The request is invalid. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Authentication is required or invalid. */
+            /** @description Authentication or resume credential rejected */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -5078,7 +4941,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The requested resource was not found. */
+            /** @description Room not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -5087,8 +4950,8 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The request conflicts with the current resource state. */
-            409: {
+            /** @description Room is full */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5096,283 +4959,13 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-        };
-    };
-    update_queue_access: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateRoomQueueAccess"];
-            };
-        };
-        responses: {
-            /** @description The request succeeded with no response body. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The caller is not permitted to perform this action. */
-            403: {
+            /** @description Room join failed */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The requested resource was not found. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The request conflicts with the current resource state. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    get_queue_likes: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The request succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoomQueueLikes"];
-                };
-            };
-            /** @description Authentication is required or invalid. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The requested resource was not found. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    reorder_queue: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReorderRoomQueue"];
-            };
-        };
-        responses: {
-            /** @description The request succeeded with no response body. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The request is invalid. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The caller is not permitted to perform this action. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The requested resource was not found. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The request conflicts with the current resource state. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    remove_queue_item: {
-        parameters: {
-            query: {
-                revision: number;
-            };
-            header?: never;
-            path: {
-                id: string;
-                queue_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The request succeeded with no response body. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The caller is not permitted to perform this action. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The requested resource was not found. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The request conflicts with the current resource state. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    promote_queue_item: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                queue_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoomQueueRevision"];
-            };
-        };
-        responses: {
-            /** @description The request succeeded with no response body. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The caller is not permitted to perform this action. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The requested resource was not found. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The request conflicts with the current resource state. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    reconnect_room: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["JoinRoom"];
-            };
-        };
-        responses: {
-            /** @description The request succeeded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoomCredentials"];
                 };
             };
         };

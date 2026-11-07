@@ -41,6 +41,8 @@ graph TD
     setlists["/setlists"]
     setlistDetail["/setlists/:id"]
     rooms["/rooms"]
+    roomLive["/rooms/:roomId"]
+    roomInvite["/rooms/invite/:roomId (alias)"]
     teams["/teams"]
     teamDetail["/teams/:id"]
     sessions["/sessions"]
@@ -106,6 +108,8 @@ graph TD
 
     %% ---- Teams / Sessions ----
     rooms -.->|"Add FAB"| createRoomDialog(["Create Room dialog"])
+    rooms -->|"Open room"| roomLive
+    createRoomDialog -->|"Created"| roomLive
     teams -.->|"Add FAB"| createTeamDialog(["Create team"])
     createTeamDialog -->|"Create"| teamDetail
     teams -->|"row click"| teamDetail
@@ -196,7 +200,7 @@ graph TD
 | `playerOutput` | `/player/output` | `routes/player/output.tsx` |
 | `rooms` | `/rooms` | `routes/_hub/rooms.tsx` |
 | `roomLive` | `/rooms/:roomId` | `routes/rooms.$roomId.tsx` |
-| `roomInvite` | `/rooms/invite#secret` | `routes/rooms.invite.tsx` |
+| `roomInvite` | `/rooms/invite/$roomId` (alias) | `routes/rooms.invite.$roomId.tsx` |
 
 ### Overlays / panels
 
@@ -235,6 +239,6 @@ graph TD
 - Command palette opens with Cmd/Ctrl+K and only on `pointer:fine` devices.
 - Footer Add FAB is hidden on `/sessions`, `/settings`, and all detail/editor routes.
 - `playerSheet` and `playerAv` are the same `/player` route; the active surface is chosen by the `mode` search param.
-- Rooms are opened from the primary hub tabs. Teams remain available from the profile menu and command palette. Authorized team administrators and content maintainers can create an empty room from the Rooms hub or a source-backed room from a collection, song, or setlist list action; public invite routes remain outside both authenticated route guards.
+- Rooms are opened from the primary hub tabs. Teams remain available from the profile menu and command palette. Team editors can create an empty room from the Rooms hub or a source-backed room from a collection, song, or setlist list action. A room link opens `/rooms/:roomId`; any signed-in user with that link can join, and anonymous visitors must sign in. The legacy `/rooms/invite/:roomId` path is an alias to the same room page.
 - Auth: any protected route redirects to `/login?return_to=<path>` when there is no session; an API 401 hard-redirects to `/login`.
 - `SongEditorActionsMenu` exists in the codebase but is not currently wired into `SongEditorScreen`, so it is omitted from the live graph.

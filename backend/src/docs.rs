@@ -39,10 +39,10 @@ use shared::player::{
     Orientation, Player, PlayerBlobItem, PlayerChordsItem, PlayerItem, PlayerMediaItem, ScrollType,
     TocItem,
 };
-use shared::room::{
-    CreateRoom, CreatedRoom, InspectRoomInvite, JoinRoom, JoinRoomInvite, RoomContent,
-    RoomCredentials, RoomInviteInfo, RoomMode, RoomMusicalState, RoomProjectionPayload,
-    RoomQueueLikes, RoomSession, RoomSnapshot, RoomSourceType, RoomSummary, UpdateRoomQueueAccess,
+use shared::room::{CreateRoom, RoomContent, RoomSourceType};
+use shared::room_message::{
+    MessageRoomCredentials, MessageRoomJoin, MessageRoomMember, MessageRoomReplay,
+    MessageRoomSummary, RoomChange, RoomMessage, RoomMessageOrder,
 };
 use shared::setlist::{
     SetlistItem, SetlistMediaLink, SetlistPlayerView, SongLink as SetlistSongLink,
@@ -282,20 +282,11 @@ fn populate_operation_response_descriptions(operation: &mut Operation) {
         crate::resources::team::invitation::rest::accept_team_invitation,
         crate::resources::monitoring::rest::list_http_audit_logs,
         crate::resources::monitoring::rest::get_monitoring_metrics,
-        crate::resources::room::rest::list_rooms,
-        crate::resources::room::rest::create_room,
-        crate::resources::room::rest::get_room,
-        crate::resources::room::rest::join_room,
-        crate::resources::room::rest::update_queue_access,
-        crate::resources::room::rest::get_queue_likes,
-        crate::resources::room::rest::close_room,
-        crate::resources::room::rest::add_queue_item,
-        crate::resources::room::rest::promote_queue_item,
-        crate::resources::room::rest::remove_queue_item,
-        crate::resources::room::rest::reorder_queue,
-        crate::resources::room::rest::inspect_invite,
-        crate::resources::room::rest::join_invite,
-        crate::resources::room::rest::reconnect_room
+        crate::resources::room::message_rest::list_rooms,
+        crate::resources::room::message_rest::create_room,
+        crate::resources::room::message_rest::join_room,
+        crate::resources::room::message_rest::get_room_history,
+        crate::resources::room::message_rest::delete_room
     ),
     components(
         schemas(
@@ -377,22 +368,16 @@ fn populate_operation_response_descriptions(operation: &mut Operation) {
             ScrollType,
             Orientation,
             RoomSourceType,
-            RoomMode,
             RoomContent,
-            RoomMusicalState,
-            RoomProjectionPayload,
-            RoomSession,
-            RoomSummary,
-            RoomSnapshot,
             CreateRoom,
-            JoinRoom,
-            InspectRoomInvite,
-            JoinRoomInvite,
-            RoomInviteInfo,
-            RoomCredentials,
-            CreatedRoom,
-            RoomQueueLikes,
-            UpdateRoomQueueAccess,
+            MessageRoomSummary,
+            MessageRoomCredentials,
+            MessageRoomJoin,
+            MessageRoomReplay,
+            MessageRoomMember,
+            RoomMessageOrder,
+            RoomChange,
+            RoomMessage,
             Team,
             TeamMember,
             TeamRole,
@@ -423,7 +408,7 @@ fn populate_operation_response_descriptions(operation: &mut Operation) {
         (name = "Blobs", description = "Binary image assets: metadata, byte upload/download with cache headers."),
         (name = "Setlists", description = "Ordered songs and Media items, plus player payloads for services."),
         (name = "Teams", description = "Team membership, roles, and invitations (nested under `/teams/{id}/invitations`)."),
-        (name = "Rooms", description = "Persisted cross-device chord-song sessions, invitations, and realtime synchronization.")
+        (name = "Rooms", description = "Fixed room content with authenticated link access, ordered messages, replay, and live presence.")
     ),
     modifiers(&SessionSecurity)
 )]

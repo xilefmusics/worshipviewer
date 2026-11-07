@@ -366,7 +366,7 @@ describe('PlayerAv', () => {
     expect(screen.queryByTestId('toc-current-language')).not.toBeInTheDocument()
   })
 
-  it('keeps AV item keyboard navigation with supplied room sidebars', async () => {
+  it('keeps AV item keyboard navigation with a supplied TOC', async () => {
     const user = userEvent.setup()
 
     render(
@@ -376,12 +376,10 @@ describe('PlayerAv', () => {
         player={twoItemPlayer}
         allowNetworkFetch={false}
         tocSidebar={<button type="button">Queue</button>}
-        roomSidebar={<div data-testid="room-sidebar">Room</div>}
       />,
     )
 
     expect(screen.getByRole('button', { name: 'Queue' })).toBeInTheDocument()
-    expect(screen.getByTestId('room-sidebar')).toBeInTheDocument()
 
     await user.keyboard('n')
 
@@ -502,38 +500,6 @@ describe('PlayerAv', () => {
     })
   })
 
-  it('does not republish an unchanged room projection when the callback changes', async () => {
-    const user = userEvent.setup()
-    const firstRoomProjectionChange = vi.fn()
-    const nextRoomProjectionChange = vi.fn()
-    const { rerender } = render(
-      <PlayerAv
-        type="setlist"
-        id="setlist-1"
-        player={player}
-        allowNetworkFetch={false}
-        canControlRoomProjection
-        onRoomProjectionChange={firstRoomProjectionChange}
-      />,
-    )
-
-    await user.click(screen.getByRole('button', { name: 'English row' }))
-    await waitFor(() => expect(firstRoomProjectionChange).toHaveBeenCalled())
-
-    rerender(
-      <PlayerAv
-        type="setlist"
-        id="setlist-1"
-        player={player}
-        allowNetworkFetch={false}
-        canControlRoomProjection
-        onRoomProjectionChange={nextRoomProjectionChange}
-      />,
-    )
-
-    await waitFor(() => expect(nextRoomProjectionChange).not.toHaveBeenCalled())
-  })
-
   it('keeps the projected output on the last selected slide when switching songs', async () => {
     const user = userEvent.setup()
 
@@ -582,10 +548,9 @@ describe('PlayerAv', () => {
     expect(nextPayload.content?.contentText).toBe('Second song line')
   })
 
-  it('lets an AV-only room host navigate slides without changing musical state', async () => {
+  it('publishes absolute song and slide selections for the shared room player', async () => {
     const user = userEvent.setup()
-    const onRoomProjectionChange = vi.fn()
-    const onRoomMusicalStateChange = vi.fn()
+    const onSharedSelectionChange = vi.fn()
 
     render(
       <PlayerAv
@@ -593,40 +558,16 @@ describe('PlayerAv', () => {
         id="setlist-1"
         player={twoItemPlayer}
         allowNetworkFetch={false}
-        roomMusicalState={{ item_index: 0, started: true, language: 'de', transposition: null }}
-        canControlRoomProjection
-        canControlRoomMusicalState={false}
-        onRoomProjectionChange={onRoomProjectionChange}
-        onRoomMusicalStateChange={onRoomMusicalStateChange}
+        onSharedSelectionChange={onSharedSelectionChange}
       />,
     )
 
-    await user.keyboard('{ArrowRight}')
-    await waitFor(() => {
-      expect(onRoomProjectionChange).toHaveBeenLastCalledWith(
-        expect.objectContaining({ contentText: 'Tschuess' }),
-      )
-    })
+    await user.click(screen.getByRole('button', { name: 'Select slide 1' }))
+    expect(onSharedSelectionChange).toHaveBeenLastCalledWith(0, 1, false)
 
-    await user.keyboard('{Home}')
-    await waitFor(() => {
-      expect(onRoomProjectionChange).toHaveBeenLastCalledWith(
-        expect.objectContaining({ contentText: 'Hallo' }),
-      )
-    })
-
-    await user.keyboard('{End}')
-    await waitFor(() => {
-      expect(onRoomProjectionChange).toHaveBeenLastCalledWith(
-        expect.objectContaining({ contentText: 'Tschuess' }),
-      )
-    })
-
-    await user.keyboard('{PageUp}{PageDown}n')
-
-    expect(screen.getByText('Anker')).toBeInTheDocument()
-    expect(screen.queryByText('Second Song')).not.toBeInTheDocument()
-    expect(onRoomMusicalStateChange).not.toHaveBeenCalled()
+    await user.keyboard('n')
+    expect(screen.getByText('Second Song')).toBeInTheDocument()
+    expect(onSharedSelectionChange).toHaveBeenLastCalledWith(1, 0, true)
   })
 
   const deckPlayer = {
@@ -684,15 +625,12 @@ describe('PlayerAv', () => {
 
   it('projects a selected deck page as a tagged command and not through Rooms', async () => {
     const user = userEvent.setup()
-    const onRoomProjectionChange = vi.fn()
     render(
       <PlayerAv
         type="setlist"
         id="setlist-1"
         player={deckPlayer}
         allowNetworkFetch={false}
-        canControlRoomProjection
-        onRoomProjectionChange={onRoomProjectionChange}
       />,
     )
 
@@ -705,7 +643,6 @@ describe('PlayerAv', () => {
     expect(command.type).toBe('command')
     expect(command.content).toEqual({ type: 'deck_page', mediaId: 'media-1', assetId: 'page-b' })
     expect(screen.getByTestId('preview-text')).toHaveTextContent('deck:media-1:page-b')
-    expect(onRoomProjectionChange).not.toHaveBeenCalled()
   })
 
   it('keeps the projected lyric when selecting a mixed-setlist deck TOC row', async () => {
@@ -822,15 +759,12 @@ describe('PlayerAv', () => {
 
   it('I4: Play replaces the output with uploaded video and stays silent on the controller', async () => {
     const user = userEvent.setup()
-    const onRoomProjectionChange = vi.fn()
     render(
       <PlayerAv
         type="setlist"
         id="setlist-1"
         player={videoPlayer}
         allowNetworkFetch={false}
-        canControlRoomProjection
-        onRoomProjectionChange={onRoomProjectionChange}
       />,
     )
     await helloOutput()
@@ -846,7 +780,6 @@ describe('PlayerAv', () => {
     expect(command.playback?.action).toBe('play')
     expect(screen.getByTestId('preview-text')).toHaveTextContent('media:video:Clip')
     expect(screen.queryByTestId('av-projected-video')).not.toBeInTheDocument()
-    expect(onRoomProjectionChange).not.toHaveBeenCalled()
   })
 
   it('I4: pause issues a same-content playback command', async () => {
@@ -1014,15 +947,12 @@ describe('PlayerAv', () => {
 
   it('I5: Play replaces the output with YouTube content and stays silent on the controller', async () => {
     const user = userEvent.setup()
-    const onRoomProjectionChange = vi.fn()
     render(
       <PlayerAv
         type="setlist"
         id="setlist-1"
         player={youtubePlayer}
         allowNetworkFetch={false}
-        canControlRoomProjection
-        onRoomProjectionChange={onRoomProjectionChange}
       />,
     )
     await helloOutput()
@@ -1040,7 +970,6 @@ describe('PlayerAv', () => {
     expect(command.playback?.action).toBe('play')
     expect(screen.getByTestId('preview-text')).toHaveTextContent('media:youtube:Clip')
     expect(screen.queryByTestId('av-projected-youtube')).not.toBeInTheDocument()
-    expect(onRoomProjectionChange).not.toHaveBeenCalled()
   })
 
   it('I5: livestream without a DVR range does not expose seek', async () => {

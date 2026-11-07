@@ -8,13 +8,9 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 - Import songs from searchable CCLI PDFs directly in song creation.
 - Upload image backgrounds to the media library and use them in AV projection.
-- Empty, team-owned Rooms can be created directly from the Rooms hub and entered in Sheet view.
+- Fixed-pool team Rooms with immutable captured song content, authenticated direct-link access, ordered shared messages, virtual vote ranking, and reconnecting presence.
 - Spotify track and playlist Media items with external playback controls in the AV player.
 - Independent grayscale text controls for primary and translated AV lyrics.
-- Rooms for synchronized Sheet, AV, and Slide participants across devices, including anonymous invite links and reconnecting presence.
-- Three-panel Rooms with a shared next-song queue, authenticated participant song sharing, and host queue management.
-- Played-state sections in Room queues, with re-upvoted songs returning to the upcoming ranking.
-- Collection-based Rooms now preload their source songs in the queue, and ended Rooms link back to the Rooms list.
 - `./scripts/verify-ci.sh` — one-shot local run of CI-equivalent checks (fmt, audit, tests, OpenAPI, frontend build).
 - `backend/.cargo/audit.toml` — documents ignored transitive `rsa` advisory (no upstream fix).
 - `pnpm audit` gate in frontend CI; `serialize-javascript` ≥7.0.5 via pnpm overrides.
@@ -30,10 +26,10 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 - Right-clicking a song, setlist, collection, room, or Admin Users row/card now opens its actions drawer.
 - Ray is now the only built-in AV background and is labeled Default.
 - Rendered sheets and PDF exports now honor capo shape settings.
-- Sheet players now use native browser snapping through songs. Mobile standalone and room players open their TOC and header with a middle tap and close them with a left swipe; edge gestures no longer open the TOC or participants.
+- Sheet players now use native browser snapping through songs. Mobile standalone players open their TOC and header with a middle tap and close them with a left swipe.
 - Player chord sections now render in a background worker with cached results, and the table of contents dismisses with a smoother animation.
 - Demodata fixtures are reapplied on every backend startup when `DEMODATA=generic` is enabled; the seed marker table has been removed.
-- Room queue browsing now uses the current queue for order, A–Z, and personal Liked views; hosts control whether members may add new library songs.
+- Room playback and votes now replay from ordered messages over an immutable song pool. A local opt-in diagnostic viewer exports the bounded replay/live message log without credentials.
 - Admin Users and Metrics now use the same hub chrome as collections and songs: a bottom tab bar with Leave, hub-style user rows, and the shared right-hand actions drawer. Impersonation starts immediately from that drawer.
 - `openapi-sync.mjs` resolves canonical OpenAPI from repo root (`docs/openapi.json`).
 - Backend CI `cargo audit` runs per-crate (`cd … && cargo audit`) — compatible with cargo-audit 0.22+.

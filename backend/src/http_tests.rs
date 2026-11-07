@@ -57,760 +57,7 @@ pub(crate) fn build_app(
     build_app_with_api_limits(db, 50, 200, None)
 }
 
-mod room_http {
-    use actix_web::{http::StatusCode, test};
-    use serde::Deserialize;
-    use shared::blob::BlobLink;
-    use shared::room::{
-        AddRoomQueueItem, CreateRoom, CreatedRoom, InspectRoomInvite, JoinRoom, JoinRoomInvite,
-        RoomInviteInfo, RoomMode, RoomQueueLikes, RoomQueueRevision, RoomSnapshot, RoomSourceType,
-        UpdateRoomQueueAccess,
-    };
-    use shared::setlist::{CreateSetlist, SetlistItem, SongLink};
-    use shared::song::CreateSong;
-    use surrealdb::types::{RecordId, SurrealValue};
-
-    use crate::database::record_id_string;
-    use crate::http_tests::{build_app, create_session_token};
-    use crate::test_helpers::{
-        TeamFixture, auth_ctx_for_user, create_song_with_title, ensure_test_collection,
-        minimal_song_data, setlist_service, song_service, test_db,
-    };
-
-    #[actix_web::test]
-    async fn admin_and_content_maintainer_create_source_free_team_rooms() {
-        #[derive(Deserialize, SurrealValue)]
-        struct PersistedHost {
-            host_session_id: RecordId,
-            host_user_id: Option<RecordId>,
-        }
-
-        let db = test_db().await.unwrap();
-        let fixture = TeamFixture::build(&db).await.unwrap();
-        let writer_token = create_session_token(&db, fixture.writer.clone())
-            .await
-            .unwrap();
-        let admin_token = create_session_token(&db, fixture.admin_user.clone())
-            .await
-            .unwrap();
-        let app = test::init_service(build_app(db.clone())).await;
-
-        let request = test::TestRequest::post()
-            .uri("/api/v1/rooms")
-            .insert_header(("Authorization", format!("Bearer {writer_token}")))
-            .set_json(CreateRoom {
-                team_id: fixture.shared_team_id.clone(),
-                name: Some("Sunday Worship".into()),
-                source_type: None,
-                source_id: None,
-            })
-            .to_request();
-        let response = test::call_service(&app, request).await;
-        if response.status() != StatusCode::CREATED {
-            let status = response.status();
-            let body = test::read_body(response).await;
-            panic!(
-                "create returned {status}: {}",
-                String::from_utf8_lossy(&body)
-            );
-        }
-        let created: CreatedRoom = test::read_body_json(response).await;
-        assert_eq!(created.room.team_id, fixture.shared_team_id);
-        assert_eq!(created.room.name, "Sunday Worship");
-        assert!(!created.room.name.trim().is_empty());
-        assert_eq!(created.credentials.mode, RoomMode::Sheet);
-
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {writer_token}")))
-            .to_request();
-        let snapshot: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-        assert!(snapshot.content.items.is_empty());
-        assert!(snapshot.content.toc.is_empty());
-        assert_eq!(snapshot.sessions.len(), 1);
-        assert!(snapshot.sessions[0].is_host);
-
-        let mut persisted = db
-            .db
-            .query(
-                "SELECT host_session_id, host_session_id.user_id AS host_user_id FROM ONLY type::record('room', $id)",
-            )
-            .bind(("id", created.room.id.clone()))
-            .await
-            .unwrap();
-        let persisted = persisted.take::<Option<PersistedHost>>(0).unwrap().unwrap();
-        assert_eq!(
-            persisted.host_session_id,
-            RecordId::new("room_session", snapshot.sessions[0].id.clone(),)
-        );
-        assert_eq!(
-            persisted.host_user_id.as_ref().map(record_id_string),
-            Some(fixture.writer.id.clone())
-        );
-
-        let request = test::TestRequest::post()
-            .uri("/api/v1/rooms")
-            .insert_header(("Authorization", format!("Bearer {admin_token}")))
-            .set_json(CreateRoom {
-                team_id: fixture.shared_team_id,
-                name: None,
-                source_type: None,
-                source_id: None,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::CREATED
-        );
-    }
-
-    #[actix_web::test]
-    async fn source_backed_rooms_copy_content_into_the_selected_team() {
-        let db = test_db().await.unwrap();
-        let fixture = TeamFixture::build(&db).await.unwrap();
-        let host_token = create_session_token(&db, fixture.writer.clone())
-            .await
-            .unwrap();
-        let song = create_song_with_title(&db, &fixture.writer, "Room source song")
-            .await
-            .unwrap();
-        let collection_id = ensure_test_collection(&db, &fixture.writer).await.unwrap();
-        let source_ctx = auth_ctx_for_user(&db, &fixture.writer).await.unwrap();
-        let blob_only_song = song_service(&db)
-            .create_song_for_user(
-                &source_ctx,
-                CreateSong {
-                    collection: collection_id.clone(),
-                    not_a_song: false,
-                    blobs: vec![BlobLink {
-                        id: "blob-only-image".into(),
-                    }],
-                    data: minimal_song_data(),
-                },
-            )
-            .await
-            .unwrap();
-        let setlist = setlist_service(&db)
-            .create_setlist_for_user(
-                &source_ctx,
-                CreateSetlist {
-                    owner: None,
-                    title: "Room source setlist".into(),
-                    items: vec![
-                        SetlistItem::Song(SongLink {
-                            id: song.id.clone(),
-                            ..Default::default()
-                        }),
-                        SetlistItem::Song(SongLink {
-                            id: blob_only_song.id.clone(),
-                            ..Default::default()
-                        }),
-                        SetlistItem::media("missing-media"),
-                    ],
-                },
-            )
-            .await
-            .unwrap();
-        let app = test::init_service(build_app(db.clone())).await;
-
-        let sources = [
-            (RoomSourceType::Song, song.id.clone(), "Room source song"),
-            (RoomSourceType::Collection, collection_id, "Test"),
-            (RoomSourceType::Setlist, setlist.id, "Room source setlist"),
-        ];
-
-        for (source_type, source_id, source_title) in sources {
-            let request = test::TestRequest::post()
-                .uri("/api/v1/rooms")
-                .insert_header(("Authorization", format!("Bearer {host_token}")))
-                .set_json(CreateRoom {
-                    team_id: fixture.shared_team_id.clone(),
-                    name: Some(format!("{source_title} room")),
-                    source_type: Some(source_type),
-                    source_id: Some(source_id),
-                })
-                .to_request();
-            let created: CreatedRoom = test::call_and_read_body_json(&app, request).await;
-            assert_eq!(created.room.team_id, fixture.shared_team_id);
-            assert_eq!(created.credentials.mode, RoomMode::Sheet);
-
-            let mut persisted = db
-                .db
-                .query("SELECT * FROM ONLY type::record('room', $id)")
-                .bind(("id", created.room.id.clone()))
-                .await
-                .unwrap();
-            let persisted: Option<serde_json::Value> = persisted.take(0).unwrap();
-            let persisted = persisted.unwrap();
-            assert!(persisted.get("source_type").is_none());
-            assert!(persisted.get("source_id").is_none());
-            assert!(persisted.get("source_title").is_none());
-
-            let request = test::TestRequest::get()
-                .uri(&format!("/api/v1/rooms/{}", created.room.id))
-                .insert_header(("Authorization", format!("Bearer {host_token}")))
-                .to_request();
-            let snapshot: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-            assert!(!snapshot.content.items.is_empty());
-            assert_eq!(snapshot.musical_state.item_index, 0);
-            if source_type == RoomSourceType::Setlist {
-                assert_eq!(snapshot.content.items.len(), 1);
-                assert_eq!(snapshot.content.items[0].song.id, song.id);
-                assert_eq!(snapshot.content.items[0].song.blobs, Vec::<BlobLink>::new());
-                assert_eq!(snapshot.content.toc.len(), 1);
-                assert_eq!(snapshot.content.toc[0].idx, 0);
-                assert_eq!(snapshot.queue.len(), 1);
-                assert_eq!(snapshot.queue[0].song_id, song.id);
-                assert_eq!(snapshot.content.toc[0].title, "Room source song");
-                assert!(snapshot.content.items[0].song.blobs.is_empty());
-            } else if source_type == RoomSourceType::Collection {
-                assert_eq!(snapshot.queue.len(), snapshot.content.items.len());
-                for (queue_item, content_item) in snapshot.queue.iter().zip(&snapshot.content.items)
-                {
-                    assert_eq!(queue_item.song_id, content_item.song.id);
-                    assert_eq!(queue_item.added_by, fixture.writer.email);
-                    assert_eq!(queue_item.upvotes, 0);
-                    assert!(!queue_item.played);
-                }
-            } else {
-                assert!(snapshot.queue.is_empty());
-            }
-        }
-    }
-
-    #[actix_web::test]
-    async fn promoting_a_queue_item_moves_the_selected_song_to_already_played() {
-        let db = test_db().await.unwrap();
-        let fixture = TeamFixture::build(&db).await.unwrap();
-        let host_token = create_session_token(&db, fixture.writer.clone())
-            .await
-            .unwrap();
-        let song = create_song_with_title(&db, &fixture.writer, "Repeatable room song")
-            .await
-            .unwrap();
-        let second_song = create_song_with_title(&db, &fixture.writer, "Second room song")
-            .await
-            .unwrap();
-        let app = test::init_service(build_app(db)).await;
-
-        let request = test::TestRequest::post()
-            .uri("/api/v1/rooms")
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(CreateRoom {
-                team_id: fixture.shared_team_id,
-                name: Some("Repeatable room".into()),
-                source_type: None,
-                source_id: None,
-            })
-            .to_request();
-        let created: CreatedRoom = test::call_and_read_body_json(&app, request).await;
-        assert!(!created.room.queue_additions_allowed);
-
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .to_request();
-        let initial: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-
-        let request = test::TestRequest::put()
-            .uri(&format!("/api/v1/rooms/{}/queue-access", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(UpdateRoomQueueAccess {
-                queue_additions_allowed: true,
-                revision: initial.revision,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NO_CONTENT
-        );
-
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .to_request();
-        let initial: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-
-        let request = test::TestRequest::post()
-            .uri(&format!("/api/v1/rooms/{}/queue", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(AddRoomQueueItem {
-                song_id: song.id.clone(),
-                revision: initial.revision,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NO_CONTENT
-        );
-
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .to_request();
-        let queued: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-        let first_queue_id = queued.queue[0].id.clone();
-        assert!(!queued.queue[0].played);
-
-        let request = test::TestRequest::post()
-            .uri(&format!("/api/v1/rooms/{}/queue", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(AddRoomQueueItem {
-                song_id: second_song.id.clone(),
-                revision: queued.revision,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NO_CONTENT
-        );
-
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .to_request();
-        let queued: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-
-        let request = test::TestRequest::post()
-            .uri(&format!(
-                "/api/v1/rooms/{}/queue/{}/promote",
-                created.room.id, first_queue_id
-            ))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(RoomQueueRevision {
-                revision: queued.revision,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NO_CONTENT
-        );
-
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .to_request();
-        let promoted: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-        assert_eq!(promoted.queue.len(), 2);
-        assert_eq!(promoted.queue[0].song_id, second_song.id);
-        assert!(!promoted.queue[0].played);
-        assert_eq!(promoted.queue[1].song_id, song.id);
-        assert_ne!(promoted.queue[1].id, first_queue_id);
-        assert_eq!(promoted.queue[1].upvotes, 0);
-        assert!(promoted.queue[1].played);
-    }
-
-    #[actix_web::test]
-    async fn source_backed_room_creation_rejects_invalid_source_and_team_access() {
-        let db = test_db().await.unwrap();
-        let fixture = TeamFixture::build(&db).await.unwrap();
-        let source_song = create_song_with_title(&db, &fixture.writer, "Private source")
-            .await
-            .unwrap();
-        let writer_token = create_session_token(&db, fixture.writer.clone())
-            .await
-            .unwrap();
-        let admin_token = create_session_token(&db, fixture.admin_user.clone())
-            .await
-            .unwrap();
-        let guest_token = create_session_token(&db, fixture.guest.clone())
-            .await
-            .unwrap();
-        let app = test::init_service(build_app(db)).await;
-
-        let request = test::TestRequest::post()
-            .uri("/api/v1/rooms")
-            .insert_header(("Authorization", format!("Bearer {writer_token}")))
-            .set_json(CreateRoom {
-                team_id: fixture.shared_team_id.clone(),
-                name: None,
-                source_type: Some(RoomSourceType::Song),
-                source_id: None,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::BAD_REQUEST
-        );
-
-        // The admin can write to the destination team but cannot read the writer's personal source.
-        let request = test::TestRequest::post()
-            .uri("/api/v1/rooms")
-            .insert_header(("Authorization", format!("Bearer {admin_token}")))
-            .set_json(CreateRoom {
-                team_id: fixture.shared_team_id.clone(),
-                name: None,
-                source_type: Some(RoomSourceType::Song),
-                source_id: Some(source_song.id.clone()),
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NOT_FOUND
-        );
-
-        let request = test::TestRequest::post()
-            .uri("/api/v1/rooms")
-            .insert_header(("Authorization", format!("Bearer {guest_token}")))
-            .set_json(CreateRoom {
-                team_id: fixture.shared_team_id,
-                name: None,
-                source_type: Some(RoomSourceType::Song),
-                source_id: Some(source_song.id),
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NOT_FOUND
-        );
-    }
-
-    #[actix_web::test]
-    async fn guest_cannot_create_a_room_or_leave_a_row_behind() {
-        #[derive(Deserialize, SurrealValue)]
-        struct CountRow {
-            count: i64,
-        }
-
-        let db = test_db().await.unwrap();
-        let fixture = TeamFixture::build(&db).await.unwrap();
-        let guest_token = create_session_token(&db, fixture.guest.clone())
-            .await
-            .unwrap();
-        let app = test::init_service(build_app(db.clone())).await;
-        let request = test::TestRequest::post()
-            .uri("/api/v1/rooms")
-            .insert_header(("Authorization", format!("Bearer {guest_token}")))
-            .set_json(CreateRoom {
-                team_id: fixture.shared_team_id,
-                name: None,
-                source_type: None,
-                source_id: None,
-            })
-            .to_request();
-
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NOT_FOUND
-        );
-        let mut response = db
-            .db
-            .query("SELECT count() AS count FROM room GROUP ALL")
-            .await
-            .unwrap();
-        let count = response
-            .take::<Vec<CountRow>>(0)
-            .unwrap()
-            .first()
-            .map_or(0, |row| row.count);
-        assert_eq!(count, 0);
-    }
-
-    #[actix_web::test]
-    async fn room_close_uses_current_account_and_team_role() {
-        let db = test_db().await.unwrap();
-        let fixture = TeamFixture::build(&db).await.unwrap();
-        let writer_token = create_session_token(&db, fixture.writer.clone())
-            .await
-            .unwrap();
-        let guest_token = create_session_token(&db, fixture.guest.clone())
-            .await
-            .unwrap();
-        let admin_token = create_session_token(&db, fixture.admin_user.clone())
-            .await
-            .unwrap();
-        let app = test::init_service(build_app(db.clone())).await;
-
-        let request = test::TestRequest::post()
-            .uri("/api/v1/rooms")
-            .insert_header(("Authorization", format!("Bearer {writer_token}")))
-            .set_json(CreateRoom {
-                team_id: fixture.shared_team_id.clone(),
-                name: None,
-                source_type: None,
-                source_id: None,
-            })
-            .to_request();
-        let created: CreatedRoom = test::call_and_read_body_json(&app, request).await;
-
-        let request = test::TestRequest::delete()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {guest_token}")))
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::FORBIDDEN
-        );
-
-        let request = test::TestRequest::delete()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {admin_token}")))
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NO_CONTENT
-        );
-
-        let mut response = db
-            .db
-            .query(
-                "SELECT count() AS count FROM room WHERE id = type::record('room', $room_id) GROUP ALL;
-                 SELECT count() AS count FROM room_session WHERE room = type::record('room', $room_id) GROUP ALL;",
-            )
-            .bind(("room_id", created.room.id.clone()))
-            .await
-            .unwrap();
-        #[derive(Deserialize, SurrealValue)]
-        struct CountRow {
-            count: i64,
-        }
-        for statement in 0..2 {
-            assert_eq!(
-                response
-                    .take::<Vec<CountRow>>(statement)
-                    .unwrap()
-                    .first()
-                    .map_or(0, |row| row.count),
-                0
-            );
-        }
-
-        let request = test::TestRequest::delete()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {admin_token}")))
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NO_CONTENT
-        );
-    }
-
-    #[actix_web::test]
-    async fn locked_rooms_reject_new_joins_and_report_the_lock_in_invites() {
-        let db = test_db().await.unwrap();
-        let fixture = TeamFixture::build(&db).await.unwrap();
-        let host_token = create_session_token(&db, fixture.writer.clone())
-            .await
-            .unwrap();
-        let member_token = create_session_token(&db, fixture.guest.clone())
-            .await
-            .unwrap();
-        let app = test::init_service(build_app(db.clone())).await;
-
-        let request = test::TestRequest::post()
-            .uri("/api/v1/rooms")
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(CreateRoom {
-                team_id: fixture.shared_team_id.clone(),
-                name: Some("Locked room".into()),
-                source_type: None,
-                source_id: None,
-            })
-            .to_request();
-        let created: CreatedRoom = test::call_and_read_body_json(&app, request).await;
-
-        db.db
-            .query("UPDATE type::record('room', $room_id) SET new_joins_locked = true")
-            .bind(("room_id", created.room.id.clone()))
-            .await
-            .unwrap()
-            .check()
-            .unwrap();
-
-        let request = test::TestRequest::post()
-            .uri(&format!("/api/v1/rooms/{}/join", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {member_token}")))
-            .set_json(JoinRoom {
-                mode: RoomMode::Sheet,
-                hide_chords: false,
-                resume_credential: None,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::CONFLICT
-        );
-
-        let request = test::TestRequest::post()
-            .uri("/api/v1/rooms/invite/inspect")
-            .set_json(InspectRoomInvite {
-                invite_secret: created.invite_secret.clone(),
-            })
-            .to_request();
-        let info: RoomInviteInfo = test::call_and_read_body_json(&app, request).await;
-        assert!(info.new_joins_locked);
-
-        let request = test::TestRequest::post()
-            .uri("/api/v1/rooms/invite/join")
-            .set_json(JoinRoomInvite {
-                invite_secret: created.invite_secret,
-                display_name: "Guest".into(),
-                mode: RoomMode::Sheet,
-                hide_chords: false,
-                resume_credential: None,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::CONFLICT
-        );
-    }
-
-    #[actix_web::test]
-    async fn queue_access_controls_library_additions_and_likes() {
-        let db = test_db().await.unwrap();
-        let fixture = TeamFixture::build(&db).await.unwrap();
-        let host_token = create_session_token(&db, fixture.writer.clone())
-            .await
-            .unwrap();
-        let guest_token = create_session_token(&db, fixture.guest.clone())
-            .await
-            .unwrap();
-        let song = create_song_with_title(&db, &fixture.writer, "Scoped room song")
-            .await
-            .unwrap();
-        let app = test::init_service(build_app(db.clone())).await;
-
-        let request = test::TestRequest::post()
-            .uri("/api/v1/rooms")
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(CreateRoom {
-                team_id: fixture.shared_team_id,
-                name: Some("Queue access room".into()),
-                source_type: None,
-                source_id: None,
-            })
-            .to_request();
-        let created: CreatedRoom = test::call_and_read_body_json(&app, request).await;
-
-        let request = test::TestRequest::put()
-            .uri(&format!("/api/v1/rooms/{}/queue-access", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(UpdateRoomQueueAccess {
-                queue_additions_allowed: true,
-                revision: created
-                    .room
-                    .queue_additions_allowed
-                    .then_some(1)
-                    .unwrap_or(1),
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NO_CONTENT
-        );
-
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .to_request();
-        let opened: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-        assert!(opened.summary.queue_additions_allowed);
-
-        let request = test::TestRequest::post()
-            .uri(&format!("/api/v1/rooms/{}/join", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {guest_token}")))
-            .set_json(JoinRoom {
-                mode: RoomMode::Sheet,
-                hide_chords: false,
-                resume_credential: None,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::OK
-        );
-
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .to_request();
-        let opened: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-
-        let request = test::TestRequest::post()
-            .uri(&format!("/api/v1/rooms/{}/queue", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(AddRoomQueueItem {
-                song_id: song.id.clone(),
-                revision: opened.revision,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NO_CONTENT
-        );
-
-        let request = test::TestRequest::put()
-            .uri(&format!("/api/v1/songs/{}/like", song.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NO_CONTENT
-        );
-
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}/queue/likes", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .to_request();
-        let likes: RoomQueueLikes = test::call_and_read_body_json(&app, request).await;
-        assert_eq!(likes.song_ids, vec![song.id.clone()]);
-
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}/queue/likes", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {guest_token}")))
-            .to_request();
-        let likes: RoomQueueLikes = test::call_and_read_body_json(&app, request).await;
-        assert!(likes.song_ids.is_empty());
-
-        let request = test::TestRequest::get()
-            .uri(&format!("/api/v1/rooms/{}", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .to_request();
-        let snapshot: RoomSnapshot = test::call_and_read_body_json(&app, request).await;
-
-        let request = test::TestRequest::put()
-            .uri(&format!("/api/v1/rooms/{}/queue-access", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {guest_token}")))
-            .set_json(UpdateRoomQueueAccess {
-                queue_additions_allowed: false,
-                revision: snapshot.revision,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::FORBIDDEN
-        );
-
-        let request = test::TestRequest::put()
-            .uri(&format!("/api/v1/rooms/{}/queue-access", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(UpdateRoomQueueAccess {
-                queue_additions_allowed: false,
-                revision: snapshot.revision,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::NO_CONTENT
-        );
-
-        let request = test::TestRequest::post()
-            .uri(&format!("/api/v1/rooms/{}/queue", created.room.id))
-            .insert_header(("Authorization", format!("Bearer {host_token}")))
-            .set_json(AddRoomQueueItem {
-                song_id: "disabled-song".into(),
-                revision: snapshot.revision + 1,
-            })
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::CONFLICT
-        );
-    }
-}
-
-/// Same as [`build_app`] but with configurable `/api/v1` per-IP rate limits (for **BLC-HTTP-004** tests).
+/// Same as [`build_app`] but with configurable `/api/v1` per-IP rate limits.
 fn build_app_with_api_limits(
     db: Arc<Database>,
     api_rate_limit_rps: u64,
@@ -832,7 +79,6 @@ fn build_app_with_api_limits(
         user_service,
     };
 
-    // Unique path so parallel HTTP tests do not share blob files on disk.
     let blob_dir = std::env::temp_dir()
         .join(format!(
             "worshipviewer_http_tests_blobs_{}",
@@ -864,13 +110,11 @@ fn build_app_with_api_limits(
     let media_asset_limits = test_settings.media_asset_upload_limits();
     let media_asset_svc = media_asset_service(&db, &test_settings);
     let media_processing_handle = media_processing(&db, &test_settings, media_asset_svc.clone());
-
     let media_svc = MediaServiceHandle::build(
         db.clone(),
         media_asset_svc.clone(),
         media_processing_handle.clone(),
     );
-
     let cookie_cfg = Data::new(CookieConfig {
         name: "sso_session".into(),
         secure: false,
@@ -888,7 +132,7 @@ fn build_app_with_api_limits(
         .app_data(Data::new(blob_service(&db, blob_dir)))
         .app_data(Data::new(collection_service(&db)))
         .app_data(Data::new(media_svc))
-        .app_data(Data::new(crate::resources::room::RoomService::new(
+        .app_data(Data::new(crate::resources::room::MessageRoomService::new(
             db.clone(),
         )))
         .app_data(Data::new(media_asset_svc))
@@ -923,7 +167,6 @@ fn build_app_with_api_limits(
         ))
 }
 
-/// Create a session for `user` and return its raw ID (used as Bearer token).
 async fn create_session_token(db: &Arc<Database>, user: User) -> AnyResult<String> {
     let session = session_service(db)
         .create_session(Session::new(user, 3600))
@@ -931,24 +174,204 @@ async fn create_session_token(db: &Arc<Database>, user: User) -> AnyResult<Strin
     Ok(session.id)
 }
 
-/// Call the service with the given request and return the HTTP status code.
-///
-/// Unlike `actix_web::test::call_service`, this macro handles the case where the
-/// service returns `Err(actix_web::Error)` (e.g. from `RequireUser` or `RequireAdmin`
-/// middleware) by converting the error to its response status code via `ResponseError`.
 macro_rules! call_status {
     ($app:expr, $req:expr) => {{
         use actix_web::dev::Service as _;
         match $app.call($req.to_request()).await {
-            Ok(r) => r.status(),
-            Err(e) => e.as_response_error().status_code(),
+            Ok(response) => response.status(),
+            Err(error) => error.as_response_error().status_code(),
         }
     }};
 }
 
-// ─── Slice 4B: auth middleware ────────────────────────────────────────────────
+mod room_http {
+    use actix_web::{http::StatusCode, test};
+    use shared::{
+        room::{CreateRoom, RoomSourceType},
+        room_message::{
+            MessageRoomCredentials, MessageRoomJoin, MessageRoomReplay, MessageRoomSummary,
+        },
+    };
 
-#[cfg(test)]
+    use crate::http_tests::{build_app, create_session_token};
+    use crate::test_helpers::{TeamFixture, create_song_with_title, test_db};
+
+    macro_rules! response_status {
+        ($app:expr, $request:expr) => {{
+            use actix_web::dev::Service as _;
+            match $app.call($request).await {
+                Ok(response) => response.status(),
+                Err(error) => error.as_response_error().status_code(),
+            }
+        }};
+    }
+
+    fn create_request(team_id: String, source: Option<String>) -> CreateRoom {
+        CreateRoom {
+            team_id,
+            name: Some("Immutable room".into()),
+            source_type: source.as_ref().map(|_| RoomSourceType::Song),
+            source_id: source,
+        }
+    }
+
+    #[actix_web::test]
+    async fn authenticated_room_link_allows_any_signed_in_user_and_replays_captured_content() {
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let song = create_song_with_title(&db, &fixture.writer, "Captured hymn")
+            .await
+            .unwrap();
+        let writer_token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let outsider_token = create_session_token(&db, fixture.non_member.clone())
+            .await
+            .unwrap();
+        let app = test::init_service(build_app(db.clone())).await;
+
+        let request = test::TestRequest::post()
+            .uri("/api/v1/rooms")
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .set_json(create_request(
+                fixture.shared_team_id.clone(),
+                Some(song.id.clone()),
+            ))
+            .to_request();
+        let created: MessageRoomSummary = test::call_and_read_body_json(&app, request).await;
+        assert_eq!(created.song_count, 1);
+        assert_eq!(created.name, "Immutable room");
+
+        let request = test::TestRequest::get()
+            .uri("/api/v1/rooms?page=0&page_size=20")
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .to_request();
+        let rooms: Vec<MessageRoomSummary> = test::call_and_read_body_json(&app, request).await;
+        assert!(rooms.iter().any(|room| room.id == created.id));
+
+        let request = test::TestRequest::post()
+            .uri(&format!("/api/v1/rooms/{}/join", created.id))
+            .insert_header(("Authorization", format!("Bearer {outsider_token}")))
+            .set_json(MessageRoomJoin {
+                resume_credential: None,
+            })
+            .to_request();
+        let first: MessageRoomCredentials = test::call_and_read_body_json(&app, request).await;
+
+        let request = test::TestRequest::post()
+            .uri(&format!("/api/v1/rooms/{}/join", created.id))
+            .insert_header(("Authorization", format!("Bearer {outsider_token}")))
+            .set_json(MessageRoomJoin {
+                resume_credential: Some(first.resume_credential.clone()),
+            })
+            .to_request();
+        let resumed: MessageRoomCredentials = test::call_and_read_body_json(&app, request).await;
+        assert_eq!(resumed.visit_id, first.visit_id);
+        assert_ne!(resumed.connection_ticket, first.connection_ticket);
+
+        let request = test::TestRequest::get()
+            .uri(&format!(
+                "/api/v1/rooms/{}/history?epoch=1&sequence=0",
+                created.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {outsider_token}")))
+            .insert_header(("x-room-resume", first.resume_credential.clone()))
+            .to_request();
+        let replay: MessageRoomReplay = test::call_and_read_body_json(&app, request).await;
+        assert!(replay.history.is_empty());
+        assert_eq!(replay.room.items[0].song.data.titles[0], "Captured hymn");
+
+        let request = test::TestRequest::post()
+            .uri(&format!("/api/v1/rooms/{}/join", created.id))
+            .set_json(MessageRoomJoin {
+                resume_credential: None,
+            })
+            .to_request();
+        assert_eq!(response_status!(app, request), StatusCode::UNAUTHORIZED);
+
+        let guest_token = create_session_token(&db, fixture.guest.clone())
+            .await
+            .unwrap();
+        let request = test::TestRequest::post()
+            .uri("/api/v1/rooms")
+            .insert_header(("Authorization", format!("Bearer {guest_token}")))
+            .set_json(create_request(fixture.shared_team_id.clone(), None))
+            .to_request();
+        assert_eq!(response_status!(app, request), StatusCode::NOT_FOUND);
+
+        let request = test::TestRequest::post()
+            .uri("/api/v1/rooms/invite/join")
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .set_json(MessageRoomJoin {
+                resume_credential: None,
+            })
+            .to_request();
+        assert_eq!(response_status!(app, request), StatusCode::NOT_FOUND);
+        let request = test::TestRequest::post()
+            .uri(&format!("/api/v1/rooms/{}/queue", created.id))
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .to_request();
+        assert_eq!(response_status!(app, request), StatusCode::NOT_FOUND);
+    }
+
+    #[actix_web::test]
+    async fn only_team_editors_can_delete_and_deletion_revokes_room_access() {
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let writer_token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let guest_token = create_session_token(&db, fixture.guest.clone())
+            .await
+            .unwrap();
+        let outsider_token = create_session_token(&db, fixture.non_member.clone())
+            .await
+            .unwrap();
+        let app = test::init_service(build_app(db)).await;
+
+        let request = test::TestRequest::post()
+            .uri("/api/v1/rooms")
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .set_json(create_request(fixture.shared_team_id, None))
+            .to_request();
+        let created: MessageRoomSummary = test::call_and_read_body_json(&app, request).await;
+
+        let request = test::TestRequest::post()
+            .uri(&format!("/api/v1/rooms/{}/join", created.id))
+            .insert_header(("Authorization", format!("Bearer {outsider_token}")))
+            .set_json(MessageRoomJoin {
+                resume_credential: None,
+            })
+            .to_request();
+        let credentials: MessageRoomCredentials =
+            test::call_and_read_body_json(&app, request).await;
+
+        let request = test::TestRequest::delete()
+            .uri(&format!("/api/v1/rooms/{}", created.id))
+            .insert_header(("Authorization", format!("Bearer {guest_token}")))
+            .to_request();
+        assert_eq!(response_status!(app, request), StatusCode::NOT_FOUND);
+
+        let request = test::TestRequest::delete()
+            .uri(&format!("/api/v1/rooms/{}", created.id))
+            .insert_header(("Authorization", format!("Bearer {writer_token}")))
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::NO_CONTENT
+        );
+
+        let request = test::TestRequest::post()
+            .uri(&format!("/api/v1/rooms/{}/join", created.id))
+            .insert_header(("Authorization", format!("Bearer {outsider_token}")))
+            .set_json(MessageRoomJoin {
+                resume_credential: Some(credentials.resume_credential),
+            })
+            .to_request();
+        assert_eq!(response_status!(app, request), StatusCode::NOT_FOUND);
+    }
+}
+
 mod auth_middleware {
     use super::*;
     use actix_web::http::StatusCode;

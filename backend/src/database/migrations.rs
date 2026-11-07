@@ -501,6 +501,7 @@ mod tests {
                     | Some("20260914130000_remove_player_room_host_email.surql")
                     | Some("20260914140000_rename_player_room_tables.surql")
                     | Some("20260914150000_remove_room_session_id.surql")
+                    | Some("20261106120000_prepare_message_rooms.surql")
             ) {
                 continue;
             }
@@ -553,24 +554,6 @@ mod tests {
             .expect("legacy participant state");
         let current_path = migration_path.to_str().expect("current path");
         db.migrate(current_path).await.expect("current migrations");
-        let mut response = db
-            .db
-            .query("SELECT * FROM type::record('room', 'legacy-room')")
-            .await
-            .expect("read invalidated room");
-        let rooms: Vec<serde_json::Value> = response.take(0).expect("decode invalidated room");
-        assert!(rooms.is_empty());
-
-        let mut response = db
-            .db
-            .query(
-                "SELECT id, user_id, mode, resume_hash, connected FROM room_session WHERE room = type::record('room', 'legacy-room')",
-            )
-            .await
-            .expect("read invalidated room sessions");
-        let sessions: Vec<serde_json::Value> =
-            response.take(0).expect("decode invalidated room sessions");
-        assert!(sessions.is_empty());
 
         let mut response = db
             .db
@@ -579,75 +562,67 @@ mod tests {
             .expect("inspect migrated tables");
         let info: surrealdb_types::Value = response.take(0).expect("decode migrated tables");
         let info = serde_json::to_value(info).expect("serialize migrated tables");
-        assert!(
-            !info["Object"]["tables"]["Object"]
-                .as_object()
-                .unwrap()
-                .contains_key("player_room_participant")
-        );
-        assert!(
-            !info["Object"]["tables"]["Object"]
-                .as_object()
-                .unwrap()
-                .contains_key("player_room_snapshot")
-        );
-        assert!(
-            !info["Object"]["tables"]["Object"]
-                .as_object()
-                .unwrap()
-                .contains_key("player_room")
-        );
-        assert!(
-            !info["Object"]["tables"]["Object"]
-                .as_object()
-                .unwrap()
-                .contains_key("player_room_session")
-        );
-        assert!(
-            info["Object"]["tables"]["Object"]
-                .as_object()
-                .unwrap()
-                .contains_key("room")
-        );
-        assert!(
-            info["Object"]["tables"]["Object"]
-                .as_object()
-                .unwrap()
-                .contains_key("room_session")
-        );
+        let tables = info["Object"]["tables"]["Object"]
+            .as_object()
+            .expect("table definitions");
+        for obsolete in [
+            "player_room_participant",
+            "player_room_snapshot",
+            "player_room",
+            "player_room_session",
+            "room",
+            "room_session",
+        ] {
+            assert!(
+                !tables.contains_key(obsolete),
+                "obsolete table {obsolete} remains"
+            );
+        }
+        for replacement in [
+            "message_room",
+            "room_change",
+            "message_room_visit",
+            "room_message_epoch",
+        ] {
+            assert!(
+                tables.contains_key(replacement),
+                "missing table {replacement}"
+            );
+        }
 
         let mut response = db
             .db
-            .query("INFO FOR TABLE room")
+            .query("SELECT * FROM message_room")
             .await
-            .expect("inspect migrated room schema");
-        let info: Option<serde_json::Value> =
-            response.take(0).expect("decode migrated room schema");
-        let info = info.expect("room schema info");
-        let fields = info
-            .get("fields")
-            .and_then(serde_json::Value::as_object)
-            .expect("room fields");
-        assert!(!fields.contains_key("source_type"));
-        assert!(!fields.contains_key("source_id"));
-        assert!(!fields.contains_key("source_title"));
-        assert!(!fields.contains_key("host_email"));
-        assert!(fields.contains_key("content_json"));
+            .expect("read migrated rooms");
+        let rooms: Vec<serde_json::Value> = response.take(0).expect("decode migrated rooms");
+        assert!(rooms.is_empty(), "old rooms must not be converted");
 
         let mut response = db
             .db
-            .query("INFO FOR TABLE room_session")
+            .query("SELECT * FROM message_room_visit")
             .await
-            .expect("inspect migrated room session schema");
-        let info: Option<serde_json::Value> = response
-            .take(0)
-            .expect("decode migrated room session schema");
-        let info = info.expect("room_session schema info");
+            .expect("read migrated visits");
+        let visits: Vec<serde_json::Value> = response.take(0).expect("decode migrated visits");
+        assert!(visits.is_empty(), "old room sessions must not be converted");
+
+        let mut response = db
+            .db
+            .query("INFO FOR TABLE message_room")
+            .await
+            .expect("inspect message room schema");
+        let info: Option<serde_json::Value> = response.take(0).expect("decode room schema");
+        let info = info.expect("message room schema info");
         let fields = info
             .get("fields")
             .and_then(serde_json::Value::as_object)
-            .expect("room_session fields");
-        assert!(!fields.contains_key("session_id"));
+            .expect("message room fields");
+        for field in ["owner", "name", "content_json", "created_at"] {
+            assert!(
+                fields.contains_key(field),
+                "missing message room field {field}"
+            );
+        }
     }
 
     #[tokio::test]

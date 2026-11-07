@@ -1,108 +1,17 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import {
-  RoomJoinSheet,
-} from '@/components/room/RoomJoinSheet'
-import { roomJoinModeChoiceToWire } from '@/lib/room-join-mode'
-import { inspectRoomInvite, joinRoomInvite } from '@/lib/room'
-import { randomRoomGuestDisplayName } from '@/lib/room-guest-name'
 
-export const Route = createFileRoute('/rooms/invite/')({ component: InviteRoute })
+export const Route = createFileRoute('/rooms/invite/')({ component: RoomInviteRoute })
 
-function InviteRoute() {
+function RoomInviteRoute() {
   const { t } = useTranslation()
-  const [secret] = useState(() => window.location.hash.slice(1))
-  const [info, setInfo] = useState<{
-    room_id: string
-    name: string
-    host_email: string
-    av_occupied: boolean
-    guest_access_allowed?: boolean
-    new_joins_locked?: boolean
-  } | null>(null)
-  const [ended, setEnded] = useState(() => !window.location.hash.slice(1))
-  const [name, setName] = useState(randomRoomGuestDisplayName)
-  const [pending, setPending] = useState(false)
-  const [sheetOpen, setSheetOpen] = useState(true)
-
-  useEffect(() => {
-    if (secret) {
-      void inspectRoomInvite(secret).then(setInfo).catch(() => setEnded(true))
-    }
-  }, [secret])
-
-  if (ended) {
-    return (
-      <main className="flex min-h-dvh items-center justify-center p-6">
-        <h1>{t('rooms.ended')}</h1>
-      </main>
-    )
-  }
-
-  if (!info) {
-    return <main className="flex min-h-dvh items-center justify-center p-6">{t('common.load')}</main>
-  }
-
-  const guestAccessAllowed = info.guest_access_allowed !== false
-
-  if (info.new_joins_locked) {
-    return (
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-6 text-center">
-        <h1 className="text-2xl font-semibold">{info.name}</h1>
-        <p className="text-sm text-[var(--color-muted-foreground)]">{info.host_email}</p>
-        <p className="text-sm text-[var(--color-muted-foreground)]">{t('rooms.roomLocked')}</p>
-      </main>
-    )
-  }
-
-  if (!guestAccessAllowed) {
-    return (
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-6 text-center">
-        <h1 className="text-2xl font-semibold">{info.name}</h1>
-        <p className="text-sm text-[var(--color-muted-foreground)]">{info.host_email}</p>
-        <p className="text-sm text-[var(--color-muted-foreground)]">{t('rooms.guestsNotAllowed')}</p>
-      </main>
-    )
-  }
-
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 p-6">
-      {!sheetOpen ? (
-        <>
-          <h1 className="text-2xl font-semibold">{info.name}</h1>
-          <p className="text-sm text-[var(--color-muted-foreground)]">{info.host_email}</p>
-          <Button type="button" onClick={() => setSheetOpen(true)}>
-            {t('rooms.join')}
-          </Button>
-        </>
-      ) : null}
-      <RoomJoinSheet
-        sheetId={info.room_id}
-        title={info.name}
-        avOccupied={info.av_occupied}
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        displayName={name}
-        onDisplayNameChange={setName}
-        pending={pending}
-        onJoin={(choice) => {
-          const { mode, hideChords } = roomJoinModeChoiceToWire(choice)
-          setPending(true)
-          void joinRoomInvite({
-            invite_secret: secret,
-            display_name: name.trim(),
-            mode,
-            hide_chords: hideChords,
-          })
-            .then((credentials) =>
-              window.location.replace(`/rooms/invite/${encodeURIComponent(credentials.room_id)}`),
-            )
-            .catch(() => setPending(false))
-        }}
-      />
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 p-6 text-center">
+      <h1 className="text-xl font-semibold">{t('rooms.title')}</h1>
+      <p className="text-sm text-[var(--color-muted-foreground)]">{t('rooms.signInToJoin')}</p>
+      <Button asChild><Link to="/login" search={{ return_to: '/rooms' }}>{t('login.cardTitle')}</Link></Button>
     </main>
   )
 }

@@ -1,4 +1,4 @@
-import type { RoomSourceType } from '@/lib/room'
+import type { RoomSourceType } from '@/lib/room-message-api'
 import type { HubEntity } from '@/lib/hub-entity'
 
 export function roomSourceType(entity: HubEntity): RoomSourceType {
