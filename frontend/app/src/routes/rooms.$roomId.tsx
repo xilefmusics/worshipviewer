@@ -1,8 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
 
-import { RoomLivePage } from '@/components/room/RoomLivePage'
-import { readRoomCredentials } from '@/lib/room'
+import { MessageRoomPage } from '@/components/room/MessageRoomPage'
 
-export const Route = createFileRoute('/rooms/$roomId')({ component: RoomRoute })
-function RoomRoute() { const { t } = useTranslation(); const { roomId } = Route.useParams(); const credentials = readRoomCredentials(roomId); return credentials ? <RoomLivePage credentials={credentials} /> : <main className="p-6">{t('rooms.missingCredentials')}</main> }
+export const Route = createFileRoute('/rooms/$roomId')({
+  validateSearch: (search: Record<string, unknown>) => ({ mode: search.mode === 'av' ? 'av' as const : 'sheet' as const }),
+  component: RoomRoute,
+})
+
+function RoomRoute() {
+  const { roomId } = Route.useParams()
+  const { mode } = Route.useSearch()
+  return <MessageRoomPage roomId={roomId} initialMode={mode} />
+}

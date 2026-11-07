@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Team } from '@/api/teams-sessions-fetch'
 import { CreateRoomDialog } from '@/components/room/CreateRoomDialog'
 
-const createRoom = vi.fn()
+const createMessageRoom = vi.fn()
 const fetchCollectionsPage = vi.fn()
 const fetchSetlistsPage = vi.fn()
 let online = true
@@ -22,8 +22,8 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }))
 vi.mock('@/hooks/use-online', () => ({ useOnline: () => online }))
-vi.mock('@/lib/room', () => ({
-  createRoom: (...args: unknown[]) => createRoom(...args),
+vi.mock('@/lib/room-message-api', () => ({
+  createMessageRoom: (...args: unknown[]) => createMessageRoom(...args),
 }))
 vi.mock('@/api/list-fetch', () => ({
   fetchCollectionsPage: (...args: unknown[]) => fetchCollectionsPage(...args),
@@ -50,7 +50,7 @@ beforeEach(() => {
   localStorageState.clear()
   vi.stubGlobal('localStorage', localStorageMock)
   Element.prototype.scrollIntoView = vi.fn()
-  createRoom.mockReset().mockResolvedValue({ room: { id: 'room-1' } })
+  createMessageRoom.mockReset().mockResolvedValue({ room: { id: 'room-1' } })
   fetchCollectionsPage.mockReset().mockResolvedValue({ items: [], total: 0 })
   fetchSetlistsPage.mockReset().mockResolvedValue({ items: [], total: 0 })
 })
@@ -75,7 +75,7 @@ describe('CreateRoomDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
 
     await waitFor(() =>
-      expect(createRoom).toHaveBeenCalledWith({ team_id: 'team-1', name: 'Sunday Worship' }),
+      expect(createMessageRoom).toHaveBeenCalledWith({ team_id: 'team-1', name: 'Sunday Worship' }),
     )
     expect(onCreated).toHaveBeenCalledWith('room-1')
   })
@@ -97,7 +97,7 @@ describe('CreateRoomDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('rooms.nameRequired')
-    expect(createRoom).not.toHaveBeenCalled()
+    expect(createMessageRoom).not.toHaveBeenCalled()
   })
 
   it('uses a custom room name when one is entered', async () => {
@@ -117,7 +117,7 @@ describe('CreateRoomDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
 
     await waitFor(() =>
-      expect(createRoom).toHaveBeenCalledWith({ team_id: 'team-1', name: 'Sunday Worship' }),
+      expect(createMessageRoom).toHaveBeenCalledWith({ team_id: 'team-1', name: 'Sunday Worship' }),
     )
   })
 
@@ -139,7 +139,7 @@ describe('CreateRoomDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
 
     await waitFor(() =>
-      expect(createRoom).toHaveBeenCalledWith({
+      expect(createMessageRoom).toHaveBeenCalledWith({
         team_id: 'team-1',
         name: 'Sunday Set',
         source_type: 'collection',
@@ -176,7 +176,7 @@ describe('CreateRoomDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
 
     await waitFor(() =>
-      expect(createRoom).toHaveBeenCalledWith({
+      expect(createMessageRoom).toHaveBeenCalledWith({
         team_id: 'team-1',
         name: 'Sunday Worship',
         source_type: 'collection',
@@ -218,7 +218,7 @@ describe('CreateRoomDialog', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'rooms.createSubmit' }))
     await waitFor(() =>
-      expect(createRoom).toHaveBeenCalledWith({ team_id: 'team-2', name: 'Sunday Worship' }),
+      expect(createMessageRoom).toHaveBeenCalledWith({ team_id: 'team-2', name: 'Sunday Worship' }),
     )
     expect(localStorageMock.getItem(LAST_OWNER_LS)).toBe('team-2')
     expect(onCreated).toHaveBeenCalledWith('room-1')
@@ -253,7 +253,7 @@ describe('CreateRoomDialog', () => {
   })
 
   it('shows an actionable error and remains open after a failed request', async () => {
-    createRoom.mockRejectedValue(new Error('forbidden'))
+    createMessageRoom.mockRejectedValue(new Error('forbidden'))
     render(
       <CreateRoomDialog
         open
@@ -274,7 +274,7 @@ describe('CreateRoomDialog', () => {
   })
 
   it('shows a pending state while creating and keeps cancel available', () => {
-    createRoom.mockReturnValue(new Promise(() => {}))
+    createMessageRoom.mockReturnValue(new Promise(() => {}))
     const onOpenChange = vi.fn()
     render(
       <CreateRoomDialog

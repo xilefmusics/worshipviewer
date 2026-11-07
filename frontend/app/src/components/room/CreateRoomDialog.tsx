@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useOnline } from '@/hooks/use-online'
 import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage'
 import { getNextPageIndex } from '@/lib/list-pagination'
-import { createRoom, type RoomSourceType } from '@/lib/room'
+import { createMessageRoom, type RoomSourceType } from '@/lib/room-message-api'
 import { getTeamDisplayName, isPersonalTeamName } from '@/lib/team-display-name'
 import { cn } from '@/lib/utils'
 
@@ -328,7 +328,7 @@ export function CreateRoomDialog({ open, onOpenChange, teams, userId, onCreated,
                         setPending(true)
                         const selectedSource =
                           source ?? (poolType && poolId ? { type: poolType, id: poolId } : null)
-                        void createRoom({
+                        void createMessageRoom({
                           team_id: ownerId,
                           name: trimmedName,
                           ...(selectedSource

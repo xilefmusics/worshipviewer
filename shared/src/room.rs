@@ -1,4 +1,3 @@
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "backend")]
 use utoipa::ToSchema;
@@ -14,15 +13,7 @@ pub enum RoomSourceType {
     Setlist,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub enum RoomMode {
-    Sheet,
-    Av,
-    Slide,
-}
-
+/// Immutable chord-song content captured from the selected source at creation.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct RoomContent {
@@ -31,7 +22,7 @@ pub struct RoomContent {
 }
 
 impl RoomContent {
-    /// Remove player-only blob slots and blob references from a chord song before it enters a room.
+    /// Strip personal and player-only data before a song enters the room snapshot.
     pub fn normalize_song(mut song: PlayerChordsItem) -> PlayerChordsItem {
         song.song.blobs.clear();
         song.song.user_specific_addons.liked = false;
@@ -73,139 +64,6 @@ impl From<&Player> for RoomContent {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct RoomMusicalState {
-    pub item_index: usize,
-    #[serde(default)]
-    pub started: bool,
-    pub language: Option<String>,
-    pub transposition: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct RoomProjectionPayload {
-    pub content_text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "backend", schema(value_type = Option<Object>))]
-    pub content_lines: Option<serde_json::Value>,
-    #[cfg_attr(feature = "backend", schema(value_type = Object))]
-    pub content_layer: serde_json::Value,
-    #[cfg_attr(feature = "backend", schema(value_type = Object))]
-    pub background_layer: serde_json::Value,
-    #[cfg_attr(feature = "backend", schema(value_type = Object))]
-    pub transition: serde_json::Value,
-    pub screen_state: String,
-    pub item_title: String,
-    pub next_preview: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct RoomQueueItem {
-    pub id: String,
-    pub song_id: String,
-    pub added_by: String,
-    #[serde(default)]
-    pub upvotes: u64,
-    #[serde(default)]
-    pub played: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct RoomQueueLikes {
-    pub song_ids: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct RoomSession {
-    pub id: String,
-    pub mode: RoomMode,
-    #[serde(default)]
-    pub hide_chords: bool,
-    pub display_name: String,
-    pub avatar_url: Option<String>,
-    pub anonymous: bool,
-    pub connected: bool,
-    pub is_host: bool,
-    pub is_av_host: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct RoomSummary {
-    pub id: String,
-    pub name: String,
-    pub team_id: String,
-    #[serde(default = "default_queue_additions_allowed")]
-    pub queue_additions_allowed: bool,
-    pub host_email: String,
-    #[serde(default)]
-    pub can_close: bool,
-    pub session_count: usize,
-    pub av_occupied: bool,
-    pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct RoomSnapshot {
-    #[serde(flatten)]
-    pub summary: RoomSummary,
-    #[serde(default)]
-    pub new_joins_locked: bool,
-    pub content: RoomContent,
-    #[serde(default)]
-    pub queue: Vec<RoomQueueItem>,
-    #[serde(default)]
-    pub voted_queue_ids: Vec<String>,
-    pub musical_state: RoomMusicalState,
-    pub projection: Option<RoomProjectionPayload>,
-    pub sessions: Vec<RoomSession>,
-    pub revision: u64,
-    pub host_lease_expires_at: DateTime<Utc>,
-    #[serde(default = "default_guest_access_allowed")]
-    pub guest_access_allowed: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct AddRoomQueueItem {
-    pub song_id: String,
-    pub revision: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct UpdateRoomQueueAccess {
-    pub queue_additions_allowed: bool,
-    pub revision: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct ReorderRoomQueue {
-    pub queue_ids: Vec<String>,
-    pub revision: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct RoomQueueRevision {
-    pub revision: u64,
-}
-
-fn default_guest_access_allowed() -> bool {
-    true
-}
-
-fn default_queue_additions_allowed() -> bool {
-    true
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct CreateRoom {
@@ -216,63 +74,6 @@ pub struct CreateRoom {
     pub source_type: Option<RoomSourceType>,
     #[serde(default)]
     pub source_id: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct JoinRoom {
-    pub mode: RoomMode,
-    #[serde(default)]
-    pub hide_chords: bool,
-    pub resume_credential: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct InspectRoomInvite {
-    pub invite_secret: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct JoinRoomInvite {
-    pub invite_secret: String,
-    pub display_name: String,
-    pub mode: RoomMode,
-    #[serde(default)]
-    pub hide_chords: bool,
-    pub resume_credential: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct RoomInviteInfo {
-    pub room_id: String,
-    pub name: String,
-    pub host_email: String,
-    pub av_occupied: bool,
-    #[serde(default = "default_guest_access_allowed")]
-    pub guest_access_allowed: bool,
-    #[serde(default)]
-    pub new_joins_locked: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct RoomCredentials {
-    pub room_id: String,
-    pub id: String,
-    pub mode: RoomMode,
-    pub resume_credential: String,
-    pub connection_ticket: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[cfg_attr(feature = "backend", derive(ToSchema))]
-pub struct CreatedRoom {
-    pub room: RoomSummary,
-    pub credentials: RoomCredentials,
-    pub invite_secret: String,
 }
 
 #[cfg(test)]
@@ -286,7 +87,7 @@ mod tests {
     };
 
     #[test]
-    fn room_content_strips_user_likes() {
+    fn captured_room_strips_user_likes() {
         let mut song = Song {
             id: "song-1".into(),
             user_specific_addons: SongUserSpecificAddons { liked: true },
@@ -314,7 +115,7 @@ mod tests {
     }
 
     #[test]
-    fn room_content_keeps_only_chord_songs_and_compacts_toc() {
+    fn captured_content_keeps_only_chord_songs_and_compacts_toc() {
         let mut blob_only = Song {
             id: "blob-song".into(),
             blobs: vec![BlobLink {
@@ -368,17 +169,5 @@ mod tests {
         assert_eq!(content.toc[0].idx, 0);
         assert_eq!(content.toc[0].id.as_deref(), Some("chord-song"));
         assert_eq!(content.toc[0].nr, "2");
-    }
-
-    #[test]
-    fn older_room_summaries_default_to_allow_queue_additions() {
-        let json = r#"{
-            "id":"room-1","name":"Room","team_id":"team-1",
-            "host_email":"host@example.com","can_close":false,
-            "session_count":0,"av_occupied":false,
-            "created_at":"2026-01-01T00:00:00Z"
-        }"#;
-        let summary: RoomSummary = serde_json::from_str(json).unwrap();
-        assert!(summary.queue_additions_allowed);
     }
 }

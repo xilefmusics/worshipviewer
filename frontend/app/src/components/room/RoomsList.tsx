@@ -1,26 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion, useReducedMotion } from 'motion/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { FileTextIcon } from '@/components/icons/lucide-animated/file-text-icon'
-import { OutputIcon } from '@/components/icons/lucide-animated/output-icon'
-import { ProjectorIcon } from '@/components/icons/lucide-animated/projector-icon'
-import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
-import {
-  HUB_ACTION_ICON_CLASS,
-  HubActionItem,
-  HubActionSeparator,
-  HubActionsDrawer,
-} from '@/components/hub/HubActionsDrawer'
-import { openHubActionsFromContextMenu } from '@/components/hub/hub-action-context-menu'
-import {
-  HUB_LIST_META_CLASS,
-  HUB_LIST_ROW_BORDER_CLASS,
-  HUB_LIST_ROW_SHELL_CLASS,
-  HUB_LIST_SUBTITLE_CLASS,
-  HUB_LIST_TITLE_CLASS,
-} from '@/components/hub/hub-list-styles'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,133 +12,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 import { useHubSearch } from '@/hooks/useHubSearch'
 import { useOnline } from '@/hooks/use-online'
-import { writeHideChordsPreference } from '@/lib/hide-chords-preference'
-import { roomJoinModeChoiceToWire, type RoomJoinModeChoice } from '@/lib/room-join-mode'
 import {
-  endRoom,
-  formatRoomDuration,
-  joinRoom,
-  listRooms,
-  roomShortName,
-  useRoomElapsedSeconds,
-  type RoomSummary,
-} from '@/lib/room'
-import { cn } from '@/lib/utils'
-
-const tapFeedback = { scale: 0.985 }
-const tapTransition = { duration: 0.12, ease: [0.25, 0.1, 0.25, 1] as const }
-const ROOM_JOIN_CHOICES: RoomJoinModeChoice[] = ['chords', 'text', 'av', 'slide']
-
-function RoomJoinModeIcon({ mode, isHovered }: { mode: RoomJoinModeChoice; isHovered: boolean }) {
-  if (mode === 'av') {
-    return <OutputIcon isHovered={isHovered} size={16} className={HUB_ACTION_ICON_CLASS} />
-  }
-  if (mode === 'slide') {
-    return <ProjectorIcon isHovered={isHovered} size={16} className={HUB_ACTION_ICON_CLASS} />
-  }
-  return <FileTextIcon isHovered={isHovered} size={16} className={HUB_ACTION_ICON_CLASS} />
-}
-
-function RoomListRow({
-  room,
-  onJoin,
-  onClose,
-  joining,
-  closing,
-}: {
-  room: RoomSummary
-  onJoin: (choice: RoomJoinModeChoice) => void
-  onClose: () => void
-  joining: boolean
-  closing: boolean
-}) {
-  const { t } = useTranslation()
-  const reduceMotion = useReducedMotion()
-  const elapsedSeconds = useRoomElapsedSeconds(room.created_at)
-  const durationLabel = formatRoomDuration(elapsedSeconds)
-  const [itemHot, setItemHot] = useState<RoomJoinModeChoice | 'close' | null>(null)
-  const hover = (key: RoomJoinModeChoice | 'close') => (hot: boolean) =>
-    setItemHot(hot ? key : null)
-
-  return (
-    <div
-      className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_BORDER_CLASS, 'w-full cursor-default gap-3')}
-      data-hub-resource
-    >
-      <motion.button
-        type="button"
-        className="min-w-0 flex-1 border-0 bg-transparent text-left"
-        disabled={joining}
-        onClick={() => onJoin('chords')}
-        whileTap={reduceMotion ? undefined : tapFeedback}
-        transition={tapTransition}
-      >
-        <div className="flex min-w-0 flex-1 flex-col justify-center py-0.5">
-          <p className={HUB_LIST_TITLE_CLASS}>{roomShortName(room)}</p>
-          <div className="flex min-w-0 items-baseline gap-2">
-            <p className={cn(HUB_LIST_SUBTITLE_CLASS, 'min-w-0 flex-1 truncate')}>
-              {room.host_email}
-              {' · '}
-              {t('rooms.listSessions', { count: room.session_count })}
-            </p>
-            <time
-              dateTime={`PT${elapsedSeconds}S`}
-              className={cn(HUB_LIST_META_CLASS, 'shrink-0 tabular-nums')}
-            >
-              {durationLabel}
-            </time>
-          </div>
-        </div>
-      </motion.button>
-      <HubActionsDrawer
-        title={roomShortName(room)}
-        triggerAriaLabel={t('hub.actions.menuAria', { title: roomShortName(room) })}
-      >
-        <div role="group" aria-label={t('rooms.join')}>
-          <div className="px-2 pb-1 text-xs font-semibold text-[var(--color-muted-foreground)]">
-            {t('rooms.join')}
-          </div>
-          {ROOM_JOIN_CHOICES.map((mode) => {
-            const disabled = joining || (mode === 'av' && room.av_occupied)
-            return (
-              <HubActionItem
-                key={mode}
-                disabled={disabled}
-                title={mode === 'av' && room.av_occupied ? t('rooms.avOccupied') : undefined}
-                onSelect={() => onJoin(mode)}
-                onHoverChange={hover(mode)}
-              >
-                <RoomJoinModeIcon mode={mode} isHovered={itemHot === mode} />
-                {t(`rooms.mode.${mode}`)}
-              </HubActionItem>
-            )
-          })}
-        </div>
-        {room.can_close ? (
-          <>
-            <HubActionSeparator />
-            <div role="group" aria-label={t('hub.actions.general')}>
-              <div className="px-2 pb-1 pt-2 text-xs font-semibold text-[var(--color-muted-foreground)]">
-                {t('hub.actions.general')}
-              </div>
-              <HubActionItem
-                destructive
-                disabled={joining || closing}
-                onSelect={onClose}
-                onHoverChange={hover('close')}
-              >
-                <TrashIcon isHovered={itemHot === 'close'} size={16} className="shrink-0" />
-                {t('rooms.end')}
-              </HubActionItem>
-            </div>
-          </>
-        ) : null}
-      </HubActionsDrawer>
-    </div>
-  )
-}
+  deleteMessageRoom,
+  listMessageRooms,
+  setRoomDebugOptionsEnabled,
+  roomDebugOptionsEnabled,
+  type MessageRoomSummary,
+  type RoomDisplayMode,
+} from '@/lib/room-message-api'
 
 export function RoomsList() {
   const { t } = useTranslation()
@@ -165,91 +30,107 @@ export function RoomsList() {
   const online = useOnline()
   const queryClient = useQueryClient()
   const [joiningId, setJoiningId] = useState<string | null>(null)
-  const [closeTarget, setCloseTarget] = useState<RoomSummary | null>(null)
-  const [closingId, setClosingId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<MessageRoomSummary | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [debugEnabled, setDebugEnabled] = useState(roomDebugOptionsEnabled)
+  const [page, setPage] = useState(0)
+  useEffect(() => {
+    queueMicrotask(() => setPage(0))
+  }, [debouncedQ, selectedTeamId])
   const query = useQuery({
-    queryKey: ['rooms', debouncedQ, selectedTeamId],
-    queryFn: () => listRooms({ page: 0, q: debouncedQ, team: selectedTeamId ?? undefined }),
+    queryKey: ['rooms', debouncedQ, selectedTeamId, page],
+    queryFn: () => listMessageRooms({ page, q: debouncedQ, team: selectedTeamId ?? undefined }),
     enabled: online,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
 
-  const join = (room: RoomSummary, choice: RoomJoinModeChoice) => {
-    if (joiningId != null || (choice === 'av' && room.av_occupied)) return
-    const { mode, hideChords } = roomJoinModeChoiceToWire(choice)
-    if (choice === 'chords' || choice === 'text') {
-      writeHideChordsPreference(hideChords)
-    }
+  const join = (room: MessageRoomSummary, mode: RoomDisplayMode) => {
+    if (joiningId) return
     setJoiningId(room.id)
-    void joinRoom(room.id, mode, hideChords)
-      .then(() => window.location.assign(`/rooms/${encodeURIComponent(room.id)}`))
-      .catch(() => setJoiningId(null))
+    window.location.assign(`/rooms/${encodeURIComponent(room.id)}?mode=${mode}`)
   }
 
-  const close = (room: RoomSummary) => {
-    if (closingId != null || joiningId != null) return
-    setCloseTarget(room)
-  }
-
-  const confirmClose = () => {
-    if (!closeTarget || closingId != null) return
-    const room = closeTarget
-    setClosingId(room.id)
-    void endRoom(room.id)
-      .then(() => queryClient.invalidateQueries({ queryKey: ['rooms'] }))
-      .catch(() => undefined)
-      .finally(() => {
-        setClosingId(null)
-        setCloseTarget(null)
-      })
+  const remove = async () => {
+    if (!deleteTarget || deleting) return
+    setDeleting(true)
+    try {
+      await deleteMessageRoom(deleteTarget.id)
+      await queryClient.invalidateQueries({ queryKey: ['rooms'] })
+    } catch {
+      // The row is refreshed by the next query and remains available for retry.
+    } finally {
+      setDeleting(false)
+      setDeleteTarget(null)
+    }
   }
 
   if (!online) return <p className="p-6 text-center">{t('rooms.onlineRequired')}</p>
   if (query.isPending) return <p className="p-6 text-center">{t('common.load')}</p>
-  if (query.isError) {
-    return <p className="p-6 text-center text-[var(--color-danger)]">{t('rooms.loadFailed')}</p>
-  }
+  if (query.isError) return <p className="p-6 text-center text-[var(--color-danger)]">{t('rooms.loadFailed')}</p>
 
   return (
     <>
-      <div className="flex flex-col gap-0 pb-4" onContextMenu={openHubActionsFromContextMenu}>
-        {query.data.items.map((room) => (
-          <RoomListRow
-            key={room.id}
-            room={room}
-            joining={joiningId != null}
-            closing={closingId === room.id}
-            onJoin={(choice) => join(room, choice)}
-            onClose={() => close(room)}
+      <div className="flex items-center justify-end px-4 py-2">
+        <label className="flex items-center gap-2 text-xs text-[var(--color-muted-foreground)]">
+          <input
+            type="checkbox"
+            checked={debugEnabled}
+            onChange={(event) => {
+              setDebugEnabled(event.target.checked)
+              setRoomDebugOptionsEnabled(event.target.checked)
+            }}
           />
-        ))}
+          {t('rooms.debugOptions')}
+        </label>
       </div>
+      <ul className="flex flex-col gap-0 pb-4">
+        {query.data.items.map((room) => (
+          <li key={room.id} className="flex items-center gap-3 border-b border-[var(--color-border)] px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-sm font-semibold">{room.name}</h2>
+              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                {t('rooms.roomSongCount', { count: room.song_count })} · {new Date(room.created_at).toLocaleString()}
+              </p>
+            </div>
+            <Button type="button" size="sm" variant="outline" disabled={joiningId === room.id} onClick={() => void join(room, 'sheet')}>
+              {t('rooms.join')}
+            </Button>
+            <Button type="button" size="sm" variant="outline" disabled={joiningId === room.id} onClick={() => void join(room, 'av')}>
+              AV
+            </Button>
+            {room.can_delete ? (
+              <Button type="button" size="sm" variant="ghost" disabled={joiningId === room.id} onClick={() => setDeleteTarget(room)}>
+                {t('rooms.delete')}
+              </Button>
+            ) : null}
+          </li>
+        ))}
+      </ul>
       {query.data.items.length === 0 ? (
         <p className="p-8 text-center text-[var(--color-muted-foreground)]">{t('rooms.empty')}</p>
       ) : null}
-      <AlertDialog
-        open={closeTarget != null}
-        onOpenChange={(open) => {
-          if (!open && closingId == null) setCloseTarget(null)
-        }}
-      >
+      {query.data.total > 50 ? (
+        <div className="flex items-center justify-center gap-3 px-4 pb-4">
+          <Button type="button" size="sm" variant="outline" disabled={page === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>{t('rooms.pagePrevious')}</Button>
+          <span className="text-xs text-[var(--color-muted-foreground)]">{t('rooms.page', { page: page + 1, total: Math.ceil(query.data.total / 50) })}</span>
+          <Button type="button" size="sm" variant="outline" disabled={(page + 1) * 50 >= query.data.total} onClick={() => setPage((value) => value + 1)}>{t('rooms.pageNext')}</Button>
+        </div>
+      ) : null}
+      <AlertDialog open={deleteTarget != null} onOpenChange={(open) => { if (!open && !deleting) setDeleteTarget(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('rooms.closeConfirmTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('rooms.closeConfirmDescription')}</AlertDialogDescription>
+            <AlertDialogTitle>{t('rooms.deleteConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('rooms.deleteConfirmDescription')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={closingId != null}>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              disabled={closingId != null}
+              disabled={deleting}
               className="bg-[var(--color-danger)] text-white hover:bg-[var(--color-danger)]/90"
-              onClick={(event) => {
-                event.preventDefault()
-                confirmClose()
-              }}
+              onClick={(event) => { event.preventDefault(); void remove() }}
             >
-              {closingId != null ? t('common.load') : t('rooms.closeConfirm')}
+              {deleting ? t('common.load') : t('rooms.deleteConfirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

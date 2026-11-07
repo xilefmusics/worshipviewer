@@ -16,6 +16,7 @@ pub mod net;
 pub mod patch;
 pub mod player;
 pub mod room;
+pub mod room_message;
 pub mod setlist;
 pub mod song;
 pub mod team;
