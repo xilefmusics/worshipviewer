@@ -124,6 +124,24 @@ describe('avSlidesForItem', () => {
     ])
   })
 
+  it('presents image media as a single asset slide without title text', () => {
+    const item: PlayerItem = {
+      type: 'media',
+      id: 'media-image',
+      title: 'Background image',
+      content: { type: 'image', blob_id: 'image-asset' },
+    }
+
+    const result = avSlidesForItem(item, 0, split)
+
+    expect(result).toMatchObject({
+      slides: ['Page 1'],
+      kind: 'deck',
+      mediaId: 'media-image',
+      pages: [{ blobId: 'image-asset' }],
+    })
+  })
+
   it('uses song-style section labels for every deck page card', () => {
     const pages = [
       { blobId: 'p1', sectionTitle: undefined },

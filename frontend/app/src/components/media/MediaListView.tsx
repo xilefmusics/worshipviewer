@@ -8,14 +8,17 @@ import {
   deleteMedia,
   duplicateMedia,
   fetchMediaPage,
+  mediaDetailKey,
   mediaListKey,
   mediaListRootKey,
   moveMedia,
+  updateMedia,
   type Media,
 } from '@/api/media'
 import { mediaAssetDataUrl } from '@/api/media-upload'
 import { ArrowRightLeftIcon } from '@/components/icons/arrow-right-left-icon'
 import { CopyIcon } from '@/components/icons/lucide-animated/copy-icon'
+import { LayersIcon } from '@/components/icons/lucide-animated/layers-icon'
 import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
 import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
 import {
@@ -40,11 +43,9 @@ import { useHubSearch } from '@/hooks/useHubSearch'
 import { useSession } from '@/hooks/useSession'
 import { useTeamDetail } from '@/hooks/useTeamDetail'
 import { useWritableTeams } from '@/hooks/useWritableTeams'
+import { useOnline } from '@/hooks/use-online'
 import { getNextPageIndex } from '@/lib/list-pagination'
-import {
-  mediaCanonicalUrl,
-  mediaDisplayKind,
-} from '@/lib/media-display'
+import { mediaDisplayKind } from '@/lib/media-display'
 import { getTeamDisplayName } from '@/lib/team-display-name'
 import { canEditTeamLibrary } from '@/lib/team-permissions'
 import { cn } from '@/lib/utils'
@@ -126,7 +127,25 @@ export function MediaListView({ backgroundOnly = false }: { backgroundOnly?: boo
           {debouncedQ.trim() ? <Button size="sm" variant="outline" onClick={() => setQInput('')}>{t('hub.empty.clearSearch')}</Button> : null}
         </div>
       ) : null}
-      {!query.isError && items.map((media) => <MediaRow key={media.id} media={media} canMove={writableTeams.some((team) => team.id !== media.owner)} onOpen={() => void navigate({ to: '/media/$mediaId', params: { mediaId: media.id }, search: emptyEditorReturnSearch() })} onMove={() => setMoveTarget(media)} onDelete={() => setDeleteTarget(media)} />)}
+      {!query.isError && items.map((media) => (
+        <MediaRow
+          key={media.id}
+          media={media}
+          canMove={writableTeams.some((team) => team.id !== media.owner)}
+          onPlay={() =>
+            void navigate({ to: '/player/media/$mediaId', params: { mediaId: media.id } })
+          }
+          onEdit={() =>
+            void navigate({
+              to: '/media/$mediaId',
+              params: { mediaId: media.id },
+              search: emptyEditorReturnSearch(),
+            })
+          }
+          onMove={() => setMoveTarget(media)}
+          onDelete={() => setDeleteTarget(media)}
+        />
+      ))}
       {query.hasNextPage ? <div className="flex justify-center py-4"><Button variant="outline" size="sm" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>{query.isFetchingNextPage ? t('common.load') : t('hub.loadMore')}</Button></div> : null}
       </div>
 
@@ -187,14 +206,29 @@ function MediaRowPreview({ media }: { media: Media }) {
   )
 }
 
-function MediaRow({ media, canMove, onOpen, onMove, onDelete }: { media: Media; canMove: boolean; onOpen: () => void; onMove: () => void; onDelete: () => void }) {
+type MediaRowProps = {
+  media: Media
+  canMove: boolean
+  onPlay: () => void
+  onEdit: () => void
+  onMove: () => void
+  onDelete: () => void
+}
+
+function MediaRow({ media, canMove, onPlay, onEdit, onMove, onDelete }: MediaRowProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { data: user } = useSession()
-  const ownerTeam = useTeamDetail(media.owner)
+  const { data: ownerTeam, isPending: ownerTeamPending, isError: ownerTeamError } = useTeamDetail(media.owner)
+  const online = useOnline()
   const [itemHot, setItemHot] = useState<string | null>(null)
-  const canEdit = Boolean(ownerTeam.data && user?.id && canEditTeamLibrary(ownerTeam.data, user.id))
+  const canEdit = Boolean(ownerTeam && user?.id && canEditTeamLibrary(ownerTeam, user.id))
   const kind = mediaDisplayKind(media)
+  const teamLabel = useMemo(() => {
+    if (ownerTeamPending) return null
+    if (ownerTeamError || !ownerTeam) return t('setlists.editor.teamUnavailable')
+    return getTeamDisplayName(ownerTeam, user?.id, t)
+  }, [ownerTeam, ownerTeamError, ownerTeamPending, t, user?.id])
   const duplicateMutation = useMutation({
     mutationFn: () => duplicateMedia(queryClient, media.id, t('media.duplicate.title', { title: media.title })),
     onSuccess: (created) => {
@@ -203,14 +237,39 @@ function MediaRow({ media, canMove, onOpen, onMove, onDelete }: { media: Media; 
     },
     onError: (cause: Error) => toast.error(t('media.actions.duplicateFailed'), { description: cause.message }),
   })
-  const identity = mediaCanonicalUrl(media)
+  const backgroundMutation = useMutation({
+    mutationFn: (isBackground: boolean) =>
+      updateMedia(queryClient, media.id, { title: media.title, is_background: isBackground }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(mediaDetailKey(media.id), updated)
+      void queryClient.invalidateQueries({ queryKey: mediaListRootKey })
+    },
+    onError: (cause: Error) =>
+      toast.error(t('media.actions.backgroundFailed'), { description: cause.message }),
+  })
   return (
     <div className="flex min-h-16 items-center gap-3 border-b border-[var(--color-border)] py-2 last:border-b-0">
-      <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-1 py-1 text-left outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-primary)]" aria-label={t('media.row.openAria', { title: media.title, kind: t(`media.kinds.${kind}`) })}>
+      <button
+        type="button"
+        onClick={onPlay}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-1 py-1 text-left outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-primary)]"
+        aria-label={t('media.row.openAria', {
+          title: media.title,
+          kind: t(`media.kinds.${kind}`),
+        })}
+      >
         <MediaRowPreview media={media} />
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium">{media.title}</span>
-          <span className="flex min-w-0 items-center gap-2 text-sm text-[var(--color-muted-foreground)]"><span>{t(`media.kinds.${kind}`)}</span>{identity ? <><span aria-hidden>·</span><span className="truncate">{identity}</span></> : null}</span>
+          <span className="flex min-w-0 items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
+            <span>{t(`media.kinds.${kind}`)}</span>
+            {teamLabel ? (
+              <>
+                <span aria-hidden>·</span>
+                <span className="min-w-0 truncate">{teamLabel}</span>
+              </>
+            ) : null}
+          </span>
         </span>
       </button>
       {canEdit ? (
@@ -222,10 +281,23 @@ function MediaRow({ media, canMove, onOpen, onMove, onDelete }: { media: Media; 
             <div className="px-2 pb-1 text-xs font-semibold text-[var(--color-muted-foreground)]">
               {t('hub.actions.general')}
             </div>
-            <HubActionItem onSelect={onOpen} onHoverChange={(hot) => setItemHot(hot ? 'edit' : null)}>
+            <HubActionItem onSelect={onEdit} onHoverChange={(hot) => setItemHot(hot ? 'edit' : null)}>
               <PencilIcon isHovered={itemHot === 'edit'} size={16} className={HUB_ACTION_ICON_CLASS} />
               {t('media.actions.edit')}
             </HubActionItem>
+            {media.content.type === 'image' ? (
+              <HubActionItem
+                disabled={!online || backgroundMutation.isPending}
+                title={!online ? t('hub.createOfflineHint') : undefined}
+                onSelect={() => backgroundMutation.mutate(media.is_background !== true)}
+                onHoverChange={(hot) => setItemHot(hot ? 'background' : null)}
+              >
+                <LayersIcon isHovered={itemHot === 'background'} size={16} className={HUB_ACTION_ICON_CLASS} />
+                {media.is_background === true
+                  ? t('media.actions.removeBackground')
+                  : t('media.actions.setBackground')}
+              </HubActionItem>
+            ) : null}
             <HubActionItem
               disabled={duplicateMutation.isPending}
               onSelect={() => duplicateMutation.mutate()}

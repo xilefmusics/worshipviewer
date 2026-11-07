@@ -22,6 +22,7 @@ import {
 } from '@/components/hub/HubActionsDrawer'
 import { openHubActionsFromContextMenu } from '@/components/hub/hub-action-context-menu'
 import {
+  HUB_LIST_AVATAR_CLASS,
   HUB_LIST_ROW_BORDER_CLASS,
   HUB_LIST_ROW_SHELL_CLASS,
   HUB_LIST_SUBTITLE_CLASS,
@@ -30,6 +31,7 @@ import {
 import { UsersIcon } from '@/components/icons/lucide-animated/users-icon'
 import { useHubScrollContainerRef } from '@/context/HubScrollContainerContext'
 import { useHubSearch } from '@/hooks/useHubSearch'
+import { useUserAvatarDisplay } from '@/hooks/useUserAvatarDisplay'
 import { useOnline } from '@/hooks/use-online'
 import { observeElementIntersection } from '@/lib/browser-apis'
 import { clearAllLocalData } from '@/lib/clear-local'
@@ -88,10 +90,30 @@ function UserRow({
   const roleLabel = t(`adminUsers.roles.${user.role}`)
   const createdLabel = formatCreatedAt(user.created_at, i18n.language)
   const subtitle = `${roleLabel} · ${createdLabel}`
+  const { imageSrc, onImageError, initials } = useUserAvatarDisplay(user)
 
   return (
     <div className={cn('flex items-center', HUB_LIST_ROW_BORDER_CLASS)} data-hub-resource>
       <div className={cn(HUB_LIST_ROW_SHELL_CLASS, 'min-w-0 flex-1 cursor-default')}>
+        <div
+          className={cn(
+            HUB_LIST_AVATAR_CLASS,
+            'flex items-center justify-center text-sm font-semibold text-[var(--color-foreground)]',
+          )}
+          aria-hidden="true"
+        >
+          {imageSrc ? (
+            <img
+              src={imageSrc}
+              alt=""
+              draggable={false}
+              className="pointer-events-none size-full object-cover"
+              onError={onImageError}
+            />
+          ) : (
+            initials
+          )}
+        </div>
         <div className="flex min-w-0 flex-1 flex-col justify-center py-0.5">
           <p className={HUB_LIST_TITLE_CLASS} title={user.email}>
             {user.email}
@@ -192,6 +214,7 @@ export function AdminUsersView() {
           <div className="flex flex-col gap-0">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className={cn(HUB_LIST_ROW_SHELL_CLASS, HUB_LIST_ROW_BORDER_CLASS)}>
+                <div className={cn(HUB_LIST_AVATAR_CLASS, 'animate-pulse border-0')} />
                 <div className="flex flex-1 flex-col gap-1.5 py-0.5">
                   <div className="h-[1.0625rem] w-2/3 animate-pulse rounded bg-[var(--color-muted)]" />
                   <div className="h-[0.9375rem] w-1/2 animate-pulse rounded bg-[var(--color-muted)]" />

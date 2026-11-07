@@ -360,7 +360,6 @@
       "showAvPanel": "Show AV panel",
       "outputAria": "Projection output",
       "outputMissingSession": "Missing projection session.",
-      "missingOutput": "No projection output is open. The page was not shown on a screen.",
       "outputSummary": "{{ready}} ready",
       "outputSummaryNone": "No output",
       "outputSummaryFailed": "{{ready}} ready · {{failed}} failed",
@@ -1198,11 +1197,10 @@
     "coverUnsupportedType": "Use PNG or JPEG.",
     "coverTooLarge": "Image is too large.",
     "membersHeading": "Members",
-    "membersEditHint": "Change roles, then save. The team must keep at least one admin.",
-    "membersEditHintPersonal": "Change roles, then save. The team owner always has admin access; listed members do not need to include an admin.",
-    "saveMembers": "Save member roles",
+    "membersEditHint": "Role changes save automatically. The team must keep at least one admin.",
+    "membersEditHintPersonal": "Role changes save automatically. The team owner always has admin access; listed members do not need to include an admin.",
+    "savingMembers": "Saving role changes…",
     "saveMembersFailed": "Could not update member roles.",
-    "discardMembers": "Discard",
     "needOneAdmin": "The team must have at least one admin.",
     "roleLabel": "Role",
     "deleteTeam": "Delete team",
@@ -1346,7 +1344,6 @@
       "title": "Title",
       "kind": "Content type",
       "team": "Team",
-      "canonicalUrl": "Saved URL",
       "isBackground": "Use as an AV background",
       "url": {
         "youtube": "YouTube URL",
@@ -1373,7 +1370,7 @@
       "error": "Something went wrong while loading media."
     },
     "row": {
-      "openAria": "Open {{title}}, {{kind}}",
+      "openAria": "Play {{title}}, {{kind}}",
       "actionsAria": "Actions for {{title}}"
     },
     "create": {
@@ -1384,6 +1381,8 @@
       "backToList": "Back to media",
       "editTitle": "Edit title",
       "saved": "Media saved.",
+      "unsavedUrlChanges": "Unsaved changes…",
+      "savingChanges": "Saving changes…",
       "loadFailed": "Could not load this media item.",
       "readOnly": "You can view this item, but you do not have permission to change it.",
       "futureKind": "This media type can be viewed here, but its editor is not available yet.",
@@ -1430,6 +1429,9 @@
       "openSpotify": "Open Spotify",
       "spotifyExternalHint": "Playback opens in Spotify and is not sent to presentation outputs.",
       "edit": "Edit",
+      "backgroundFailed": "Could not change the AV background setting.",
+      "setBackground": "Make AV background",
+      "removeBackground": "Remove AV background",
       "duplicate": "Duplicate",
       "move": "Move",
       "delete": "Delete",

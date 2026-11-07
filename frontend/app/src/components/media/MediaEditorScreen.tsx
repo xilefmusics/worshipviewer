@@ -61,6 +61,10 @@ function draftSignatureForMedia(value: Media): string {
   })
 }
 
+function urlDraftSignature(kind: UrlMediaKind, value: string): string {
+  return JSON.stringify({ kind, url: value.trim() })
+}
+
 export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -84,6 +88,11 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
   const [deckPages, setDeckPages] = useState<DeckEditorPage[]>([])
   const loadedDraftRef = useRef<string | null>(null)
   const queuedAutosaveRef = useRef<string | null>(null)
+  const [urlBaseline, setUrlBaseline] = useState<{
+    mediaId: string
+    signature: string
+  } | null>(null)
+  const queuedUrlRef = useRef<string | null>(null)
 
   const draftSignature = useMemo(
     () => JSON.stringify({ title, owner, is_background: isBackground, pages: deckPages }),
@@ -100,8 +109,17 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
     loadedDraftRef.current = draftSignatureForMedia(media)
     const displayKind = mediaDisplayKind(media)
     if (isUrlMediaKind(displayKind)) {
+      const canonicalUrl = mediaCanonicalUrl(media) ?? ''
       setKind(displayKind)
-      setUrl(mediaCanonicalUrl(media) ?? '')
+      setUrl(canonicalUrl)
+      setUrlBaseline({
+        mediaId: media.id,
+        signature: urlDraftSignature(displayKind, canonicalUrl),
+      })
+      queuedUrlRef.current = null
+    } else {
+      setUrlBaseline(null)
+      queuedUrlRef.current = null
     }
   }, [media])
 
@@ -165,7 +183,8 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
   })
 
   useEffect(() => {
-    if (!isDeck || !canEdit || !online || deckPages.length === 0 || saveMutation.isPending) return
+    if ((!isDeck && !uploaded) || !canEdit || !online || saveMutation.isPending) return
+    if (isDeck && deckPages.length === 0) return
     if (draftSignature === loadedDraftRef.current || draftSignature === queuedAutosaveRef.current) return
     const timer = window.setTimeout(() => {
       queuedAutosaveRef.current = draftSignature
@@ -173,7 +192,25 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
       saveMutation.mutate()
     }, 700)
     return () => window.clearTimeout(timer)
-  }, [canEdit, deckPages.length, draftSignature, isDeck, online, saveMutation])
+  }, [canEdit, deckPages.length, draftSignature, isDeck, online, saveMutation, uploaded])
+
+  useEffect(() => {
+    if (!editableUrl || !canEdit || !online || saveMutation.isPending) return
+    if (!urlBaseline || urlBaseline.mediaId !== mediaId) return
+    const signature = urlDraftSignature(kind, url)
+    if (signature === urlBaseline.signature || signature === queuedUrlRef.current) return
+
+    const timer = window.setTimeout(() => {
+      queuedUrlRef.current = signature
+      if (!isValidUrlMediaInput(kind, url)) {
+        setError(t('media.validation.invalidUrl'))
+        return
+      }
+      setError('')
+      saveMutation.mutate()
+    }, 700)
+    return () => window.clearTimeout(timer)
+  }, [canEdit, editableUrl, kind, mediaId, online, saveMutation, t, url, urlBaseline])
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -286,7 +323,6 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
     return <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-3 py-12 text-center"><p className="text-sm text-[var(--color-muted-foreground)]">{t('media.editor.loadFailed')}</p><Button variant="outline" onClick={() => void detailQuery.refetch()}>{t('hub.error.retry')}</Button></div>
   }
 
-  const canonicalUrl = mediaCanonicalUrl(media)
   const isImage = media.content.type === 'image'
   const previewBlobId =
     media.content.type === 'video' || media.content.type === 'audio' || media.content.type === 'image'
@@ -297,36 +333,35 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
     ? 'image/png,image/jpeg,image/svg+xml,.png,.jpg,.jpeg,.svg'
     : avFileAccept
   const showUploadedEditor = uploaded
+  const showUploadedSaving = uploaded && !isDeck && saveMutation.isPending
+  const showUrlSaving = editableUrl && saveMutation.isPending
+  const showUrlUnsaved =
+    canEdit &&
+    editableUrl &&
+    !saveMutation.isPending &&
+    urlBaseline !== null &&
+    urlBaseline.mediaId === mediaId &&
+    urlBaseline.signature !== urlDraftSignature(kind, url) &&
+    isValidUrlMediaInput(kind, url)
 
   return (
     <section className={`mx-auto grid w-full pb-8 ${isDeck ? 'max-w-5xl gap-3' : 'max-w-2xl gap-6'}`}>
-      {isDeck ? (
-        null
-      ) : (
-        <div className="grid gap-1">
-          <h1 className="text-xl font-semibold">{media.title}</h1>
-          <p className="text-sm text-[var(--color-muted-foreground)]">{t(`media.kinds.${displayKind}`)}</p>
-          {!isImage ? <div className="pt-2"><Button asChild size="sm"><a href={`/player/media/${encodeURIComponent(media.id)}`}>{t('media.actions.play')}</a></Button></div> : null}
-        </div>
-      )}
-
       {showUploadedEditor ? (
         <div className={`grid ${isDeck ? 'gap-3' : 'gap-4'}`}>
           {!isDeck ? <div className="grid gap-1.5">
             <label htmlFor="media-editor-title" className="text-sm font-medium">{t('media.fields.title')}</label>
-            <Input id="media-editor-title" value={title} onChange={(event) => setTitle(event.target.value)} disabled={!canEdit || !online || saveMutation.isPending} maxLength={200} />
+            <Input
+              id="media-editor-title"
+              value={title}
+              onChange={(event) => {
+                queuedAutosaveRef.current = null
+                setError('')
+                setTitle(event.target.value)
+              }}
+              disabled={!canEdit || !online || saveMutation.isPending}
+              maxLength={200}
+            />
           </div> : null}
-          {isImage ? (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={isBackground}
-                onChange={(event) => setIsBackground(event.target.checked)}
-                disabled={!canEdit || !online || saveMutation.isPending}
-              />
-              {t('media.fields.isBackground')}
-            </label>
-          ) : null}
           {media.content.type === 'video' ? (
             <p className="text-sm text-[var(--color-muted-foreground)]">
               {t('media.editor.metadataVideo', {
@@ -376,15 +411,32 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
             />
           ) : null}
           {canEdit && !isDeck ? (
-            <div className="flex flex-wrap gap-2">
-              <input ref={fileInputRef} type="file" className="hidden" accept={replaceAccept} onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (file) uploadMutation.mutate(file)
-                event.target.value = ''
-              }} />
-              <Button type="button" variant="outline" disabled={!online || uploadMutation.isPending} onClick={() => fileInputRef.current?.click()}>
-                {t('media.upload.replace')}
-              </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {isImage ? (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={isBackground}
+                    onChange={(event) => {
+                      queuedAutosaveRef.current = null
+                      setError('')
+                      setIsBackground(event.target.checked)
+                    }}
+                    disabled={!canEdit || !online || saveMutation.isPending}
+                  />
+                  {t('media.fields.isBackground')}
+                </label>
+              ) : null}
+              <div className="ml-auto flex flex-wrap gap-2">
+                <input ref={fileInputRef} type="file" className="hidden" accept={replaceAccept} onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (file) uploadMutation.mutate(file)
+                  event.target.value = ''
+                }} />
+                <Button type="button" variant="outline" disabled={!online || uploadMutation.isPending} onClick={() => fileInputRef.current?.click()}>
+                  {t('media.upload.replace')}
+                </Button>
+              </div>
             </div>
           ) : null}
           {uploadProgress != null ? (
@@ -395,38 +447,56 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
               </div>
             </div>
           ) : null}
-          {canEdit && !isDeck ? (
-            <div className="flex justify-end">
-              <Button disabled={!online || saveMutation.isPending} onClick={() => { setError(''); saveMutation.mutate() }}>
-                {saveMutation.isPending ? t('common.load') : t('media.actions.save')}
-              </Button>
-            </div>
+          {canEdit && showUploadedSaving ? (
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-right text-sm text-[var(--color-muted-foreground)]"
+            >
+              {t('media.editor.savingChanges')}
+            </p>
           ) : null}
         </div>
       ) : editableUrl ? (
         <>
           <div className="grid gap-1.5">
             <label htmlFor="media-editor-url" className="text-sm font-medium">{t(`media.fields.url.${kind}`)}</label>
-            <Input id="media-editor-url" type="url" value={url} onChange={(event) => setUrl(event.target.value)} disabled={!canEdit || !online} />
+            <Input
+              id="media-editor-url"
+              type="url"
+              value={url}
+              onChange={(event) => {
+                queuedUrlRef.current = null
+                setError('')
+                setUrl(event.target.value)
+              }}
+              disabled={!canEdit || !online || saveMutation.isPending}
+            />
           </div>
-          {canEdit ? (
-            <div className="flex justify-end">
-              <Button disabled={!online || saveMutation.isPending} onClick={() => { setError(''); saveMutation.mutate() }}>
-                {saveMutation.isPending ? t('common.load') : t('media.actions.save')}
-              </Button>
-            </div>
+          {showUrlSaving ? (
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-sm text-[var(--color-muted-foreground)]"
+            >
+              {t('media.editor.savingChanges')}
+            </p>
+          ) : null}
+          {showUrlUnsaved ? (
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-sm text-[var(--color-muted-foreground)]"
+            >
+              {t('media.editor.unsavedUrlChanges')}
+            </p>
           ) : null}
         </>
       ) : (
-        <p className="rounded-lg border border-[var(--color-border)] p-4 text-sm text-[var(--color-muted-foreground)]">{t('media.editor.notReady')}</p>
+        <p className="rounded-lg border border-[var(--color-border)] p-4 text-sm text-[var(--color-muted-foreground)]">
+          {t('media.editor.futureKind')}
+        </p>
       )}
-
-      {canonicalUrl ? (
-        <div className="grid gap-1">
-          <span className="text-sm font-medium">{t('media.fields.canonicalUrl')}</span>
-          <a href={canonicalUrl} target="_blank" rel="noreferrer" className="break-all text-sm text-[var(--color-primary)] underline">{canonicalUrl}</a>
-        </div>
-      ) : null}
 
       {!canEdit ? <p role="status" className="text-sm text-[var(--color-muted-foreground)]">{t('media.editor.readOnly')}</p> : null}
       {error ? <p role="alert" className="text-sm text-[var(--color-destructive)]">{error}</p> : null}

@@ -186,7 +186,7 @@ describe('MediaEditorScreen slide decks', () => {
 })
 
 describe('MediaEditorScreen background images', () => {
-  it('previews an image and saves its background flag', async () => {
+  it('previews an image and autosaves its background flag', async () => {
     fetchMedia.mockResolvedValue(imageMedia())
     updateMedia.mockImplementation(async (_qc: unknown, _id: string, body: { is_background?: boolean }) =>
       imageMedia({ is_background: body.is_background ?? false }),
@@ -197,13 +197,12 @@ describe('MediaEditorScreen background images', () => {
     expect(await screen.findByTestId('image-preview')).toBeInTheDocument()
     const checkbox = screen.getByLabelText('media.fields.isBackground')
     await user.click(checkbox)
-    await user.click(screen.getByRole('button', { name: 'media.actions.save' }))
 
     await waitFor(() => expect(updateMedia).toHaveBeenCalledWith(
       expect.anything(),
       'media:image',
       expect.objectContaining({ is_background: true }),
-    ))
+    ), { timeout: 2_000 })
   })
 
   it('replaces the uploaded image through the Media asset endpoint', async () => {
@@ -223,6 +222,6 @@ describe('MediaEditorScreen background images', () => {
       mediaId: 'media:image',
       kind: 'image',
     })))
-    expect(await screen.findByText('media.kinds.image')).toBeInTheDocument()
+    expect(screen.queryByText('media.kinds.image')).not.toBeInTheDocument()
   })
 })
