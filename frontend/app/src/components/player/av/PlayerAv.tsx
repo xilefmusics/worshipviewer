@@ -242,7 +242,7 @@ export function PlayerAv({
     INITIAL_CONTROLLER_PROJECTION_STATE,
   )
   const [missingOutputWarning, setMissingOutputWarning] = useState(false)
-  const [missingOutputReason, setMissingOutputReason] = useState<'page' | 'play' | 'show'>('page')
+  const [missingOutputReason, setMissingOutputReason] = useState<'play' | 'show'>('play')
   const [livePlayback, setLivePlayback] = useState<AvProjectionPlaybackIntent | null>(null)
   const [controllerVolume, setControllerVolume] = useState(DEFAULT_AV_PLAYBACK_VOLUME)
   const [controllerMuted, setControllerMuted] = useState(DEFAULT_AV_PLAYBACK_MUTED)
@@ -601,10 +601,6 @@ export function PlayerAv({
     )
     controllerRef.current = issued
     setOutputRegistry(issued)
-    if (!hasReadyAvOutput(issued) && !isTimedAvKind(projectedItem.kind)) {
-      setMissingOutputWarning(true)
-      setMissingOutputReason('page')
-    }
     syncRef.current?.send(command)
 
   }, [
@@ -981,11 +977,9 @@ export function PlayerAv({
       {missingOutputWarning ? (
         <p className="player-av-warning" role="status" aria-live="polite">
           {t(
-            missingOutputReason === 'play'
-              ? 'player.av.missingOutputPlay'
-              : missingOutputReason === 'show'
-                ? 'player.av.missingOutputShow'
-                : 'player.av.missingOutput',
+            missingOutputReason === 'show'
+              ? 'player.av.missingOutputShow'
+              : 'player.av.missingOutputPlay',
           )}
         </p>
       ) : null}

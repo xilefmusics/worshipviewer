@@ -360,7 +360,6 @@
       "showAvPanel": "AV-Bereich anzeigen",
       "outputAria": "Projektionsausgabe",
       "outputMissingSession": "Projektionssitzung fehlt.",
-      "missingOutput": "Keine Projektionsausgabe ist geöffnet. Die Seite wurde nicht auf einem Bildschirm angezeigt.",
       "outputSummary": "{{ready}} bereit",
       "outputSummaryNone": "Keine Ausgabe",
       "outputSummaryFailed": "{{ready}} bereit · {{failed}} fehlgeschlagen",
@@ -1198,11 +1197,10 @@
     "coverUnsupportedType": "Bitte PNG oder JPEG verwenden.",
     "coverTooLarge": "Bild ist zu groß.",
     "membersHeading": "Mitglieder",
-    "membersEditHint": "Rollen anpassen und speichern. Es muss mindestens ein Admin verbleiben.",
-    "membersEditHintPersonal": "Rollen anpassen und speichern. Der Team-Inhaber hat immer Admin-Rechte; unter den aufgeführten Mitgliedern muss kein Admin sein.",
-    "saveMembers": "Rollen speichern",
+    "membersEditHint": "Rollenänderungen werden automatisch gespeichert. Es muss mindestens ein Admin verbleiben.",
+    "membersEditHintPersonal": "Rollenänderungen werden automatisch gespeichert. Der Team-Inhaber hat immer Admin-Rechte; unter den aufgeführten Mitgliedern muss kein Admin sein.",
+    "savingMembers": "Rollenänderungen werden gespeichert…",
     "saveMembersFailed": "Rollen konnten nicht aktualisiert werden.",
-    "discardMembers": "Verwerfen",
     "needOneAdmin": "Es muss mindestens ein Admin geben.",
     "roleLabel": "Rolle",
     "deleteTeam": "Team löschen",
@@ -1346,7 +1344,6 @@
       "title": "Titel",
       "kind": "Inhaltstyp",
       "team": "Team",
-      "canonicalUrl": "Gespeicherte URL",
       "isBackground": "Als AV-Hintergrund verwenden",
       "url": {
         "youtube": "YouTube-URL",
@@ -1373,7 +1370,7 @@
       "error": "Beim Laden der Medien ist ein Fehler aufgetreten."
     },
     "row": {
-      "openAria": "{{title}} öffnen, {{kind}}",
+      "openAria": "{{title}} abspielen, {{kind}}",
       "actionsAria": "Aktionen für {{title}}"
     },
     "create": {
@@ -1384,6 +1381,8 @@
       "backToList": "Zurück zu Medien",
       "editTitle": "Titel bearbeiten",
       "saved": "Medium gespeichert.",
+      "unsavedUrlChanges": "Änderungen noch nicht gespeichert…",
+      "savingChanges": "Änderungen werden gespeichert…",
       "loadFailed": "Dieses Medium konnte nicht geladen werden.",
       "readOnly": "Du kannst dieses Medium ansehen, aber nicht bearbeiten.",
       "futureKind": "Dieser Medientyp kann hier angesehen werden, der Editor ist aber noch nicht verfügbar.",
@@ -1430,6 +1429,9 @@
       "openSpotify": "Spotify öffnen",
       "spotifyExternalHint": "Die Wiedergabe wird in Spotify geöffnet und nicht an Präsentationsausgaben gesendet.",
       "edit": "Bearbeiten",
+      "backgroundFailed": "Die AV-Hintergrundeinstellung konnte nicht geändert werden.",
+      "setBackground": "Als AV-Hintergrund festlegen",
+      "removeBackground": "AV-Hintergrund entfernen",
       "duplicate": "Duplizieren",
       "move": "Verschieben",
       "delete": "Löschen",

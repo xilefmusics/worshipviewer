@@ -105,6 +105,18 @@ export function avSlidesForItem(
       kind: 'blob',
     }
   }
+  if (item.type === 'media' && item.content?.type === 'image') {
+    const pages = [{ blobId: item.content.blob_id }]
+    const slides = ['Page 1']
+    return {
+      slides,
+      sourceSlides: slides,
+      outline: buildAvDeckOutline(pages, item.title.trim() || fallbackTitle),
+      kind: 'deck',
+      mediaId: item.id,
+      pages,
+    }
+  }
   if (item.type === 'media' && item.content?.type === 'slide_deck') {
     const pages = item.content.pages.map((page) => ({
       blobId: page.blob_id,

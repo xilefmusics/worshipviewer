@@ -42,14 +42,6 @@ import { useSession } from '@/hooks/useSession'
 
 const ROLE_OPTIONS: TeamRole[] = ['admin', 'content_maintainer', 'guest']
 
-function membersEqual(a: TeamMember[], b: TeamMember[]): boolean {
-  if (a.length !== b.length) return false
-  const key = (m: TeamMember) => m.user.id
-  const sa = [...a].sort((x, y) => key(x).localeCompare(key(y)))
-  const sb = [...b].sort((x, y) => key(x).localeCompare(key(y)))
-  return sa.every((m, i) => m.user.id === sb[i].user.id && m.role === sb[i].role)
-}
-
 function roleLabel(t: (k: string) => string, role: TeamRole): string {
   switch (role) {
     case 'admin':
@@ -227,10 +219,6 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
   })
 
   const effectiveMembers = memberDraft ?? team?.members ?? []
-  const membersDirty = useMemo(() => {
-    if (!team || memberDraft === null) return false
-    return !membersEqual(memberDraft, team.members)
-  }, [team, memberDraft])
 
   const patchMembers = useMutation({
     mutationFn: async (next: TeamMember[]) => {
@@ -238,24 +226,27 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
       if (!isPersonalTeam && !next.some((m) => m.role === 'admin')) {
         throw new Error(t('teams.needOneAdmin'))
       }
-      const { error, response } = await api.PATCH('/api/v1/teams/{id}', {
+      const { data, error, response } = await api.PATCH('/api/v1/teams/{id}', {
         params: { path: { id: teamId } },
         body: {
           members: next.map((m) => ({ user: { id: m.user.id }, role: m.role })),
         },
       })
-      if (!response.ok) {
+      if (!response.ok || !data) {
         throw new Error(problemMessageFromBody(error, t('teams.saveMembersFailed')))
       }
+      return data
     },
-    onSuccess: () => {
+    onSuccess: (updated) => {
       setMemberDraft(null)
       setMembersError(null)
-      void queryClient.invalidateQueries({ queryKey: teamDetailKey(teamId) })
+      queryClient.setQueryData(teamDetailKey(teamId), updated)
       void queryClient.invalidateQueries({ queryKey: teamsListRootKey })
     },
     onError: (e: Error) => {
+      setMemberDraft(null)
       setMembersError(e.message)
+      void queryClient.invalidateQueries({ queryKey: teamDetailKey(teamId) })
     },
   })
 
@@ -279,12 +270,17 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
   })
 
   function setMemberRole(userId: string, role: TeamRole) {
-    if (!team) return
+    if (!team || patchMembers.isPending) return
+    const current = effectiveMembers.find((m) => m.user.id === userId)
+    if (!current || current.role === role) return
+    const next = effectiveMembers.map((m) => (m.user.id === userId ? { ...m, role } : m))
+    if (!isPersonalTeam && !next.some((m) => m.role === 'admin')) {
+      setMembersError(t('teams.needOneAdmin'))
+      return
+    }
     setMembersError(null)
-    setMemberDraft((d) => {
-      const base = d ?? team.members
-      return base.map((m) => (m.user.id === userId ? { ...m, role } : m))
-    })
+    setMemberDraft(next)
+    patchMembers.mutate(next)
   }
 
   if (isPending) {
@@ -399,39 +395,19 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
             </p>
           ) : null}
         </div>
+        {isAdmin && patchMembers.isPending ? (
+          <p
+            className="mb-2 text-sm text-[var(--color-muted-foreground)]"
+            role="status"
+            aria-live="polite"
+          >
+            {t('teams.savingMembers')}
+          </p>
+        ) : null}
         {isAdmin && membersError ? (
           <p className="mb-2 text-sm text-[var(--color-destructive)]" role="alert">
             {membersError}
           </p>
-        ) : null}
-        {isAdmin && membersDirty ? (
-          <div className="mb-2 flex flex-wrap gap-2">
-            <Button
-              type="button"
-              size="sm"
-              disabled={
-                patchMembers.isPending ||
-                !online ||
-                (!isPersonalTeam && !effectiveMembers.some((m) => m.role === 'admin'))
-              }
-              title={!online ? t('hub.createOfflineHint') : undefined}
-              onClick={() => void patchMembers.mutateAsync(effectiveMembers)}
-            >
-              {patchMembers.isPending ? t('common.load') : t('teams.saveMembers')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={patchMembers.isPending}
-              onClick={() => {
-                setMemberDraft(null)
-                setMembersError(null)
-              }}
-            >
-              {t('teams.discardMembers')}
-            </Button>
-          </div>
         ) : null}
         <ul className="flex flex-col gap-0 rounded-lg border border-[var(--color-border)]">
           {effectiveMembers.map((m) => (
@@ -450,7 +426,7 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
                   <Select
                     value={m.role}
                     onValueChange={(v) => setMemberRole(m.user.id, v as TeamRole)}
-                    disabled={!online}
+                    disabled={!online || patchMembers.isPending}
                   >
                     <SelectTrigger
                       id={`member-role-${m.user.id}`}

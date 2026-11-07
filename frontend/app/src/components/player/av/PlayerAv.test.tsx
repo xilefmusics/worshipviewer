@@ -606,7 +606,7 @@ describe('PlayerAv', () => {
     ],
   } as Player
 
-  it('I3: warns when a page is projected with no ready output', async () => {
+  it('I3: does not show a passive warning when a page is projected with no ready output', async () => {
     const user = userEvent.setup()
     render(
       <PlayerAv
@@ -619,8 +619,9 @@ describe('PlayerAv', () => {
 
     await user.click(screen.getByRole('button', { name: 'Select slide 1' }))
     await waitFor(() => {
-      expect(screen.getByText('player.av.missingOutput')).toBeInTheDocument()
+      expect(broadcast).toHaveBeenCalled()
     })
+    expect(screen.queryByText('player.av.missingOutput')).not.toBeInTheDocument()
   })
 
   it('projects a selected deck page as a tagged command and not through Rooms', async () => {
