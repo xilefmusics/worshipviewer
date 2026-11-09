@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { playerKeyboardAction } from '@/lib/player/player-keyboard'
+import {
+  isCopyWorshipProShortcut,
+  isPrintPlayerPdfShortcut,
+  playerKeyboardAction,
+} from '@/lib/player/player-keyboard'
 
 function mockTarget(tagName: string): EventTarget {
   return {
@@ -79,5 +83,105 @@ describe('playerKeyboardAction', () => {
   it('returns null for unmapped keys', () => {
     expect(playerKeyboardAction('t', body)).toBeNull()
     expect(playerKeyboardAction('q', body)).toBeNull()
+  })
+})
+
+describe('isCopyWorshipProShortcut', () => {
+  const body = mockTarget('BODY')
+
+  it('recognizes Ctrl+C and Command+C outside editable fields', () => {
+    expect(
+      isCopyWorshipProShortcut({
+        key: 'c',
+        ctrlKey: true,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        target: body,
+      }),
+    ).toBe(true)
+    expect(
+      isCopyWorshipProShortcut({
+        key: 'C',
+        ctrlKey: false,
+        metaKey: true,
+        altKey: false,
+        shiftKey: false,
+        target: body,
+      }),
+    ).toBe(true)
+  })
+
+  it('leaves modified variants and editable fields alone', () => {
+    expect(
+      isCopyWorshipProShortcut({
+        key: 'c',
+        ctrlKey: true,
+        metaKey: false,
+        altKey: false,
+        shiftKey: true,
+        target: body,
+      }),
+    ).toBe(false)
+    expect(
+      isCopyWorshipProShortcut({
+        key: 'c',
+        ctrlKey: true,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        target: mockTarget('TEXTAREA'),
+      }),
+    ).toBe(false)
+  })
+})
+
+describe('isPrintPlayerPdfShortcut', () => {
+  const body = mockTarget('BODY')
+
+  it('recognizes Ctrl+P and Command+P outside editable fields', () => {
+    expect(
+      isPrintPlayerPdfShortcut({
+        key: 'p',
+        ctrlKey: true,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        target: body,
+      }),
+    ).toBe(true)
+    expect(
+      isPrintPlayerPdfShortcut({
+        key: 'P',
+        ctrlKey: false,
+        metaKey: true,
+        altKey: false,
+        shiftKey: false,
+        target: body,
+      }),
+    ).toBe(true)
+  })
+
+  it('leaves modified variants and editable fields alone', () => {
+    expect(
+      isPrintPlayerPdfShortcut({
+        key: 'p',
+        ctrlKey: true,
+        metaKey: false,
+        altKey: true,
+        shiftKey: false,
+        target: body,
+      }),
+    ).toBe(false)
+    expect(
+      isPrintPlayerPdfShortcut({
+        key: 'p',
+        ctrlKey: true,
+        metaKey: false,
+        altKey: false,
+        shiftKey: false,
+        target: mockTarget('INPUT'),
+      }),
+    ).toBe(false)
   })
 })

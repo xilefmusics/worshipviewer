@@ -457,6 +457,13 @@ export type HubExportSong = {
   language?: number
 }
 
+export type SongPdfOptions = {
+  key?: string | null
+  capo?: number | null
+  language?: number | null
+  titleLanguage?: number | null
+}
+
 /** @deprecated Use {@link HubExportSong}. */
 export type SetlistPdfExportSong = HubExportSong
 
@@ -499,10 +506,22 @@ export async function exportSongPdf(
   data: ChordSongData,
   chordFormat: ChordFormatPreference,
   hideChords: boolean = readHideChordsPreference(),
+  options: SongPdfOptions = {},
 ): Promise<void> {
-  const key = resolveSongDataKey(data as Record<string, unknown>) ?? undefined
-  const pages = [renderA4ExportPage(engine, data, key, undefined, chordFormat, hideChords)]
-  const title = sanitizeDownloadBasename(songTitleFromData(data))
+  const key = options.key ?? resolveSongDataKey(data as Record<string, unknown>) ?? undefined
+  const language = options.language ?? undefined
+  const pages = [
+    renderA4ExportPage(
+      engine,
+      data,
+      key,
+      language,
+      chordFormat,
+      hideChords,
+      options.capo ?? undefined,
+    ),
+  ]
+  const title = sanitizeDownloadBasename(songTitleFromData(data, options.titleLanguage ?? undefined))
   await printPdfDocument(pages, title)
 }
 

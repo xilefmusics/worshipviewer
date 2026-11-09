@@ -2,6 +2,7 @@ import type { components } from '@/api/schema'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { AvMediaTransportPanel } from '@/components/player/av/AvMediaTransportPanel'
 import { AvSpotifyPanel } from '@/components/player/av/AvSpotifyPanel'
@@ -20,6 +21,11 @@ import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useAvBilingualPreference } from '@/hooks/useAvBilingualPreference'
 import { useResolvedPlayerItemChordData } from '@/lib/player/apply-song-flow'
+import { readChordFormatPreference } from '@/lib/chord-format'
+import { readHideChordsPreference } from '@/lib/hide-chords-preference'
+import { isCopyWorshipProShortcut, isPrintPlayerPdfShortcut } from '@/lib/player/player-keyboard'
+import { copyPlayerSongAsWorshipPro } from '@/lib/player/player-song-copy'
+import { printPlayerSongPdf } from '@/lib/player/player-song-print'
 import type { TocDisplayEntry } from '@/lib/player/toc-display'
 import {
   avItemTitle,
@@ -112,6 +118,7 @@ import type { PlayerEntityType } from '@/lib/player-route'
 import { songLanguageOptions } from '@/lib/player/song-language'
 import { buildSettingsSearch, type RoomSettingsReturnContext } from '@/lib/settings-route'
 import { cn } from '@/lib/utils'
+import type { ChordSongData } from '@/ports/chord-engine'
 
 import './player-av.css'
 
@@ -845,6 +852,30 @@ export function PlayerAv({
   useEffect(() => {
     if (slideOnly) return
     function onKeyDown(e: KeyboardEvent) {
+      if (isCopyWorshipProShortcut(e)) {
+        if (rawItem?.type !== 'chords') return
+        e.preventDefault()
+        void copyPlayerSongAsWorshipPro(rawItem.song.data as ChordSongData, rawItem.flow, {
+          languageIndex: currentLanguageIndex,
+          chordFormat: readChordFormatPreference(),
+          hideChords: readHideChordsPreference(),
+        })
+          .then(() => toast.success(t('player.copyWorshipProSuccess')))
+          .catch(() => toast.error(t('player.copyWorshipProFailed')))
+        return
+      }
+
+      if (isPrintPlayerPdfShortcut(e)) {
+        if (rawItem?.type !== 'chords') return
+        e.preventDefault()
+        void printPlayerSongPdf(rawItem.song.data as ChordSongData, rawItem.flow, {
+          languageIndex: currentLanguageIndex,
+          chordFormat: readChordFormatPreference(),
+          hideChords: readHideChordsPreference(),
+        }).catch(() => toast.error(t('player.printFailed')))
+        return
+      }
+
       const action = avKeyboardAction(e.key, e.target, { tocOpen: tocVisible })
       if (!action && (e.key === 'n' || e.key === 'N')) {
         if (isEditableTarget(e.target)) return
@@ -932,7 +963,10 @@ export function PlayerAv({
     tocVisible,
     languagePopoverOpen,
     currentItem.kind,
+    currentLanguageIndex,
+    rawItem,
     slideOnly,
+    t,
   ])
 
   const outputSummaryLabel =

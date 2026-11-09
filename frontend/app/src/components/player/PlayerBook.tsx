@@ -71,7 +71,13 @@ import {
   resolvePlayerKeyState,
   type PlayerKeyState,
 } from '@/lib/player/capo'
-import { playerKeyboardAction } from '@/lib/player/player-keyboard'
+import {
+  isCopyWorshipProShortcut,
+  isPrintPlayerPdfShortcut,
+  playerKeyboardAction,
+} from '@/lib/player/player-keyboard'
+import { copyPlayerSongAsWorshipPro } from '@/lib/player/player-song-copy'
+import { printPlayerSongPdf } from '@/lib/player/player-song-print'
 import { prefetchNextItemIndex } from '@/lib/player/prefetch-next-item'
 import {
   formatPlayedKeyOffset,
@@ -854,6 +860,33 @@ export function PlayerBook({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if (isCopyWorshipProShortcut(e)) {
+        if (currentItem?.type !== 'chords') return
+        e.preventDefault()
+        void copyPlayerSongAsWorshipPro(currentItem.song.data as ChordSongData, currentItem.flow, {
+          key: currentKeyState.displayKey,
+          languageIndex: currentLanguageIndex,
+          chordFormat,
+          hideChords,
+        })
+          .then(() => toast.success(t('player.copyWorshipProSuccess')))
+          .catch(() => toast.error(t('player.copyWorshipProFailed')))
+        return
+      }
+
+      if (isPrintPlayerPdfShortcut(e)) {
+        if (currentItem?.type !== 'chords') return
+        e.preventDefault()
+        void printPlayerSongPdf(currentItem.song.data as ChordSongData, currentItem.flow, {
+          key: currentKeyState.displayKey,
+          languageIndex: currentLanguageIndex,
+          capoFret: currentKeyState.capoFret,
+          chordFormat,
+          hideChords,
+        }).catch(() => toast.error(t('player.printFailed')))
+        return
+      }
+
       const action = playerKeyboardAction(e.key, e.target, {
         popoverOpen: keyPopoverOpen || languagePopoverOpen,
         chromeVisible,
@@ -987,6 +1020,9 @@ export function PlayerBook({
     backTo,
     chordFormat,
     currentItem,
+    currentKeyState.displayKey,
+    currentKeyState.capoFret,
+    currentLanguageIndex,
     dispatch,
     transposeOffset,
     currentKeySelection.soundingKey,
@@ -998,12 +1034,14 @@ export function PlayerBook({
     languagePopoverOpen,
     chromeVisible,
     playerInstrument,
+    hideChords,
     layoutPreferences,
     sheetOrientation,
     cancelPendingChromeOpen,
     toggleCurrentSongLike,
     type,
     id,
+    t,
   ])
 
   const title = resourceTitle ?? tocRow?.title ?? ''
