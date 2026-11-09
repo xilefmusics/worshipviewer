@@ -9,6 +9,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 - Ctrl+C copies the current player song as Worship Pro, and Ctrl+P opens its single-song PDF print preview.
 - Import songs from searchable CCLI PDFs directly in song creation.
 - Upload image backgrounds to the media library and use them in AV projection.
+- Accept HTTP/2 cleartext connections for Cloud Run end-to-end HTTP/2 deployments, including larger uploads.
 - Add managed thumbnail uploads for video media and support looping video backgrounds and projected video previews in AV.
 - Fixed-pool team Rooms with immutable captured song content, authenticated direct-link access, ordered shared messages, virtual vote ranking, and reconnecting presence.
 - Rooms now share the AV controller's slide configuration with slide-only members, including line count, language, bilingual output, blank, and blackout state.

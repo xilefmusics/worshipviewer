@@ -9,10 +9,14 @@
 # The backend is built and deployed for native targets; its OpenID Connect
 # verifier uses 0.14 curves and patched crypto-bigint 0.7.10. Remove this ignore
 # if the backend adds a Wasm build or SurrealDB updates its Wasm crypto stack.
+# Actix Web 4 currently requires h2 0.3 for HTTP/2; the fix is only in h2 0.4.
+# Temporarily accept RUSTSEC-2026-0258 for Cloud Run h2c support and remove this
+# exception when Actix ships a compatible patched dependency (actix/actix-web#4199).
 ignore = [
     "RUSTSEC-2026-0367",
     "RUSTSEC-2026-0368",
     "RUSTSEC-2026-0369",
     "RUSTSEC-2023-0071",
     "RUSTSEC-2026-0387",
+    "RUSTSEC-2026-0258",
 ]
