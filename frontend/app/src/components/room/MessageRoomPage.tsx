@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
@@ -12,6 +12,7 @@ import {
   joinMessageRoom,
   readMessageRoomCredentials,
   type MessageRoomCredentials,
+  type RoomAvConfiguration,
   type RoomBackground,
   type RoomDisplayMode,
 } from '@/lib/room-message-api'
@@ -93,6 +94,7 @@ export function MessageRoomPage({ roomId, initialMode = 'sheet' }: { roomId: str
   const [credentials, setCredentials] = useState<MessageRoomCredentials | null>(null)
   const [joinError, setJoinError] = useState<string | null>(null)
   const room = useMessageRoom(roomId, credentials)
+  const { sendChange } = room
 
   useEffect(() => {
     let cancelled = false
@@ -121,10 +123,11 @@ export function MessageRoomPage({ roomId, initialMode = 'sheet' }: { roomId: str
   }, [initialMode, roomId])
 
   const player = useMemo(() => room.content ? roomPlayer(room.content, room.replay?.selection ?? null) : null, [room.content, room.replay?.selection])
-  const sendSelection = (song: number, section: number, slide: number, activate = true) =>
-    room.sendChange({ type: 'selection', song, section, slide, activate })
-  const sendVote = (song: number, voted: boolean) => room.sendChange({ type: 'vote', song, voted })
-  const sendBackground = (background: AvBackgroundLayer) => room.sendChange({
+  const sendSelection = useCallback((song: number, section: number, slide: number, activate = true) =>
+    sendChange({ type: 'selection', song, section, slide, activate }), [sendChange])
+  const sendVote = useCallback((song: number, voted: boolean) =>
+    sendChange({ type: 'vote', song, voted }), [sendChange])
+  const sendBackground = useCallback((background: AvBackgroundLayer) => sendChange({
     type: 'set_background',
     background: {
       preset: background.preset,
@@ -132,7 +135,9 @@ export function MessageRoomPage({ roomId, initialMode = 'sheet' }: { roomId: str
         ? { image: { media_id: background.image.mediaId, asset_id: background.image.assetId } }
         : {}),
     },
-  })
+  }), [sendChange])
+  const sendAvConfiguration = useCallback((configuration: RoomAvConfiguration) =>
+    sendChange({ type: 'set_av_configuration', configuration }), [sendChange])
 
   if (joinError) return <RoomStatusMessage status="failed" error={joinError} roomId={roomId} initialMode={initialMode} />
   if (room.status === 'ended' || room.status === 'failed') return <RoomStatusMessage status={room.status} error={room.error} roomId={roomId} initialMode={initialMode} />
@@ -192,7 +197,8 @@ export function MessageRoomPage({ roomId, initialMode = 'sheet' }: { roomId: str
         {...sharedPlayerProps}
         embedded
         slideOnly
-        sharedBackgroundLayer={avBackgroundLayer(room.replay.background)}
+        sharedBackgroundLayer={room.replay.background ? avBackgroundLayer(room.replay.background) : DEFAULT_AV_PREFERENCES.backgroundLayer}
+        sharedAvConfiguration={room.replay.avConfiguration}
         onSharedBackgroundChange={sendBackground}
       />
     : credentials.mode === 'av'
@@ -201,8 +207,10 @@ export function MessageRoomPage({ roomId, initialMode = 'sheet' }: { roomId: str
         embedded
         showEmbeddedToc
         showEmbeddedRightPanel
-        sharedBackgroundLayer={avBackgroundLayer(room.replay.background)}
+        sharedBackgroundLayer={room.replay.background ? avBackgroundLayer(room.replay.background) : null}
         onSharedBackgroundChange={sendBackground}
+        onSharedAvConfigurationChange={sendAvConfiguration}
+        roomConnectionStatus={room.status}
       />
     : <PlayerBook {...sharedPlayerProps} mode="sheet" />
 

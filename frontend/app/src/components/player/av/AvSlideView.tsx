@@ -146,7 +146,7 @@ export function AvSlideView({
       contentLayer={contentLayer}
       backgroundLayer={backgroundLayer}
       compact={compact}
-      showBackground={showBackground}
+      showBackground={compact || preview || Boolean(deckPage) ? showBackground : false}
     />
   )
 
@@ -179,32 +179,37 @@ export function AvSlideView({
         {preview || deckPage ? (
           slideBody
         ) : (
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={
-                contentText ?? contentLines?.map((line) => line.primary).join('\n') ?? ''
-              }
-              initial={
-                effectiveTransition.style === 'none'
-                  ? false
-                  : effectiveTransition.style === 'slide'
-                    ? { opacity: 0, x: 24 }
-                    : { opacity: 0 }
-              }
-              animate={{ opacity: 1, x: 0 }}
-              exit={
-                effectiveTransition.style === 'none'
-                  ? undefined
-                  : effectiveTransition.style === 'slide'
-                    ? { opacity: 0, x: -24 }
-                    : { opacity: 0 }
-              }
-              transition={{ duration }}
-              className="av-slide-view__animated-layer"
-            >
-              {slideBody}
-            </motion.div>
-          </AnimatePresence>
+          <>
+            {showBackground ? (
+              <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__background" />
+            ) : null}
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={
+                  contentText ?? contentLines?.map((line) => line.primary).join('\n') ?? ''
+                }
+                initial={
+                  effectiveTransition.style === 'none'
+                    ? false
+                    : effectiveTransition.style === 'slide'
+                      ? { opacity: 0, x: 24 }
+                      : { opacity: 0 }
+                }
+                animate={{ opacity: 1, x: 0 }}
+                exit={
+                  effectiveTransition.style === 'none'
+                    ? undefined
+                    : effectiveTransition.style === 'slide'
+                      ? { opacity: 0, x: -24 }
+                      : { opacity: 0 }
+                }
+                transition={{ duration }}
+                className="av-slide-view__animated-layer"
+              >
+                {slideBody}
+              </motion.div>
+            </AnimatePresence>
+          </>
         )}
       </AvSlideScaledStage>
       {screenState === 'blank' && deckPage ? (

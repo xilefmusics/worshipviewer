@@ -163,6 +163,11 @@ impl MessageRoomLive {
             RoomChange::SetBackground { ref background } if !background.is_valid() => {
                 return Err(AcceptError::Invalid);
             }
+            RoomChange::SetAvConfiguration { ref configuration }
+                if !configuration.is_valid(self.sections.len()) =>
+            {
+                return Err(AcceptError::Invalid);
+            }
             _ => {}
         }
         let mut state = self.state.lock().expect("room lock poisoned");
@@ -228,7 +233,11 @@ impl MessageRoomLive {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shared::room_message::{RoomBackground, RoomBackgroundImage};
+    use shared::room_message::{
+        RoomAvConfiguration, RoomAvContentLayer, RoomAvHorizontalAlign, RoomAvScreenState,
+        RoomAvTextAlign, RoomAvTextShadow, RoomAvTextTransform, RoomAvTransition,
+        RoomAvTransitionStyle, RoomAvVerticalAlign, RoomBackground, RoomBackgroundImage,
+    };
     use tokio::sync::Semaphore;
 
     struct StalledWriter {
@@ -249,6 +258,31 @@ mod tests {
 
     fn vote(voted: bool) -> RoomChange {
         RoomChange::Vote { song: 0, voted }
+    }
+
+    fn av_configuration() -> RoomAvConfiguration {
+        RoomAvConfiguration {
+            content_layer: RoomAvContentLayer {
+                max_lines_per_slide: 4,
+                balance_slide_lines: true,
+                font_size: 50,
+                text_align: RoomAvTextAlign::Center,
+                vertical_align: RoomAvVerticalAlign::Center,
+                horizontal_align: RoomAvHorizontalAlign::Center,
+                text_shadow: RoomAvTextShadow::Subtle,
+                text_transform: RoomAvTextTransform::None,
+                primary_text_lightness: 100,
+                secondary_text_lightness: 80,
+            },
+            transition: RoomAvTransition {
+                style: RoomAvTransitionStyle::Fade,
+                duration_ms: 300,
+            },
+            bilingual_enabled: true,
+            collapse_lyric_whitespace: false,
+            language_by_item: std::collections::BTreeMap::from([(String::from("0"), 1)]),
+            screen_state: RoomAvScreenState::Live,
+        }
     }
 
     #[tokio::test]
@@ -335,6 +369,18 @@ mod tests {
             ),
             Err(AcceptError::Invalid)
         );
+        let mut invalid_configuration = av_configuration();
+        invalid_configuration.content_layer.max_lines_per_slide = 0;
+        assert_eq!(
+            room.accept(
+                "bad-av-configuration".into(),
+                "v".into(),
+                RoomChange::SetAvConfiguration {
+                    configuration: invalid_configuration,
+                },
+            ),
+            Err(AcceptError::Invalid)
+        );
         let first = room.accept("same".into(), "v".into(), vote(true)).unwrap();
         assert_eq!(
             room.accept("same".into(), "v".into(), vote(true)).unwrap(),
@@ -357,6 +403,16 @@ mod tests {
             .unwrap();
         assert_eq!(receiver.recv().await.unwrap(), first);
         assert_eq!(receiver.recv().await.unwrap(), background);
+        let configuration = room
+            .accept(
+                "av-configuration".into(),
+                "host".into(),
+                RoomChange::SetAvConfiguration {
+                    configuration: av_configuration(),
+                },
+            )
+            .unwrap();
+        assert_eq!(receiver.recv().await.unwrap(), configuration);
         assert_eq!(
             room.accept("same".into(), "other".into(), vote(true)),
             Err(AcceptError::Conflict)
@@ -376,7 +432,7 @@ mod tests {
             sequences.push(task.await.unwrap());
         }
         sequences.sort();
-        assert_eq!(sequences, (3..=12).collect::<Vec<_>>());
+        assert_eq!(sequences, (4..=13).collect::<Vec<_>>());
         assert!(matches!(
             receiver.recv().await,
             Err(broadcast::error::RecvError::Lagged(_))

@@ -22,6 +22,7 @@ export type RoomBackground = {
   preset: number
   image?: { media_id: string; asset_id: string } | null
 }
+export type RoomAvConfiguration = components['schemas']['RoomAvConfiguration']
 export type RoomMessage = {
   id: string
   room_id: string
@@ -31,6 +32,7 @@ export type RoomMessage = {
     | { type: 'selection'; song: number; section?: number; slide: number; activate: boolean }
     | { type: 'vote'; song: number; voted: boolean }
     | { type: 'set_background'; background: RoomBackground }
+    | { type: 'set_av_configuration'; configuration: RoomAvConfiguration }
 }
 export type RoomMember = { visit_id: string; display_name: string; joined_at?: string }
 export type RoomContent = components['schemas']['RoomContent']

@@ -2094,6 +2094,175 @@
         ],
         "type": "string"
       },
+      "RoomAvConfiguration": {
+        "description": "Rendering settings shared by the AV controller with slide-only room members.\nOutput-window preferences remain local; the room background uses its own change.",
+        "properties": {
+          "bilingual_enabled": {
+            "type": "boolean"
+          },
+          "collapse_lyric_whitespace": {
+            "type": "boolean"
+          },
+          "content_layer": {
+            "$ref": "#/components/schemas/RoomAvContentLayer"
+          },
+          "language_by_item": {
+            "additionalProperties": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "screen_state": {
+            "$ref": "#/components/schemas/RoomAvScreenState"
+          },
+          "transition": {
+            "$ref": "#/components/schemas/RoomAvTransition"
+          }
+        },
+        "required": [
+          "content_layer",
+          "transition",
+          "bilingual_enabled",
+          "collapse_lyric_whitespace",
+          "language_by_item",
+          "screen_state"
+        ],
+        "type": "object"
+      },
+      "RoomAvContentLayer": {
+        "properties": {
+          "balance_slide_lines": {
+            "type": "boolean"
+          },
+          "font_size": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "horizontal_align": {
+            "$ref": "#/components/schemas/RoomAvHorizontalAlign"
+          },
+          "max_lines_per_slide": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "primary_text_lightness": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "secondary_text_lightness": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "text_align": {
+            "$ref": "#/components/schemas/RoomAvTextAlign"
+          },
+          "text_shadow": {
+            "$ref": "#/components/schemas/RoomAvTextShadow"
+          },
+          "text_transform": {
+            "$ref": "#/components/schemas/RoomAvTextTransform"
+          },
+          "vertical_align": {
+            "$ref": "#/components/schemas/RoomAvVerticalAlign"
+          }
+        },
+        "required": [
+          "max_lines_per_slide",
+          "balance_slide_lines",
+          "font_size",
+          "text_align",
+          "vertical_align",
+          "horizontal_align",
+          "text_shadow",
+          "text_transform",
+          "primary_text_lightness",
+          "secondary_text_lightness"
+        ],
+        "type": "object"
+      },
+      "RoomAvHorizontalAlign": {
+        "enum": [
+          "left",
+          "center",
+          "right"
+        ],
+        "type": "string"
+      },
+      "RoomAvScreenState": {
+        "enum": [
+          "live",
+          "blank",
+          "blackout"
+        ],
+        "type": "string"
+      },
+      "RoomAvTextAlign": {
+        "enum": [
+          "left",
+          "center",
+          "right"
+        ],
+        "type": "string"
+      },
+      "RoomAvTextShadow": {
+        "enum": [
+          "none",
+          "subtle",
+          "medium",
+          "strong"
+        ],
+        "type": "string"
+      },
+      "RoomAvTextTransform": {
+        "enum": [
+          "none",
+          "uppercase",
+          "lowercase",
+          "capitalize"
+        ],
+        "type": "string"
+      },
+      "RoomAvTransition": {
+        "properties": {
+          "duration_ms": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "style": {
+            "$ref": "#/components/schemas/RoomAvTransitionStyle"
+          }
+        },
+        "required": [
+          "style",
+          "duration_ms"
+        ],
+        "type": "object"
+      },
+      "RoomAvTransitionStyle": {
+        "enum": [
+          "none",
+          "fade",
+          "slide"
+        ],
+        "type": "string"
+      },
+      "RoomAvVerticalAlign": {
+        "enum": [
+          "top",
+          "center",
+          "bottom"
+        ],
+        "type": "string"
+      },
       "RoomBackground": {
         "description": "A preset plus an optional custom media image reference for the room AV background.",
         "properties": {
@@ -2134,7 +2303,7 @@
         "type": "object"
       },
       "RoomChange": {
-        "description": "Ordered navigation, vote and AV background events for a fixed room snapshot.",
+        "description": "Ordered navigation, vote, AV configuration and background events for a fixed room snapshot.",
         "oneOf": [
           {
             "description": "Selecting a song for the first time or selecting it again is an activation.\nSection or slide-only navigation sets `activate` to false.",
@@ -2213,6 +2382,25 @@
             },
             "required": [
               "background",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "Replaces the AV rendering configuration used by slide-only members.",
+            "properties": {
+              "configuration": {
+                "$ref": "#/components/schemas/RoomAvConfiguration"
+              },
+              "type": {
+                "enum": [
+                  "set_av_configuration"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "configuration",
               "type"
             ],
             "type": "object"
