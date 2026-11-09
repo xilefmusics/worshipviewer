@@ -21,6 +21,7 @@ import { CopyIcon } from '@/components/icons/lucide-animated/copy-icon'
 import { LayersIcon } from '@/components/icons/lucide-animated/layers-icon'
 import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
 import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
+import { DeckPagePreview } from '@/components/media/DeckPagePreview'
 import {
   HUB_ACTION_ICON_CLASS,
   HubActionItem,
@@ -169,6 +170,7 @@ function MediaRowPreview({ media }: { media: Media }) {
   const imageUrl = media.content.type === 'image'
     ? mediaAssetDataUrl(media.id, media.content.blob_id)
     : null
+  const firstDeckPage = media.content.type === 'slide_deck' ? media.content.pages[0] : undefined
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
 
   return (
@@ -185,6 +187,13 @@ function MediaRowPreview({ media }: { media: Media }) {
           draggable={false}
           className="size-full object-cover"
           onError={() => setFailedImageUrl(imageUrl)}
+        />
+      ) : firstDeckPage ? (
+        <DeckPagePreview
+          mediaId={media.id}
+          blobId={firstDeckPage.blob_id}
+          label={media.title}
+          className="!aspect-auto !h-full !w-full"
         />
       ) : (
         <svg
