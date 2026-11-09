@@ -3,12 +3,15 @@ use crate::blob::{Blob, CreateBlob, UpdateBlob};
 use crate::collection::{Collection, CreateCollection, UpdateCollection};
 use crate::error::NetworkClientError;
 use crate::like::LikeStatus;
+use crate::media::{CommitDeck, CreateMedia, DuplicateMedia, Media, MediaListQuery, UpdateMedia};
 use crate::monitoring::{HttpAuditLog, MonitoringMetricsQuery};
 use crate::move_owner::MoveOwner;
 use crate::net::HttpClient;
 #[cfg(all(feature = "cli", not(target_arch = "wasm32")))]
 use crate::net::{DefaultHttpClient, HttpClientConfig};
 use crate::player::Player;
+use crate::room::CreateRoom;
+use crate::room_message::{MessageRoomCredentials, MessageRoomJoin, MessageRoomSummary};
 use crate::setlist::{CreateSetlist, Setlist, UpdateSetlist};
 use crate::song::{CreateSong, Song, UpdateSong};
 use crate::team::{CreateTeam, Team, TeamInvitation, UpdateTeam};
@@ -64,6 +67,16 @@ impl<C: HttpClient> ApiClient<C> {
     pub async fn logout(&self) -> Result<(), NetworkClientError> {
         self.client
             .post_no_response("auth/logout", &serde_json::json!({}))
+            .await
+    }
+
+    pub async fn get_impersonation_status(&self) -> Result<serde_json::Value, NetworkClientError> {
+        self.client.get("auth/impersonation/current").await
+    }
+
+    pub async fn stop_impersonation(&self) -> Result<(), NetworkClientError> {
+        self.client
+            .post_no_response("auth/impersonation/stop", &serde_json::json!({}))
             .await
     }
 
@@ -616,6 +629,134 @@ impl<C: HttpClient> ApiClient<C> {
     pub async fn download_blob_data(&self, id: &str) -> Result<Vec<u8>, NetworkClientError> {
         self.client
             .get_bytes(&format!("api/v1/blobs/{id}/data"))
+            .await
+    }
+
+    pub async fn list_media(
+        &self,
+        query: MediaListQuery,
+    ) -> Result<Vec<Media>, NetworkClientError> {
+        let path = format!("api/v1/media{}", query.to_query_string());
+        self.client.get(&path).await
+    }
+
+    pub async fn get_media(&self, id: &str) -> Result<Media, NetworkClientError> {
+        self.client.get(&format!("api/v1/media/{id}")).await
+    }
+
+    pub async fn create_media(&self, payload: CreateMedia) -> Result<Media, NetworkClientError> {
+        self.client.post("api/v1/media", &payload).await
+    }
+
+    pub async fn update_media(
+        &self,
+        id: &str,
+        payload: UpdateMedia,
+    ) -> Result<Media, NetworkClientError> {
+        self.client
+            .put(&format!("api/v1/media/{id}"), &payload)
+            .await
+    }
+
+    pub async fn move_media(
+        &self,
+        id: &str,
+        payload: MoveOwner,
+    ) -> Result<Media, NetworkClientError> {
+        self.client
+            .post(&format!("api/v1/media/{id}/move"), &payload)
+            .await
+    }
+
+    pub async fn duplicate_media(
+        &self,
+        id: &str,
+        payload: DuplicateMedia,
+    ) -> Result<Media, NetworkClientError> {
+        self.client
+            .post(&format!("api/v1/media/{id}/duplicate"), &payload)
+            .await
+    }
+
+    pub async fn delete_media(&self, id: &str) -> Result<(), NetworkClientError> {
+        self.client
+            .delete_no_content(&format!("api/v1/media/{id}"))
+            .await
+    }
+
+    pub async fn begin_media_deck_revision(&self, id: &str) -> Result<Media, NetworkClientError> {
+        self.client
+            .post(
+                &format!("api/v1/media/{id}/deck/revisions"),
+                &serde_json::json!({}),
+            )
+            .await
+    }
+
+    pub async fn commit_media_deck(
+        &self,
+        id: &str,
+        payload: CommitDeck,
+    ) -> Result<Media, NetworkClientError> {
+        self.client
+            .post(&format!("api/v1/media/{id}/deck/commit"), &payload)
+            .await
+    }
+
+    pub async fn upload_media_asset(
+        &self,
+        id: &str,
+        query: &str,
+        content_type: &str,
+        body: &[u8],
+    ) -> Result<Media, NetworkClientError> {
+        self.client
+            .put_bytes_json(
+                &format!("api/v1/media/{id}/uploads?{query}"),
+                content_type,
+                body,
+            )
+            .await
+    }
+
+    pub async fn get_media_asset_data(
+        &self,
+        media_id: &str,
+        asset_id: &str,
+    ) -> Result<Vec<u8>, NetworkClientError> {
+        self.client
+            .get_bytes(&format!("api/v1/media/{media_id}/assets/{asset_id}/data"))
+            .await
+    }
+
+    pub async fn list_rooms(
+        &self,
+        query: ListQuery,
+    ) -> Result<Vec<MessageRoomSummary>, NetworkClientError> {
+        let path = format!("api/v1/rooms{}", query.to_query_string());
+        self.client.get(&path).await
+    }
+
+    pub async fn create_room(
+        &self,
+        payload: CreateRoom,
+    ) -> Result<MessageRoomSummary, NetworkClientError> {
+        self.client.post("api/v1/rooms", &payload).await
+    }
+
+    pub async fn join_room(
+        &self,
+        id: &str,
+        payload: MessageRoomJoin,
+    ) -> Result<MessageRoomCredentials, NetworkClientError> {
+        self.client
+            .post(&format!("api/v1/rooms/{id}/join"), &payload)
+            .await
+    }
+
+    pub async fn close_room(&self, id: &str) -> Result<(), NetworkClientError> {
+        self.client
+            .delete_no_content(&format!("api/v1/rooms/{id}"))
             .await
     }
 

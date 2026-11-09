@@ -18,6 +18,7 @@ pub struct BuildConfigOptions {
     pub base_url: Option<String>,
     pub sso_session: Option<String>,
     pub bearer_token: Option<String>,
+    pub impersonation_cookie: Option<String>,
     pub timeout_secs: Option<u64>,
 }
 
@@ -27,6 +28,7 @@ impl BuildConfigOptions {
             base_url: cli.base_url.clone(),
             sso_session: cli.sso_session.clone(),
             bearer_token: cli.bearer_token.clone(),
+            impersonation_cookie: cli.impersonation_cookie.clone(),
             timeout_secs: cli.timeout_secs,
         }
     }
@@ -36,6 +38,7 @@ impl BuildConfigOptions {
 pub struct FileConfig {
     pub base_url: Option<String>,
     pub sso_session: Option<String>,
+    pub impersonation_cookie: Option<String>,
 }
 
 pub fn load_file_config() -> Result<FileConfig, Box<dyn std::error::Error>> {
@@ -51,6 +54,7 @@ pub fn load_file_config() -> Result<FileConfig, Box<dyn std::error::Error>> {
             let default_cfg = FileConfig {
                 base_url: Some(DEFAULT_BASE_URL.into()),
                 sso_session: None,
+                impersonation_cookie: None,
             };
             let toml_str = toml::to_string(&default_cfg)
                 .map_err(|e: toml::ser::Error| -> Box<dyn std::error::Error> { Box::new(e) })?;
@@ -78,6 +82,16 @@ fn resolve_sso_session(cli_sso: Option<String>, file_cfg: &FileConfig) -> Option
     cli_sso.or(env_sso).or(file_cfg.sso_session.clone())
 }
 
+fn resolve_impersonation_cookie(
+    cli_cookie: Option<String>,
+    file_cfg: &FileConfig,
+) -> Option<String> {
+    let env_cookie = env::var("WORSHIPVIEWER_IMPERSONATION_COOKIE").ok();
+    cli_cookie
+        .or(env_cookie)
+        .or(file_cfg.impersonation_cookie.clone())
+}
+
 pub fn build_http_client_config(
     options: &BuildConfigOptions,
 ) -> Result<(HttpClientConfig, String), Box<dyn std::error::Error>> {
@@ -91,6 +105,10 @@ pub fn build_http_client_config(
         base_url: base_url.clone(),
         timeout,
         session_cookie: sso_session,
+        impersonation_cookie: resolve_impersonation_cookie(
+            options.impersonation_cookie.clone(),
+            &file_config,
+        ),
         bearer_token: options.bearer_token.clone(),
         client_ident: Some(concat!("worshipviewer-cli/", env!("CARGO_PKG_VERSION")).to_string()),
     };

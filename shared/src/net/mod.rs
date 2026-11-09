@@ -12,6 +12,8 @@ pub struct HttpClientConfig {
     /// Optional value for the `sso_session` cookie used by the backend.
     /// When set, the HTTP client should send a `Cookie: sso_session=<value>` header.
     pub session_cookie: Option<String>,
+    /// Optional browser impersonation cookie value (`wv_impersonation`).
+    pub impersonation_cookie: Option<String>,
     /// Optional bearer token used for `Authorization: Bearer <token>` authentication.
     pub bearer_token: Option<String>,
     /// Value for the `X-Worship-Client` header (`<product>/<version>`, e.g. `worshipviewer-cli/0.1.0`).

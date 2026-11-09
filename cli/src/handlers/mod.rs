@@ -5,7 +5,9 @@ mod about;
 mod auth;
 mod blobs;
 mod collections;
+mod media;
 mod monitoring;
+mod rooms;
 mod schema;
 mod sessions;
 mod setlists;
@@ -26,7 +28,13 @@ pub async fn dispatch(session: &CliSession, cli: &Cli) -> Result<(), Box<dyn std
             }
         },
         Command::Auth { command } => {
-            auth::handle_auth(client, cli.output.clone(), cli.dry_run, command).await
+            auth::handle_auth(session, cli.output.clone(), cli.dry_run, command).await
+        }
+        Command::Media { command } => {
+            media::handle_media(session, cli.output.clone(), cli.dry_run, command).await
+        }
+        Command::Rooms { command } => {
+            rooms::handle_rooms(session, cli.output.clone(), cli.dry_run, command).await
         }
         Command::Users { command } => {
             users::handle_users(session, cli.output.clone(), cli.dry_run, command).await

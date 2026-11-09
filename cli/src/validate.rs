@@ -1,8 +1,9 @@
 use std::fmt;
 
 use shared::api::{ListQuery, PageQuery, SongListQuery};
+use shared::media::MediaListQuery;
 
-use crate::commands::{HubListArgs, PageArgs, SongListArgs};
+use crate::commands::{HubListArgs, MediaListArgs, PageArgs, SongListArgs};
 
 #[derive(Debug)]
 pub struct ValidationError {
@@ -96,6 +97,26 @@ pub fn song_list_query_from_args(args: &SongListArgs) -> Result<SongListQuery, V
     query.validate().map_err(ValidationError::new)
 }
 
+pub fn media_list_query_from_args(args: &MediaListArgs) -> Result<MediaListQuery, ValidationError> {
+    let mut query = MediaListQuery {
+        page: args.page.page,
+        page_size: args.page.page_size,
+        q: args
+            .q
+            .as_deref()
+            .map(str::trim)
+            .filter(|q| !q.is_empty())
+            .map(str::to_owned),
+        team: args.team.clone(),
+        is_background: args.is_background,
+    };
+    if let Some(team) = query.team.as_deref() {
+        validate_resource_id(team)?;
+    }
+    query = query.validate().map_err(ValidationError::new)?;
+    Ok(query)
+}
+
 pub fn page_query_from_page_args(page: &PageArgs) -> Result<PageQuery, ValidationError> {
     list_query_from_page_args(page).map(|lq| PageQuery {
         page: lq.page,
@@ -129,6 +150,43 @@ pub fn image_content_type_for_path(
     guess_content_type(path).map(str::to_string).ok_or_else(|| {
         ValidationError::new("could not infer content-type; pass --content-type (e.g. image/png)")
     })
+}
+
+pub fn media_content_type_for_path(
+    path: &std::path::Path,
+    override_ct: Option<&str>,
+) -> Result<String, ValidationError> {
+    if let Some(ct) = override_ct {
+        let t = ct.trim();
+        if t.is_empty() {
+            return Err(ValidationError::new("content-type must not be empty"));
+        }
+        return Ok(t.to_string());
+    }
+
+    let content_type = match path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "mp4" | "m4v" => "video/mp4",
+        "mov" => "video/quicktime",
+        "webm" => "video/webm",
+        "mkv" => "video/x-matroska",
+        "mp3" => "audio/mpeg",
+        "m4a" => "audio/mp4",
+        "wav" => "audio/wav",
+        "ogg" | "oga" => "audio/ogg",
+        "flac" => "audio/flac",
+        "pdf" => "application/pdf",
+        "svg" => "image/svg+xml",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        _ => "application/octet-stream",
+    };
+    Ok(content_type.to_string())
 }
 
 #[cfg(test)]
