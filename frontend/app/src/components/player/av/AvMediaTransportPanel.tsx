@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { AvBackgroundSelector } from '@/components/player/av/AvBackgroundSelector'
 import { Button } from '@/components/ui/button'
 import type {
+  AvBackgroundAsset,
   AvBackgroundLayer,
   AvBackgroundPreset,
   AvContentLayer,
@@ -27,6 +28,8 @@ type AvMediaTransportPanelProps = {
   volume: number
   muted: boolean
   loop: boolean
+  videoPreviewCurrentTimeMs: number
+  videoPreviewDurationMs: number
   backgroundLayer: AvBackgroundLayer
   backgroundPreviewText: string
   contentLayer: AvContentLayer
@@ -40,7 +43,7 @@ type AvMediaTransportPanelProps = {
   onLoop: (loop: boolean) => void
   onRetry: () => void
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
-  onSelectBackgroundImage: (image: { mediaId: string; assetId: string }) => void
+  onSelectBackgroundAsset: (asset: AvBackgroundAsset) => void
 }
 
 function errorCopyKey(code: string | undefined): string {
@@ -68,6 +71,8 @@ export function AvMediaTransportPanel({
   volume,
   muted,
   loop,
+  videoPreviewCurrentTimeMs,
+  videoPreviewDurationMs,
   backgroundLayer,
   backgroundPreviewText,
   contentLayer,
@@ -81,7 +86,7 @@ export function AvMediaTransportPanel({
   onLoop,
   onRetry,
   onSelectBackgroundPreset,
-  onSelectBackgroundImage,
+  onSelectBackgroundAsset,
 }: AvMediaTransportPanelProps) {
   const { t } = useTranslation()
   const web = isWebPageAvKind(kind)
@@ -89,7 +94,12 @@ export function AvMediaTransportPanel({
   const playing = playback.status === 'playing'
   const failed = playback.status === 'error' || playback.errorCount > 0
   const duration = playback.durationMs ?? playback.seekableEndMs
-  const canSeek = capabilities.seek
+  const previewCanSeek = kind === 'video' && videoPreviewDurationMs > 0
+  const showSeek = capabilities.seek || previewCanSeek
+  const canSeek = capabilities.seek || previewCanSeek
+  const seekStart = capabilities.seek ? playback.seekableStartMs : 0
+  const seekDuration = capabilities.seek ? duration : videoPreviewDurationMs
+  const seekPosition = capabilities.seek ? playback.currentTimeMs : videoPreviewCurrentTimeMs
   const optimisticPlaying =
     projected &&
     (issuedAction === 'play' || issuedAction === 'resume' || issuedAction === 'restart') &&
@@ -165,24 +175,24 @@ export function AvMediaTransportPanel({
           ) : null}
         </div>
 
-        {capabilities.seek || capabilities.volume ? (
+        {showSeek || capabilities.volume ? (
           <>
-            {capabilities.seek ? (
+            {showSeek ? (
               <label className="av-media-transport__slider">
                 <span className="av-media-transport__slider-label">{t('player.av.seek')}</span>
                 <input
                   type="range"
-                  min={playback.seekableStartMs}
-                  max={Math.max(playback.seekableStartMs, duration)}
+                  min={seekStart}
+                  max={Math.max(seekStart, seekDuration)}
                   step={100}
-                  value={Math.min(playback.currentTimeMs, duration || playback.currentTimeMs)}
+                  value={Math.min(seekPosition, seekDuration || seekPosition)}
                   disabled={!canSeek}
                   aria-label={t('player.av.seek')}
                   onChange={(event) => onSeek(Number(event.target.value))}
                 />
                 <span className="av-media-transport__clock">
-                  {formatAvClock(playback.currentTimeMs)}
-                  {duration > 0 ? ` / ${formatAvClock(duration)}` : ''}
+                  {formatAvClock(seekPosition)}
+                  {seekDuration > 0 ? ` / ${formatAvClock(seekDuration)}` : ''}
                 </span>
               </label>
             ) : null}
@@ -246,7 +256,7 @@ export function AvMediaTransportPanel({
         previewText={backgroundPreviewText}
         contentLayer={contentLayer}
         onSelectPreset={onSelectBackgroundPreset}
-        onSelectBackgroundImage={onSelectBackgroundImage}
+        onSelectBackgroundAsset={onSelectBackgroundAsset}
       />
     </div>
   )

@@ -144,7 +144,7 @@ export function MediaFields({
           />
         </div>
       ) : null}
-      {kind === 'image' && onBackgroundChange ? (
+      {(kind === 'image' || kind === 'video') && onBackgroundChange ? (
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"

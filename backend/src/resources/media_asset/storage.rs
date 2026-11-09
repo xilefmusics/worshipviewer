@@ -34,7 +34,11 @@ pub trait MediaAssetStorage: Send + Sync {
         asset_id: &str,
     ) -> Result<(u64, String), AppError>;
 
-    fn copy_final_file(&self, from_asset_id: &str, to_asset_id: &str) -> Result<(), AppError>;
+    fn copy_final_file(
+        &self,
+        from_asset_id: &str,
+        to_asset_id: &str,
+    ) -> Result<(u64, String), AppError>;
 
     /// Remove staging files on disk older than `max_age_seconds` except `active` operation ids.
     fn reconcile_staging_files(
@@ -217,10 +221,13 @@ impl MediaAssetStorage for FsMediaAssetStorage {
         Ok((bytes.len() as u64, etag))
     }
 
-    fn copy_final_file(&self, from_asset_id: &str, to_asset_id: &str) -> Result<(), AppError> {
+    fn copy_final_file(
+        &self,
+        from_asset_id: &str,
+        to_asset_id: &str,
+    ) -> Result<(u64, String), AppError> {
         let from = self.final_path(from_asset_id);
-        let _ = self.ingest_final_from_path(&from, to_asset_id)?;
-        Ok(())
+        self.ingest_final_from_path(&from, to_asset_id)
     }
 }
 

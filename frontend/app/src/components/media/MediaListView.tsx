@@ -167,9 +167,10 @@ function MediaSkeleton() {
 }
 
 function MediaRowPreview({ media }: { media: Media }) {
-  const imageUrl = media.content.type === 'image'
-    ? mediaAssetDataUrl(media.id, media.content.blob_id)
-    : null
+  const previewBlobId = media.content.type === 'image'
+    ? media.content.blob_id
+    : media.content.type === 'video' ? media.content.thumbnail_blob_id : null
+  const imageUrl = previewBlobId ? mediaAssetDataUrl(media.id, previewBlobId) : null
   const firstDeckPage = media.content.type === 'slide_deck' ? media.content.pages[0] : undefined
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null)
 
@@ -294,7 +295,7 @@ function MediaRow({ media, canMove, onPlay, onEdit, onMove, onDelete }: MediaRow
               <PencilIcon isHovered={itemHot === 'edit'} size={16} className={HUB_ACTION_ICON_CLASS} />
               {t('media.actions.edit')}
             </HubActionItem>
-            {media.content.type === 'image' ? (
+            {media.content.type === 'image' || media.content.type === 'video' ? (
               <HubActionItem
                 disabled={!online || backgroundMutation.isPending}
                 title={!online ? t('hub.createOfflineHint') : undefined}

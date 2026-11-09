@@ -324,13 +324,11 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
                     .map(|asset| (asset.kind, asset.content_type))
                     .unwrap_or((MediaAssetKind::Image, "application/octet-stream".into()));
                 let new_id = uuid::Uuid::new_v4().to_string();
-                self.storage
+                let (byte_length, etag) = self
+                    .storage
                     .copy_final_file(blob_id, &new_id)
                     .map_err(|e| AppError::Internal(e.to_string()))?;
                 let mut cleanup = FinalFileCleanup::new(self.storage.clone(), &new_id);
-                let bytes = std::fs::read(self.final_file_path(&new_id))
-                    .map_err(|e| AppError::internal_from_err("media.duplicate.read", e))?;
-                let etag = crate::http_range::etag_from_file_bytes(&bytes);
                 self.repo
                     .create_final(
                         &new_id,
@@ -339,7 +337,7 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
                             media_id: RecordId::new("media", dest_media_id.to_owned()),
                             kind,
                             content_type,
-                            byte_length: bytes.len() as u64,
+                            byte_length,
                             etag,
                         },
                     )
@@ -352,43 +350,91 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
                 duration_ms,
                 width,
                 height,
+                thumbnail_blob_id,
             } => {
-                let content_type = self
-                    .repo
-                    .list_assets_for_media(source_media_id)
-                    .await?
-                    .into_iter()
-                    .find(|asset| asset.id == *blob_id)
-                    .map(|asset| asset.content_type)
-                    .unwrap_or_else(|| "application/octet-stream".into());
+                let source_assets = self.repo.list_assets_for_media(source_media_id).await?;
+                let thumbnail_source = match thumbnail_blob_id {
+                    Some(id) => Some(
+                        source_assets
+                            .iter()
+                            .find(|asset| {
+                                asset.id == *id
+                                    && asset.status == MediaAssetStatus::Final
+                                    && matches!(
+                                        asset.kind,
+                                        MediaAssetKind::Image | MediaAssetKind::Svg
+                                    )
+                            })
+                            .ok_or_else(|| {
+                                AppError::Internal(
+                                    "video thumbnail asset is missing or invalid".into(),
+                                )
+                            })?,
+                    ),
+                    None => None,
+                };
+                let video_asset = source_assets.iter().find(|asset| asset.id == *blob_id);
+                let (video_kind, content_type) = video_asset
+                    .map(|asset| (asset.kind, asset.content_type.clone()))
+                    .unwrap_or((MediaAssetKind::Video, "application/octet-stream".into()));
                 let new_id = uuid::Uuid::new_v4().to_string();
-                self.storage
+                let (byte_length, etag) = self
+                    .storage
                     .copy_final_file(blob_id, &new_id)
                     .map_err(|e| AppError::Internal(e.to_string()))?;
                 let mut cleanup = FinalFileCleanup::new(self.storage.clone(), &new_id);
-                let bytes = std::fs::read(self.final_file_path(&new_id))
-                    .map_err(|e| AppError::internal_from_err("media.duplicate.read", e))?;
-                let etag = crate::http_range::etag_from_file_bytes(&bytes);
                 let media_rid = RecordId::new("media", dest_media_id.to_owned());
                 self.repo
                     .create_final(
                         &new_id,
                         CreateFinalAsset {
-                            owner,
-                            media_id: media_rid,
-                            kind: MediaAssetKind::Video,
+                            owner: owner.clone(),
+                            media_id: media_rid.clone(),
+                            kind: video_kind,
                             content_type,
-                            byte_length: bytes.len() as u64,
+                            byte_length,
                             etag,
                         },
                     )
                     .await?;
                 cleanup.disarm();
+                let copied_thumbnail_id = if let Some(thumbnail_source) = thumbnail_source {
+                    let thumbnail_source_id = uuid::Uuid::parse_str(&thumbnail_source.id)
+                        .map_err(|_| {
+                            AppError::Internal("video thumbnail asset id is invalid".into())
+                        })?
+                        .to_string();
+                    let thumbnail_id = uuid::Uuid::new_v4().to_string();
+                    let (byte_length, etag) = self
+                        .storage
+                        .copy_final_file(&thumbnail_source_id, &thumbnail_id)
+                        .map_err(|e| AppError::Internal(e.to_string()))?;
+                    let mut thumbnail_cleanup =
+                        FinalFileCleanup::new(self.storage.clone(), &thumbnail_id);
+                    self.repo
+                        .create_final(
+                            &thumbnail_id,
+                            CreateFinalAsset {
+                                owner,
+                                media_id: media_rid,
+                                kind: thumbnail_source.kind,
+                                content_type: thumbnail_source.content_type.clone(),
+                                byte_length,
+                                etag,
+                            },
+                        )
+                        .await?;
+                    thumbnail_cleanup.disarm();
+                    Some(thumbnail_id)
+                } else {
+                    None
+                };
                 Ok(MediaContent::Video {
                     blob_id: new_id,
                     duration_ms: *duration_ms,
                     width: *width,
                     height: *height,
+                    thumbnail_blob_id: copied_thumbnail_id,
                 })
             }
             MediaContent::Audio {
@@ -404,13 +450,11 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
                     .map(|asset| asset.content_type)
                     .unwrap_or_else(|| "application/octet-stream".into());
                 let new_id = uuid::Uuid::new_v4().to_string();
-                self.storage
+                let (byte_length, etag) = self
+                    .storage
                     .copy_final_file(blob_id, &new_id)
                     .map_err(|e| AppError::Internal(e.to_string()))?;
                 let mut cleanup = FinalFileCleanup::new(self.storage.clone(), &new_id);
-                let bytes = std::fs::read(self.final_file_path(&new_id))
-                    .map_err(|e| AppError::internal_from_err("media.duplicate.read", e))?;
-                let etag = crate::http_range::etag_from_file_bytes(&bytes);
                 let media_rid = RecordId::new("media", dest_media_id.to_owned());
                 self.repo
                     .create_final(
@@ -420,7 +464,7 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
                             media_id: media_rid,
                             kind: MediaAssetKind::Audio,
                             content_type,
-                            byte_length: bytes.len() as u64,
+                            byte_length,
                             etag,
                         },
                     )
@@ -436,13 +480,11 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
                 let mut copied = Vec::with_capacity(pages.len());
                 for page in pages {
                     let new_id = uuid::Uuid::new_v4().to_string();
-                    self.storage
+                    let (byte_length, etag) = self
+                        .storage
                         .copy_final_file(&page.blob_id, &new_id)
                         .map_err(|e| AppError::Internal(e.to_string()))?;
                     let mut cleanup = FinalFileCleanup::new(self.storage.clone(), &new_id);
-                    let bytes = std::fs::read(self.final_file_path(&new_id))
-                        .map_err(|e| AppError::internal_from_err("media.duplicate.read", e))?;
-                    let etag = crate::http_range::etag_from_file_bytes(&bytes);
                     let source_asset = sources.iter().find(|a| a.id == page.blob_id);
                     let (kind, content_type) = source_asset
                         .map(|a| (a.kind, a.content_type.clone()))
@@ -456,7 +498,7 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
                                 media_id: media_rid,
                                 kind,
                                 content_type,
-                                byte_length: bytes.len() as u64,
+                                byte_length,
                                 etag,
                             },
                         )

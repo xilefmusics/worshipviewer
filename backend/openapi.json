@@ -937,6 +937,12 @@
                 "minimum": 0,
                 "type": "integer"
               },
+              "thumbnail_blob_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "type": {
                 "enum": [
                   "video"
@@ -2264,7 +2270,7 @@
         "type": "string"
       },
       "RoomBackground": {
-        "description": "A preset plus an optional custom media image reference for the room AV background.",
+        "description": "A preset plus an optional custom image or video reference for the room AV background.",
         "properties": {
           "image": {
             "oneOf": [
@@ -2280,6 +2286,16 @@
             "format": "int32",
             "minimum": 0,
             "type": "integer"
+          },
+          "video": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RoomBackgroundVideo"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -2294,6 +2310,27 @@
           },
           "media_id": {
             "type": "string"
+          }
+        },
+        "required": [
+          "media_id",
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "RoomBackgroundVideo": {
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "media_id": {
+            "type": "string"
+          },
+          "thumbnail_asset_id": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -6692,6 +6729,15 @@
             "description": "Existing staged/ready deck page id to replace",
             "in": "query",
             "name": "replace_page",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Set to thumbnail to upload a video thumbnail",
+            "in": "query",
+            "name": "role",
             "required": false,
             "schema": {
               "type": "string"

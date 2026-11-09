@@ -47,7 +47,7 @@ export type AvLivestreamStreamType = 'hls' | 'direct'
 
 /** Timed projection payloads for uploaded and remote media. */
 export type AvProjectionTimedContent =
-  | { type: 'video'; mediaId: string; assetId: string }
+  | { type: 'video'; mediaId: string; assetId: string; thumbnailAssetId?: string }
   | { type: 'audio'; mediaId: string; assetId: string }
   | { type: 'youtube'; videoId: string; canonicalUrl: string }
   | { type: 'livestream'; url: string; streamType: AvLivestreamStreamType }
@@ -115,7 +115,7 @@ export function avProjectionContentKey(content: AvProjectionContent): string {
     case 'empty':
       return 'empty'
     case 'video':
-      return `video:${content.mediaId}:${content.assetId}`
+      return `video:${content.mediaId}:${content.assetId}:${content.thumbnailAssetId ?? ''}`
     case 'audio':
       return `audio:${content.mediaId}:${content.assetId}`
     case 'youtube':

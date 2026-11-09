@@ -6,6 +6,7 @@ import { fetchMediaPage, mediaListKey, type Media } from '@/api/media'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
 import {
   AV_BACKGROUND_PRESETS,
+  type AvBackgroundAsset,
   type AvBackgroundLayer,
   type AvBackgroundPreset,
   type AvContentLayer,
@@ -22,11 +23,24 @@ type AvBackgroundSelectorProps = {
   previewText: string
   contentLayer: AvContentLayer
   onSelectPreset: (preset: AvBackgroundPreset) => void
-  onSelectBackgroundImage: (image: { mediaId: string; assetId: string }) => void
+  onSelectBackgroundAsset?: (asset: AvBackgroundAsset) => void
+  /** Kept for callers that only support image backgrounds. */
+  onSelectBackgroundImage?: (image: { mediaId: string; assetId: string }) => void
 }
 
-function imageContent(media: Media) {
-  return media.content.type === 'image' ? media.content : null
+function backgroundAsset(media: Media): AvBackgroundAsset | null {
+  if (media.content.type === 'image') {
+    return { kind: 'image', mediaId: media.id, assetId: media.content.blob_id }
+  }
+  if (media.content.type === 'video') {
+    return {
+      kind: 'video',
+      mediaId: media.id,
+      assetId: media.content.blob_id,
+      ...(media.content.thumbnail_blob_id ? { thumbnailAssetId: media.content.thumbnail_blob_id } : {}),
+    }
+  }
+  return null
 }
 
 export function AvBackgroundSelector({
@@ -34,6 +48,7 @@ export function AvBackgroundSelector({
   previewText,
   contentLayer,
   onSelectPreset,
+  onSelectBackgroundAsset,
   onSelectBackgroundImage,
 }: AvBackgroundSelectorProps) {
   const { t } = useTranslation()
@@ -54,11 +69,17 @@ export function AvBackgroundSelector({
   })
   const backgrounds = query.data?.pages.flatMap((page) => page.items) ?? []
   const selectedBackground = backgrounds.find(
-    (media) =>
-      media.id === backgroundLayer.image?.mediaId &&
-      imageContent(media)?.blob_id === backgroundLayer.image?.assetId,
+    (media) => {
+      const asset = backgroundAsset(media)
+      return Boolean(
+        asset &&
+        (asset.kind === 'image'
+          ? backgroundLayer.image?.mediaId === asset.mediaId && backgroundLayer.image?.assetId === asset.assetId
+          : backgroundLayer.video?.mediaId === asset.mediaId && backgroundLayer.video?.assetId === asset.assetId),
+      )
+    },
   )
-  const selectedLabel = backgroundLayer.image
+  const selectedLabel = backgroundLayer.image || backgroundLayer.video
     ? selectedBackground?.title ?? t('player.av.customBackground')
     : t('settings.playerRoles.background.default')
 
@@ -101,7 +122,8 @@ export function AvBackgroundSelector({
             aria-label={t('player.av.backgroundAria')}
           >
             {AV_BACKGROUND_PRESETS.map((optionPreset) => {
-              const selected = !backgroundLayer.image && optionPreset === backgroundLayer.preset
+              const selected =
+                !backgroundLayer.image && !backgroundLayer.video && optionPreset === backgroundLayer.preset
               return (
                 <button
                   key={optionPreset}
@@ -133,20 +155,25 @@ export function AvBackgroundSelector({
             })}
 
             {backgrounds.flatMap((media) => {
-              const image = imageContent(media)
-              if (!media.is_background || !image) return []
-              const selected =
-                backgroundLayer.image?.mediaId === media.id &&
-                backgroundLayer.image.assetId === image.blob_id
-              const optionLayer: AvBackgroundLayer = {
-                preset: backgroundLayer.preset,
-                image: { mediaId: media.id, assetId: image.blob_id },
-              }
-              const optionImage = optionLayer.image
-              if (!optionImage) return []
+              const asset = backgroundAsset(media)
+              if (!media.is_background || !asset) return []
+              if (!onSelectBackgroundAsset && asset.kind === 'video') return []
+              const selected = asset.kind === 'image'
+                ? backgroundLayer.image?.mediaId === asset.mediaId && backgroundLayer.image?.assetId === asset.assetId
+                : backgroundLayer.video?.mediaId === asset.mediaId && backgroundLayer.video?.assetId === asset.assetId
+              const optionLayer: AvBackgroundLayer = asset.kind === 'image'
+                ? { preset: backgroundLayer.preset, image: { mediaId: asset.mediaId, assetId: asset.assetId } }
+                : {
+                    preset: backgroundLayer.preset,
+                    video: {
+                      mediaId: asset.mediaId,
+                      assetId: asset.assetId,
+                      ...(asset.thumbnailAssetId ? { thumbnailAssetId: asset.thumbnailAssetId } : {}),
+                    },
+                  }
               return [
                 <button
-                  key={`${media.id}:${image.blob_id}`}
+                  key={`${asset.kind}:${asset.mediaId}:${asset.assetId}`}
                   type="button"
                   role="radio"
                   aria-checked={selected}
@@ -154,7 +181,12 @@ export function AvBackgroundSelector({
                     'av-background-selector__option',
                     selected && 'av-background-selector__option--selected',
                   )}
-                  onClick={() => onSelectBackgroundImage(optionImage)}
+                  onClick={() => {
+                    if (onSelectBackgroundAsset) onSelectBackgroundAsset(asset)
+                    else if (asset.kind === 'image') {
+                      onSelectBackgroundImage?.({ mediaId: asset.mediaId, assetId: asset.assetId })
+                    }
+                  }}
                 >
                   <div className="av-background-selector__preview">
                     <AvSlideView

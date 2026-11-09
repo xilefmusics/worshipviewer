@@ -1390,8 +1390,10 @@
       "loadFailed": "Dieses Medium konnte nicht geladen werden.",
       "readOnly": "Du kannst dieses Medium ansehen, aber nicht bearbeiten.",
       "futureKind": "Dieser Medientyp kann hier angesehen werden, der Editor ist aber noch nicht verfügbar.",
-      "metadataVideo": "Dauer {{duration}} · {{width}}×{{height}}",
-      "metadataAudio": "Dauer {{duration}}"
+      "videoThumbnail": "Video-Vorschaubild",
+      "noVideoThumbnail": "Noch kein Vorschaubild hochgeladen.",
+      "addVideoThumbnail": "Vorschaubild hochladen",
+      "replaceVideoThumbnail": "Vorschaubild ersetzen"
     },
     "deck": {
       "addPages": "Seiten hinzufügen",

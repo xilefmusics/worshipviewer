@@ -12,9 +12,10 @@ import './player-av.css'
 type AvBackgroundLayerProps = {
   layer: AvBackgroundLayerPrefs
   className?: string
+  videoPreview?: boolean
 }
 
-export function AvBackgroundLayer({ layer, className }: AvBackgroundLayerProps) {
+export function AvBackgroundLayer({ layer, className, videoPreview = false }: AvBackgroundLayerProps) {
   const preset = normalizeAvBackgroundPreset(layer.preset)
   return (
     <div
@@ -27,6 +28,32 @@ export function AvBackgroundLayer({ layer, className }: AvBackgroundLayerProps) 
     >
       {layer.image ? (
         <BackgroundImage mediaId={layer.image.mediaId} assetId={layer.image.assetId} />
+      ) : null}
+      {layer.video ? (
+        videoPreview ? (
+          layer.video.thumbnailAssetId ? (
+            <img
+              className="av-background-layer__image"
+              src={mediaAssetDataUrl(layer.video.mediaId, layer.video.thumbnailAssetId)}
+              alt=""
+              crossOrigin="use-credentials"
+            />
+          ) : null
+        ) : (
+          <video
+            className="av-background-layer__video"
+            src={mediaAssetDataUrl(layer.video.mediaId, layer.video.assetId)}
+            poster={layer.video.thumbnailAssetId
+              ? mediaAssetDataUrl(layer.video.mediaId, layer.video.thumbnailAssetId)
+              : undefined}
+            autoPlay
+            loop
+            muted
+            playsInline
+            crossOrigin="use-credentials"
+            preload="auto"
+          />
+        )
       ) : null}
     </div>
   )

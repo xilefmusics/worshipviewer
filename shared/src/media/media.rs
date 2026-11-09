@@ -55,6 +55,8 @@ pub enum MediaContent {
         duration_ms: u64,
         width: u32,
         height: u32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thumbnail_blob_id: Option<String>,
     },
     Audio {
         blob_id: String,

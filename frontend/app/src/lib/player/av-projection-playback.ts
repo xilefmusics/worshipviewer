@@ -139,6 +139,7 @@ export type AvTimedItemFields = {
   kind?: string
   mediaId?: string
   assetId?: string
+  thumbnailAssetId?: string
   videoId?: string
   canonicalUrl?: string
   url?: string
@@ -149,7 +150,14 @@ export function timedProjectionContentFromItem(
   item: AvTimedItemFields,
 ): AvProjectionTimedContent | null {
   if (isUploadedAvKind(item.kind) && item.mediaId && item.assetId) {
-    return { type: item.kind, mediaId: item.mediaId, assetId: item.assetId }
+    return {
+      type: item.kind,
+      mediaId: item.mediaId,
+      assetId: item.assetId,
+      ...(item.kind === 'video' && item.thumbnailAssetId
+        ? { thumbnailAssetId: item.thumbnailAssetId }
+        : {}),
+    }
   }
   if (item.kind === 'youtube') {
     const videoId = sanitizeYoutubeVideoId(item.videoId)

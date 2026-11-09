@@ -18,13 +18,15 @@ pub struct RoomMessageOrder {
     pub sequence: u64,
 }
 
-/// A preset plus an optional custom media image reference for the room AV background.
+/// A preset plus an optional custom image or video reference for the room AV background.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct RoomBackground {
     pub preset: u8,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image: Option<RoomBackgroundImage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video: Option<RoomBackgroundVideo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,14 +36,34 @@ pub struct RoomBackgroundImage {
     pub asset_id: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct RoomBackgroundVideo {
+    pub media_id: String,
+    pub asset_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thumbnail_asset_id: Option<String>,
+}
+
 impl RoomBackground {
     pub fn is_valid(&self) -> bool {
         self.preset <= 4
+            && (self.image.is_none() || self.video.is_none())
             && self.image.as_ref().is_none_or(|image| {
                 !image.media_id.trim().is_empty()
                     && image.media_id.len() <= 128
                     && !image.asset_id.trim().is_empty()
                     && image.asset_id.len() <= 128
+            })
+            && self.video.as_ref().is_none_or(|video| {
+                !video.media_id.trim().is_empty()
+                    && video.media_id.len() <= 128
+                    && !video.asset_id.trim().is_empty()
+                    && video.asset_id.len() <= 128
+                    && video
+                        .thumbnail_asset_id
+                        .as_ref()
+                        .is_none_or(|asset_id| !asset_id.trim().is_empty() && asset_id.len() <= 128)
             })
     }
 }
@@ -643,6 +665,7 @@ mod tests {
                 media_id: "media:one".into(),
                 asset_id: "asset:one".into(),
             }),
+            video: None,
         };
         let mut replay = RoomReplay::new("room".into(), vec![1]);
         replay
@@ -665,6 +688,7 @@ mod tests {
                     background: RoomBackground {
                         preset: 5,
                         image: None,
+                        video: None,
                     },
                 },
             )),

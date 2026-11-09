@@ -55,6 +55,8 @@ struct UploadQuery {
     kind: String,
     #[serde(default)]
     replace_page: Option<String>,
+    #[serde(default)]
+    role: Option<String>,
 }
 
 pub fn upload_scope(limits: MediaAssetUploadLimits) -> Scope {
@@ -203,7 +205,8 @@ pub async fn create_uploaded_media(
     params(
         ("media_id" = String, Path, description = "Media identifier"),
         ("kind" = String, Query, description = "Source kind: video, audio, image, pdf, or svg"),
-        ("replace_page" = Option<String>, Query, description = "Existing staged/ready deck page id to replace")
+        ("replace_page" = Option<String>, Query, description = "Existing staged/ready deck page id to replace"),
+        ("role" = Option<String>, Query, description = "Set to thumbnail to upload a video thumbnail")
     ),
     request_body(
         content = Vec<u8>,
@@ -235,6 +238,11 @@ async fn upload_media_asset(
     let kind = MediaAssetKind::parse(&query.kind)
         .ok_or_else(|| AppError::invalid_request("invalid media asset kind"))?;
     let replace_page = query.replace_page.clone();
+    let thumbnail = match query.role.as_deref() {
+        None => false,
+        Some("thumbnail") => true,
+        Some(_) => return Err(AppError::invalid_request("unsupported upload role")),
+    };
     let submitted_content_type = req
         .headers()
         .get(header::CONTENT_TYPE)
@@ -264,6 +272,7 @@ async fn upload_media_asset(
                 &operation_id,
                 kind,
                 replace_page.as_deref(),
+                thumbnail,
             )
             .await?;
         return Ok(HttpResponse::Ok().json(media));

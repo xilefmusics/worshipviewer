@@ -6,6 +6,7 @@ import { AvSlideView } from '@/components/player/av/AvSlideView'
 import { MediaDeckPageView } from '@/components/media/MediaDeckPageView'
 import { observeElementResize } from '@/lib/browser-apis'
 import type {
+  AvBackgroundAsset,
   AvBackgroundLayer,
   AvBackgroundPreset,
   AvContentLayer,
@@ -71,7 +72,7 @@ type AvSlidesPanelProps = {
   transition: AvTransition
   onSelectSlide: (slideIndex: number) => void
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
-  onSelectBackgroundImage: (image: { mediaId: string; assetId: string }) => void
+  onSelectBackgroundAsset: (asset: AvBackgroundAsset) => void
 }
 
 export function AvSlidesPanel({
@@ -83,7 +84,7 @@ export function AvSlidesPanel({
   transition,
   onSelectSlide,
   onSelectBackgroundPreset,
-  onSelectBackgroundImage,
+  onSelectBackgroundAsset,
 }: AvSlidesPanelProps) {
   const { t } = useTranslation()
   const [panelRef, multiColumn] = useSlidePanelMultiColumn()
@@ -109,7 +110,7 @@ export function AvSlidesPanel({
           previewText={backgroundPreviewLine}
           contentLayer={contentLayer}
           onSelectPreset={onSelectBackgroundPreset}
-          onSelectBackgroundImage={onSelectBackgroundImage}
+          onSelectBackgroundAsset={onSelectBackgroundAsset}
         />
       </div>
     )
@@ -183,7 +184,7 @@ export function AvSlidesPanel({
         previewText={backgroundPreviewLine}
         contentLayer={contentLayer}
         onSelectPreset={onSelectBackgroundPreset}
-        onSelectBackgroundImage={onSelectBackgroundImage}
+        onSelectBackgroundAsset={onSelectBackgroundAsset}
       />
     </div>
   )

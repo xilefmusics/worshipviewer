@@ -309,9 +309,14 @@ pub(crate) fn validate_background_flag(
     content: &MediaContent,
     is_background: bool,
 ) -> Result<(), AppError> {
-    if is_background && !matches!(content, MediaContent::Image { .. }) {
+    if is_background
+        && !matches!(
+            content,
+            MediaContent::Image { .. } | MediaContent::Video { .. }
+        )
+    {
         return Err(AppError::invalid_request(
-            "only image media can be used as a background",
+            "only image and video media can be used as a background",
         ));
     }
     Ok(())

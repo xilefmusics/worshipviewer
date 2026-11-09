@@ -21,6 +21,7 @@ export type MessageRoomOrder = { epoch: number; sequence: number }
 export type RoomBackground = {
   preset: number
   image?: { media_id: string; asset_id: string } | null
+  video?: { media_id: string; asset_id: string; thumbnail_asset_id?: string } | null
 }
 export type RoomAvConfiguration = components['schemas']['RoomAvConfiguration']
 export type RoomMessage = {

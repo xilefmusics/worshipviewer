@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { AvBackgroundSelector } from '@/components/player/av/AvBackgroundSelector'
 import { Button } from '@/components/ui/button'
 import type {
+  AvBackgroundAsset,
   AvBackgroundLayer,
   AvBackgroundPreset,
   AvContentLayer,
@@ -18,7 +19,7 @@ type AvSpotifyPanelProps = {
   backgroundPreviewText: string
   contentLayer: AvContentLayer
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
-  onSelectBackgroundImage: (image: { mediaId: string; assetId: string }) => void
+  onSelectBackgroundAsset: (asset: AvBackgroundAsset) => void
 }
 
 export function AvSpotifyPanel({
@@ -29,7 +30,7 @@ export function AvSpotifyPanel({
   backgroundPreviewText,
   contentLayer,
   onSelectBackgroundPreset,
-  onSelectBackgroundImage,
+  onSelectBackgroundAsset,
 }: AvSpotifyPanelProps) {
   const { t } = useTranslation()
   const previewText = backgroundPreviewText.split('\n')[0]?.trim() || backgroundPreviewText.trim()
@@ -55,7 +56,7 @@ export function AvSpotifyPanel({
         previewText={previewText}
         contentLayer={contentLayer}
         onSelectPreset={onSelectBackgroundPreset}
-        onSelectBackgroundImage={onSelectBackgroundImage}
+        onSelectBackgroundAsset={onSelectBackgroundAsset}
       />
     </div>
   )

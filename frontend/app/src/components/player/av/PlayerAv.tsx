@@ -57,6 +57,7 @@ import {
   DEFAULT_AV_PREFERENCES,
   readAvPreferences,
   writeAvPreferences,
+  type AvBackgroundAsset,
   type AvBackgroundLayer,
   type AvBackgroundPreset,
   type AvContentLayer,
@@ -319,6 +320,13 @@ export function PlayerAv({
   const [controllerVolume, setControllerVolume] = useState(DEFAULT_AV_PLAYBACK_VOLUME)
   const [controllerMuted, setControllerMuted] = useState(DEFAULT_AV_PLAYBACK_MUTED)
   const [controllerLoop, setControllerLoop] = useState(DEFAULT_AV_PLAYBACK_LOOP)
+  const videoPreviewRef = useRef<HTMLVideoElement>(null)
+  const [videoPreviewProgress, setVideoPreviewProgress] = useState<{
+    mediaId: string
+    assetId: string
+    currentTimeMs: number
+    durationMs: number
+  } | null>(null)
 
   const itemsLen = player.items.length
   const tocRow = tocEntryForIndex(player.toc, session.itemIndex)
@@ -445,6 +453,17 @@ export function PlayerAv({
       projectedTitle,
     ],
   )
+
+  const controllerVideoPreviewProgress =
+    currentItem.kind === 'video' &&
+    projectedItem.kind === 'video' &&
+    currentItem.mediaId === projectedItem.mediaId &&
+    currentItem.assetId === projectedItem.assetId &&
+    videoPreviewProgress != null &&
+    videoPreviewProgress.mediaId === projectedItem.mediaId &&
+    videoPreviewProgress.assetId === projectedItem.assetId
+      ? videoPreviewProgress
+      : null
 
   const slideCount = currentItem.slides.length
 
@@ -696,6 +715,12 @@ export function PlayerAv({
   )
 
   const projectedSlideView = slideViewPropsFromCommand(projectedCommand)
+  const controllerPlayback = aggregateAvPlayback(outputRegistry)
+  const videoPreviewPlaying =
+    livePlayback != null &&
+    projected.itemIndex === session.itemIndex &&
+    projectedItem.kind === 'video' &&
+    controllerPlayback.status === 'playing'
   const outputSummary = summarizeAvOutputs(outputRegistry)
 
   useEffect(() => {
@@ -748,13 +773,23 @@ export function PlayerAv({
     })
   }, [onSharedBackgroundChange])
 
-  const setBackgroundImage = useCallback((image: { mediaId: string; assetId: string }) => {
+  const setBackgroundAsset = useCallback((asset: AvBackgroundAsset) => {
+    const nextBackground: AvBackgroundLayer = asset.kind === 'image'
+      ? { preset: backgroundLayer.preset, image: { mediaId: asset.mediaId, assetId: asset.assetId } }
+      : {
+          preset: backgroundLayer.preset,
+          video: {
+            mediaId: asset.mediaId,
+            assetId: asset.assetId,
+            ...(asset.thumbnailAssetId ? { thumbnailAssetId: asset.thumbnailAssetId } : {}),
+          },
+        }
     if (onSharedBackgroundChange) {
-      onSharedBackgroundChange({ ...backgroundLayer, image })
+      onSharedBackgroundChange(nextBackground)
       return
     }
     setPrefs((prev) => {
-      const next = { ...prev, backgroundLayer: { ...prev.backgroundLayer, image } }
+      const next = { ...prev, backgroundLayer: nextBackground }
       writeAvPreferences(next)
       return next
     })
@@ -855,6 +890,7 @@ export function PlayerAv({
       return
     }
     setMissingOutputWarning(false)
+    const videoPreview = videoPreviewRef.current
     setProjected({
       itemIndex: session.itemIndex,
       slideIndex: 0,
@@ -866,6 +902,13 @@ export function PlayerAv({
         volume: controllerVolume,
         muted: controllerMuted,
         loop: controllerLoop,
+        positionMs:
+          currentItem.kind === 'video' &&
+          videoPreview != null &&
+          videoPreview.dataset.mediaId === currentItem.mediaId &&
+          videoPreview.dataset.assetId === currentItem.assetId
+            ? Math.round(videoPreview.currentTime * 1000)
+            : undefined,
         issuedAtMs: Date.now(),
       }),
     )
@@ -1302,7 +1345,7 @@ export function PlayerAv({
                 backgroundPreviewText={currentText}
                 contentLayer={prefs.contentLayer}
                 onSelectBackgroundPreset={setBackgroundPreset}
-                onSelectBackgroundImage={setBackgroundImage}
+                onSelectBackgroundAsset={setBackgroundAsset}
               />
             ) : isTimedAvKind(currentItem.kind) ? (
               <AvMediaTransportPanel
@@ -1314,17 +1357,35 @@ export function PlayerAv({
                   isTimedAvKind(projectedItem.kind)
                 }
                 issuedAction={livePlayback?.action ?? null}
-                playback={aggregateAvPlayback(outputRegistry)}
+                playback={controllerPlayback}
                 volume={controllerVolume}
                 muted={controllerMuted}
                 loop={controllerLoop}
+                videoPreviewCurrentTimeMs={controllerVideoPreviewProgress?.currentTimeMs ?? 0}
+                videoPreviewDurationMs={controllerVideoPreviewProgress?.durationMs ?? 0}
                 backgroundLayer={backgroundLayer}
                 backgroundPreviewText={currentText}
                 contentLayer={prefs.contentLayer}
                 onPlay={() => startPlay()}
                 onPause={() => issuePlayback('pause')}
                 onResume={() => issuePlayback('resume')}
-                onSeek={(positionMs) => issuePlayback('seek', { positionMs })}
+                onSeek={(positionMs) => {
+                  const videoPreview = videoPreviewRef.current
+                  if (
+                    videoPreview &&
+                    videoPreview.dataset.mediaId === currentItem.mediaId &&
+                    videoPreview.dataset.assetId === currentItem.assetId
+                  ) {
+                    videoPreview.currentTime = positionMs / 1000
+                  }
+                  if (
+                    livePlayback &&
+                    projected.itemIndex === session.itemIndex &&
+                    isTimedAvKind(projectedItem.kind)
+                  ) {
+                    issuePlayback('seek', { positionMs })
+                  }
+                }}
                 onRestart={() => issuePlayback('restart')}
                 onVolume={(volume) => {
                   setControllerVolume(volume)
@@ -1343,7 +1404,7 @@ export function PlayerAv({
                 }}
                 onRetry={() => startPlay()}
                 onSelectBackgroundPreset={setBackgroundPreset}
-                onSelectBackgroundImage={setBackgroundImage}
+                onSelectBackgroundAsset={setBackgroundAsset}
               />
             ) : (
               <AvSlidesPanel
@@ -1355,7 +1416,7 @@ export function PlayerAv({
                 transition={prefs.transition}
                 onSelectSlide={(slideIndex) => goToSlide(slideIndex)}
                 onSelectBackgroundPreset={setBackgroundPreset}
-                onSelectBackgroundImage={setBackgroundImage}
+                onSelectBackgroundAsset={setBackgroundAsset}
               />
             )}
           </div>
@@ -1372,9 +1433,26 @@ export function PlayerAv({
                   deckPage={projectedSlideView.deckPage}
                   timedPreview={
                     isTimedAvKind(projectedItem.kind)
-                      ? { kind: projectedItem.kind, title: projectedTitle || t('player.untitled') }
+                      ? {
+                          kind: projectedItem.kind,
+                          title: projectedTitle || t('player.untitled'),
+                          ...(projectedItem.kind === 'video' && projectedItem.mediaId && projectedItem.assetId
+                            ? {
+                                video: {
+                                  mediaId: projectedItem.mediaId,
+                                  assetId: projectedItem.assetId,
+                                  ...(projectedItem.thumbnailAssetId
+                                    ? { thumbnailAssetId: projectedItem.thumbnailAssetId }
+                                    : {}),
+                                },
+                              }
+                            : {}),
+                        }
                       : undefined
                   }
+                  videoPreviewRef={videoPreviewRef}
+                  videoPreviewPlaying={videoPreviewPlaying}
+                  onVideoPreviewProgress={setVideoPreviewProgress}
                   contentLayer={prefs.contentLayer}
                   backgroundLayer={backgroundLayer}
                   transition={prefs.transition}

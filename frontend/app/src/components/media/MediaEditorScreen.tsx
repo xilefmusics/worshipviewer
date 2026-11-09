@@ -20,7 +20,6 @@ import { useOnline } from '@/hooks/use-online'
 import { useTeamDetail } from '@/hooks/useTeamDetail'
 import { useWritableTeams } from '@/hooks/useWritableTeams'
 import {
-  formatMediaDuration,
   isUploadedDisplayKind,
   isUrlMediaKind,
   isValidUrlMediaInput,
@@ -70,6 +69,7 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
   const queryClient = useQueryClient()
   const online = useOnline()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const thumbnailInputRef = useRef<HTMLInputElement>(null)
   const detailQuery = useQuery({
     queryKey: mediaDetailKey(mediaId),
     queryFn: ({ signal }) => fetchMedia(queryClient, mediaId, signal),
@@ -155,7 +155,10 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
         return updateMedia(queryClient, mediaId, {
           title: title.trim(),
           owner,
-          is_background: media.content.type === 'image' ? isBackground : false,
+          is_background:
+            media.content.type === 'image' || media.content.type === 'video'
+              ? isBackground
+              : false,
         })
       }
       if (!editableUrl) throw new Error(t('media.validation.notEditable'))
@@ -216,6 +219,33 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
       return uploadMediaSource({
         mediaId,
         kind: uploadKind,
+        file,
+        onProgress: (ratio) => setUploadProgress(ratio),
+      })
+    },
+    onSuccess: (saved) => {
+      setUploadProgress(null)
+      queryClient.setQueryData(mediaDetailKey(mediaId), saved)
+      void queryClient.invalidateQueries({ queryKey: mediaListRootKey })
+    },
+    onError: (cause: Error) => {
+      setUploadProgress(null)
+      setError(cause.message)
+    },
+  })
+
+  const thumbnailMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!media || media.content.type !== 'video') throw new Error(t('media.validation.notEditable'))
+      const uploadKind = sniffAssetUploadKind(file)
+      if (uploadKind !== 'image' && uploadKind !== 'svg') {
+        throw new Error(t('media.validation.imageFileType'))
+      }
+      setUploadProgress(0)
+      return uploadMediaSource({
+        mediaId,
+        kind: uploadKind,
+        role: 'thumbnail',
         file,
         onProgress: (ratio) => setUploadProgress(ratio),
       })
@@ -320,6 +350,7 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
       ? media.content.blob_id
       : null
   const previewUrl = previewBlobId ? mediaAssetDataUrl(mediaId, previewBlobId) : null
+  const thumbnailBlobId = media.content.type === 'video' ? media.content.thumbnail_blob_id : undefined
   const replaceAccept = isImage
     ? 'image/png,image/jpeg,image/svg+xml,.png,.jpg,.jpeg,.svg'
     : avFileAccept
@@ -334,6 +365,46 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
     urlBaseline.mediaId === mediaId &&
     urlBaseline.signature !== urlDraftSignature(kind, url) &&
     isValidUrlMediaInput(kind, url)
+  const mediaControls = canEdit && !isDeck ? (
+    <div className="flex flex-wrap items-center gap-2">
+      {isImage || media.content.type === 'video' ? (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={isBackground}
+            onChange={(event) => {
+              queuedAutosaveRef.current = null
+              setError('')
+              setIsBackground(event.target.checked)
+            }}
+            disabled={!canEdit || !online || saveMutation.isPending}
+          />
+          {t('media.fields.isBackground')}
+        </label>
+      ) : null}
+      <div className="ml-auto flex flex-wrap gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept={replaceAccept}
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) uploadMutation.mutate(file)
+            event.target.value = ''
+          }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!online || uploadMutation.isPending}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {t('media.upload.replace')}
+        </Button>
+      </div>
+    </div>
+  ) : null
 
   return (
     <section className={`mx-auto grid w-full pb-8 ${isDeck ? 'max-w-5xl gap-3' : 'max-w-2xl gap-6'}`}>
@@ -353,22 +424,49 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
               maxLength={200}
             />
           </div>
-          {media.content.type === 'video' ? (
-            <p className="text-sm text-[var(--color-muted-foreground)]">
-              {t('media.editor.metadataVideo', {
-                duration: formatMediaDuration(media.content.duration_ms),
-                width: media.content.width,
-                height: media.content.height,
-              })}
-            </p>
-          ) : null}
-          {media.content.type === 'audio' ? (
-            <p className="text-sm text-[var(--color-muted-foreground)]">
-              {t('media.editor.metadataAudio', { duration: formatMediaDuration(media.content.duration_ms) })}
-            </p>
-          ) : null}
           {previewUrl && media.content.type === 'video' ? (
-            <video className="w-full rounded-lg border border-[var(--color-border)]" controls src={previewUrl} />
+            <video
+              className="w-full rounded-lg border border-[var(--color-border)]"
+              controls
+              src={previewUrl}
+              poster={thumbnailBlobId ? mediaAssetDataUrl(mediaId, thumbnailBlobId) : undefined}
+            />
+          ) : null}
+          {media.content.type === 'video' ? mediaControls : null}
+          {media.content.type === 'video' ? (
+            <div className="grid gap-2">
+              <p className="text-sm font-medium">{t('media.editor.videoThumbnail')}</p>
+              {thumbnailBlobId ? (
+                <MediaDeckPageView
+                  mediaId={mediaId}
+                  blobId={thumbnailBlobId}
+                  label={media.title}
+                  className="h-auto max-h-none w-full max-w-none"
+                />
+              ) : (
+                <p className="text-sm text-[var(--color-muted-foreground)]">{t('media.editor.noVideoThumbnail')}</p>
+              )}
+              <input
+                ref={thumbnailInputRef}
+                type="file"
+                className="hidden"
+                accept="image/png,image/jpeg,image/svg+xml,.png,.jpg,.jpeg,.svg"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (file) thumbnailMutation.mutate(file)
+                  event.target.value = ''
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="justify-self-end"
+                disabled={!canEdit || !online || thumbnailMutation.isPending}
+                onClick={() => thumbnailInputRef.current?.click()}
+              >
+                {t(thumbnailBlobId ? 'media.editor.replaceVideoThumbnail' : 'media.editor.addVideoThumbnail')}
+              </Button>
+            </div>
           ) : null}
           {previewUrl && media.content.type === 'audio' ? (
             <audio className="w-full" controls src={previewUrl} />
@@ -401,35 +499,7 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
               }}
             />
           ) : null}
-          {canEdit && !isDeck ? (
-            <div className="flex flex-wrap items-center gap-2">
-              {isImage ? (
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={isBackground}
-                    onChange={(event) => {
-                      queuedAutosaveRef.current = null
-                      setError('')
-                      setIsBackground(event.target.checked)
-                    }}
-                    disabled={!canEdit || !online || saveMutation.isPending}
-                  />
-                  {t('media.fields.isBackground')}
-                </label>
-              ) : null}
-              <div className="ml-auto flex flex-wrap gap-2">
-                <input ref={fileInputRef} type="file" className="hidden" accept={replaceAccept} onChange={(event) => {
-                  const file = event.target.files?.[0]
-                  if (file) uploadMutation.mutate(file)
-                  event.target.value = ''
-                }} />
-                <Button type="button" variant="outline" disabled={!online || uploadMutation.isPending} onClick={() => fileInputRef.current?.click()}>
-                  {t('media.upload.replace')}
-                </Button>
-              </div>
-            </div>
-          ) : null}
+          {media.content.type !== 'video' ? mediaControls : null}
           {uploadProgress != null ? (
             <div role="status" className="grid gap-1">
               <span className="text-sm">{t('media.upload.progress', { percent: Math.round(uploadProgress * 100) })}</span>

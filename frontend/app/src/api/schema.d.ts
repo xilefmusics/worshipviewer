@@ -1409,6 +1409,7 @@ export interface components {
             duration_ms: number;
             /** Format: int32 */
             height: number;
+            thumbnail_blob_id?: string | null;
             /** @enum {string} */
             type: "video";
             /** Format: int32 */
@@ -1807,15 +1808,21 @@ export interface components {
         RoomAvTransitionStyle: "none" | "fade" | "slide";
         /** @enum {string} */
         RoomAvVerticalAlign: "top" | "center" | "bottom";
-        /** @description A preset plus an optional custom media image reference for the room AV background. */
+        /** @description A preset plus an optional custom image or video reference for the room AV background. */
         RoomBackground: {
             image?: components["schemas"]["RoomBackgroundImage"] | null;
             /** Format: int32 */
             preset: number;
+            video?: components["schemas"]["RoomBackgroundVideo"] | null;
         };
         RoomBackgroundImage: {
             asset_id: string;
             media_id: string;
+        };
+        RoomBackgroundVideo: {
+            asset_id: string;
+            media_id: string;
+            thumbnail_asset_id?: string | null;
         };
         /** @description Ordered navigation, vote, AV configuration and background events for a fixed room snapshot. */
         RoomChange: {
@@ -4536,6 +4543,8 @@ export interface operations {
                 kind: string;
                 /** @description Existing staged/ready deck page id to replace */
                 replace_page?: string;
+                /** @description Set to thumbnail to upload a video thumbnail */
+                role?: string;
             };
             header?: never;
             path: {

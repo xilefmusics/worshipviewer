@@ -4025,6 +4025,7 @@ mod media_asset_http {
                 duration_ms,
                 width,
                 height,
+                ..
             } => {
                 assert_eq!((*duration_ms, *width, *height), (0, 0, 0));
                 blob_id.clone()
@@ -4129,6 +4130,167 @@ mod media_asset_http {
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "audio/ogg");
         assert_eq!(&test::read_body(response).await[..], audio);
+    }
+
+    #[actix_web::test]
+    async fn video_thumbnail_upload_replaces_and_delivers_image_asset() {
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let app = test::init_service(build_app_with_api_limits(
+            db,
+            50,
+            200,
+            Some(media_test_settings()),
+        ))
+        .await;
+
+        let boundary = "worshipviewer-video-thumbnail-source";
+        let mut body = format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"metadata\"\r\nContent-Type: application/json\r\n\r\n{{\"title\":\"Video with thumbnail\",\"owner\":\"{}\"}}\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"source.webm\"\r\nContent-Type: video/webm\r\n\r\n",
+            fixture.shared_team_id
+        )
+        .into_bytes();
+        body.extend_from_slice(b"raw-webm-video");
+        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+        let request = test::TestRequest::post()
+            .uri("/api/v1/media/uploads?kind=video")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .insert_header((
+                CONTENT_TYPE,
+                format!("multipart/form-data; boundary={boundary}"),
+            ))
+            .set_payload(body)
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let media: shared::media::Media = test::read_body_json(response).await;
+        assert!(matches!(media.content, MediaContent::Video { .. }));
+
+        let first_thumbnail = b"\x89PNG\r\n\x1a\nfirst";
+        let request = test::TestRequest::put()
+            .uri(&format!(
+                "/api/v1/media/{}/uploads?kind=image&role=thumbnail",
+                media.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .insert_header((CONTENT_TYPE, "image/png"))
+            .set_payload(first_thumbnail.as_slice())
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let media: shared::media::Media = test::read_body_json(response).await;
+        let first_thumbnail_id = match &media.content {
+            MediaContent::Video {
+                thumbnail_blob_id: Some(id),
+                ..
+            } => id.clone(),
+            other => panic!("expected video thumbnail, got {other:?}"),
+        };
+
+        let second_thumbnail = b"\x89PNG\r\n\x1a\nsecond";
+        let request = test::TestRequest::put()
+            .uri(&format!(
+                "/api/v1/media/{}/uploads?kind=image&role=thumbnail",
+                media.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .insert_header((CONTENT_TYPE, "image/png"))
+            .set_payload(second_thumbnail.as_slice())
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let media: shared::media::Media = test::read_body_json(response).await;
+        let second_thumbnail_id = match &media.content {
+            MediaContent::Video {
+                thumbnail_blob_id: Some(id),
+                ..
+            } => id.clone(),
+            other => panic!("expected video thumbnail, got {other:?}"),
+        };
+        assert_ne!(second_thumbnail_id, first_thumbnail_id);
+
+        let request = test::TestRequest::get()
+            .uri(&format!(
+                "/api/v1/media/{}/assets/{}/data",
+                media.id, first_thumbnail_id
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::NOT_FOUND
+        );
+
+        let request = test::TestRequest::get()
+            .uri(&format!(
+                "/api/v1/media/{}/assets/{}/data",
+                media.id, second_thumbnail_id
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/png");
+        assert_eq!(&test::read_body(response).await[..], second_thumbnail);
+
+        let request = test::TestRequest::post()
+            .uri(&format!("/api/v1/media/{}/duplicate", media.id))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .set_json(DuplicateMedia::default())
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let duplicate: shared::media::Media = test::read_body_json(response).await;
+        let duplicate_thumbnail_id = match duplicate.content {
+            MediaContent::Video {
+                thumbnail_blob_id: Some(id),
+                ..
+            } => id,
+            other => panic!("expected duplicated video thumbnail, got {other:?}"),
+        };
+        assert_ne!(duplicate_thumbnail_id, second_thumbnail_id);
+        let request = test::TestRequest::get()
+            .uri(&format!(
+                "/api/v1/media/{}/assets/{}/data",
+                duplicate.id, duplicate_thumbnail_id
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/png");
+        assert_eq!(&test::read_body(response).await[..], second_thumbnail);
+
+        let request = test::TestRequest::put()
+            .uri(&format!(
+                "/api/v1/media/{}/uploads?kind=video&role=thumbnail",
+                media.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .insert_header((CONTENT_TYPE, "video/webm"))
+            .set_payload(b"not-an-image".as_slice())
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::BAD_REQUEST
+        );
+
+        let request = test::TestRequest::put()
+            .uri(&format!(
+                "/api/v1/media/{}/uploads?kind=image&role=poster",
+                media.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .insert_header((CONTENT_TYPE, "image/png"))
+            .set_payload(second_thumbnail.as_slice())
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::BAD_REQUEST
+        );
     }
 }
 
