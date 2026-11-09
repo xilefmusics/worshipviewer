@@ -209,16 +209,27 @@ impl MediaListQuery {
     }
 
     pub fn query_string_for_page(&self, page: u32) -> String {
-        let mut query = to_shared_list_query(self);
+        let mut query = self.clone();
         query.page = Some(page);
-        let mut parts = query.to_query_string().trim_start_matches('?').to_owned();
+        query.to_query_string().trim_start_matches('?').to_owned()
+    }
+
+    pub fn to_query_string(&self) -> String {
+        let mut parts = to_shared_list_query(self)
+            .to_query_string()
+            .trim_start_matches('?')
+            .to_owned();
         if let Some(is_background) = self.is_background {
             if !parts.is_empty() {
                 parts.push('&');
             }
             parts.push_str(&format!("is_background={is_background}"));
         }
-        parts
+        if parts.is_empty() {
+            String::new()
+        } else {
+            format!("?{parts}")
+        }
     }
 }
 
