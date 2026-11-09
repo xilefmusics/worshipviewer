@@ -66,6 +66,7 @@ mod tests {
                     tempo: None,
                     language: Some("de".into()),
                     flow: None,
+                    background: None,
                 })],
             },
         );
@@ -101,6 +102,7 @@ mod tests {
                     tempo: None,
                     language: None,
                     flow: None,
+                    background: None,
                 })],
             },
         );
@@ -135,6 +137,7 @@ mod tests {
                         occurrence_index: 0,
                         repeats: 1,
                     }]),
+                    background: None,
                 })],
             },
         );
@@ -163,6 +166,7 @@ mod tests {
                         tempo: None,
                         language: None,
                         flow: None,
+                        background: None,
                     }),
                     SetlistItem::media("m1"),
                 ],

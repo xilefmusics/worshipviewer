@@ -49,6 +49,7 @@ describe('setlist song links', () => {
         tempo: 120,
         language: 'de',
         flow: [flow('Verse', 0, 1), flow('Chorus', 0, 2)],
+        background: { preset: 2, image: { media_id: 'media-bg', asset_id: 'asset-bg' } },
       },
     ]
 
@@ -61,6 +62,7 @@ describe('setlist song links', () => {
         tempo: 120,
         language: 'de',
         flow: [flow('Verse', 0, 1), flow('Chorus', 0, 2)],
+        background: { preset: 2, image: { media_id: 'media-bg', asset_id: 'asset-bg' } },
       },
     ])
   })
@@ -74,11 +76,16 @@ describe('setlist song links', () => {
       nr: '7',
       flow: [flow('Verse', 0, 1)],
       capoShapeKey: 'G',
+      background: { preset: 2, video: { media_id: 'media-video', asset_id: 'asset-video' } },
     })
 
     expect(link.nr).toBe('7')
     expect(link.flow).toEqual([flow('Verse', 0, 1)])
     expect(link.capo_shape).toEqual({ level: 10 })
+    expect(link.background).toEqual({
+      preset: 2,
+      video: { media_id: 'media-video', asset_id: 'asset-video' },
+    })
   })
 
   it('ignores malformed persisted capo shapes and accepts all musical keys', () => {
@@ -147,5 +154,38 @@ describe('setlist song links', () => {
 
     const patch = buildSetlistPatchBody(baseline, draft)
     expect(patch?.items?.[0]).toMatchObject({ type: 'song', flow: [flow('Verse', 0, 2)] })
+  })
+
+  it('includes background edits in autosave diffs', () => {
+    const baselineSong = {
+      id: 'song-1',
+      key: null,
+      tempo: null,
+      language: null,
+      nr: null,
+      flow: null,
+      background: null,
+    }
+    const baseline = {
+      title: 'Sunday',
+      owner: 'team-1',
+      songs: [baselineSong],
+      items: mergeEditorSongsIntoItems([], [baselineSong]),
+    }
+    const draft = {
+      ...baseline,
+      songs: [
+        {
+          ...baselineSong,
+          background: { preset: 2, image: { media_id: 'media-bg', asset_id: 'asset-bg' } },
+        },
+      ],
+    }
+
+    const patch = buildSetlistPatchBody(baseline, draft)
+    expect(patch?.items?.[0]).toMatchObject({
+      type: 'song',
+      background: { preset: 2, image: { media_id: 'media-bg', asset_id: 'asset-bg' } },
+    })
   })
 })

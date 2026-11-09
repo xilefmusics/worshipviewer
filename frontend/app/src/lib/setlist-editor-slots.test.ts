@@ -10,7 +10,16 @@ describe('mixed setlist editor slots', () => {
   it('preserves tagged order, repeats, and song overrides when serialized', () => {
     const items = [
       { type: 'media' as const, id: 'media:1' },
-      { type: 'song' as const, id: 'song:1', nr: '4', key: { level: 3 }, tempo: 92, language: 'de', flow: null },
+      {
+        type: 'song' as const,
+        id: 'song:1',
+        nr: '4',
+        key: { level: 3 },
+        tempo: 92,
+        language: 'de',
+        flow: null,
+        background: { preset: 2, image: { media_id: 'media:bg', asset_id: 'asset:bg' } },
+      },
       { type: 'media' as const, id: 'media:1' },
     ]
     const slots = slotsFromSetlistItems(items)
@@ -57,5 +66,41 @@ describe('mixed setlist editor slots', () => {
         flow: null,
       },
     ])
+  })
+
+  it('round-trips custom video backgrounds and clears to player inheritance', () => {
+    const slots = slotsFromSetlistItems([
+      {
+        type: 'song',
+        id: 'song:video',
+        key: null,
+        background: {
+          preset: 2,
+          video: {
+            media_id: 'media:video',
+            asset_id: 'asset:video',
+            thumbnail_asset_id: 'asset:thumbnail',
+          },
+        },
+      },
+    ])
+    expect(setlistItemsFromSlots(slots)).toMatchObject([
+      {
+        type: 'song',
+        background: {
+          preset: 2,
+          video: {
+            media_id: 'media:video',
+            asset_id: 'asset:video',
+            thumbnail_asset_id: 'asset:thumbnail',
+          },
+        },
+      },
+    ])
+
+    const row = slots[0]
+    expect(row?.type).toBe('song')
+    if (row?.type === 'song') row.link.background = null
+    expect(setlistItemsFromSlots(slots)[0]).not.toHaveProperty('background')
   })
 })

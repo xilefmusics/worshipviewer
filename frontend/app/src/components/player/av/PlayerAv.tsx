@@ -116,7 +116,8 @@ import {
   playerHeaderIconClass,
 } from '@/lib/player/player-chrome'
 import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
-import { tocEntryForIndex } from '@/lib/player/player-helpers'
+import { tocEntryForIndex, tocSlotEntryForIndex } from '@/lib/player/player-helpers'
+import { setlistBackgroundToAvBackground } from '@/lib/setlist-background'
 import type { RoomAvConfiguration } from '@/lib/room-message-api'
 import type { RoomDebugLog } from '@/lib/room-message-debug'
 import type { PlayerEntityType } from '@/lib/player-route'
@@ -280,7 +281,7 @@ export function PlayerAv({
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const bilingualEnabled = useAvBilingualPreference()
   const [prefs, setPrefs] = useState<AvPreferences>(() => readAvPreferences())
-  const backgroundLayer = sharedBackgroundLayer ?? prefs.backgroundLayer
+  const playerBackgroundLayer = sharedBackgroundLayer ?? prefs.backgroundLayer
   const [viewState, setViewState] = useState<PlayerViewState>(() => readPlayerViewState(type, id))
   const [session, setSession] = useState<AvSessionState>(() => {
     const saved = readAvSessionState(type, id)
@@ -405,6 +406,18 @@ export function PlayerAv({
   const currentPlayerItem = player.items[session.itemIndex]
   const projectedPlayerItem = player.items[projected.itemIndex]
   const projectedTocRow = tocEntryForIndex(player.toc, projected.itemIndex)
+  const currentBackgroundOverride = tocSlotEntryForIndex(player.toc, session.itemIndex)?.background
+  const projectedBackgroundOverride = tocSlotEntryForIndex(player.toc, projected.itemIndex)?.background
+  const backgroundLayer = currentBackgroundOverride
+    ? setlistBackgroundToAvBackground(currentBackgroundOverride)
+    : playerBackgroundLayer
+  const fallbackBackgroundLayer = currentBackgroundOverride ? playerBackgroundLayer : undefined
+  const projectedBackgroundLayer = projectedBackgroundOverride
+    ? setlistBackgroundToAvBackground(projectedBackgroundOverride)
+    : playerBackgroundLayer
+  const projectedFallbackBackgroundLayer = projectedBackgroundOverride
+    ? playerBackgroundLayer
+    : undefined
   const projectedTitle = avItemTitle(
     player.items,
     projected.itemIndex,
@@ -690,7 +703,8 @@ export function PlayerAv({
         commandId: 0,
         content: projectedContent,
         contentLayer: effectiveContentLayer,
-        backgroundLayer,
+        backgroundLayer: projectedBackgroundLayer,
+        fallbackBackgroundLayer: projectedFallbackBackgroundLayer,
         transition: effectiveTransition,
         screenState: projected.screenState,
         itemTitle: projectedTitle || t('player.untitled'),
@@ -700,7 +714,8 @@ export function PlayerAv({
       }),
     [
       livePlayback,
-      backgroundLayer,
+      projectedBackgroundLayer,
+      projectedFallbackBackgroundLayer,
       effectiveContentLayer,
       effectiveTransition,
       projected.screenState,
@@ -737,6 +752,7 @@ export function PlayerAv({
       screenState: command.screenState,
       content: command.content,
       backgroundLayer: command.backgroundLayer,
+      fallbackBackgroundLayer: command.fallbackBackgroundLayer,
       contentLayer: command.contentLayer,
       transition: command.transition,
       itemTitle: command.itemTitle,
@@ -775,9 +791,9 @@ export function PlayerAv({
 
   const setBackgroundAsset = useCallback((asset: AvBackgroundAsset) => {
     const nextBackground: AvBackgroundLayer = asset.kind === 'image'
-      ? { preset: backgroundLayer.preset, image: { mediaId: asset.mediaId, assetId: asset.assetId } }
+      ? { preset: playerBackgroundLayer.preset, image: { mediaId: asset.mediaId, assetId: asset.assetId } }
       : {
-          preset: backgroundLayer.preset,
+          preset: playerBackgroundLayer.preset,
           video: {
             mediaId: asset.mediaId,
             assetId: asset.assetId,
@@ -793,7 +809,7 @@ export function PlayerAv({
       writeAvPreferences(next)
       return next
     })
-  }, [backgroundLayer, onSharedBackgroundChange])
+  }, [onSharedBackgroundChange, playerBackgroundLayer.preset])
 
   const goToSlide = useCallback(
     (slideIndex: number, clearScreenState = true) => {
@@ -1149,7 +1165,8 @@ export function PlayerAv({
         <AvSlideView
           {...projectedSlideView}
           contentLayer={effectiveContentLayer}
-          backgroundLayer={backgroundLayer}
+          backgroundLayer={projectedBackgroundLayer}
+          fallbackBackgroundLayer={projectedFallbackBackgroundLayer}
           transition={effectiveTransition}
           screenState={effectiveScreenState}
         />
@@ -1412,6 +1429,7 @@ export function PlayerAv({
                 currentSlideIndex={selectedDeckSlideIndex}
                 contentLayer={prefs.contentLayer}
                 backgroundLayer={backgroundLayer}
+                fallbackBackgroundLayer={fallbackBackgroundLayer}
                 backgroundPreviewText={currentText}
                 transition={prefs.transition}
                 onSelectSlide={(slideIndex) => goToSlide(slideIndex)}
@@ -1454,7 +1472,8 @@ export function PlayerAv({
                   videoPreviewPlaying={videoPreviewPlaying}
                   onVideoPreviewProgress={setVideoPreviewProgress}
                   contentLayer={prefs.contentLayer}
-                  backgroundLayer={backgroundLayer}
+                  backgroundLayer={projectedBackgroundLayer}
+                  fallbackBackgroundLayer={projectedFallbackBackgroundLayer}
                   transition={prefs.transition}
                   screenState={projected.screenState}
                 />

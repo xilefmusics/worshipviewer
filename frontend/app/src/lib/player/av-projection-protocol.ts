@@ -68,6 +68,7 @@ export type AvProjectionCommand = {
   intent: 'replace' | 'clear'
   screenState: AvScreenState
   backgroundLayer: AvBackgroundLayer
+  fallbackBackgroundLayer?: AvBackgroundLayer
   contentLayer: AvContentLayer
   transition: AvTransition
   itemTitle: string
@@ -181,6 +182,7 @@ export function legacyPayloadToCommand(
     intent: 'replace',
     screenState: payload.screenState,
     backgroundLayer: payload.backgroundLayer,
+    fallbackBackgroundLayer: payload.fallbackBackgroundLayer ?? payload.backgroundLayer,
     contentLayer: payload.contentLayer,
     transition: payload.transition,
     itemTitle: payload.itemTitle,
@@ -211,6 +213,7 @@ export function buildAvProjectionCommand(input: {
   content: AvProjectionContent
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
+  fallbackBackgroundLayer?: AvBackgroundLayer
   transition: AvTransition
   screenState: AvScreenState
   itemTitle: string
@@ -230,6 +233,7 @@ export function buildAvProjectionCommand(input: {
     intent: input.intent ?? 'replace',
     screenState: input.screenState,
     backgroundLayer: input.backgroundLayer,
+    fallbackBackgroundLayer: input.fallbackBackgroundLayer ?? input.backgroundLayer,
     contentLayer: input.contentLayer,
     transition: effectiveAvTransition(
       input.transition,
@@ -258,6 +262,7 @@ export function lyricsPayloadFromCommand(
     ...(contentLines && contentLines.length > 0 ? { contentLines } : {}),
     contentLayer: command.contentLayer,
     backgroundLayer: command.backgroundLayer,
+    fallbackBackgroundLayer: command.fallbackBackgroundLayer ?? command.backgroundLayer,
     transition: command.transition,
     screenState: command.screenState,
     itemTitle: command.itemTitle,

@@ -68,6 +68,7 @@ type AvSlidesPanelProps = {
   currentSlideIndex: number | null
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
+  fallbackBackgroundLayer?: AvBackgroundLayer
   backgroundPreviewText: string
   transition: AvTransition
   onSelectSlide: (slideIndex: number) => void
@@ -80,6 +81,7 @@ export function AvSlidesPanel({
   currentSlideIndex,
   contentLayer,
   backgroundLayer,
+  fallbackBackgroundLayer,
   backgroundPreviewText,
   transition,
   onSelectSlide,
@@ -167,6 +169,7 @@ export function AvSlidesPanel({
                   contentLines={preview.contentLines}
                   contentLayer={contentLayer}
                   backgroundLayer={backgroundLayer}
+                  fallbackBackgroundLayer={fallbackBackgroundLayer}
                   transition={transition}
                   screenState="live"
                   compact={!multiColumn}

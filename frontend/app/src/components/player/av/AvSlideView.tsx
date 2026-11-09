@@ -39,6 +39,7 @@ type AvSlideViewProps = {
   }) => void
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayerPrefs
+  fallbackBackgroundLayer?: AvBackgroundLayerPrefs
   transition: AvTransition
   screenState: AvScreenState
   className?: string
@@ -60,6 +61,7 @@ function AvSlideCanvas({
   onVideoPreviewProgress,
   contentLayer,
   backgroundLayer,
+  fallbackBackgroundLayer,
   compact,
   showBackground,
   preview,
@@ -75,6 +77,7 @@ function AvSlideCanvas({
   | 'onVideoPreviewProgress'
   | 'contentLayer'
   | 'backgroundLayer'
+  | 'fallbackBackgroundLayer'
   | 'compact'
   | 'showBackground'
   | 'preview'
@@ -96,6 +99,7 @@ function AvSlideCanvas({
       {showBackground && !deckPage ? (
         <AvBackgroundLayer
           layer={backgroundLayer}
+          fallbackLayer={fallbackBackgroundLayer}
           className="av-slide-view__background"
           videoPreview={compact || preview}
         />
@@ -185,6 +189,7 @@ export function AvSlideView({
   onVideoPreviewProgress,
   contentLayer,
   backgroundLayer,
+  fallbackBackgroundLayer,
   transition,
   screenState,
   className,
@@ -208,6 +213,7 @@ export function AvSlideView({
           showBackground ? (
             <AvBackgroundLayer
               layer={backgroundLayer}
+              fallbackLayer={fallbackBackgroundLayer}
               className="av-slide-view__background"
               videoPreview={compact}
             />
@@ -217,6 +223,7 @@ export function AvSlideView({
             {showBackground ? (
               <AvBackgroundLayer
                 layer={backgroundLayer}
+                fallbackLayer={fallbackBackgroundLayer}
                 className="av-slide-view__background"
                 videoPreview={preview}
               />
@@ -240,6 +247,7 @@ export function AvSlideView({
       onVideoPreviewProgress={onVideoPreviewProgress}
       contentLayer={contentLayer}
       backgroundLayer={backgroundLayer}
+      fallbackBackgroundLayer={fallbackBackgroundLayer}
       compact={compact}
       showBackground={compact || preview || Boolean(deckPage) ? showBackground : false}
       preview={preview}
@@ -279,6 +287,7 @@ export function AvSlideView({
             {showBackground ? (
               <AvBackgroundLayer
                 layer={backgroundLayer}
+                fallbackLayer={fallbackBackgroundLayer}
                 className="av-slide-view__background"
                 videoPreview={preview}
               />
@@ -316,6 +325,7 @@ export function AvSlideView({
         <div className="av-slide-view__blank-overlay">
           <AvBackgroundLayer
             layer={backgroundLayer}
+            fallbackLayer={fallbackBackgroundLayer}
             className="av-slide-view__blank-background"
             videoPreview={preview}
           />

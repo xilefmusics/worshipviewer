@@ -253,6 +253,7 @@ export type AvProjectionPayload = {
   contentLines?: AvLyricLine[]
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
+  fallbackBackgroundLayer?: AvBackgroundLayer
   transition: AvTransition
   screenState: AvScreenState
   itemTitle: string
@@ -264,6 +265,7 @@ export function buildAvProjectionPayload(input: {
   contentLines?: AvLyricLine[]
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
+  fallbackBackgroundLayer?: AvBackgroundLayer
   transition: AvTransition
   screenState?: AvScreenState
   /** @deprecated Use screenState instead. */
@@ -283,6 +285,9 @@ export function buildAvProjectionPayload(input: {
     ...(contentLines ? { contentLines } : {}),
     contentLayer: input.contentLayer,
     backgroundLayer: input.backgroundLayer,
+    ...(input.fallbackBackgroundLayer
+      ? { fallbackBackgroundLayer: input.fallbackBackgroundLayer }
+      : {}),
     transition: effectiveAvTransition(
       input.transition,
       input.prefersReducedMotion ?? false,

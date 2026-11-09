@@ -1,3 +1,4 @@
+use super::PlayerBackground;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "backend")]
 use utoipa::ToSchema;
@@ -12,4 +13,7 @@ pub struct TocItem {
     /// Display number/label for this TOC row.
     pub nr: String,
     pub liked: bool,
+    /// Optional per-slot AV background override.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<PlayerBackground>,
 }

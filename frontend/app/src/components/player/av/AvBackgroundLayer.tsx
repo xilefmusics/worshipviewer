@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { mediaAssetDataUrl } from '@/api/media-upload'
 import {
@@ -11,11 +11,32 @@ import './player-av.css'
 
 type AvBackgroundLayerProps = {
   layer: AvBackgroundLayerPrefs
+  fallbackLayer?: AvBackgroundLayerPrefs
   className?: string
   videoPreview?: boolean
 }
 
-export function AvBackgroundLayer({ layer, className, videoPreview = false }: AvBackgroundLayerProps) {
+export function AvBackgroundLayer({
+  layer,
+  fallbackLayer,
+  className,
+  videoPreview = false,
+}: AvBackgroundLayerProps) {
+  const [failedAssetKey, setFailedAssetKey] = useState<string | null>(null)
+  const assetKey = layer.image
+    ? `image:${layer.image.mediaId}:${layer.image.assetId}`
+    : layer.video
+      ? `video:${layer.video.mediaId}:${layer.video.assetId}`
+      : null
+  const useFallback = Boolean(fallbackLayer && assetKey && failedAssetKey === assetKey)
+  const hasFallback = Boolean(fallbackLayer)
+  const markUnavailable = useCallback(() => {
+    if (assetKey && hasFallback) setFailedAssetKey(assetKey)
+  }, [assetKey, hasFallback])
+
+  if (useFallback && fallbackLayer) {
+    return <AvBackgroundLayer layer={fallbackLayer} className={className} videoPreview={videoPreview} />
+  }
   const preset = normalizeAvBackgroundPreset(layer.preset)
   return (
     <div
@@ -27,7 +48,11 @@ export function AvBackgroundLayer({ layer, className, videoPreview = false }: Av
       aria-hidden
     >
       {layer.image ? (
-        <BackgroundImage mediaId={layer.image.mediaId} assetId={layer.image.assetId} />
+        <BackgroundImage
+          mediaId={layer.image.mediaId}
+          assetId={layer.image.assetId}
+          onUnavailable={markUnavailable}
+        />
       ) : null}
       {layer.video ? (
         videoPreview ? (
@@ -37,6 +62,7 @@ export function AvBackgroundLayer({ layer, className, videoPreview = false }: Av
               src={mediaAssetDataUrl(layer.video.mediaId, layer.video.thumbnailAssetId)}
               alt=""
               crossOrigin="use-credentials"
+              onError={markUnavailable}
             />
           ) : null
         ) : (
@@ -52,6 +78,7 @@ export function AvBackgroundLayer({ layer, className, videoPreview = false }: Av
             playsInline
             crossOrigin="use-credentials"
             preload="auto"
+            onError={markUnavailable}
           />
         )
       ) : null}
@@ -59,7 +86,15 @@ export function AvBackgroundLayer({ layer, className, videoPreview = false }: Av
   )
 }
 
-function BackgroundImage({ mediaId, assetId }: { mediaId: string; assetId: string }) {
+function BackgroundImage({
+  mediaId,
+  assetId,
+  onUnavailable,
+}: {
+  mediaId: string
+  assetId: string
+  onUnavailable: () => void
+}) {
   const [src, setSrc] = useState<string | null>(null)
 
   useEffect(() => {
@@ -84,14 +119,24 @@ function BackgroundImage({ mediaId, assetId }: { mediaId: string; assetId: strin
         setSrc(currentUrl)
       })
       .catch(() => {
-        if (!cancelled) setSrc(null)
+        if (!cancelled) {
+          setSrc(null)
+          onUnavailable()
+        }
       })
     return () => {
       cancelled = true
       controller.abort()
       if (currentUrl) URL.revokeObjectURL(currentUrl)
     }
-  }, [assetId, mediaId])
+  }, [assetId, mediaId, onUnavailable])
 
-  return src ? <img className="av-background-layer__image" src={src} alt="" /> : null
+  return src ? (
+    <img
+      className="av-background-layer__image"
+      src={src}
+      alt=""
+      onError={onUnavailable}
+    />
+  ) : null
 }

@@ -1,3 +1,4 @@
+use crate::player::PlayerBackground;
 use chordlib::types::SongFlowItem;
 use serde::{Deserialize, Serialize};
 
@@ -125,6 +126,9 @@ pub struct SongLink {
     /// Custom section order and repeats for this setlist slot.
     #[cfg_attr(feature = "backend", schema(value_type = Option<Vec<SongFlowItemSchema>>))]
     pub flow: Option<Vec<SongFlowItem>>,
+    /// Optional AV background override for this setlist slot; absent means use the player's current background.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<Box<PlayerBackground>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone)]
@@ -225,6 +229,7 @@ mod tests {
                 occurrence_index: 0,
                 repeats: 2,
             }]),
+            background: None,
         }
     }
 
@@ -249,6 +254,26 @@ mod tests {
             back[0].as_song().unwrap().flow.as_ref().unwrap()[0].title,
             "Verse"
         );
+    }
+
+    #[test]
+    fn song_background_roundtrips_and_older_items_inherit() {
+        let custom: SetlistItem = serde_json::from_value(json!({
+            "type": "song",
+            "id": "s1",
+            "background": {
+                "preset": 2,
+                "image": { "media_id": "m1", "asset_id": "a1" }
+            }
+        }))
+        .expect("deserialize custom background");
+        let background = custom.as_song().unwrap().background.as_ref().unwrap();
+        assert_eq!(background.preset, 2);
+        assert_eq!(background.image.as_ref().unwrap().media_id, "m1");
+
+        let legacy: SetlistItem = serde_json::from_value(json!({ "type": "song", "id": "s1" }))
+            .expect("deserialize legacy setlist song");
+        assert_eq!(legacy.as_song().unwrap().background, None);
     }
 
     #[test]

@@ -3,6 +3,7 @@ import type { SongFlowItem } from '@/ports/chord-engine'
 
 import { isCapoShapeKey, type CapoShapeKey } from '@/lib/player/capo'
 import { normalizedTempoBpm } from '@/lib/song-display-meta'
+import type { SetlistSongBackground } from '@/lib/setlist-background'
 
 export type CollectionSongLink = components['schemas']['SongLink']
 export type SetlistSongLink = components['schemas']['SetlistSongLink']
@@ -16,6 +17,7 @@ export type EditorSongLink = {
   language?: string | null
   nr?: string | null
   flow?: SongFlowItem[] | null
+  background?: SetlistSongBackground | null
 }
 
 export type SimpleChord = components['schemas']['SimpleChord']
@@ -121,6 +123,7 @@ export function songLinkForSetlistMutation(link: EditorSongLink): SetlistSongLin
     tempo: songLinkTempoEditorToWire(link.tempo),
     language: normalizeSongLinkLanguage(link.language),
     flow: link.flow ?? null,
+    ...(link.background ? { background: link.background } : {}),
   }
 }
 
@@ -429,6 +432,7 @@ export function normalizeSongLinksForEditor(links: SetlistSongLink[] | null | un
     tempo: normalizedTempoBpm(l.tempo),
     language: normalizeSongLinkLanguage(l.language),
     flow: l.flow ?? null,
+    background: l.background ?? null,
   }))
 }
 

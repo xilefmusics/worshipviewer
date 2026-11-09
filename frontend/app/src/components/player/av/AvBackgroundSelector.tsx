@@ -22,6 +22,9 @@ type AvBackgroundSelectorProps = {
   backgroundLayer: AvBackgroundLayer
   previewText: string
   contentLayer: AvContentLayer
+  initiallyExpanded?: boolean
+  selectedInherited?: boolean
+  onSelectInherited?: () => void
   onSelectPreset: (preset: AvBackgroundPreset) => void
   onSelectBackgroundAsset?: (asset: AvBackgroundAsset) => void
   /** Kept for callers that only support image backgrounds. */
@@ -47,13 +50,16 @@ export function AvBackgroundSelector({
   backgroundLayer,
   previewText,
   contentLayer,
+  initiallyExpanded = false,
+  selectedInherited = false,
+  onSelectInherited,
   onSelectPreset,
   onSelectBackgroundAsset,
   onSelectBackgroundImage,
 }: AvBackgroundSelectorProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(initiallyExpanded)
   const query = useInfiniteQuery({
     queryKey: mediaListKey('', null, true),
     enabled: expanded,
@@ -79,9 +85,11 @@ export function AvBackgroundSelector({
       )
     },
   )
-  const selectedLabel = backgroundLayer.image || backgroundLayer.video
-    ? selectedBackground?.title ?? t('player.av.customBackground')
-    : t('settings.playerRoles.background.default')
+  const selectedLabel = selectedInherited
+    ? t('player.av.usePlayerBackground')
+    : backgroundLayer.image || backgroundLayer.video
+      ? selectedBackground?.title ?? t('player.av.customBackground')
+      : t('settings.playerRoles.background.default')
 
   return (
     <div className="av-background-selector-panel">
@@ -121,9 +129,29 @@ export function AvBackgroundSelector({
             role="radiogroup"
             aria-label={t('player.av.backgroundAria')}
           >
+            {onSelectInherited ? (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={selectedInherited}
+                aria-label={t('player.av.usePlayerBackground')}
+                className={cn(
+                  'av-background-selector__option',
+                  selectedInherited && 'av-background-selector__option--selected',
+                )}
+                onClick={onSelectInherited}
+              >
+                <div className="av-background-selector__preview grid place-items-center px-2 text-xs text-[var(--color-muted-foreground)]">
+                  {t('player.av.usePlayerBackground')}
+                </div>
+                <span className="av-background-selector__label">
+                  {t('player.av.usePlayerBackground')}
+                </span>
+              </button>
+            ) : null}
             {AV_BACKGROUND_PRESETS.map((optionPreset) => {
               const selected =
-                !backgroundLayer.image && !backgroundLayer.video && optionPreset === backgroundLayer.preset
+                !selectedInherited && !backgroundLayer.image && !backgroundLayer.video && optionPreset === backgroundLayer.preset
               return (
                 <button
                   key={optionPreset}
@@ -158,9 +186,9 @@ export function AvBackgroundSelector({
               const asset = backgroundAsset(media)
               if (!media.is_background || !asset) return []
               if (!onSelectBackgroundAsset && asset.kind === 'video') return []
-              const selected = asset.kind === 'image'
+              const selected = !selectedInherited && (asset.kind === 'image'
                 ? backgroundLayer.image?.mediaId === asset.mediaId && backgroundLayer.image?.assetId === asset.assetId
-                : backgroundLayer.video?.mediaId === asset.mediaId && backgroundLayer.video?.assetId === asset.assetId
+                : backgroundLayer.video?.mediaId === asset.mediaId && backgroundLayer.video?.assetId === asset.assetId)
               const optionLayer: AvBackgroundLayer = asset.kind === 'image'
                 ? { preset: backgroundLayer.preset, image: { mediaId: asset.mediaId, assetId: asset.assetId } }
                 : {

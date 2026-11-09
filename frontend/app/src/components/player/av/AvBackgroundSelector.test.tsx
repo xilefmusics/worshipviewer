@@ -98,4 +98,24 @@ describe('AvBackgroundSelector', () => {
     await user.click(customImage)
     expect(onSelectBackgroundImage).toHaveBeenCalledWith({ mediaId: 'media:custom', assetId: 'asset:custom' })
   })
+
+  it('offers an explicit player-background inheritance option for song overrides', async () => {
+    const user = userEvent.setup()
+    const onSelectInherited = vi.fn()
+    renderSelector({
+      initiallyExpanded: true,
+      selectedInherited: true,
+      onSelectInherited,
+    })
+
+    const inherited = await screen.findByRole('radio', { name: 'player.av.usePlayerBackground' })
+    const defaultBackground = screen.getByRole('radio', {
+      name: 'settings.playerRoles.background.default',
+    })
+    expect(inherited).toHaveAttribute('aria-checked', 'true')
+    expect(defaultBackground).toHaveAttribute('aria-checked', 'false')
+
+    await user.click(inherited)
+    expect(onSelectInherited).toHaveBeenCalledOnce()
+  })
 })

@@ -408,6 +408,7 @@ mod tests {
                         id: Some(song.id),
                         nr: "1".into(),
                         liked: false,
+                        background: None,
                     }],
                 },
             })
@@ -511,6 +512,7 @@ mod tests {
                         id: Some(song.id),
                         nr: "1".into(),
                         liked: false,
+                        background: None,
                     }],
                 },
             })
