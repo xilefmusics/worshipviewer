@@ -1,13 +1,11 @@
 import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { api } from '@/api/client'
-import { problemMessageFromBody } from '@/api/problem'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -41,7 +39,6 @@ import { HubTabBar } from '@/components/hub/HubTabBar'
 import { HubTeamFilterSelect } from '@/components/hub/HubTeamFilterSelect'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
 import { FilterIcon } from '@/components/icons/filter-icon'
-import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
 import { SearchIcon } from '@/components/icons/lucide-animated/search-icon'
 import { IconHubPlus } from '@/components/icons/hub-tab-icons'
 import { ProfileMenu } from '@/components/hub/ProfileMenu'
@@ -58,7 +55,7 @@ import { useSongDetailQuery } from '@/hooks/useSongDetailQuery'
 import { useMediaDetailQuery } from '@/hooks/useMediaDetailQuery'
 import { useWritableTeams } from '@/hooks/useWritableTeams'
 import { listenToMediaQuery } from '@/lib/browser-apis'
-import { getTeamDisplayName, isPersonalTeamName } from '@/lib/team-display-name'
+import { getTeamDisplayName } from '@/lib/team-display-name'
 import {
   buildPlayerReturnSearch,
   parsePlayerEditorReturnSearch,
@@ -69,8 +66,6 @@ import {
   parseRoomSettingsReturnSearch,
 } from '@/lib/settings-route'
 import { playerQueryKey } from '@/lib/setlist-detail-key'
-import { isUserTeamAdmin } from '@/lib/team-permissions'
-import { teamDetailKey, teamsListRootKey } from '@/lib/teams-sessions-keys'
 import { cn } from '@/lib/utils'
 
 /** Hub chrome rows: full width up to ~90% of max-w-2xl so header search + footer tabs share one column. */
@@ -455,42 +450,12 @@ function HubChrome({
   const [createHovered, setCreateHovered] = useState(false)
   const [searchFieldHovered, setSearchFieldHovered] = useState(false)
   const [searchFocused, setSearchFocused] = useState(false)
-  const [detailTitleHovered, setDetailTitleHovered] = useState(false)
-  const [isEditingDetailTitle, setIsEditingDetailTitle] = useState(false)
-  const [detailTitleDraft, setDetailTitleDraft] = useState('')
-  const [isEditingMediaTitle, setIsEditingMediaTitle] = useState(false)
-  const [mediaTitleDraft, setMediaTitleDraft] = useState('')
   const searchIconActive = searchFieldHovered || searchFocused
   const mainScrollRef = useRef<HTMLElement>(null)
-  const detailTitleInputRef = useRef<HTMLInputElement>(null)
-  const mediaTitleInputRef = useRef<HTMLInputElement>(null)
   const prevHubSectionRef = useRef<string | null>(null)
   const online = useOnline()
   const prevOnlineRef = useRef(online)
   const { data: detailTeam } = useTeamDetail(teamDetailId, { enabled: isTeamDetail })
-  const canEditTeamTitle = Boolean(
-    isTeamDetail &&
-      detailTeam &&
-      user &&
-      !isPersonalTeamName(detailTeam.name) &&
-      isUserTeamAdmin(detailTeam, user.id),
-  )
-
-  const patchTeamName = useMutation({
-    mutationFn: async (name: string) => {
-      const { error, response } = await api.PATCH('/api/v1/teams/{id}', {
-        params: { path: { id: teamDetailId } },
-        body: { name },
-      })
-      if (!response.ok) {
-        throw new Error(problemMessageFromBody(error, t('teams.saveFailed')))
-      }
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: teamDetailKey(teamDetailId) })
-      void queryClient.invalidateQueries({ queryKey: teamsListRootKey })
-    },
-  })
 
   const hubSectionKey = hubSearchSectionKey(pathname)
   useEffect(() => {
@@ -516,18 +481,6 @@ function HubChrome({
     }
     prevOnlineRef.current = online
   }, [online, t])
-
-  useEffect(() => {
-    if (!isEditingDetailTitle) return
-    detailTitleInputRef.current?.focus()
-    detailTitleInputRef.current?.select()
-  }, [isEditingDetailTitle])
-
-  useEffect(() => {
-    if (!isEditingMediaTitle) return
-    mediaTitleInputRef.current?.focus()
-    mediaTitleInputRef.current?.select()
-  }, [isEditingMediaTitle])
 
   if (!user) return null
 
@@ -556,26 +509,6 @@ function HubChrome({
       ? getTeamDisplayName(detailTeam, user.id, t)
       : t('common.load')
     : ''
-
-  async function saveDetailTitleIfChanged() {
-    if (!canEditTeamTitle || !detailTeam) {
-      setIsEditingDetailTitle(false)
-      return
-    }
-    const trimmed = detailTitleDraft.trim()
-    if (!trimmed || trimmed === detailTeam.name) {
-      setDetailTitleDraft(detailTeam.name)
-      setIsEditingDetailTitle(false)
-      return
-    }
-    try {
-      await patchTeamName.mutateAsync(trimmed)
-      setIsEditingDetailTitle(false)
-    } catch {
-      setDetailTitleDraft(detailTeam.name)
-      setIsEditingDetailTitle(false)
-    }
-  }
 
   function navigateAdminSearch(nextStart: string, nextEnd: string) {
     void navigate({
@@ -644,75 +577,17 @@ function HubChrome({
               >
                 <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
               </Button>
-              <div
-                ref={searchAnchorRef}
-                className={cn(
-                  'group relative my-[0.36rem] min-w-0 flex-1',
-                )}
-                onMouseEnter={() => setDetailTitleHovered(true)}
-                onMouseLeave={() => setDetailTitleHovered(false)}
-              >
-                {isEditingDetailTitle ? (
-                  <Input
-                    ref={detailTitleInputRef}
-                    type="text"
-                    value={detailTitleDraft}
-                    onChange={(e) => setDetailTitleDraft(e.target.value)}
-                    onBlur={() => void saveDetailTitleIfChanged()}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        void saveDetailTitleIfChanged()
-                      } else if (e.key === 'Escape') {
-                        e.preventDefault()
-                        setDetailTitleDraft(detailTeam?.name ?? '')
-                        setIsEditingDetailTitle(false)
-                      }
-                    }}
-                    maxLength={120}
-                    className={cn(HUB_SEARCH_INPUT_CLASS, 'min-w-0 pr-8 text-center')}
-                    aria-label={t('teams.nameLabel')}
-                    disabled={patchTeamName.isPending}
-                  />
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className={cn(
-                        HUB_SEARCH_INPUT_CLASS,
-                        'flex min-w-0 items-center',
-                        canEditTeamTitle && 'cursor-text',
-                      )}
-                      onClick={() => {
-                        if (!canEditTeamTitle || !detailTeam) return
-                        setDetailTitleDraft(detailTeam.name)
-                        setIsEditingDetailTitle(true)
-                      }}
-                      aria-label={t('teams.nameLabel')}
-                      disabled={!canEditTeamTitle}
-                    >
-                      <p
-                        className={cn(
-                          'w-full truncate px-5 text-center font-medium text-[var(--color-foreground)]',
-                          HUB_SEARCH_PILL_TEXT_CLASS,
-                        )}
-                      >
-                        {detailTitle}
-                      </p>
-                    </button>
-                    {canEditTeamTitle ? (
-                      <span
-                        className={cn(
-                          'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted-foreground)] transition-opacity',
-                          detailTitleHovered ? 'opacity-100' : 'opacity-0',
-                        )}
-                        aria-hidden
-                      >
-                        <PencilIcon size={14} isHovered={detailTitleHovered} />
-                      </span>
-                    ) : null}
-                  </>
-                )}
+              <div ref={searchAnchorRef} className="my-[0.36rem] min-w-0 flex-1">
+                <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
+                  <p
+                    className={cn(
+                      'w-full truncate px-5 text-center font-medium text-[var(--color-foreground)]',
+                      HUB_SEARCH_PILL_TEXT_CLASS,
+                    )}
+                  >
+                    {detailTitle}
+                  </p>
+                </div>
               </div>
             </>
           ) : isSetlistDetail ? (
@@ -822,58 +697,12 @@ function HubChrome({
               >
                 <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
               </Button>
-              <div ref={searchAnchorRef} className="group relative my-[0.36rem] min-w-0 flex-1">
-                {isEditingMediaTitle ? (
-                  <div className={cn(HUB_SEARCH_INPUT_CLASS, 'flex min-w-0 items-center gap-1 px-3')}>
-                    <Input
-                      ref={mediaTitleInputRef}
-                      type="text"
-                      value={mediaTitleDraft}
-                      onChange={(event) => {
-                        setMediaTitleDraft(event.target.value)
-                        window.dispatchEvent(new CustomEvent('media-editor-title-change', { detail: event.target.value }))
-                      }}
-                      onBlur={() => setIsEditingMediaTitle(false)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault()
-                          mediaTitleInputRef.current?.blur()
-                        } else if (event.key === 'Escape') {
-                          event.preventDefault()
-                          const originalTitle = headerMedia?.title ?? ''
-                          setMediaTitleDraft(originalTitle)
-                          window.dispatchEvent(new CustomEvent('media-editor-title-change', { detail: originalTitle }))
-                          setIsEditingMediaTitle(false)
-                        }
-                      }}
-                      maxLength={200}
-                      className="min-w-0 flex-1 border-0 bg-transparent px-0 text-center font-medium shadow-none focus-visible:ring-0"
-                      aria-label={t('media.fields.title')}
-                    />
-                    {headerMedia?.content.type === 'slide_deck' ? (
-                      <PencilIcon size={16} className="shrink-0 text-[var(--color-foreground)]" />
-                    ) : null}
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className={cn(HUB_SEARCH_INPUT_CLASS, 'flex min-w-0 items-center justify-center gap-1 px-3')}
-                    onClick={() => {
-                      if (headerMedia?.content.type !== 'slide_deck') return
-                      setMediaTitleDraft(headerMedia.title)
-                      setIsEditingMediaTitle(true)
-                    }}
-                    aria-label={t('media.editor.editTitle')}
-                    disabled={headerMedia?.content.type !== 'slide_deck'}
-                  >
-                    <p className={cn('min-w-0 truncate text-center font-medium text-[var(--color-foreground)]', HUB_SEARCH_PILL_TEXT_CLASS)}>
-                      {headerMedia?.title ?? t('common.load')}
-                    </p>
-                    {headerMedia?.content.type === 'slide_deck' ? (
-                      <PencilIcon size={16} className="shrink-0 text-[var(--color-foreground)]" />
-                    ) : null}
-                  </button>
-                )}
+              <div ref={searchAnchorRef} className="my-[0.36rem] min-w-0 flex-1">
+                <div className={cn(HUB_SEARCH_INPUT_CLASS, 'pointer-events-none flex min-w-0 items-center justify-center')}>
+                  <p className={cn('w-full truncate px-5 text-center font-medium text-[var(--color-foreground)]', HUB_SEARCH_PILL_TEXT_CLASS)}>
+                    {headerMedia?.title ?? t('common.load')}
+                  </p>
+                </div>
               </div>
             </>
           ) : isSettings ? (

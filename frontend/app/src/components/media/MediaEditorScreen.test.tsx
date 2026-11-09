@@ -126,16 +126,25 @@ describe('MediaEditorScreen slide decks', () => {
   it('M2: previews draft pages once expansion is idle', async () => {
     renderEditor()
     expect(await screen.findByTestId('deck-pages')).toHaveTextContent('p1,p2')
-    expect(screen.queryByDisplayValue('Sunday')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('media.fields.title')).toHaveValue('Sunday')
     expect(screen.queryByRole('link', { name: 'media.actions.play' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'media.actions.save' })).not.toBeInTheDocument()
     expect(screen.queryByText('media.kinds.slide_deck')).not.toBeInTheDocument()
   })
 
   it('M4: autosaves title edits and commits the draft page order', async () => {
+    const user = userEvent.setup()
     renderEditor()
     await screen.findByTestId('deck-pages')
-    window.dispatchEvent(new CustomEvent('media-editor-title-change', { detail: 'Updated Sunday' }))
+    const titleInput = screen.getByLabelText('media.fields.title')
+    await user.clear(titleInput)
+    await user.type(titleInput, 'Updated Sunday')
+    await waitFor(() => {
+      expect(updateMedia).toHaveBeenCalledWith(expect.anything(), 'media:deck', {
+        title: 'Updated Sunday',
+        owner: 'team:1',
+      })
+    }, { timeout: 2_000 })
     await waitFor(() => {
       expect(commitDeck).toHaveBeenCalledWith(expect.anything(), 'media:deck', {
         revision_id: 'rev1',
