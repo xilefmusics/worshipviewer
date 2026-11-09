@@ -279,7 +279,7 @@ async fn main() -> AnyResult<()> {
             ))
             .service(frontend::rest::scope(&static_dir))
     })
-    .bind((settings.host.clone(), settings.port))?
+    .bind_auto_h2c((settings.host.clone(), settings.port))?
     .run()
     .await
     .context("server exited unexpectedly")
