@@ -1,8 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import { applyRoomMessage, createRoomReplay, rankRoomSongs, type RoomMessage } from './room-message'
+import type { RoomAvConfiguration } from './room-message-api'
 
 function message(sequence: number, visit_id: string, change: RoomMessage['change']): RoomMessage {
   return { id: `${sequence}`, room_id: 'room', visit_id, order: { epoch: 1, sequence }, change }
+}
+
+function avConfiguration(): RoomAvConfiguration {
+  return {
+    content_layer: {
+      max_lines_per_slide: 4,
+      balance_slide_lines: true,
+      font_size: 50,
+      text_align: 'center',
+      vertical_align: 'center',
+      horizontal_align: 'center',
+      text_shadow: 'subtle',
+      text_transform: 'none',
+      primary_text_lightness: 100,
+      secondary_text_lightness: 80,
+    },
+    transition: { style: 'fade', duration_ms: 300 },
+    bilingual_enabled: true,
+    collapse_lyric_whitespace: false,
+    language_by_item: { '0': 1 },
+    screen_state: 'live',
+  }
 }
 
 describe('room message replay', () => {
@@ -50,5 +73,22 @@ describe('room message replay', () => {
       type: 'set_background',
       background: { preset: 5 },
     }))).toThrow('background')
+  })
+
+  it('replays the shared AV configuration and validates its screen state and layout', () => {
+    const configuration = avConfiguration()
+    const first = message(1, 'host', { type: 'set_av_configuration', configuration })
+    const state = applyRoomMessage(createRoomReplay('room', [1]), first)
+
+    expect(state.avConfiguration).toEqual(configuration)
+    expect(applyRoomMessage(state, first)).toBe(state)
+    expect(() => applyRoomMessage(state, message(2, 'host', {
+      type: 'set_av_configuration',
+      configuration: { ...configuration, content_layer: { ...configuration.content_layer, max_lines_per_slide: 0 } },
+    }))).toThrow('AV configuration')
+
+    const blackout = { ...configuration, screen_state: 'blackout' as const }
+    const updated = applyRoomMessage(state, message(2, 'host', { type: 'set_av_configuration', configuration: blackout }))
+    expect(updated.avConfiguration?.screen_state).toBe('blackout')
   })
 })

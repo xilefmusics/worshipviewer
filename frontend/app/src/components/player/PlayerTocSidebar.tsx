@@ -111,6 +111,7 @@ export function PlayerTocSidebar({
 
     const { change } = entry.event
     if (change.type === 'set_background') return t('rooms.protocol.backgroundSet')
+    if (change.type === 'set_av_configuration') return t('rooms.protocol.configurationSet')
 
     const item = items[change.song]
     const songTitle = item?.type === 'chords'

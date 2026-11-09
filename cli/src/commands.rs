@@ -45,6 +45,14 @@ pub struct Cli {
 
     #[arg(
         long,
+        env = "WORSHIPVIEWER_IMPERSONATION_COOKIE",
+        global = true,
+        help = "Browser impersonation cookie value for sso_session authentication"
+    )]
+    pub impersonation_cookie: Option<String>,
+
+    #[arg(
+        long,
         env = "WORSHIPVIEWER_OUTPUT",
         default_value = "auto",
         global = true,
@@ -77,10 +85,20 @@ pub enum Command {
     About,
     /// Fetch or inspect the live OpenAPI schema.
     Schema(SchemaArgs),
-    /// OTP login and logout.
+    /// OTP authentication, browser impersonation, and logout.
     Auth {
         #[command(subcommand)]
         command: AuthCommand,
+    },
+    /// Start or inspect shared presentation rooms.
+    Rooms {
+        #[command(subcommand)]
+        command: RoomsCommand,
+    },
+    /// Manage video, audio, images, slide decks, and URL-backed media.
+    Media {
+        #[command(subcommand)]
+        command: MediaCommand,
     },
     Users {
         #[command(subcommand)]
@@ -145,7 +163,7 @@ pub struct HubFilterArgs {
     pub team: Option<String>,
 }
 
-/// List flags for collections, setlists, and teams.
+/// Shared paging, search, and owning-team filters for resource lists.
 #[derive(Debug, Args, Clone, Default)]
 pub struct HubListArgs {
     #[command(flatten)]
@@ -180,6 +198,21 @@ pub struct SongListArgs {
     pub tag: Option<String>,
 }
 
+#[derive(Debug, Args, Clone, Default)]
+pub struct MediaListArgs {
+    #[command(flatten)]
+    pub page: PageArgs,
+
+    #[arg(long, help = "Search media titles")]
+    pub q: Option<String>,
+
+    #[arg(long, help = "Filter by readable owning team id")]
+    pub team: Option<String>,
+
+    #[arg(long, help = "Filter AV backgrounds: true or false")]
+    pub is_background: Option<bool>,
+}
+
 #[derive(Debug, Args)]
 pub struct SchemaArgs {
     #[command(subcommand)]
@@ -206,6 +239,10 @@ pub enum AuthCommand {
         json: String,
     },
     Logout,
+    /// Show whether the browser session is impersonating another user.
+    ImpersonationCurrent,
+    /// Stop browser impersonation while keeping the primary session.
+    ImpersonationStop,
 }
 
 #[derive(Debug, Subcommand)]
@@ -241,6 +278,10 @@ pub enum UsersCommand {
     },
     Delete {
         id: String,
+    },
+    /// Start browser impersonation for a user (cookie auth required).
+    Impersonate {
+        user_id: String,
     },
 }
 
@@ -577,5 +618,133 @@ pub enum MonitoringCommand {
         start: String,
         #[arg(long, help = "End timestamp (RFC 3339 UTC)")]
         end: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum MediaCommand {
+    List {
+        #[command(flatten)]
+        list: MediaListArgs,
+    },
+    Get {
+        id: String,
+    },
+    /// Create a YouTube or Spotify URL-backed media item.
+    Create {
+        #[arg(long, help = "JSON CreateMedia body")]
+        json: String,
+    },
+    /// Upload an image, video, audio file, or slide-deck sources as new media.
+    Upload {
+        #[arg(long, help = "Uploaded kind: image, video, audio, or slide_deck")]
+        kind: String,
+        #[arg(long, help = "JSON CreateUploadedMedia metadata")]
+        metadata: String,
+        #[arg(long = "file", required = true, num_args = 1.., help = "Source file; repeat for slide-deck pages")]
+        files: Vec<PathBuf>,
+    },
+    Update {
+        id: String,
+        #[arg(long, help = "JSON UpdateMedia body")]
+        json: String,
+    },
+    Move {
+        id: String,
+        #[arg(long, help = "JSON MoveOwner body")]
+        json: String,
+    },
+    Duplicate {
+        id: String,
+        #[arg(long, help = "JSON DuplicateMedia body (defaults to {})")]
+        json: Option<String>,
+    },
+    Delete {
+        id: String,
+    },
+    /// Replace uploaded video/audio/image content or stage a slide-deck page.
+    UploadAsset {
+        id: String,
+        file: PathBuf,
+        #[arg(long, help = "Upload kind: video, audio, image, pdf, or svg")]
+        kind: String,
+        #[arg(long, help = "Replace this existing slide-deck page")]
+        replace_page: Option<String>,
+        #[arg(long, help = "MIME type (inferred from file extension when omitted)")]
+        content_type: Option<String>,
+    },
+    /// Begin a reorder/removal revision for a slide deck.
+    DeckBegin {
+        id: String,
+    },
+    /// Commit the staged page order.
+    DeckCommit {
+        id: String,
+        #[arg(long, help = "JSON CommitDeck body")]
+        json: String,
+    },
+    /// Download an asset's original bytes.
+    DownloadAsset {
+        media_id: String,
+        asset_id: String,
+        #[arg(long = "save-to", help = "Write bytes to this file instead of stdout")]
+        output: Option<PathBuf>,
+        #[arg(long, help = "Optional HTTP byte range, e.g. bytes=0-1023")]
+        range: Option<String>,
+    },
+    /// Read asset headers without downloading its bytes.
+    HeadAsset {
+        media_id: String,
+        asset_id: String,
+        #[arg(long, help = "Optional HTTP byte range, e.g. bytes=0-1023")]
+        range: Option<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum RoomsCommand {
+    List {
+        #[command(flatten)]
+        list: HubListArgs,
+    },
+    Create {
+        #[arg(long, help = "JSON CreateRoom body")]
+        json: String,
+    },
+    Join {
+        id: String,
+        #[arg(long, help = "Resume credential from a previous join")]
+        resume_credential: Option<String>,
+    },
+    History {
+        id: String,
+        #[arg(long, help = "Resume credential returned by rooms join")]
+        resume_credential: String,
+        #[arg(long, help = "Epoch from the WebSocket authorized event")]
+        epoch: u64,
+        #[arg(long, help = "Sequence from the WebSocket authorized event")]
+        sequence: u64,
+    },
+    /// Connect with a room ticket, replay history, and print realtime events.
+    Socket {
+        #[arg(long, help = "One-time connection_ticket returned by rooms join")]
+        connection_ticket: String,
+        #[arg(long, help = "Room id; enables an automatic history replay")]
+        room_id: Option<String>,
+        #[arg(long, help = "Resume credential returned by rooms join")]
+        resume_credential: Option<String>,
+        #[arg(long = "message", help = "Raw client event JSON; may be repeated")]
+        messages: Vec<String>,
+        #[arg(
+            long,
+            default_value_t = 2,
+            help = "Seconds to receive events after sending messages"
+        )]
+        wait_secs: u64,
+        #[arg(long, help = "Keep receiving events until the room ends")]
+        follow: bool,
+    },
+    Close {
+        id: String,
     },
 }

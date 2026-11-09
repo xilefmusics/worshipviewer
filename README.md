@@ -276,6 +276,8 @@ The CLI can use flags, environment variables, or a config file. Precedence:
   ```toml
   base_url = "http://127.0.0.1:8080"
   sso_session = "admin"
+  # Optional browser impersonation credential returned by `users impersonate`.
+  # impersonation_cookie = "..."
   ```
 - **Base URL** (backend address)
   - Flag: `--base-url`
@@ -333,6 +335,36 @@ worshipviewer songs update \
   --dry-run \
   --output json
 ```
+
+Manage uploaded media and shared rooms:
+
+```bash
+worshipviewer media list --is-background true --output ndjson
+worshipviewer media upload --kind image --metadata '{"title":"Stage background"}' --file background.png
+worshipviewer rooms create --json '{"team_id":"team_example","source_type":"setlist","source_id":"setlist_example"}'
+worshipviewer rooms join room_id
+# Copy connection_ticket and resume_credential from the join response.
+worshipviewer rooms socket --connection-ticket "$ROOM_TICKET" \
+  --room-id room_id --resume-credential "$ROOM_RESUME" --follow
+```
+
+`rooms socket` authenticates with the one-time ticket, fetches room history through the
+authorized boundary, signals `history_ready`, then prints realtime events as JSON lines.
+Use repeatable `--message '{"type":"change", ...}'` arguments to send room changes.
+
+Start browser impersonation with cookie authentication:
+
+```bash
+worshipviewer users impersonate <user_id>
+export WORSHIPVIEWER_IMPERSONATION_COOKIE='...'
+worshipviewer auth impersonation-current
+worshipviewer auth impersonation-stop
+unset WORSHIPVIEWER_IMPERSONATION_COOKIE
+```
+
+Copy the printed `impersonation_cookie` value into the environment variable. The impersonation
+cookie is kept separate from the primary `sso_session`; bearer-token auth does not activate
+browser impersonation.
 
 ### Auth quickstart for local development
 

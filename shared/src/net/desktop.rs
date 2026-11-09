@@ -32,8 +32,15 @@ impl DesktopHttpClient {
 
     fn with_common_headers(&self, request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
         let mut request = request;
+        let mut cookies = Vec::new();
         if let Some(ref cookie) = self.config.session_cookie {
-            request = request.header(reqwest::header::COOKIE, format!("sso_session={cookie}"));
+            cookies.push(format!("sso_session={cookie}"));
+        }
+        if let Some(ref cookie) = self.config.impersonation_cookie {
+            cookies.push(format!("wv_impersonation={cookie}"));
+        }
+        if !cookies.is_empty() {
+            request = request.header(reqwest::header::COOKIE, cookies.join("; "));
         }
         if let Some(ref token) = self.config.bearer_token {
             request = request.bearer_auth(token);

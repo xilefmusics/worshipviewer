@@ -2,6 +2,7 @@ import type { components } from '@/api/schema'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { AvMediaTransportPanel } from '@/components/player/av/AvMediaTransportPanel'
 import { AvSpotifyPanel } from '@/components/player/av/AvSpotifyPanel'
@@ -20,6 +21,11 @@ import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlayerIndexSearchSync } from '@/hooks/usePlayerIndexSearchSync'
 import { useAvBilingualPreference } from '@/hooks/useAvBilingualPreference'
 import { useResolvedPlayerItemChordData } from '@/lib/player/apply-song-flow'
+import { readChordFormatPreference } from '@/lib/chord-format'
+import { readHideChordsPreference } from '@/lib/hide-chords-preference'
+import { isCopyWorshipProShortcut, isPrintPlayerPdfShortcut } from '@/lib/player/player-keyboard'
+import { copyPlayerSongAsWorshipPro } from '@/lib/player/player-song-copy'
+import { printPlayerSongPdf } from '@/lib/player/player-song-print'
 import type { TocDisplayEntry } from '@/lib/player/toc-display'
 import {
   avItemTitle,
@@ -48,12 +54,15 @@ import {
   roomSourceSlideToRenderedSection,
 } from '@/lib/room-slide-index'
 import {
+  DEFAULT_AV_PREFERENCES,
   readAvPreferences,
   writeAvPreferences,
   type AvBackgroundLayer,
   type AvBackgroundPreset,
+  type AvContentLayer,
   type AvPreferences,
   type AvScreenState,
+  type AvTransition,
 } from '@/lib/player/av-preferences'
 import {
   buildAvPlaybackIntent,
@@ -107,11 +116,13 @@ import {
 } from '@/lib/player/player-chrome'
 import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { tocEntryForIndex } from '@/lib/player/player-helpers'
+import type { RoomAvConfiguration } from '@/lib/room-message-api'
 import type { RoomDebugLog } from '@/lib/room-message-debug'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { songLanguageOptions } from '@/lib/player/song-language'
 import { buildSettingsSearch, type RoomSettingsReturnContext } from '@/lib/settings-route'
 import { cn } from '@/lib/utils'
+import type { ChordSongData } from '@/ports/chord-engine'
 
 import './player-av.css'
 
@@ -144,6 +155,58 @@ type PlayerAvProps = {
   onSharedSelectionChange?: (song: number, section: number, slide: number, activate: boolean) => void
   sharedBackgroundLayer?: AvBackgroundLayer | null
   onSharedBackgroundChange?: (background: AvBackgroundLayer) => void
+  sharedAvConfiguration?: RoomAvConfiguration | null
+  onSharedAvConfigurationChange?: (configuration: RoomAvConfiguration) => boolean | void
+  roomConnectionStatus?: string
+}
+
+function toRoomAvConfiguration(
+  contentLayer: AvContentLayer,
+  transition: AvTransition,
+  bilingualEnabled: boolean,
+  collapseLyricWhitespace: boolean,
+  languageByItem: Record<number, number> | undefined,
+  screenState: AvScreenState,
+): RoomAvConfiguration {
+  return {
+    content_layer: {
+      max_lines_per_slide: contentLayer.maxLinesPerSlide,
+      balance_slide_lines: contentLayer.balanceSlideLines,
+      font_size: contentLayer.fontSize,
+      text_align: contentLayer.textAlign,
+      vertical_align: contentLayer.verticalAlign,
+      horizontal_align: contentLayer.horizontalAlign,
+      text_shadow: contentLayer.textShadow,
+      text_transform: contentLayer.textTransform,
+      primary_text_lightness: contentLayer.primaryTextLightness,
+      secondary_text_lightness: contentLayer.secondaryTextLightness,
+    },
+    transition: { style: transition.style, duration_ms: transition.durationMs },
+    bilingual_enabled: bilingualEnabled,
+    collapse_lyric_whitespace: collapseLyricWhitespace,
+    language_by_item: Object.fromEntries(Object.entries(languageByItem ?? {})),
+    screen_state: screenState,
+  }
+}
+
+function contentLayerFromRoom(configuration: RoomAvConfiguration): AvContentLayer {
+  const content = configuration.content_layer
+  return {
+    maxLinesPerSlide: content.max_lines_per_slide,
+    balanceSlideLines: content.balance_slide_lines,
+    fontSize: content.font_size,
+    textAlign: content.text_align,
+    verticalAlign: content.vertical_align,
+    horizontalAlign: content.horizontal_align,
+    textShadow: content.text_shadow,
+    textTransform: content.text_transform,
+    primaryTextLightness: content.primary_text_lightness,
+    secondaryTextLightness: content.secondary_text_lightness,
+  }
+}
+
+function transitionFromRoom(configuration: RoomAvConfiguration): AvTransition {
+  return { style: configuration.transition.style, durationMs: configuration.transition.duration_ms }
 }
 
 function hubPathForPlayerType(type: PlayerEntityType): '/collections' | '/songs' | '/setlists' {
@@ -207,6 +270,9 @@ export function PlayerAv({
   onSharedSelectionChange,
   sharedBackgroundLayer,
   onSharedBackgroundChange,
+  sharedAvConfiguration,
+  onSharedAvConfigurationChange,
+  roomConnectionStatus,
 }: PlayerAvProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -230,9 +296,13 @@ export function PlayerAv({
   })
   const tocVisible = !embedded || showEmbeddedToc
   const [languagePopoverOpen, setLanguagePopoverOpen] = useState(false)
+  const languageByItem = useMemo(
+    () => slideOnly ? sharedAvConfiguration?.language_by_item ?? {} : viewState.languageByItem,
+    [sharedAvConfiguration?.language_by_item, slideOnly, viewState.languageByItem],
+  )
   const resolveLanguageIndexForItem = useCallback(
-    (itemIndex: number) => viewState.languageByItem?.[itemIndex],
-    [viewState.languageByItem],
+    (itemIndex: number) => languageByItem?.[itemIndex],
+    [languageByItem],
   )
 
   const sessionId = getAvProjectionSessionId()
@@ -269,6 +339,60 @@ export function PlayerAv({
   }, [id, slideOnly, type, viewState])
 
   const collapseLyricWhitespace = readLyricCollapseWhitespacePreference()
+  const effectiveContentLayer = slideOnly
+    ? sharedAvConfiguration ? contentLayerFromRoom(sharedAvConfiguration) : DEFAULT_AV_PREFERENCES.contentLayer
+    : prefs.contentLayer
+  const effectiveTransition = slideOnly
+    ? sharedAvConfiguration ? transitionFromRoom(sharedAvConfiguration) : DEFAULT_AV_PREFERENCES.transition
+    : prefs.transition
+  const effectiveBilingualEnabled = slideOnly
+    ? sharedAvConfiguration?.bilingual_enabled ?? false
+    : bilingualEnabled
+  const effectiveCollapseWhitespace = slideOnly
+    ? sharedAvConfiguration?.collapse_lyric_whitespace ?? true
+    : collapseLyricWhitespace
+  const sharedScreenState = sharedAvConfiguration?.screen_state
+  const effectiveScreenState: AvScreenState = slideOnly
+    ? sharedScreenState === 'blackout'
+      ? 'blackout'
+      : sharedSelection && sharedScreenState === 'live'
+        ? 'live'
+        : 'blank'
+    : projected.screenState
+  const currentRoomAvConfiguration = useMemo(
+    () => toRoomAvConfiguration(
+      prefs.contentLayer,
+      prefs.transition,
+      bilingualEnabled,
+      collapseLyricWhitespace,
+      viewState.languageByItem,
+      projected.screenState,
+    ),
+    [
+      bilingualEnabled,
+      collapseLyricWhitespace,
+      prefs.contentLayer,
+      prefs.transition,
+      projected.screenState,
+      viewState.languageByItem,
+    ],
+  )
+  const lastPublishedRoomConfigurationRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (slideOnly || !onSharedAvConfigurationChange) return
+    if (roomConnectionStatus !== 'connected') {
+      lastPublishedRoomConfigurationRef.current = null
+      return
+    }
+    const serialized = JSON.stringify(currentRoomAvConfiguration)
+    if (lastPublishedRoomConfigurationRef.current === serialized) return
+    if (onSharedAvConfigurationChange(currentRoomAvConfiguration) !== false) {
+      lastPublishedRoomConfigurationRef.current = serialized
+    }
+  }, [currentRoomAvConfiguration, onSharedAvConfigurationChange, roomConnectionStatus, slideOnly])
+  useEffect(() => {
+    if (!slideOnly && !sharedBackgroundLayer) onSharedBackgroundChange?.(prefs.backgroundLayer)
+  }, [onSharedBackgroundChange, prefs.backgroundLayer, sharedBackgroundLayer, slideOnly])
 
   const currentPlayerItem = player.items[session.itemIndex]
   const projectedPlayerItem = player.items[projected.itemIndex]
@@ -285,18 +409,18 @@ export function PlayerAv({
   const currentItem = useMemo(
     () =>
       avSlidesForPlayerItem(player.items, session.itemIndex, {
-        maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
-        balanceSlideLines: prefs.contentLayer.balanceSlideLines,
-        collapseLyricWhitespace,
-      }, resolveLanguageIndexForItem, bilingualEnabled, resolvedCurrentSongData, title),
+        maxLinesPerSlide: effectiveContentLayer.maxLinesPerSlide,
+        balanceSlideLines: effectiveContentLayer.balanceSlideLines,
+        collapseLyricWhitespace: effectiveCollapseWhitespace,
+      }, resolveLanguageIndexForItem, effectiveBilingualEnabled, resolvedCurrentSongData, title),
     [
       player.items,
-      prefs.contentLayer.maxLinesPerSlide,
-      prefs.contentLayer.balanceSlideLines,
-      collapseLyricWhitespace,
+      effectiveContentLayer.maxLinesPerSlide,
+      effectiveContentLayer.balanceSlideLines,
+      effectiveCollapseWhitespace,
       resolveLanguageIndexForItem,
       session.itemIndex,
-      bilingualEnabled,
+      effectiveBilingualEnabled,
       resolvedCurrentSongData,
       title,
     ],
@@ -305,18 +429,18 @@ export function PlayerAv({
   const projectedItem = useMemo(
     () =>
       avSlidesForPlayerItem(player.items, projected.itemIndex, {
-        maxLinesPerSlide: prefs.contentLayer.maxLinesPerSlide,
-        balanceSlideLines: prefs.contentLayer.balanceSlideLines,
-        collapseLyricWhitespace,
-      }, resolveLanguageIndexForItem, bilingualEnabled, resolvedProjectedSongData, projectedTitle),
+        maxLinesPerSlide: effectiveContentLayer.maxLinesPerSlide,
+        balanceSlideLines: effectiveContentLayer.balanceSlideLines,
+        collapseLyricWhitespace: effectiveCollapseWhitespace,
+      }, resolveLanguageIndexForItem, effectiveBilingualEnabled, resolvedProjectedSongData, projectedTitle),
     [
       player.items,
-      prefs.contentLayer.maxLinesPerSlide,
-      prefs.contentLayer.balanceSlideLines,
-      collapseLyricWhitespace,
+      effectiveContentLayer.maxLinesPerSlide,
+      effectiveContentLayer.balanceSlideLines,
+      effectiveCollapseWhitespace,
       resolveLanguageIndexForItem,
       projected.itemIndex,
-      bilingualEnabled,
+      effectiveBilingualEnabled,
       resolvedProjectedSongData,
       projectedTitle,
     ],
@@ -546,9 +670,9 @@ export function PlayerAv({
         sessionId,
         commandId: 0,
         content: projectedContent,
-        contentLayer: prefs.contentLayer,
+        contentLayer: effectiveContentLayer,
         backgroundLayer,
-        transition: prefs.transition,
+        transition: effectiveTransition,
         screenState: projected.screenState,
         itemTitle: projectedTitle || t('player.untitled'),
         nextPreview: projectedNextText,
@@ -558,8 +682,8 @@ export function PlayerAv({
     [
       livePlayback,
       backgroundLayer,
-      prefs.contentLayer,
-      prefs.transition,
+      effectiveContentLayer,
+      effectiveTransition,
       projected.screenState,
       projectedContent,
       projectedItem.kind,
@@ -845,6 +969,30 @@ export function PlayerAv({
   useEffect(() => {
     if (slideOnly) return
     function onKeyDown(e: KeyboardEvent) {
+      if (isCopyWorshipProShortcut(e)) {
+        if (rawItem?.type !== 'chords') return
+        e.preventDefault()
+        void copyPlayerSongAsWorshipPro(rawItem.song.data as ChordSongData, rawItem.flow, {
+          languageIndex: currentLanguageIndex,
+          chordFormat: readChordFormatPreference(),
+          hideChords: readHideChordsPreference(),
+        })
+          .then(() => toast.success(t('player.copyWorshipProSuccess')))
+          .catch(() => toast.error(t('player.copyWorshipProFailed')))
+        return
+      }
+
+      if (isPrintPlayerPdfShortcut(e)) {
+        if (rawItem?.type !== 'chords') return
+        e.preventDefault()
+        void printPlayerSongPdf(rawItem.song.data as ChordSongData, rawItem.flow, {
+          languageIndex: currentLanguageIndex,
+          chordFormat: readChordFormatPreference(),
+          hideChords: readHideChordsPreference(),
+        }).catch(() => toast.error(t('player.printFailed')))
+        return
+      }
+
       const action = avKeyboardAction(e.key, e.target, { tocOpen: tocVisible })
       if (!action && (e.key === 'n' || e.key === 'N')) {
         if (isEditableTarget(e.target)) return
@@ -932,7 +1080,10 @@ export function PlayerAv({
     tocVisible,
     languagePopoverOpen,
     currentItem.kind,
+    currentLanguageIndex,
+    rawItem,
     slideOnly,
+    t,
   ])
 
   const outputSummaryLabel =
@@ -954,10 +1105,10 @@ export function PlayerAv({
       >
         <AvSlideView
           {...projectedSlideView}
-          contentLayer={prefs.contentLayer}
+          contentLayer={effectiveContentLayer}
           backgroundLayer={backgroundLayer}
-          transition={prefs.transition}
-          screenState={sharedSelection ? projected.screenState : 'blank'}
+          transition={effectiveTransition}
+          screenState={effectiveScreenState}
         />
       </div>
     )

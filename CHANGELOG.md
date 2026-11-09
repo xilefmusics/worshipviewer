@@ -6,9 +6,11 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Added
 
+- Ctrl+C copies the current player song as Worship Pro, and Ctrl+P opens its single-song PDF print preview.
 - Import songs from searchable CCLI PDFs directly in song creation.
 - Upload image backgrounds to the media library and use them in AV projection.
 - Fixed-pool team Rooms with immutable captured song content, authenticated direct-link access, ordered shared messages, virtual vote ranking, and reconnecting presence.
+- Rooms now share the AV controller's slide configuration with slide-only members, including line count, language, bilingual output, blank, and blackout state.
 - Spotify track and playlist Media items with external playback controls in the AV player.
 - Independent grayscale text controls for primary and translated AV lyrics.
 - `./scripts/verify-ci.sh` — one-shot local run of CI-equivalent checks (fmt, audit, tests, OpenAPI, frontend build).
@@ -23,7 +25,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 ### Changed
 
 - Team names and slide deck titles are now edited in their respective editor fields instead of the headbar.
-- Media library rows now show image previews or a generic placeholder, and their actions use the shared hub drawer.
+- Media library rows now show image previews, the first slide of decks, or a generic placeholder, and their actions use the shared hub drawer.
 - Right-clicking a song, setlist, collection, room, or Admin Users row/card now opens its actions drawer.
 - Ray is now the only built-in AV background and is labeled Default.
 - Rendered sheets and PDF exports now honor capo shape settings.

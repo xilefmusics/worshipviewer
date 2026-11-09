@@ -4,13 +4,15 @@ use shared::net::DefaultHttpClient;
 
 use crate::commands::AuthCommand;
 use crate::output::{self, OutputFormat};
+use crate::session::CliSession;
 
 pub async fn handle_auth(
-    client: &ApiClient<DefaultHttpClient>,
+    session: &CliSession,
     output: OutputFormat,
     dry_run: bool,
     cmd: &AuthCommand,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let client: &ApiClient<DefaultHttpClient> = session.api();
     match cmd {
         AuthCommand::OtpRequest { json } => {
             let payload: OtpRequest = serde_json::from_str(json)?;
@@ -52,6 +54,31 @@ pub async fn handle_auth(
             }
             client.logout().await?;
             output::print_json(&serde_json::json!({"status": "ok"}), &output)
+        }
+        AuthCommand::ImpersonationCurrent => {
+            let status = client.get_impersonation_status().await?;
+            output::print_json(&status, &output)
+        }
+        AuthCommand::ImpersonationStop => {
+            if session.config().bearer_token.is_some() {
+                return Err(
+                    "browser impersonation requires cookie authentication; remove --bearer-token"
+                        .into(),
+                );
+            }
+            if dry_run {
+                output::print_json(
+                    &serde_json::json!({
+                        "method": "POST",
+                        "path": "auth/impersonation/stop",
+                        "body": {},
+                    }),
+                    &output,
+                )?;
+                return Ok(());
+            }
+            client.stop_impersonation().await?;
+            output::print_json(&serde_json::json!({"status": "stopped"}), &output)
         }
     }
 }

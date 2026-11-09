@@ -3,6 +3,7 @@ use std::fs;
 use shared::user::CreateUser;
 
 use crate::commands::UsersCommand;
+use crate::http_extra::start_impersonation;
 use crate::list_output::print_list;
 use crate::output::{self, OutputFormat};
 use crate::session::CliSession;
@@ -102,6 +103,35 @@ pub async fn handle_users(
             }
             client.delete_user(id).await?;
             output::print_json(&serde_json::json!({"deleted": true}), &output)
+        }
+        UsersCommand::Impersonate { user_id } => {
+            validate_resource_id(user_id)?;
+            if session.config().bearer_token.is_some() {
+                return Err(
+                    "browser impersonation requires cookie authentication; remove --bearer-token"
+                        .into(),
+                );
+            }
+            if dry_run {
+                output::print_json(
+                    &serde_json::json!({
+                        "method": "POST",
+                        "path": format!("api/v1/users/{user_id}/impersonation"),
+                        "body": {},
+                    }),
+                    &output,
+                )?;
+                return Ok(());
+            }
+            let (status, cookie) = start_impersonation(session, user_id).await?;
+            output::print_json(
+                &serde_json::json!({
+                    "status": status,
+                    "impersonation_cookie": cookie,
+                    "environment_variable": "WORSHIPVIEWER_IMPERSONATION_COOKIE",
+                }),
+                &output,
+            )
         }
     }
 }

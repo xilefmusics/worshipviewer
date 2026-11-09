@@ -260,6 +260,9 @@
     "blobMissing": "Diese Datei konnte nicht geladen werden.",
     "blobCancel": "Download abbrechen",
     "chordsRenderFailed": "Dieses Lied konnte nicht dargestellt werden.",
+    "copyWorshipProSuccess": "Worship Pro wurde in die Zwischenablage kopiert.",
+    "copyWorshipProFailed": "Worship Pro konnte nicht kopiert werden.",
+    "printFailed": "Der Song konnte nicht zum Drucken vorbereitet werden.",
     "threeColumnEmpty": "Dieses Lied hat keine Abschnitte zum Anzeigen.",
     "invalidLink": "Ungültiger Player-Link.",
     "online": "Online",
@@ -1289,6 +1292,7 @@
       "voteAdded": "Es wurde für {{title}} gestimmt",
       "voteRemoved": "Eine Stimme für {{title}} wurde zurückgenommen",
       "backgroundSet": "AV-Hintergrund geändert",
+      "configurationSet": "AV-Folieneinstellungen geändert",
       "presenceUpdated": "Teilnehmerliste aktualisiert ({{count}} verbunden)"
     },
     "you": "Du",
