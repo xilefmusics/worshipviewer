@@ -49,7 +49,9 @@ Removed tables, fields, and events may leave harmless `DEFINE` residue in older 
 
 ## Room messaging cutover
 
-`20261106120000_prepare_message_rooms.surql` deletes legacy `room` and `room_session` records, removes those obsolete table definitions, then creates the message-room schema. This intentionally discards old room snapshots, participants, invites and mutable queue state; there is no automatic conversion or mixed-client compatibility. The migration itself does not run against a deployed database during development. Before a production rollout, take and verify a database backup, stop/drain all old room WebSockets, and deploy the replacement backend and frontend as one cutover. Retain the backup for rollback because new message rooms cannot be read by the old application.
+`20261106120000_prepare_message_rooms.surql` deletes legacy `room` and `room_session` records, removes those obsolete table definitions, then creates the replacement schema. `20261109130000_rename_message_room_tables.surql` moves the new room and visit records to the final table names `room` and `room_visit`, preserving their data and updating room references. The cutover intentionally discards old room snapshots, participants, invites and mutable queue state; there is no automatic conversion or mixed-client compatibility. Before a production rollout, take and verify a database backup, stop/drain all old room WebSockets, and deploy the replacement backend and frontend as one cutover. Retain the backup for rollback because new message rooms cannot be read by the old application.
+
+`20261109140000_store_room_and_media_content_as_objects.surql` converts the serialized content fields on `room` and `media` into native objects, preserving the existing records.
 
 ## Local commands
 

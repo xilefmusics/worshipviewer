@@ -1,6 +1,7 @@
 pub mod rest;
 
 mod common;
+pub(crate) mod surreal_json;
 
 pub mod blob;
 pub use blob::{Blob, CreateBlob, UpdateBlob};

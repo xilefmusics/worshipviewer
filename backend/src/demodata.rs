@@ -364,7 +364,7 @@ async fn seed_generic(db: &Database) -> AnyResult<SeedSummary> {
                 pending_revision: None,
                 is_background: false,
             },
-        )?;
+        );
         upsert(db, RecordId::new("media", format!("demodata-{id}")), media).await?;
         summary.media += 1;
     }

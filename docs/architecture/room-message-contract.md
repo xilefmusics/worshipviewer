@@ -4,6 +4,8 @@ Rooms hold a fixed, source-ordered snapshot of chord songs. The room-scoped zero
 
 Each persisted change contains a unique client message ID, room ID, authenticated visit ID, server order and an absolute payload. The server derives visit identity from the one-use connection ticket; clients cannot set it. A new visit creates a fresh identity. A resume credential bound to both the account and room retains the identity for automatic socket reconnects. REST replay uses `x-room-resume`; the secret is never included in URLs or the message log.
 
+The database stores the room reference, visit ID, epoch, sequence and client message ID as row fields. The tagged `RoomChange` enum is stored as a native object in `change`, so the JSON representation is not nested inside a string and does not repeat the indexed envelope fields.
+
 ```json
 {"type":"selection","song":1,"section":2,"slide":7,"activate":false}
 {"type":"vote","song":1,"voted":true}
