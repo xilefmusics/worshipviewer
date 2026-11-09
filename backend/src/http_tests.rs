@@ -4236,6 +4236,34 @@ mod media_asset_http {
         assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/png");
         assert_eq!(&test::read_body(response).await[..], second_thumbnail);
 
+        let request = test::TestRequest::post()
+            .uri(&format!("/api/v1/media/{}/duplicate", media.id))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .set_json(DuplicateMedia::default())
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let duplicate: shared::media::Media = test::read_body_json(response).await;
+        let duplicate_thumbnail_id = match duplicate.content {
+            MediaContent::Video {
+                thumbnail_blob_id: Some(id),
+                ..
+            } => id,
+            other => panic!("expected duplicated video thumbnail, got {other:?}"),
+        };
+        assert_ne!(duplicate_thumbnail_id, second_thumbnail_id);
+        let request = test::TestRequest::get()
+            .uri(&format!(
+                "/api/v1/media/{}/assets/{}/data",
+                duplicate.id, duplicate_thumbnail_id
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/png");
+        assert_eq!(&test::read_body(response).await[..], second_thumbnail);
+
         let request = test::TestRequest::put()
             .uri(&format!(
                 "/api/v1/media/{}/uploads?kind=video&role=thumbnail",
