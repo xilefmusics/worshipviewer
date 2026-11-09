@@ -1289,6 +1289,7 @@
       "voteAdded": "Es wurde für {{title}} gestimmt",
       "voteRemoved": "Eine Stimme für {{title}} wurde zurückgenommen",
       "backgroundSet": "AV-Hintergrund geändert",
+      "configurationSet": "AV-Folieneinstellungen geändert",
       "presenceUpdated": "Teilnehmerliste aktualisiert ({{count}} verbunden)"
     },
     "you": "Du",

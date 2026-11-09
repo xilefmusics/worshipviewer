@@ -1289,6 +1289,7 @@
       "voteAdded": "A vote was added for {{title}}",
       "voteRemoved": "A vote was removed for {{title}}",
       "backgroundSet": "AV background changed",
+      "configurationSet": "AV slide configuration changed",
       "presenceUpdated": "Participant list updated ({{count}} connected)"
     },
     "you": "You",

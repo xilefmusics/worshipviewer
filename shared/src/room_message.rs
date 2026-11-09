@@ -1,7 +1,7 @@
 //! Internal contract for the replacement room protocol. See
 //! `docs/architecture/room-message-contract.md` for wire and persistence rules.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,121 @@ impl RoomBackground {
     }
 }
 
-/// Ordered navigation, vote and AV background events for a fixed room snapshot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RoomAvTextAlign {
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RoomAvVerticalAlign {
+    Top,
+    Center,
+    Bottom,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RoomAvHorizontalAlign {
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RoomAvTextShadow {
+    None,
+    Subtle,
+    Medium,
+    Strong,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RoomAvTextTransform {
+    None,
+    Uppercase,
+    Lowercase,
+    Capitalize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RoomAvTransitionStyle {
+    None,
+    Fade,
+    Slide,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RoomAvScreenState {
+    Live,
+    Blank,
+    Blackout,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct RoomAvContentLayer {
+    pub max_lines_per_slide: u8,
+    pub balance_slide_lines: bool,
+    pub font_size: u8,
+    pub text_align: RoomAvTextAlign,
+    pub vertical_align: RoomAvVerticalAlign,
+    pub horizontal_align: RoomAvHorizontalAlign,
+    pub text_shadow: RoomAvTextShadow,
+    pub text_transform: RoomAvTextTransform,
+    pub primary_text_lightness: u8,
+    pub secondary_text_lightness: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct RoomAvTransition {
+    pub style: RoomAvTransitionStyle,
+    pub duration_ms: u16,
+}
+
+/// Rendering settings shared by the AV controller with slide-only room members.
+/// Output-window preferences remain local; the room background uses its own change.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct RoomAvConfiguration {
+    pub content_layer: RoomAvContentLayer,
+    pub transition: RoomAvTransition,
+    pub bilingual_enabled: bool,
+    pub collapse_lyric_whitespace: bool,
+    pub language_by_item: BTreeMap<String, usize>,
+    pub screen_state: RoomAvScreenState,
+}
+
+impl RoomAvConfiguration {
+    pub fn is_valid(&self, song_count: usize) -> bool {
+        (1..=10).contains(&self.content_layer.max_lines_per_slide)
+            && (20..=120).contains(&self.content_layer.font_size)
+            && self.content_layer.primary_text_lightness <= 100
+            && self.content_layer.secondary_text_lightness <= 100
+            && self.transition.duration_ms <= 2000
+            && self.language_by_item.len() <= song_count
+            && self.language_by_item.iter().all(|(song, language)| {
+                song.parse::<usize>().is_ok_and(|index| index < song_count) && *language <= 255
+            })
+    }
+}
+
+/// Ordered navigation, vote, AV configuration and background events for a fixed room snapshot.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -66,6 +180,8 @@ pub enum RoomChange {
     Vote { song: usize, voted: bool },
     /// Replaces the shared AV background layer.
     SetBackground { background: RoomBackground },
+    /// Replaces the AV rendering configuration used by slide-only members.
+    SetAvConfiguration { configuration: RoomAvConfiguration },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -180,6 +296,7 @@ pub struct RoomReplay {
     songs: Vec<SongState>,
     selection: Option<(usize, usize, usize)>,
     background: Option<RoomBackground>,
+    av_configuration: Option<RoomAvConfiguration>,
     last_order: Option<RoomMessageOrder>,
     seen: HashMap<String, RoomMessage>,
 }
@@ -193,6 +310,7 @@ impl RoomReplay {
             section_counts,
             selection: None,
             background: None,
+            av_configuration: None,
             last_order: None,
             seen: HashMap::new(),
         }
@@ -263,6 +381,12 @@ impl RoomReplay {
                 }
                 self.background = Some(background.clone());
             }
+            RoomChange::SetAvConfiguration { ref configuration } => {
+                if !configuration.is_valid(self.section_counts.len()) {
+                    return Err(RoomReplayError::InvalidReference);
+                }
+                self.av_configuration = Some(configuration.clone());
+            }
         }
         self.last_order = Some(message.order);
         self.seen.insert(message.id.clone(), message);
@@ -275,6 +399,10 @@ impl RoomReplay {
 
     pub fn background(&self) -> Option<&RoomBackground> {
         self.background.as_ref()
+    }
+
+    pub fn av_configuration(&self) -> Option<&RoomAvConfiguration> {
+        self.av_configuration.as_ref()
     }
 
     /// Unplayed first, then descending votes, then the immutable source index.
@@ -306,6 +434,31 @@ impl RoomReplay {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn av_configuration() -> RoomAvConfiguration {
+        RoomAvConfiguration {
+            content_layer: RoomAvContentLayer {
+                max_lines_per_slide: 4,
+                balance_slide_lines: true,
+                font_size: 50,
+                text_align: RoomAvTextAlign::Center,
+                vertical_align: RoomAvVerticalAlign::Center,
+                horizontal_align: RoomAvHorizontalAlign::Center,
+                text_shadow: RoomAvTextShadow::Subtle,
+                text_transform: RoomAvTextTransform::None,
+                primary_text_lightness: 100,
+                secondary_text_lightness: 80,
+            },
+            transition: RoomAvTransition {
+                style: RoomAvTransitionStyle::Fade,
+                duration_ms: 300,
+            },
+            bilingual_enabled: true,
+            collapse_lyric_whitespace: false,
+            language_by_item: BTreeMap::from([(String::from("0"), 1)]),
+            screen_state: RoomAvScreenState::Live,
+        }
+    }
 
     fn message(sequence: u64, visit: &str, change: RoomChange) -> RoomMessage {
         RoomMessage {
@@ -513,6 +666,35 @@ mod tests {
                         preset: 5,
                         image: None,
                     },
+                },
+            )),
+            Err(RoomReplayError::InvalidReference)
+        );
+    }
+
+    #[test]
+    fn replays_shared_av_configuration_and_rejects_invalid_values() {
+        let configuration = av_configuration();
+        let mut replay = RoomReplay::new("room".into(), vec![1]);
+        replay
+            .apply(message(
+                1,
+                "host",
+                RoomChange::SetAvConfiguration {
+                    configuration: configuration.clone(),
+                },
+            ))
+            .unwrap();
+        assert_eq!(replay.av_configuration(), Some(&configuration));
+
+        let mut invalid = av_configuration();
+        invalid.content_layer.max_lines_per_slide = 0;
+        assert_eq!(
+            replay.apply(message(
+                2,
+                "host",
+                RoomChange::SetAvConfiguration {
+                    configuration: invalid,
                 },
             )),
             Err(RoomReplayError::InvalidReference)

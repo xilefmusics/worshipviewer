@@ -9,6 +9,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 - Import songs from searchable CCLI PDFs directly in song creation.
 - Upload image backgrounds to the media library and use them in AV projection.
 - Fixed-pool team Rooms with immutable captured song content, authenticated direct-link access, ordered shared messages, virtual vote ranking, and reconnecting presence.
+- Rooms now share the AV controller's slide configuration with slide-only members, including line count, language, bilingual output, blank, and blackout state.
 - Spotify track and playlist Media items with external playback controls in the AV player.
 - Independent grayscale text controls for primary and translated AV lyrics.
 - `./scripts/verify-ci.sh` — one-shot local run of CI-equivalent checks (fmt, audit, tests, OpenAPI, frontend build).

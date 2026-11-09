@@ -1758,6 +1758,55 @@ export interface components {
         };
         /** @enum {string} */
         Role: "default" | "admin";
+        /**
+         * @description Rendering settings shared by the AV controller with slide-only room members.
+         *     Output-window preferences remain local; the room background uses its own change.
+         */
+        RoomAvConfiguration: {
+            bilingual_enabled: boolean;
+            collapse_lyric_whitespace: boolean;
+            content_layer: components["schemas"]["RoomAvContentLayer"];
+            language_by_item: {
+                [key: string]: number;
+            };
+            screen_state: components["schemas"]["RoomAvScreenState"];
+            transition: components["schemas"]["RoomAvTransition"];
+        };
+        RoomAvContentLayer: {
+            balance_slide_lines: boolean;
+            /** Format: int32 */
+            font_size: number;
+            horizontal_align: components["schemas"]["RoomAvHorizontalAlign"];
+            /** Format: int32 */
+            max_lines_per_slide: number;
+            /** Format: int32 */
+            primary_text_lightness: number;
+            /** Format: int32 */
+            secondary_text_lightness: number;
+            text_align: components["schemas"]["RoomAvTextAlign"];
+            text_shadow: components["schemas"]["RoomAvTextShadow"];
+            text_transform: components["schemas"]["RoomAvTextTransform"];
+            vertical_align: components["schemas"]["RoomAvVerticalAlign"];
+        };
+        /** @enum {string} */
+        RoomAvHorizontalAlign: "left" | "center" | "right";
+        /** @enum {string} */
+        RoomAvScreenState: "live" | "blank" | "blackout";
+        /** @enum {string} */
+        RoomAvTextAlign: "left" | "center" | "right";
+        /** @enum {string} */
+        RoomAvTextShadow: "none" | "subtle" | "medium" | "strong";
+        /** @enum {string} */
+        RoomAvTextTransform: "none" | "uppercase" | "lowercase" | "capitalize";
+        RoomAvTransition: {
+            /** Format: int32 */
+            duration_ms: number;
+            style: components["schemas"]["RoomAvTransitionStyle"];
+        };
+        /** @enum {string} */
+        RoomAvTransitionStyle: "none" | "fade" | "slide";
+        /** @enum {string} */
+        RoomAvVerticalAlign: "top" | "center" | "bottom";
         /** @description A preset plus an optional custom media image reference for the room AV background. */
         RoomBackground: {
             image?: components["schemas"]["RoomBackgroundImage"] | null;
@@ -1768,7 +1817,7 @@ export interface components {
             asset_id: string;
             media_id: string;
         };
-        /** @description Ordered navigation, vote and AV background events for a fixed room snapshot. */
+        /** @description Ordered navigation, vote, AV configuration and background events for a fixed room snapshot. */
         RoomChange: {
             activate: boolean;
             /** @description Source section index. Absent only for legacy messages that used `slide` for this value. */
@@ -1787,6 +1836,10 @@ export interface components {
             background: components["schemas"]["RoomBackground"];
             /** @enum {string} */
             type: "set_background";
+        } | {
+            configuration: components["schemas"]["RoomAvConfiguration"];
+            /** @enum {string} */
+            type: "set_av_configuration";
         };
         /** @description Immutable chord-song content captured from the selected source at creation. */
         RoomContent: {
