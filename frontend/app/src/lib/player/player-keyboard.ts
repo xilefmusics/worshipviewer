@@ -29,9 +29,35 @@ function isEditableTarget(target: EventTarget | null): boolean {
     closest?: (selector: string) => unknown
   }
   const tag = el.tagName
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return true
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
   if (el.isContentEditable) return true
   return el.closest?.('[contenteditable="true"]') != null
+}
+
+/** Whether the user requested copying the current song instead of browser text. */
+export function isCopyWorshipProShortcut(
+  event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey' | 'target'>,
+): boolean {
+  return (
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    !event.shiftKey &&
+    event.key.toLowerCase() === 'c' &&
+    !isEditableTarget(event.target)
+  )
+}
+
+/** Whether the user requested the app's single-song PDF print from a player. */
+export function isPrintPlayerPdfShortcut(
+  event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey' | 'target'>,
+): boolean {
+  return (
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    !event.shiftKey &&
+    event.key.toLowerCase() === 'p' &&
+    !isEditableTarget(event.target)
+  )
 }
 
 function transposeAction(key: string): PlayerKeyboardAction {
