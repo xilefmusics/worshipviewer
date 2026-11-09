@@ -64,6 +64,10 @@ import {
   parsePlayerEditorReturnSearch,
   type PlayerEditorReturnContext,
 } from '@/lib/player/player-editor-return'
+import {
+  buildRoomSettingsReturnNavigation,
+  parseRoomSettingsReturnSearch,
+} from '@/lib/settings-route'
 import { playerQueryKey } from '@/lib/setlist-detail-key'
 import { isUserTeamAdmin } from '@/lib/team-permissions'
 import { teamDetailKey, teamsListRootKey } from '@/lib/teams-sessions-keys'
@@ -418,6 +422,9 @@ function HubChrome({
     : null
   const settingsPlayerReturn = isSettings
     ? parsePlayerEditorReturnSearch(locationSearch as Record<string, unknown>)
+    : null
+  const settingsRoomReturn = isSettings
+    ? parseRoomSettingsReturnSearch(locationSearch as Record<string, unknown>)
     : null
   const { data: headerSetlist } = useSetlistDetailQuery(isSetlistDetail ? setlistEditorId : '')
   const { data: headerCollection } = useCollectionDetailQuery(isCollectionDetail ? collectionEditorId : '')
@@ -876,6 +883,10 @@ function HubChrome({
                 size="icon"
                 variant="outline"
                 onClick={() => {
+                  if (settingsRoomReturn) {
+                    void navigate(buildRoomSettingsReturnNavigation(settingsRoomReturn))
+                    return
+                  }
                   if (settingsPlayerReturn) {
                     navigateBackToPlayer(settingsPlayerReturn)
                     return
@@ -884,7 +895,11 @@ function HubChrome({
                 }}
                 className={hubDetailBackButtonClass}
                 aria-label={
-                  settingsPlayerReturn ? t('player.backToList') : t('settings.back')
+                  settingsRoomReturn
+                    ? t('rooms.backToList')
+                    : settingsPlayerReturn
+                      ? t('player.backToList')
+                      : t('settings.back')
                 }
               >
                 <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />

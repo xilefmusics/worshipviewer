@@ -110,7 +110,7 @@ import { tocEntryForIndex } from '@/lib/player/player-helpers'
 import type { RoomDebugLog } from '@/lib/room-message-debug'
 import type { PlayerEntityType } from '@/lib/player-route'
 import { songLanguageOptions } from '@/lib/player/song-language'
-import { buildSettingsSearch } from '@/lib/settings-route'
+import { buildSettingsSearch, type RoomSettingsReturnContext } from '@/lib/settings-route'
 import { cn } from '@/lib/utils'
 
 import './player-av.css'
@@ -128,6 +128,7 @@ type PlayerAvProps = {
   showEmbeddedRightPanel?: boolean
   slideOnly?: boolean
   backToOverride?: '/rooms' | '/media'
+  roomSettingsReturn?: RoomSettingsReturnContext
   resourceTitle?: string
   deletedReconciled?: boolean
   allowLibraryActions?: boolean
@@ -191,6 +192,7 @@ export function PlayerAv({
   showEmbeddedRightPanel = false,
   slideOnly = false,
   backToOverride,
+  roomSettingsReturn,
   resourceTitle,
   allowLibraryActions = true,
   tocSidebar,
@@ -1087,7 +1089,11 @@ export function PlayerAv({
           >
             <Link
               to="/settings"
-              search={buildSettingsSearch('playerRoles', playerReturnContext)}
+              search={buildSettingsSearch(
+                'playerRoles',
+                roomSettingsReturn ? null : playerReturnContext,
+                roomSettingsReturn,
+              )}
               aria-label={t('player.av.openSettings')}
             >
               <SettingsIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />

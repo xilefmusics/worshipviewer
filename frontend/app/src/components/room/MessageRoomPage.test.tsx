@@ -27,9 +27,9 @@ vi.mock('@/components/room/RoomPlayerShell', () => ({
   RoomPlayerShell: ({ player }: { player: React.ReactNode }) => <div>{player}</div>,
 }))
 vi.mock('@/components/player/PlayerBook', () => ({
-  PlayerBook: ({ sharedSelection, onSharedSelectionChange, renderTocRowSuffix }: { sharedSelection: { song: number; section: number; slide: number } | null; onSharedSelectionChange: (song: number, section: number, slide: number, activate: boolean) => void; renderTocRowSuffix?: (entry: import('@/lib/player/toc-display').TocDisplayEntry) => React.ReactNode }) => (
+  PlayerBook: ({ sharedSelection, onSharedSelectionChange, renderTocRowSuffix, roomSettingsReturn }: { sharedSelection: { song: number; section: number; slide: number } | null; onSharedSelectionChange: (song: number, section: number, slide: number, activate: boolean) => void; renderTocRowSuffix?: (entry: import('@/lib/player/toc-display').TocDisplayEntry) => React.ReactNode; roomSettingsReturn?: { roomId: string; mode: string } }) => (
     <div>
-      <button type="button" data-testid="room-player" onClick={() => onSharedSelectionChange(1, 0, 0, true)}>{`sheet:${sharedSelection?.song ?? 'none'}`}</button>
+      <button type="button" data-testid="room-player" data-settings-room-id={roomSettingsReturn?.roomId} data-settings-room-mode={roomSettingsReturn?.mode} onClick={() => onSharedSelectionChange(1, 0, 0, true)}>{`sheet:${sharedSelection?.song ?? 'none'}`}</button>
       {renderTocRowSuffix?.({ key: 'song-a', sourceIdx: 0, title: 'Song A', languageIndex: null, liked: false, showNumber: true })}
       {renderTocRowSuffix?.({ key: 'song-b', sourceIdx: 1, title: 'Song B', languageIndex: null, liked: false, showNumber: true })}
     </div>
@@ -39,12 +39,14 @@ vi.mock('@/components/player/av/PlayerAv', () => ({
   PlayerAv: ({
     sharedSelection,
     onSharedBackgroundChange,
+    roomSettingsReturn,
   }: {
     sharedSelection: { song: number; slide: number } | null
     onSharedBackgroundChange: (background: { preset: number; image?: { mediaId: string; assetId: string } }) => void
+    roomSettingsReturn?: { roomId: string; mode: string }
   }) => (
     <div>
-      <div data-testid="room-player">{`av:${sharedSelection?.song ?? 'none'}`}</div>
+      <div data-testid="room-player" data-settings-room-id={roomSettingsReturn?.roomId} data-settings-room-mode={roomSettingsReturn?.mode}>{`av:${sharedSelection?.song ?? 'none'}`}</div>
       <button
         type="button"
         data-testid="set-room-background"
@@ -108,6 +110,8 @@ describe('MessageRoomPage', () => {
 
     expect(await screen.findByRole('button', { name: 'rooms.voteForSong:Song A' })).toHaveTextContent('▲ 0')
     expect(screen.getByRole('button', { name: 'rooms.voteForSong:Song B' })).toHaveTextContent('▲ 1')
+    expect(screen.getByTestId('room-player')).toHaveAttribute('data-settings-room-id', 'room-1')
+    expect(screen.getByTestId('room-player')).toHaveAttribute('data-settings-room-mode', 'sheet')
     expect(screen.queryByText('rooms.queue.title')).not.toBeInTheDocument()
     expect(screen.queryByText('rooms.details')).not.toBeInTheDocument()
     expect(screen.queryByText('rooms.participants')).not.toBeInTheDocument()
@@ -129,7 +133,9 @@ describe('MessageRoomPage', () => {
     mocks.joinRoom.mockResolvedValue({ ...credentials, mode: 'av' })
     renderWithProviders(<MessageRoomPage roomId="room-1" initialMode="av" />)
 
-    fireEvent.click(await screen.findByTestId('set-room-background'))
+    expect(await screen.findByTestId('room-player')).toHaveAttribute('data-settings-room-id', 'room-1')
+    expect(screen.getByTestId('room-player')).toHaveAttribute('data-settings-room-mode', 'av')
+    fireEvent.click(screen.getByTestId('set-room-background'))
     expect(mocks.sendChange).toHaveBeenCalledWith({
       type: 'set_background',
       background: {

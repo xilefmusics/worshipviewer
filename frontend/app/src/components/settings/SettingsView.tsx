@@ -119,7 +119,11 @@ import {
 } from '@/lib/offline/player-mirror-cache'
 import type { PlayerMirrorRow } from '@/lib/dexie-db'
 import type { PlayerEditorReturnContext } from '@/lib/player/player-editor-return'
-import { buildSettingsSearch, type SettingsTab } from '@/lib/settings-route'
+import {
+  buildSettingsSearch,
+  type RoomSettingsReturnContext,
+  type SettingsTab,
+} from '@/lib/settings-route'
 import { cn } from '@/lib/utils'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
 
@@ -494,9 +498,11 @@ function SettingsProfilePictureSection({ user }: { user: User }) {
 export function SettingsView({
   activeTab,
   playerReturn = null,
+  roomReturn = null,
 }: {
   activeTab: SettingsTab
   playerReturn?: PlayerEditorReturnContext | null
+  roomReturn?: RoomSettingsReturnContext | null
 }) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -895,7 +901,10 @@ export function SettingsView({
               aria-controls={`settings-panel-${tab}`}
               tabIndex={selected ? 0 : -1}
               onClick={() =>
-                void navigate({ to: '/settings', search: buildSettingsSearch(tab, playerReturn) })
+                void navigate({
+                  to: '/settings',
+                  search: buildSettingsSearch(tab, playerReturn, roomReturn),
+                })
               }
               className={cn(
                 'min-w-0 flex-1 rounded-full px-2 py-2.5 text-sm font-medium transition-colors',
