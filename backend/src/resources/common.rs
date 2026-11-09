@@ -7,7 +7,8 @@ use surrealdb::engine::any::Any;
 use surrealdb::types::{Kind, RecordId, SurrealValue, Value, kind};
 
 use crate::resources::media::MediaRecord;
-use shared::player::Player;
+use crate::resources::surreal_json::JsonObject;
+use shared::player::{Player, PlayerBackground};
 use shared::setlist::{SetlistItem, SetlistMediaLink, SongLink as SetlistSongLink};
 use shared::song::{Link as SongLink, LinkOwned as SongLinkOwned};
 
@@ -145,6 +146,7 @@ pub fn player_from_song_links(
                 tempo: link.tempo,
                 language: link.language,
                 flow: link.flow,
+                background: link.background,
             })
         })
         .try_fold(Player::default(), |acc, player| {
@@ -257,6 +259,7 @@ fn song_link_records_to_owned(
             tempo: link.tempo,
             language: link.language,
             flow: None,
+            background: None,
             liked: false,
         });
     }
@@ -292,6 +295,7 @@ fn setlist_song_link_records_to_owned(
             flow: link
                 .flow
                 .and_then(|flow| serde_json::from_value(serde_json::Value::Array(flow)).ok()),
+            background: link.background.map(|background| background.0),
             liked: false,
         });
     }
@@ -334,6 +338,8 @@ pub struct SetlistSongLinkRecord {
     language: Option<String>,
     #[serde(default)]
     flow: Option<Vec<serde_json::Value>>,
+    #[serde(default)]
+    background: Option<JsonObject<PlayerBackground>>,
 }
 
 impl From<SongLinkRecord> for SongLink {
@@ -377,6 +383,8 @@ pub struct SetlistItemRecord {
     pub language: Option<String>,
     #[serde(default)]
     pub flow: Option<Vec<serde_json::Value>>,
+    #[serde(default)]
+    pub(crate) background: Option<JsonObject<PlayerBackground>>,
 }
 
 impl SetlistItemRecord {
@@ -392,6 +400,7 @@ impl SetlistItemRecord {
             tempo: self.tempo,
             language: self.language.clone(),
             flow: self.flow.clone(),
+            background: self.background.clone(),
         })
     }
 }
@@ -412,6 +421,7 @@ impl From<SetlistItem> for SetlistItemRecord {
                         .map(|item| serde_json::to_value(item).unwrap_or(serde_json::Value::Null))
                         .collect()
                 }),
+                background: link.background.map(|background| JsonObject(*background)),
             },
             SetlistItem::Media(link) => Self {
                 kind: "media".into(),
@@ -422,6 +432,7 @@ impl From<SetlistItem> for SetlistItemRecord {
                 tempo: None,
                 language: None,
                 flow: None,
+                background: None,
             },
         }
     }
@@ -444,6 +455,7 @@ impl From<SetlistItemRecord> for SetlistItem {
             flow: record
                 .flow
                 .and_then(|flow| serde_json::from_value(serde_json::Value::Array(flow)).ok()),
+            background: record.background.map(|background| Box::new(background.0)),
         })
     }
 }
@@ -462,6 +474,7 @@ impl From<SetlistSongLink> for SetlistSongLinkRecord {
                     .map(|item| serde_json::to_value(item).unwrap_or(serde_json::Value::Null))
                     .collect()
             }),
+            background: link.background.map(|background| JsonObject(*background)),
         }
     }
 }
@@ -478,6 +491,7 @@ impl From<SetlistSongLinkRecord> for SetlistSongLink {
             flow: record
                 .flow
                 .and_then(|flow| serde_json::from_value(serde_json::Value::Array(flow)).ok()),
+            background: record.background.map(|background| Box::new(background.0)),
         }
     }
 }
@@ -569,6 +583,7 @@ mod tests {
                 tempo: None,
                 language: None,
                 flow: None,
+                background: None,
                 liked: false,
             },
             SongLinkOwned {
@@ -579,6 +594,7 @@ mod tests {
                 tempo: None,
                 language: None,
                 flow: None,
+                background: None,
                 liked: false,
             },
         ];

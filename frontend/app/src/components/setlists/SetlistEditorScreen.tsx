@@ -35,6 +35,7 @@ import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
 import { SetlistFlowEditorSheet } from '@/components/setlists/SetlistFlowEditorSheet'
 import { SetlistSongPickerSheet } from '@/components/setlists/SetlistSongPickerSheet'
 import { SetlistMediaPickerSheet } from '@/components/setlists/SetlistMediaPickerSheet'
+import { SongBackgroundOverridePicker } from '@/components/setlists/SongBackgroundOverridePicker'
 import { CapoShapePicker } from '@/components/setlists/CapoShapePicker'
 import { useCanEditSetlist } from '@/hooks/useCanEditSetlist'
 import { useSession } from '@/hooks/useSession'
@@ -677,6 +678,16 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
                     })
                     queueMicrotask(() => notifyDraftEdited())
                   }}
+                  onPatchBackground={(background) => {
+                    setSlotRows((prev) => {
+                      const next = [...prev]
+                      const cur = next[idx]
+                      if (!cur || cur.type !== 'song') return prev
+                      next[idx] = { ...cur, link: { ...cur.link, background } }
+                      return next
+                    })
+                    queueMicrotask(() => notifyDraftEdited())
+                  }}
                   onEditFlow={() => setFlowEditorSlotId(row.slotId)}
                   onRemove={() => removeAtIndex(idx)}
                 />
@@ -829,6 +840,7 @@ type SortProps = {
   onPatchCapoShape: (shapeKey: CapoShapeKey | null) => void
   onPatchTempo: (tempo: number | null) => void
   onPatchLanguage: (language: string | null) => void
+  onPatchBackground: (background: import('@/lib/setlist-background').SetlistSongBackground | null) => void
   onEditFlow: () => void
   onRemove: () => void
 }
@@ -1053,6 +1065,13 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
                     canEditUi={canEditUi}
                     blockingAll={blockingAll}
                     onPatchLanguage={props.onPatchLanguage}
+                  />
+                  <SongBackgroundOverridePicker
+                    background={row.link.background ?? null}
+                    songTitle={titleLabel}
+                    canEdit={canEditUi}
+                    disabled={blockingAll}
+                    onChange={props.onPatchBackground}
                   />
                   <FlowOverrideChip
                     hasCustomFlow={hasCustomFlow}

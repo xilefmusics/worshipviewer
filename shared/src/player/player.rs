@@ -293,7 +293,12 @@ impl Add for Player {
         }
         let self_len = self.items.len();
         let last_self_item = self.items.last().expect("non-empty").clone();
-        let skip_leading_shared_blob = |item: &PlayerItem| matches!((&last_self_item, item), (PlayerItem::Blob(a), PlayerItem::Blob(b)) if a == b);
+        let same_background = self.toc.last().map(|item| &item.background)
+            == other.toc.first().map(|item| &item.background);
+        let skip_leading_shared_blob = |item: &PlayerItem| {
+            same_background
+                && matches!((&last_self_item, item), (PlayerItem::Blob(a), PlayerItem::Blob(b)) if a == b)
+        };
         Self {
             toc: self
                 .toc
@@ -308,6 +313,7 @@ impl Add for Player {
                     id: item.id.clone(),
                     nr: item.nr.clone(),
                     liked: item.liked,
+                    background: item.background.clone(),
                 }))
                 .collect::<Vec<TocItem>>(),
             items: self
@@ -365,6 +371,7 @@ impl From<SongLinkOwned> for Player {
                     id: Some(link.song.id.clone()),
                     nr: link.nr.clone().unwrap_or_default(),
                     liked: link.liked,
+                    background: link.background.clone(),
                 }]
             },
             scroll_type: ScrollType::default(),
@@ -388,6 +395,7 @@ impl From<super::PlayerMediaItem> for Player {
                 id: Some(id),
                 nr: String::new(),
                 liked: false,
+                background: None,
             }],
             scroll_type: ScrollType::default(),
             scroll_type_cache_other_orientation: ScrollType::Book,
@@ -425,6 +433,7 @@ mod tests {
             capo_shape: None,
             tempo: Some(88),
             flow: None,
+            background: None,
             liked: false,
             language: None,
         };
@@ -445,6 +454,7 @@ mod tests {
             capo_shape: None,
             tempo: None,
             flow: None,
+            background: None,
             language: None,
             liked: false,
         };
@@ -465,6 +475,7 @@ mod tests {
             capo_shape: None,
             tempo: None,
             flow: None,
+            background: None,
             language: Some("de".into()),
             liked: false,
         };
@@ -488,6 +499,7 @@ mod tests {
             capo_shape: None,
             tempo: None,
             flow: None,
+            background: None,
             language: Some("de".into()),
             liked: false,
         };
@@ -505,6 +517,7 @@ mod tests {
             capo_shape: None,
             tempo: None,
             flow: None,
+            background: None,
             language: None,
             liked: false,
         };
@@ -534,6 +547,7 @@ mod tests {
             capo_shape: None,
             tempo: None,
             flow: None,
+            background: None,
             language: None,
             liked: false,
         };
@@ -544,6 +558,64 @@ mod tests {
         assert_eq!(player.toc.len(), 2);
         assert_eq!(player.toc[0].idx, 0);
         assert_eq!(player.toc[1].idx, 0);
+    }
+
+    #[test]
+    fn add_keeps_identical_blob_items_separate_when_backgrounds_differ() {
+        use crate::player::{PlayerBackground, PlayerBackgroundImage};
+
+        let song = Song {
+            id: "blob-song".into(),
+            blobs: vec![crate::blob::BlobLink {
+                id: "blob-1".into(),
+            }],
+            ..Default::default()
+        };
+        let link = |song: Song, asset_id: &str| SongLinkOwned {
+            song,
+            nr: None,
+            key: None,
+            capo_shape: None,
+            tempo: None,
+            flow: None,
+            background: Some(PlayerBackground {
+                preset: 2,
+                image: Some(PlayerBackgroundImage {
+                    media_id: "media-bg".into(),
+                    asset_id: asset_id.into(),
+                }),
+                video: None,
+            }),
+            language: None,
+            liked: false,
+        };
+
+        let player =
+            Player::from(link(song.clone(), "asset-one")) + Player::from(link(song, "asset-two"));
+
+        assert_eq!(player.items.len(), 2);
+        assert_eq!(
+            player.toc[0]
+                .background
+                .as_ref()
+                .unwrap()
+                .image
+                .as_ref()
+                .unwrap()
+                .asset_id,
+            "asset-one"
+        );
+        assert_eq!(
+            player.toc[1]
+                .background
+                .as_ref()
+                .unwrap()
+                .image
+                .as_ref()
+                .unwrap()
+                .asset_id,
+            "asset-two"
+        );
     }
 
     #[test]
@@ -575,6 +647,7 @@ mod tests {
             capo_shape: None,
             tempo: None,
             flow: None,
+            background: None,
             language: None,
             liked: false,
         });

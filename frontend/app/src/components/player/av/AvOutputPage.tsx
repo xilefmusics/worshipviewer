@@ -127,6 +127,7 @@ export function AvOutputPage({
         }}
         contentLayer={command?.contentLayer ?? DEFAULT_AV_PREFERENCES.contentLayer}
         backgroundLayer={command?.backgroundLayer ?? DEFAULT_AV_PREFERENCES.backgroundLayer}
+        fallbackBackgroundLayer={command?.fallbackBackgroundLayer ?? command?.backgroundLayer}
         transition={command?.transition ?? DEFAULT_AV_PREFERENCES.transition}
         screenState={screenState}
       />

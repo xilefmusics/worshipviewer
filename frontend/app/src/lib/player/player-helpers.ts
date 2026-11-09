@@ -15,6 +15,16 @@ export function tocEntryForIndex(toc: TocItem[], index: number): TocItem | undef
   return toc.find((row) => row.idx === index)
 }
 
+/** Resolve the owning TOC slot for a flattened player item, including later sheet pages. */
+export function tocSlotEntryForIndex(toc: TocItem[], index: number): TocItem | undefined {
+  let match: TocItem | undefined
+  for (const row of toc) {
+    if (row.idx > index) continue
+    if (!match || row.idx >= match.idx) match = row
+  }
+  return match
+}
+
 export function hasChordsItems(items: PlayerItem[]): boolean {
   return items.some((item) => item.type === 'chords')
 }

@@ -4405,7 +4405,7 @@ mod setlist_items_http {
     use actix_web::http::StatusCode;
     use chordlib::types::SimpleChord;
     use shared::media::{CreateMedia, CreateMediaContent, Media};
-    use shared::player::Player;
+    use shared::player::{Player, PlayerBackground, PlayerBackgroundImage, PlayerBackgroundVideo};
     use shared::setlist::{CreateSetlist, Setlist, SetlistItem, SongLink};
     use shared::song::Song;
 
@@ -4474,6 +4474,14 @@ mod setlist_items_http {
                 tempo: Some(88),
                 language: Some("de".into()),
                 flow: None,
+                background: Some(Box::new(PlayerBackground {
+                    preset: 2,
+                    image: Some(PlayerBackgroundImage {
+                        media_id: "missing-background-media".into(),
+                        asset_id: "missing-background-asset".into(),
+                    }),
+                    video: None,
+                })),
             }),
             SetlistItem::media(&second.id),
             SetlistItem::Song(SongLink {
@@ -4484,6 +4492,7 @@ mod setlist_items_http {
                 tempo: None,
                 language: None,
                 flow: None,
+                background: None,
             }),
             SetlistItem::media(&ready.id),
             SetlistItem::Song(SongLink {
@@ -4494,6 +4503,15 @@ mod setlist_items_http {
                 tempo: None,
                 language: None,
                 flow: None,
+                background: Some(Box::new(PlayerBackground {
+                    preset: 2,
+                    image: None,
+                    video: Some(PlayerBackgroundVideo {
+                        media_id: "missing-video-media".into(),
+                        asset_id: "missing-video-asset".into(),
+                        thumbnail_asset_id: Some("missing-video-thumb".into()),
+                    }),
+                })),
             }),
         ];
         let request = test::TestRequest::post()
@@ -4516,9 +4534,20 @@ mod setlist_items_http {
             .to_request();
         let response = test::call_service(&app, request).await;
         assert_eq!(response.status(), StatusCode::OK);
+        let setlist_etag = response
+            .headers()
+            .get("etag")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
         let fetched: Setlist = test::read_body_json(response).await;
         assert_eq!(fetched.items, items);
         assert_eq!(fetched.items[1].as_song().unwrap().tempo, Some(88));
+        assert_eq!(
+            fetched.items[1].as_song().unwrap().background,
+            items[1].as_song().unwrap().background
+        );
         assert_eq!(
             fetched.items[1].as_song().unwrap().language.as_deref(),
             Some("de")
@@ -4553,6 +4582,14 @@ mod setlist_items_http {
         assert_eq!(book.toc()[0].idx, 0);
         assert_eq!(book.toc()[1].idx, 1);
         assert_eq!(book.toc()[2].idx, 2);
+        assert_eq!(
+            book.toc()[0].background,
+            items[1].as_song().unwrap().background.as_deref().cloned()
+        );
+        assert_eq!(
+            book.toc()[2].background,
+            items[5].as_song().unwrap().background.as_deref().cloned()
+        );
         match &book.items()[0] {
             shared::player::PlayerItem::Chords(item) => {
                 assert_eq!(item.capo_shape, Some(SimpleChord::new(10)))
@@ -4592,6 +4629,14 @@ mod setlist_items_http {
             av.items()[5],
             shared::player::PlayerItem::Chords(_)
         ));
+        assert_eq!(
+            av.toc()[1].background,
+            items[1].as_song().unwrap().background.as_deref().cloned()
+        );
+        assert_eq!(
+            av.toc()[5].background,
+            items[5].as_song().unwrap().background.as_deref().cloned()
+        );
         match &av.items()[0] {
             shared::player::PlayerItem::Media(item) => {
                 assert_eq!(item.id, ready.id);
@@ -4599,6 +4644,44 @@ mod setlist_items_http {
             }
             _ => panic!("expected media"),
         }
+
+        let mut updated_items = items.clone();
+        if let SetlistItem::Song(link) = &mut updated_items[1] {
+            link.background = None;
+        }
+        if let SetlistItem::Song(link) = &mut updated_items[3] {
+            link.background = Some(Box::new(PlayerBackground {
+                preset: 2,
+                image: None,
+                video: None,
+            }));
+        }
+        let request = test::TestRequest::patch()
+            .uri(&format!("/api/v1/setlists/{}", created.id))
+            .insert_header(("Authorization", auth.clone()))
+            .insert_header(("If-Match", setlist_etag))
+            .set_json(serde_json::json!({ "items": updated_items }))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let patched: Setlist = test::read_body_json(response).await;
+        assert_eq!(patched.items[1].as_song().unwrap().background, None);
+        assert_eq!(
+            patched.items[3].as_song().unwrap().background,
+            Some(Box::new(PlayerBackground {
+                preset: 2,
+                image: None,
+                video: None,
+            }))
+        );
+
+        let request = test::TestRequest::get()
+            .uri(&format!("/api/v1/setlists/{}", created.id))
+            .insert_header(("Authorization", auth.clone()))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        let after_update: Setlist = test::read_body_json(response).await;
+        assert_eq!(after_update.items, updated_items);
 
         let request = test::TestRequest::delete()
             .uri(&format!("/api/v1/media/{}", ready.id))

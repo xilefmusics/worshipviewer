@@ -1690,6 +1690,22 @@ export interface components {
             scroll_type_cache_other_orientation: components["schemas"]["ScrollType"];
             toc: components["schemas"]["TocItem"][];
         };
+        /** @description Background selected for a setlist song slot or AV player TOC entry. */
+        PlayerBackground: {
+            image?: components["schemas"]["PlayerBackgroundImage"] | null;
+            /** Format: int32 */
+            preset: number;
+            video?: components["schemas"]["PlayerBackgroundVideo"] | null;
+        };
+        PlayerBackgroundImage: {
+            asset_id: string;
+            media_id: string;
+        };
+        PlayerBackgroundVideo: {
+            asset_id: string;
+            media_id: string;
+            thumbnail_asset_id?: string | null;
+        };
         /** @description Sheet-music or image item in a player sequence (`type`: `"blob"`). */
         PlayerBlobItem: {
             blob_id: string;
@@ -1957,6 +1973,7 @@ export interface components {
          */
         SetlistPlayerView: "book" | "av";
         SetlistSongLink: {
+            background?: components["schemas"]["PlayerBackground"] | null;
             capo_shape?: components["schemas"]["SimpleChord"] | null;
             /** @description Custom section order and repeats for this setlist slot. */
             flow?: components["schemas"]["SongFlowItem"][] | null;
@@ -2203,6 +2220,7 @@ export interface components {
             id: string;
         };
         TocItem: {
+            background?: components["schemas"]["PlayerBackground"] | null;
             /** @description Optional stable id when this TOC row links to a concrete song. */
             id?: string | null;
             idx: number;

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AvBackgroundLayer } from '@/components/player/av/AvBackgroundLayer'
@@ -46,5 +46,47 @@ describe('AvBackgroundLayer custom image rendering', () => {
 
     await waitFor(() => expect(container.firstElementChild).toHaveClass('av-background-layer--preset-2'))
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+
+  it('uses the player background when an overridden image cannot be loaded', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.includes('missing')) return { ok: false }
+      return { ok: true, blob: async () => new Blob(['image'], { type: 'image/png' }) }
+    }))
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:current-background')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const { container } = render(
+      <AvBackgroundLayer
+        layer={{ preset: 2, image: { mediaId: 'media:missing', assetId: 'asset:missing' } }}
+        fallbackLayer={{ preset: 2, image: { mediaId: 'media:current', assetId: 'asset:current' } }}
+      />,
+    )
+
+    await waitFor(() =>
+      expect(container.querySelector('img')).toHaveAttribute('src', 'blob:current-background'),
+    )
+  })
+
+  it('uses the player background when an overridden video fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      blob: async () => new Blob(['image'], { type: 'image/png' }),
+    }))
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:player-background')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const { container } = render(
+      <AvBackgroundLayer
+        layer={{ preset: 2, video: { mediaId: 'media:missing', assetId: 'asset:missing' } }}
+        fallbackLayer={{ preset: 2, image: { mediaId: 'media:current', assetId: 'asset:current' } }}
+      />,
+    )
+    const video = container.querySelector('video')
+    expect(video).not.toBeNull()
+    fireEvent.error(video!)
+
+    await waitFor(() => expect(container.querySelector('video')).not.toBeInTheDocument())
+    await waitFor(() =>
+      expect(container.querySelector('img')).toHaveAttribute('src', 'blob:player-background'),
+    )
   })
 })

@@ -60,6 +60,27 @@ describe('av-projection-protocol', () => {
     expect(command.content).toEqual({ type: 'empty' })
   })
 
+  it('carries the player background as a custom override fallback', () => {
+    const playerBackground = { preset: 2 } as const
+    const command = buildAvProjectionCommand({
+      sessionId: 'shared',
+      commandId: 4,
+      ...layers,
+      backgroundLayer: {
+        preset: 2,
+        image: { mediaId: 'stale-media', assetId: 'stale-asset' },
+      },
+      fallbackBackgroundLayer: playerBackground,
+      screenState: 'live',
+      itemTitle: 'Song',
+      nextPreview: null,
+      content: { type: 'lyrics', contentText: 'Hello' },
+    })
+
+    expect(command.fallbackBackgroundLayer).toEqual(playerBackground)
+    expect(lyricsPayloadFromCommand(command)?.fallbackBackgroundLayer).toEqual(playerBackground)
+  })
+
   it('maps lyrics commands to room payloads and withholds deck/timed content', () => {
     const lyrics = buildAvProjectionCommand({
       sessionId: 'shared',

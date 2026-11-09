@@ -1868,6 +1868,79 @@
         ],
         "type": "object"
       },
+      "PlayerBackground": {
+        "additionalProperties": false,
+        "description": "Background selected for a setlist song slot or AV player TOC entry.",
+        "properties": {
+          "image": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlayerBackgroundImage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preset": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "video": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlayerBackgroundVideo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "preset"
+        ],
+        "type": "object"
+      },
+      "PlayerBackgroundImage": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "media_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "media_id",
+          "asset_id"
+        ],
+        "type": "object"
+      },
+      "PlayerBackgroundVideo": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "media_id": {
+            "type": "string"
+          },
+          "thumbnail_asset_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "media_id",
+          "asset_id"
+        ],
+        "type": "object"
+      },
       "PlayerBlobItem": {
         "description": "Sheet-music or image item in a player sequence (`type`: `\"blob\"`).",
         "properties": {
@@ -2731,6 +2804,17 @@
       "SetlistSongLink": {
         "additionalProperties": false,
         "properties": {
+          "background": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlayerBackground",
+                "description": "Optional AV background override for this setlist slot; absent means use the player's current background."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "capo_shape": {
             "oneOf": [
               {
@@ -3308,6 +3392,17 @@
       },
       "TocItem": {
         "properties": {
+          "background": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlayerBackground",
+                "description": "Optional per-slot AV background override."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "description": "Optional stable id when this TOC row links to a concrete song.",
             "type": [

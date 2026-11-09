@@ -88,6 +88,7 @@ mod tests {
 
     #[test]
     fn captured_room_strips_user_likes() {
+        use crate::player::{PlayerBackground, PlayerBackgroundImage};
         let mut song = Song {
             id: "song-1".into(),
             user_specific_addons: SongUserSpecificAddons { liked: true },
@@ -107,10 +108,19 @@ mod tests {
                 id: Some("song-1".into()),
                 nr: String::new(),
                 liked: true,
+                background: Some(PlayerBackground {
+                    preset: 2,
+                    image: Some(PlayerBackgroundImage {
+                        media_id: "media-bg".into(),
+                        asset_id: "asset-bg".into(),
+                    }),
+                    video: None,
+                }),
             }],
         );
         let content = RoomContent::from(&player);
         assert!(!content.toc[0].liked);
+        assert_eq!(content.toc[0].background, player.toc()[0].background);
         assert!(!content.items[0].song.user_specific_addons.liked);
     }
 
@@ -142,6 +152,7 @@ mod tests {
             tempo: None,
             language: None,
             flow: None,
+            background: None,
             liked: false,
         }) + Player::from(crate::song::LinkOwned {
             song: chord_song,
@@ -151,6 +162,7 @@ mod tests {
             tempo: None,
             language: None,
             flow: None,
+            background: None,
             liked: true,
         }) + Player::from(PlayerMediaItem {
             id: "media-1".into(),
