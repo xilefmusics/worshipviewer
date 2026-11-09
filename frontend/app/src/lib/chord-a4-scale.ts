@@ -11,6 +11,9 @@ export const A4_COLUMNS_COUNT = 2
 export const A4_COLUMN_FONT_SIZE_PX = 13
 export const A4_COLUMN_LINE_HEIGHT_PX = 17
 
+/** Player chord-song text baseline relative to the font-scale preference. */
+export const PLAYER_CHORD_SONG_BASE_FONT_SIZE_MULTIPLIER = 1.3
+
 /** One column width in chordlib's 2-column A4 layout at scale 1. */
 export const A4_REFERENCE_COLUMN_WIDTH_PX =
   (A4_COLUMNS_CONTENT_WIDTH_PX - A4_COLUMNS_GAP_PX * (A4_COLUMNS_COUNT - 1)) /

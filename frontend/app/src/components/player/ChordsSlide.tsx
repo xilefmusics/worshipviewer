@@ -10,6 +10,7 @@ import { getChordEngine } from '@/lib/chord-engine'
 import {
   A4_REFERENCE_HEIGHT_PX,
   cssScaleToFitViewport,
+  PLAYER_CHORD_SONG_BASE_FONT_SIZE_MULTIPLIER,
   scaledPlayerPageTypography,
 } from '@/lib/chord-a4-scale'
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
@@ -125,6 +126,7 @@ export function ChordsSlide({
   )
   const contentSize =
     contentSizeCache.key === renderKey ? contentSizeCache.size : { width: 0, height: 0 }
+  const effectiveFontScale = fontScale * PLAYER_CHORD_SONG_BASE_FONT_SIZE_MULTIPLIER
 
   const cssScale = useMemo(
     () =>
@@ -138,9 +140,9 @@ export function ChordsSlide({
   )
 
   const fontScaleCss = useMemo(() => {
-    const titleFontSize = scaledPlayerPageTypography(26, fontScale)
-    const bodyFontSize = scaledPlayerPageTypography(13, fontScale)
-    const bodyLineHeight = scaledPlayerPageTypography(17, fontScale)
+    const titleFontSize = scaledPlayerPageTypography(26, effectiveFontScale)
+    const bodyFontSize = scaledPlayerPageTypography(13, effectiveFontScale)
+    const bodyLineHeight = scaledPlayerPageTypography(17, effectiveFontScale)
     return `
 .player-chords-page .title { font-size: ${titleFontSize}px; }
 .player-chords-page .subtitle,
@@ -151,7 +153,7 @@ export function ChordsSlide({
   line-height: ${bodyLineHeight}px;
 }
 ${
-  overflowStyle === 'scroll' && fontScale > 1
+  overflowStyle === 'scroll' && effectiveFontScale > 1
     ? `.player-chords-page .page {
   height: auto;
   min-height: ${A4_REFERENCE_HEIGHT_PX}px;
@@ -162,7 +164,7 @@ ${
 }`
     : ''
 }`
-  }, [fontScale, overflowStyle])
+  }, [effectiveFontScale, overflowStyle])
 
   useEffect(() => {
     const el = viewportRef.current
