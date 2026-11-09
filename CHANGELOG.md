@@ -24,6 +24,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Changed
 
+- Team names and slide deck titles are now edited in their respective editor fields instead of the headbar.
 - Media library rows now show image previews, the first slide of decks, or a generic placeholder, and their actions use the shared hub drawer.
 - Right-clicking a song, setlist, collection, room, or Admin Users row/card now opens its actions drawer.
 - Ray is now the only built-in AV background and is labeled Default.

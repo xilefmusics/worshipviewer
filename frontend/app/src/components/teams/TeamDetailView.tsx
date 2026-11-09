@@ -71,6 +71,8 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
   const coverFileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: team, error, isPending, refetch, isError } = useTeamDetail(teamId)
+  const [teamNameDraft, setTeamNameDraft] = useState<string | null>(null)
+  const [teamNameError, setTeamNameError] = useState<string | null>(null)
   const [coverUploading, setCoverUploading] = useState(false)
   const [memberDraft, setMemberDraft] = useState<TeamMember[] | null>(null)
   const [membersError, setMembersError] = useState<string | null>(null)
@@ -83,7 +85,9 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- discard unsaved member edits when switching team
     setMemberDraft(null)
+    setTeamNameDraft(null)
     setMembersError(null)
+    setTeamNameError(null)
   }, [teamId])
 
   const isAdmin = useMemo(() => {
@@ -100,6 +104,24 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
     void queryClient.invalidateQueries({ queryKey: teamDetailKey(teamId) })
     void queryClient.invalidateQueries({ queryKey: teamsListRootKey })
   }, [queryClient, teamId])
+
+  const renameTeam = useMutation({
+    mutationFn: async (name: string) => {
+      const { error, response } = await api.PATCH('/api/v1/teams/{id}', {
+        params: { path: { id: teamId } },
+        body: { name },
+      })
+      if (!response.ok) {
+        throw new Error(problemMessageFromBody(error, t('teams.saveFailed')))
+      }
+    },
+    onSuccess: () => {
+      setTeamNameDraft(null)
+      setTeamNameError(null)
+      invalidateTeamCaches()
+    },
+    onError: (cause: Error) => setTeamNameError(cause.message),
+  })
 
   async function onCoverFilePicked(ev: ChangeEvent<HTMLInputElement>) {
     const file = ev.target.files?.[0]
@@ -283,6 +305,24 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
     patchMembers.mutate(next)
   }
 
+  async function saveTeamName() {
+    if (!team || !isAdmin || isPersonalTeam || !online || renameTeam.isPending) {
+      setTeamNameDraft(null)
+      return
+    }
+    const nextName = (teamNameDraft ?? team.name).trim()
+    if (!nextName || nextName === team.name) {
+      setTeamNameDraft(null)
+      setTeamNameError(null)
+      return
+    }
+    try {
+      await renameTeam.mutateAsync(nextName)
+    } catch {
+      // Keep the draft visible so the user can correct it or retry.
+    }
+  }
+
   if (isPending) {
     return (
       <div className="flex w-full min-w-0 flex-col gap-3 py-2">
@@ -319,6 +359,40 @@ export function TeamDetailView({ teamId, onRequestClose }: TeamDetailViewProps) 
 
   return (
     <div className="flex w-full min-w-0 flex-col">
+      <section className="mb-6">
+        <label className="text-sm font-medium" htmlFor={`team-detail-name-${teamId}`}>
+          {t('teams.nameLabel')}
+        </label>
+        <Input
+          id={`team-detail-name-${teamId}`}
+          className="mt-2"
+          value={teamNameDraft ?? getTeamDisplayName(team, me?.id, t)}
+          onChange={(event) => {
+            setTeamNameDraft(event.target.value)
+            setTeamNameError(null)
+          }}
+          onBlur={() => void saveTeamName()}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              event.currentTarget.blur()
+            } else if (event.key === 'Escape') {
+              event.preventDefault()
+              setTeamNameDraft(null)
+              setTeamNameError(null)
+              event.currentTarget.blur()
+            }
+          }}
+          maxLength={120}
+          disabled={!isAdmin || isPersonalTeam || !online || renameTeam.isPending}
+        />
+        {teamNameError ? (
+          <p className="mt-1 text-sm text-[var(--color-destructive)]" role="alert">
+            {teamNameError}
+          </p>
+        ) : null}
+      </section>
+
       <section className="mb-6">
         <label
           className="text-sm font-medium"

@@ -128,15 +128,6 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
   const isDeck = displayKind === 'slide_deck'
   const editableUrl = media ? isUrlMediaKind(displayKind) : false
 
-  useEffect(() => {
-    if (!isDeck) return
-    const onTitleChange = (event: Event) => {
-      const titleChange = event as CustomEvent<string>
-      setTitle(titleChange.detail)
-    }
-    window.addEventListener('media-editor-title-change', onTitleChange)
-    return () => window.removeEventListener('media-editor-title-change', onTitleChange)
-  }, [isDeck])
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!canEdit || !media) throw new Error(t('media.validation.notEditable'))
@@ -348,7 +339,7 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
     <section className={`mx-auto grid w-full pb-8 ${isDeck ? 'max-w-5xl gap-3' : 'max-w-2xl gap-6'}`}>
       {showUploadedEditor ? (
         <div className={`grid ${isDeck ? 'gap-3' : 'gap-4'}`}>
-          {!isDeck ? <div className="grid gap-1.5">
+          <div className="grid gap-1.5">
             <label htmlFor="media-editor-title" className="text-sm font-medium">{t('media.fields.title')}</label>
             <Input
               id="media-editor-title"
@@ -361,7 +352,7 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
               disabled={!canEdit || !online || saveMutation.isPending}
               maxLength={200}
             />
-          </div> : null}
+          </div>
           {media.content.type === 'video' ? (
             <p className="text-sm text-[var(--color-muted-foreground)]">
               {t('media.editor.metadataVideo', {
