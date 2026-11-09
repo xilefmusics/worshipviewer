@@ -15,6 +15,7 @@ import { scopeChordlibPageCss } from '@/lib/chord-page-css'
 import {
   columnWidthInMultiColumnLayout,
   fontScaleForMultiColumnPlayer,
+  PLAYER_CHORD_SONG_BASE_FONT_SIZE_MULTIPLIER,
   scaledColumnTypography,
 } from '@/lib/chord-a4-scale'
 import { chordFormatToRepresentation, type ChordFormatPreference } from '@/lib/chord-format'
@@ -400,6 +401,7 @@ export function ChordsThreeColumnSlide({
 }: ChordsThreeColumnSlideProps) {
   const { t } = useTranslation()
   const hideChords = useHideChordsPreference()
+  const effectiveFontScale = fontScale * PLAYER_CHORD_SONG_BASE_FONT_SIZE_MULTIPLIER
   const viewportRef = useRef<HTMLDivElement>(null)
   const columnAreaRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLDivElement>(null)
@@ -554,7 +556,7 @@ export function ChordsThreeColumnSlide({
       const scale = fontScaleForMultiColumnPlayer(columnWidth)
       if (scale == null) return
 
-      const typography = scaledColumnTypography(scale, fontScale)
+      const typography = scaledColumnTypography(scale, effectiveFontScale)
       setColumnLayoutCache((prev) => {
         if (
           prev?.key === layoutKey &&
@@ -580,7 +582,14 @@ export function ChordsThreeColumnSlide({
     const cleanups = [observeElementResize(columnAreaEl, updateLayout)]
     if (viewportRef.current) cleanups.push(observeElementResize(viewportRef.current, updateLayout))
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [layoutKey, columnCount, renderState.status, columnSections?.length, overflowStyle, fontScale])
+  }, [
+    layoutKey,
+    columnCount,
+    renderState.status,
+    columnSections?.length,
+    overflowStyle,
+    effectiveFontScale,
+  ])
 
   useLayoutEffect(() => {
     if (!packingContextKey || !columnLayout || !columnSections) return
@@ -693,7 +702,7 @@ export function ChordsThreeColumnSlide({
         'h-full min-h-0 w-full',
         fillParent && 'flex-1',
       )}
-      style={{ '--player-chord-song-font-scale': fontScale } as CSSProperties}
+      style={{ '--player-chord-song-font-scale': effectiveFontScale } as CSSProperties}
     >
       {renderState.status === 'loading' ? (
         <p className="py-12 text-center text-sm text-[var(--color-muted-foreground)]">{t('common.load')}</p>
