@@ -7,24 +7,46 @@ use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use shared::{
     room::RoomContent,
-    room_message::{MessageRoomSummary, RoomMessage, RoomMessageOrder},
+    room_message::{MessageRoomSummary, RoomChange, RoomMessage, RoomMessageOrder},
 };
 use surrealdb::types::{RecordId, SurrealValue};
 
 use crate::database::Database;
+use crate::resources::surreal_json::JsonObject;
 
 #[derive(Debug, Clone, Deserialize, SurrealValue)]
 struct StoredRoom {
     id: RecordId,
     owner: RecordId,
     name: String,
-    content_json: String,
+    content: JsonObject<RoomContent>,
     created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize, SurrealValue)]
 struct StoredMessage {
-    message_json: String,
+    message_id: String,
+    room: RecordId,
+    visit_id: String,
+    epoch: i64,
+    sequence: i64,
+    change: JsonObject<RoomChange>,
+}
+
+impl StoredMessage {
+    fn into_message(self) -> Result<RoomMessage> {
+        Ok(RoomMessage {
+            id: self.message_id,
+            room_id: crate::database::record_id_string(&self.room),
+            visit_id: self.visit_id,
+            order: RoomMessageOrder {
+                epoch: u64::try_from(self.epoch).context("invalid stored message epoch")?,
+                sequence: u64::try_from(self.sequence)
+                    .context("invalid stored message sequence")?,
+            },
+            change: self.change.0,
+        })
+    }
 }
 
 #[derive(Debug, Deserialize, SurrealValue)]
@@ -61,11 +83,11 @@ impl MessageRoomStore {
         let response = self
             .db
             .db
-            .query("CREATE $id SET owner = $owner, name = $name, content_json = $content")
-            .bind(("id", RecordId::new("message_room", id.to_owned())))
+            .query("CREATE $id SET owner = $owner, name = $name, content = $content")
+            .bind(("id", RecordId::new("room", id.to_owned())))
             .bind(("owner", room.owner.clone()))
             .bind(("name", room.name.clone()))
-            .bind(("content", serde_json::to_string(&room.content)?))
+            .bind(("content", JsonObject(room.content.clone())))
             .await?;
         response.check()?;
         Ok(())
@@ -76,7 +98,7 @@ impl MessageRoomStore {
         owners: &[RecordId],
         query: Option<&str>,
     ) -> Result<Vec<MessageRoomSummary>> {
-        let mut response = self.db.db.query("SELECT id, owner, name, content_json, created_at FROM message_room WHERE owner IN $owners ORDER BY created_at DESC")
+        let mut response = self.db.db.query("SELECT id, owner, name, content, created_at FROM room WHERE owner IN $owners ORDER BY created_at DESC")
             .bind(("owners", owners.to_vec())).await?;
         let rows: Vec<StoredRoom> = response.take(0)?;
         let query = query
@@ -91,13 +113,11 @@ impl MessageRoomStore {
             {
                 continue;
             }
-            let content: RoomContent = serde_json::from_str(&row.content_json)
-                .context("failed to decode immutable room content")?;
             summaries.push(MessageRoomSummary {
                 id: crate::database::record_id_string(&row.id),
                 name: row.name,
                 team_id: crate::database::record_id_string(&row.owner),
-                song_count: content.items.len(),
+                song_count: row.content.0.items.len(),
                 can_delete: false,
                 created_at: row.created_at,
             });
@@ -119,8 +139,8 @@ impl MessageRoomStore {
         let mut response = self
             .db
             .db
-            .query("SELECT id, owner, name, content_json, created_at FROM ONLY $id")
-            .bind(("id", RecordId::new("message_room", id.to_owned())))
+            .query("SELECT id, owner, name, content, created_at FROM ONLY $id")
+            .bind(("id", RecordId::new("room", id.to_owned())))
             .await?;
         let room: Option<StoredRoom> = response.take(0)?;
         room.map(|room| {
@@ -128,7 +148,7 @@ impl MessageRoomStore {
             let captured = CapturedRoom {
                 owner: room.owner,
                 name: room.name,
-                content: serde_json::from_str(&room.content_json)?,
+                content: room.content.0,
             };
             Ok((captured, created_at))
         })
@@ -143,10 +163,7 @@ impl MessageRoomStore {
             id: crate::database::record_id_string(&room.id),
             team_id: crate::database::record_id_string(&room.owner),
             name: room.name,
-            song_count: serde_json::from_str::<RoomContent>(&room.content_json)
-                .map_err(anyhow::Error::from)?
-                .items
-                .len(),
+            song_count: room.content.0.items.len(),
             can_delete: false,
             created_at: room.created_at,
         }))
@@ -156,15 +173,15 @@ impl MessageRoomStore {
         let mut response = self
             .db
             .db
-            .query("SELECT id, owner, name, content_json, created_at FROM ONLY $id")
-            .bind(("id", RecordId::new("message_room", id.to_owned())))
+            .query("SELECT id, owner, name, content, created_at FROM ONLY $id")
+            .bind(("id", RecordId::new("room", id.to_owned())))
             .await?;
         Ok(response.take(0)?)
     }
 
     pub async fn delete(&self, id: &str) -> Result<bool> {
-        let room = RecordId::new("message_room", id.to_owned());
-        let response = self.db.db.query("BEGIN TRANSACTION; DELETE room_change WHERE room = $room; DELETE message_room_visit WHERE room = $room; DELETE $room; COMMIT TRANSACTION;")
+        let room = RecordId::new("room", id.to_owned());
+        let response = self.db.db.query("BEGIN TRANSACTION; DELETE room_change WHERE room = $room; DELETE room_visit WHERE room = $room; DELETE $room; COMMIT TRANSACTION;")
             .bind(("room", room)).await?;
         response.check()?;
         Ok(true)
@@ -181,8 +198,8 @@ impl MessageRoomStore {
     ) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
         let response = self.db.db.query("CREATE $id SET room = $room, user_id = $user, display_name = $display_name, resume_hash = $resume_hash, ticket_hash = $ticket_hash, ticket_expires_at = $expires_at")
-            .bind(("id", RecordId::new("message_room_visit", id.clone())))
-            .bind(("room", RecordId::new("message_room", room_id.to_owned())))
+            .bind(("id", RecordId::new("room_visit", id.clone())))
+            .bind(("room", RecordId::new("room", room_id.to_owned())))
             .bind(("user", RecordId::new("user", user_id.to_owned())))
             .bind(("display_name", display_name.to_owned()))
             .bind(("resume_hash", resume_hash.to_owned()))
@@ -198,8 +215,8 @@ impl MessageRoomStore {
         user_id: &str,
         resume_hash: &str,
     ) -> Result<Option<String>> {
-        let mut response = self.db.db.query("SELECT VALUE id FROM message_room_visit WHERE room = $room AND user_id = $user AND resume_hash = $resume_hash LIMIT 1")
-            .bind(("room", RecordId::new("message_room", room_id.to_owned())))
+        let mut response = self.db.db.query("SELECT VALUE id FROM room_visit WHERE room = $room AND user_id = $user AND resume_hash = $resume_hash LIMIT 1")
+            .bind(("room", RecordId::new("room", room_id.to_owned())))
             .bind(("user", RecordId::new("user", user_id.to_owned())))
             .bind(("resume_hash", resume_hash.to_owned())).await?;
         let rows: Vec<RecordId> = response.take(0)?;
@@ -215,8 +232,8 @@ impl MessageRoomStore {
         expires_at: DateTime<Utc>,
     ) -> Result<()> {
         let response = self.db.db.query("UPDATE ONLY $id SET ticket_hash = $ticket_hash, ticket_expires_at = $expires_at WHERE room = $room AND user_id = $user")
-            .bind(("id", RecordId::new("message_room_visit", visit_id.to_owned())))
-            .bind(("room", RecordId::new("message_room", room_id.to_owned())))
+            .bind(("id", RecordId::new("room_visit", visit_id.to_owned())))
+            .bind(("room", RecordId::new("room", room_id.to_owned())))
             .bind(("user", RecordId::new("user", user_id.to_owned())))
             .bind(("ticket_hash", ticket_hash.to_owned())).bind(("expires_at", expires_at)).await?;
         response.check()?;
@@ -227,7 +244,7 @@ impl MessageRoomStore {
         &self,
         ticket_hash: &str,
     ) -> Result<Option<(String, String, String)>> {
-        let mut response = self.db.db.query("UPDATE message_room_visit SET ticket_hash = NONE, ticket_expires_at = NONE WHERE ticket_hash = $ticket_hash AND ticket_expires_at > time::now() RETURN BEFORE")
+        let mut response = self.db.db.query("UPDATE room_visit SET ticket_hash = NONE, ticket_expires_at = NONE WHERE ticket_hash = $ticket_hash AND ticket_expires_at > time::now() RETURN BEFORE")
             .bind(("ticket_hash", ticket_hash.to_owned())).await?;
         let rows: Vec<ConsumedTicket> = response.take(0)?;
         Ok(rows.into_iter().next().map(|row| {
@@ -245,8 +262,8 @@ impl MessageRoomStore {
         user_id: &str,
         resume_hash: &str,
     ) -> Result<bool> {
-        let mut response = self.db.db.query("SELECT VALUE id FROM message_room_visit WHERE room = $room AND user_id = $user AND resume_hash = $resume_hash LIMIT 1")
-            .bind(("room", RecordId::new("message_room", room_id.to_owned())))
+        let mut response = self.db.db.query("SELECT VALUE id FROM room_visit WHERE room = $room AND user_id = $user AND resume_hash = $resume_hash LIMIT 1")
+            .bind(("room", RecordId::new("room", room_id.to_owned())))
             .bind(("user", RecordId::new("user", user_id.to_owned())))
             .bind(("resume_hash", resume_hash.to_owned())).await?;
         let rows: Vec<RecordId> = response.take(0)?;
@@ -272,26 +289,34 @@ impl MessageRoomStore {
         let key = format!("{}:{}", message.room_id.len(), message.room_id) + &message.id;
         let digest = ring::digest::digest(&ring::digest::SHA256, key.as_bytes());
         let id = RecordId::new("room_change", hex::encode(digest.as_ref()));
-        let json = serde_json::to_string(message)?;
         let epoch = i64::try_from(message.order.epoch)?;
         let sequence = i64::try_from(message.order.sequence)?;
         if epoch <= 0 || sequence <= 0 || message.id.is_empty() || message.visit_id.is_empty() {
             bail!("invalid message envelope");
         }
-        let result = self.db.db.query("CREATE $id SET room = $room, epoch = $epoch, sequence = $sequence, message_json = $json")
-            .bind(("id", id.clone())).bind(("room", RecordId::new("message_room", message.room_id.clone())))
-            .bind(("epoch", epoch)).bind(("sequence", sequence)).bind(("json", json.clone())).await;
+        let result = self.db.db.query("CREATE $id SET message_id = $message_id, room = $room, visit_id = $visit_id, epoch = $epoch, sequence = $sequence, change = $change")
+            .bind(("id", id.clone())).bind(("room", RecordId::new("room", message.room_id.clone())))
+            .bind(("message_id", message.id.clone())).bind(("visit_id", message.visit_id.clone()))
+            .bind(("epoch", epoch)).bind(("sequence", sequence))
+            .bind(("change", JsonObject(message.change.clone()))).await;
         match result.and_then(|response| response.check()) {
             Ok(_) => Ok(()),
             Err(error) => {
                 let mut response = self
                     .db
                     .db
-                    .query("SELECT message_json FROM ONLY $id")
+                    .query(
+                        "SELECT message_id, room, visit_id, epoch, sequence, change FROM ONLY $id",
+                    )
                     .bind(("id", id))
                     .await?;
                 let existing: Option<StoredMessage> = response.take(0)?;
-                if existing.is_some_and(|row| row.message_json == json) {
+                if existing
+                    .map(StoredMessage::into_message)
+                    .transpose()?
+                    .as_ref()
+                    == Some(message)
+                {
                     Ok(())
                 } else {
                     Err(error.into())
@@ -307,13 +332,11 @@ impl MessageRoomStore {
     ) -> Result<Vec<RoomMessage>> {
         let epoch = i64::try_from(boundary.epoch)?;
         let sequence = i64::try_from(boundary.sequence)?;
-        let mut response = self.db.db.query("SELECT message_json, epoch, sequence FROM room_change WHERE room = $room AND (epoch < $epoch OR (epoch = $epoch AND sequence <= $sequence)) ORDER BY epoch ASC, sequence ASC")
-            .bind(("room", RecordId::new("message_room", room_id.to_owned())))
+        let mut response = self.db.db.query("SELECT message_id, room, visit_id, epoch, sequence, change FROM room_change WHERE room = $room AND (epoch < $epoch OR (epoch = $epoch AND sequence <= $sequence)) ORDER BY epoch ASC, sequence ASC")
+            .bind(("room", RecordId::new("room", room_id.to_owned())))
             .bind(("epoch", epoch)).bind(("sequence", sequence)).await?;
         let rows: Vec<StoredMessage> = response.take(0)?;
-        rows.into_iter()
-            .map(|row| serde_json::from_str(&row.message_json).map_err(Into::into))
-            .collect()
+        rows.into_iter().map(StoredMessage::into_message).collect()
     }
 }
 

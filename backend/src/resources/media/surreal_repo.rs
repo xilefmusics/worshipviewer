@@ -9,6 +9,7 @@ use shared::media::{Media, MediaListQuery};
 use crate::database::Database;
 use crate::error::AppError;
 use crate::resources::common::{belongs_to, resource_id};
+use crate::resources::surreal_json::JsonObject;
 
 use super::model::{MediaRecord, MediaWrite};
 use super::repository::MediaRepository;
@@ -115,7 +116,7 @@ impl MediaRepository for SurrealMediaRepo {
     }
 
     async fn create(&self, owner: RecordId, value: MediaWrite) -> Result<Media, AppError> {
-        let record = MediaRecord::from_write(None, Some(owner), value)?;
+        let record = MediaRecord::from_write(None, Some(owner), value);
         let created: Option<MediaRecord> = self.db.db.create("media").content(record).await?;
         created
             .ok_or_else(|| AppError::database("failed to create media"))?
@@ -128,7 +129,7 @@ impl MediaRepository for SurrealMediaRepo {
         owner: RecordId,
         value: MediaWrite,
     ) -> Result<Media, AppError> {
-        let record = MediaRecord::from_write(None, Some(owner), value)?;
+        let record = MediaRecord::from_write(None, Some(owner), value);
         let created: Option<MediaRecord> = self
             .db
             .db
@@ -149,37 +150,28 @@ impl MediaRepository for SurrealMediaRepo {
         value: MediaWrite,
     ) -> Result<Media, AppError> {
         let (tb, sid) = resource_id("media", id)?;
-        let record = MediaRecord::from_write(None, owner.clone(), value)?;
-        let expected_content_json = serde_json::to_string(&current.content)
-            .map_err(|e| AppError::internal_from_err("media.repo.expected_content", e))?;
-        let expected_pending_revision_json = current
-            .pending_revision
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()
-            .map_err(|e| AppError::internal_from_err("media.repo.expected_revision", e))?;
+        let record = MediaRecord::from_write(None, owner.clone(), value);
+        let expected_content = JsonObject(current.content.clone());
+        let expected_pending_revision = current.pending_revision.clone().map(JsonObject);
         let mut response = self
             .db
             .db
             .query(
-                "UPDATE type::record($tb, $sid) SET title = $title, content_json = $content_json, pending_revision_json = $pending_revision_json, is_background = $is_background, owner = $owner ?? owner \
-                 WHERE owner IN $teams AND title = $expected_title AND content_json = $expected_content_json \
-                 AND pending_revision_json = $expected_pending_revision_json AND is_background = $expected_is_background RETURN AFTER",
+                "UPDATE type::record($tb, $sid) SET title = $title, content = $content, pending_revision = $pending_revision, is_background = $is_background, owner = $owner ?? owner \
+                 WHERE owner IN $teams AND title = $expected_title AND content = $expected_content \
+                 AND pending_revision = $expected_pending_revision AND is_background = $expected_is_background RETURN AFTER",
             )
             .bind(("tb", tb))
             .bind(("sid", sid))
             .bind(("title", record.title))
-            .bind(("content_json", record.content_json))
-            .bind(("pending_revision_json", record.pending_revision_json))
+            .bind(("content", record.content))
+            .bind(("pending_revision", record.pending_revision))
             .bind(("is_background", record.is_background))
             .bind(("owner", owner))
             .bind(("teams", write_teams.to_vec()))
             .bind(("expected_title", current.title.clone()))
-            .bind(("expected_content_json", expected_content_json))
-            .bind((
-                "expected_pending_revision_json",
-                expected_pending_revision_json,
-            ))
+            .bind(("expected_content", expected_content))
+            .bind(("expected_pending_revision", expected_pending_revision))
             .bind(("expected_is_background", current.is_background))
             .await?;
         response
@@ -213,30 +205,21 @@ impl MediaRepository for SurrealMediaRepo {
         current: &Media,
     ) -> Result<Media, AppError> {
         let (tb, sid) = resource_id("media", id)?;
-        let expected_content_json = serde_json::to_string(&current.content)
-            .map_err(|e| AppError::internal_from_err("media.repo.expected_content", e))?;
-        let expected_pending_revision_json = current
-            .pending_revision
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()
-            .map_err(|e| AppError::internal_from_err("media.repo.expected_revision", e))?;
+        let expected_content = JsonObject(current.content.clone());
+        let expected_pending_revision = current.pending_revision.clone().map(JsonObject);
         let mut response = self
             .db
             .db
             .query(
                 "DELETE FROM type::record($tb, $sid) WHERE owner IN $teams AND title = $expected_title \
-                 AND content_json = $expected_content_json AND pending_revision_json = $expected_pending_revision_json AND is_background = $expected_is_background RETURN BEFORE",
+                 AND content = $expected_content AND pending_revision = $expected_pending_revision AND is_background = $expected_is_background RETURN BEFORE",
             )
             .bind(("tb", tb))
             .bind(("sid", sid))
             .bind(("teams", write_teams.to_vec()))
             .bind(("expected_title", current.title.clone()))
-            .bind(("expected_content_json", expected_content_json))
-            .bind((
-                "expected_pending_revision_json",
-                expected_pending_revision_json,
-            ))
+            .bind(("expected_content", expected_content))
+            .bind(("expected_pending_revision", expected_pending_revision))
             .bind(("expected_is_background", current.is_background))
             .await?;
         response

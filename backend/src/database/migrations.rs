@@ -502,6 +502,9 @@ mod tests {
                     | Some("20260914140000_rename_player_room_tables.surql")
                     | Some("20260914150000_remove_room_session_id.surql")
                     | Some("20261106120000_prepare_message_rooms.surql")
+                    | Some("20261109120000_store_room_changes_as_objects.surql")
+                    | Some("20261109130000_rename_message_room_tables.surql")
+                    | Some("20261109140000_store_room_and_media_content_as_objects.surql")
             ) {
                 continue;
             }
@@ -570,20 +573,16 @@ mod tests {
             "player_room_snapshot",
             "player_room",
             "player_room_session",
-            "room",
             "room_session",
+            "message_room",
+            "message_room_visit",
         ] {
             assert!(
                 !tables.contains_key(obsolete),
                 "obsolete table {obsolete} remains"
             );
         }
-        for replacement in [
-            "message_room",
-            "room_change",
-            "message_room_visit",
-            "room_message_epoch",
-        ] {
+        for replacement in ["room", "room_change", "room_visit", "room_message_epoch"] {
             assert!(
                 tables.contains_key(replacement),
                 "missing table {replacement}"
@@ -592,7 +591,7 @@ mod tests {
 
         let mut response = db
             .db
-            .query("SELECT * FROM message_room")
+            .query("SELECT * FROM room")
             .await
             .expect("read migrated rooms");
         let rooms: Vec<serde_json::Value> = response.take(0).expect("decode migrated rooms");
@@ -600,7 +599,7 @@ mod tests {
 
         let mut response = db
             .db
-            .query("SELECT * FROM message_room_visit")
+            .query("SELECT * FROM room_visit")
             .await
             .expect("read migrated visits");
         let visits: Vec<serde_json::Value> = response.take(0).expect("decode migrated visits");
@@ -608,20 +607,17 @@ mod tests {
 
         let mut response = db
             .db
-            .query("INFO FOR TABLE message_room")
+            .query("INFO FOR TABLE room")
             .await
             .expect("inspect message room schema");
         let info: Option<serde_json::Value> = response.take(0).expect("decode room schema");
-        let info = info.expect("message room schema info");
+        let info = info.expect("room schema info");
         let fields = info
             .get("fields")
             .and_then(serde_json::Value::as_object)
-            .expect("message room fields");
-        for field in ["owner", "name", "content_json", "created_at"] {
-            assert!(
-                fields.contains_key(field),
-                "missing message room field {field}"
-            );
+            .expect("room fields");
+        for field in ["owner", "name", "content", "created_at"] {
+            assert!(fields.contains_key(field), "missing room field {field}");
         }
     }
 
