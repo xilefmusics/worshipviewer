@@ -1,7 +1,7 @@
 import { createFileRoute, useLocation } from '@tanstack/react-router'
 
 import { SettingsView } from '@/components/settings/SettingsView'
-import { parseSettingsTab } from '@/lib/settings-route'
+import { parseRoomSettingsReturnSearch, parseSettingsTab } from '@/lib/settings-route'
 import {
   parsePlayerEditorReturnSearch,
 } from '@/lib/player/player-editor-return'
@@ -15,5 +15,6 @@ function SettingsRoute() {
   const search = location.search as Record<string, unknown>
   const tab = parseSettingsTab(search.tab)
   const playerReturn = parsePlayerEditorReturnSearch(search)
-  return <SettingsView activeTab={tab} playerReturn={playerReturn} />
+  const roomReturn = parseRoomSettingsReturnSearch(search)
+  return <SettingsView activeTab={tab} playerReturn={playerReturn} roomReturn={roomReturn} />
 }

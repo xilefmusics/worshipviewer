@@ -169,6 +169,7 @@ export function MessageRoomPage({ roomId, initialMode = 'sheet' }: { roomId: str
     allowNetworkFetch: false,
     allowLibraryActions: false,
     backToOverride: '/rooms' as const,
+    roomSettingsReturn: { roomId, mode: credentials.mode },
     backAriaKeyOverride: 'rooms.backToList',
     resourceTitle: t('rooms.title'),
     sharedSelection: selection ? { ...selection } : null,

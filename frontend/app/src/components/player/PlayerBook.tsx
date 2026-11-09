@@ -108,7 +108,7 @@ import {
   roomRenderedSectionToSourceSlide,
   roomSourceSlideToRenderedSection,
 } from '@/lib/room-slide-index'
-import { buildSettingsSearch } from '@/lib/settings-route'
+import { buildSettingsSearch, type RoomSettingsReturnContext } from '@/lib/settings-route'
 import { writeChordSongFontScale } from '@/lib/player/chord-song-font-scale-preference'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
 import { languageIndexForSongLink, normalizeCapoShapeKey, resolveSongDataKey } from '@/lib/setlist-song-links'
@@ -382,6 +382,7 @@ type PlayerBookProps = {
   mode?: PlayerMode
   allowNetworkFetch: boolean
   backToOverride?: '/rooms'
+  roomSettingsReturn?: RoomSettingsReturnContext
   backAriaKeyOverride?: string
   resourceTitle?: string
   deletedReconciled?: boolean
@@ -405,6 +406,7 @@ export function PlayerBook({
   mode = 'sheet',
   allowNetworkFetch,
   backToOverride,
+  roomSettingsReturn,
   backAriaKeyOverride,
   resourceTitle,
   deletedReconciled,
@@ -1758,11 +1760,17 @@ export function PlayerBook({
                               >
                                 <Link
                                   to="/settings"
-                                  search={buildSettingsSearch('player', {
-                                    playerType: type,
-                                    playerId: id,
-                                    playerIndex: nav.index,
-                                  })}
+                                  search={buildSettingsSearch(
+                                    'player',
+                                    roomSettingsReturn
+                                      ? null
+                                      : {
+                                          playerType: type,
+                                          playerId: id,
+                                          playerIndex: nav.index,
+                                        },
+                                    roomSettingsReturn,
+                                  )}
                                   hash="comfortable-keys"
                                   aria-label={t('player.capo.configureComfortableKeys')}
                                 >
@@ -1826,11 +1834,17 @@ export function PlayerBook({
                 >
                   <Link
                     to="/settings"
-                    search={buildSettingsSearch('player', {
-                      playerType: type,
-                      playerId: id,
-                      playerIndex: nav.index,
-                    })}
+                    search={buildSettingsSearch(
+                      'player',
+                      roomSettingsReturn
+                        ? null
+                        : {
+                            playerType: type,
+                            playerId: id,
+                            playerIndex: nav.index,
+                          },
+                      roomSettingsReturn,
+                    )}
                     aria-label={t('player.openSettings')}
                   >
                     <SettingsIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
