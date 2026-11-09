@@ -1390,8 +1390,10 @@
       "loadFailed": "Could not load this media item.",
       "readOnly": "You can view this item, but you do not have permission to change it.",
       "futureKind": "This media type can be viewed here, but its editor is not available yet.",
-      "metadataVideo": "Duration {{duration}} · {{width}}×{{height}}",
-      "metadataAudio": "Duration {{duration}}"
+      "videoThumbnail": "Video thumbnail",
+      "noVideoThumbnail": "No thumbnail image uploaded.",
+      "addVideoThumbnail": "Upload thumbnail",
+      "replaceVideoThumbnail": "Replace thumbnail"
     },
     "deck": {
       "addPages": "Add pages",

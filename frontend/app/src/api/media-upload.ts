@@ -7,10 +7,11 @@ function apiBase(): string {
   return (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 }
 
-function uploadUrl(mediaId: string, kind: UploadMediaKind, replacePage?: string): string {
+function uploadUrl(mediaId: string, kind: UploadMediaKind, replacePage?: string, role?: string): string {
   const base = apiBase()
   const params = new URLSearchParams({ kind })
   if (replacePage) params.set('replace_page', replacePage)
+  if (role) params.set('role', role)
   const path = `/api/v1/media/${encodeURIComponent(mediaId)}/uploads?${params.toString()}`
   return base ? `${base}${path}` : path
 }
@@ -26,12 +27,13 @@ export async function uploadMediaSource(args: {
   kind: UploadMediaKind
   file: Blob
   replacePage?: string
+  role?: 'thumbnail'
   onProgress?: (ratio: number) => void
   signal?: AbortSignal
 }): Promise<Media> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.open('PUT', uploadUrl(args.mediaId, args.kind, args.replacePage))
+    xhr.open('PUT', uploadUrl(args.mediaId, args.kind, args.replacePage, args.role))
     xhr.withCredentials = true
     xhr.responseType = 'text'
     xhr.setRequestHeader('Content-Type', args.file.type || 'application/octet-stream')

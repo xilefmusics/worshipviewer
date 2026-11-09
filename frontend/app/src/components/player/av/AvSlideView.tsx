@@ -1,6 +1,8 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { useEffect, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { mediaAssetDataUrl } from '@/api/media-upload'
 import type {
   AvBackgroundLayer as AvBackgroundLayerPrefs,
   AvContentLayer,
@@ -22,7 +24,19 @@ type AvSlideViewProps = {
   contentLines?: AvLyricLine[]
   deckPage?: { mediaId: string; assetId: string }
   onDeckPageStatus?: (status: 'ready' | 'error') => void
-  timedPreview?: { kind: 'video' | 'audio' | 'youtube' | 'livestream' | 'web_page'; title: string }
+  timedPreview?: {
+    kind: 'video' | 'audio' | 'youtube' | 'livestream' | 'web_page'
+    title: string
+    video?: { mediaId: string; assetId: string; thumbnailAssetId?: string }
+  }
+  videoPreviewRef?: RefObject<HTMLVideoElement | null>
+  videoPreviewPlaying?: boolean
+  onVideoPreviewProgress?: (progress: {
+    mediaId: string
+    assetId: string
+    currentTimeMs: number
+    durationMs: number
+  }) => void
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayerPrefs
   transition: AvTransition
@@ -41,10 +55,14 @@ function AvSlideCanvas({
   deckPage,
   onDeckPageStatus,
   timedPreview,
+  videoPreviewRef,
+  videoPreviewPlaying = false,
+  onVideoPreviewProgress,
   contentLayer,
   backgroundLayer,
   compact,
   showBackground,
+  preview,
 }: Pick<
   AvSlideViewProps,
   | 'contentText'
@@ -52,15 +70,35 @@ function AvSlideCanvas({
   | 'deckPage'
   | 'onDeckPageStatus'
   | 'timedPreview'
+  | 'videoPreviewRef'
+  | 'videoPreviewPlaying'
+  | 'onVideoPreviewProgress'
   | 'contentLayer'
   | 'backgroundLayer'
   | 'compact'
   | 'showBackground'
+  | 'preview'
 >) {
+  const videoPreview = timedPreview?.kind === 'video' ? timedPreview.video : undefined
+
+  useEffect(() => {
+    const video = videoPreviewRef?.current
+    if (!video) return
+    if (!videoPreviewPlaying) {
+      video.pause()
+      return
+    }
+    void video.play().catch(() => undefined)
+  }, [timedPreview?.kind, videoPreview?.mediaId, videoPreview?.assetId, videoPreviewPlaying, videoPreviewRef])
+
   return (
     <>
       {showBackground && !deckPage ? (
-        <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__background" />
+        <AvBackgroundLayer
+          layer={backgroundLayer}
+          className="av-slide-view__background"
+          videoPreview={compact || preview}
+        />
       ) : null}
       <div className="av-slide-view__content">
         {deckPage ? (
@@ -74,9 +112,55 @@ function AvSlideCanvas({
             />
           </div>
         ) : timedPreview ? (
-          <p className="av-slide-view__timed-preview" data-testid="av-timed-preview">
-            {timedPreview.title}
-          </p>
+          videoPreview ? (
+            <video
+              ref={videoPreviewRef}
+              className="av-slide-view__video-preview"
+              src={mediaAssetDataUrl(videoPreview.mediaId, videoPreview.assetId)}
+              poster={videoPreview.thumbnailAssetId
+                ? mediaAssetDataUrl(videoPreview.mediaId, videoPreview.thumbnailAssetId)
+                : undefined}
+              autoPlay={videoPreviewPlaying}
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              data-media-id={videoPreview.mediaId}
+              data-asset-id={videoPreview.assetId}
+              data-testid="av-timed-video-preview"
+              aria-label={timedPreview.title}
+              onLoadedMetadata={(event) => {
+                const video = event.currentTarget
+                onVideoPreviewProgress?.(
+                  {
+                    mediaId: videoPreview.mediaId,
+                    assetId: videoPreview.assetId,
+                    currentTimeMs: Math.round(video.currentTime * 1000),
+                    durationMs: Number.isFinite(video.duration)
+                      ? Math.round(video.duration * 1000)
+                      : 0,
+                  },
+                )
+              }}
+              onTimeUpdate={(event) => {
+                const video = event.currentTarget
+                onVideoPreviewProgress?.(
+                  {
+                    mediaId: videoPreview.mediaId,
+                    assetId: videoPreview.assetId,
+                    currentTimeMs: Math.round(video.currentTime * 1000),
+                    durationMs: Number.isFinite(video.duration)
+                      ? Math.round(video.duration * 1000)
+                      : 0,
+                  },
+                )
+              }}
+            />
+          ) : (
+            <p className="av-slide-view__timed-preview" data-testid="av-timed-preview">
+              {timedPreview.title}
+            </p>
+          )
         ) : (
           <AvSlideContent
             text={contentLines ? undefined : contentText}
@@ -96,6 +180,9 @@ export function AvSlideView({
   deckPage,
   onDeckPageStatus,
   timedPreview,
+  videoPreviewRef,
+  videoPreviewPlaying,
+  onVideoPreviewProgress,
   contentLayer,
   backgroundLayer,
   transition,
@@ -119,7 +206,11 @@ export function AvSlideView({
       <div className={cn('av-slide-view', className)} aria-hidden>
         {compact ? (
           showBackground ? (
-            <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__background" />
+            <AvBackgroundLayer
+              layer={backgroundLayer}
+              className="av-slide-view__background"
+              videoPreview={compact}
+            />
           ) : null
         ) : (
           <AvSlideScaledStage>
@@ -127,6 +218,7 @@ export function AvSlideView({
               <AvBackgroundLayer
                 layer={backgroundLayer}
                 className="av-slide-view__background"
+                videoPreview={preview}
               />
             ) : null}
           </AvSlideScaledStage>
@@ -143,10 +235,14 @@ export function AvSlideView({
       deckPage={deckPage}
       onDeckPageStatus={onDeckPageStatus}
       timedPreview={timedPreview}
+      videoPreviewRef={videoPreviewRef}
+      videoPreviewPlaying={videoPreviewPlaying}
+      onVideoPreviewProgress={onVideoPreviewProgress}
       contentLayer={contentLayer}
       backgroundLayer={backgroundLayer}
       compact={compact}
       showBackground={compact || preview || Boolean(deckPage) ? showBackground : false}
+      preview={preview}
     />
   )
 
@@ -181,7 +277,11 @@ export function AvSlideView({
         ) : (
           <>
             {showBackground ? (
-              <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__background" />
+              <AvBackgroundLayer
+                layer={backgroundLayer}
+                className="av-slide-view__background"
+                videoPreview={preview}
+              />
             ) : null}
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
@@ -214,7 +314,11 @@ export function AvSlideView({
       </AvSlideScaledStage>
       {screenState === 'blank' && deckPage ? (
         <div className="av-slide-view__blank-overlay">
-          <AvBackgroundLayer layer={backgroundLayer} className="av-slide-view__blank-background" />
+          <AvBackgroundLayer
+            layer={backgroundLayer}
+            className="av-slide-view__blank-background"
+            videoPreview={preview}
+          />
           <p className="sr-only">{t('player.av.blankOn')}</p>
         </div>
       ) : null}

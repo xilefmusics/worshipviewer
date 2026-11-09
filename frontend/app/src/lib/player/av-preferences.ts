@@ -36,7 +36,16 @@ export type AvBackgroundLayer = {
     mediaId: string
     assetId: string
   }
+  video?: {
+    mediaId: string
+    assetId: string
+    thumbnailAssetId?: string
+  }
 }
+
+export type AvBackgroundAsset =
+  | { kind: 'image'; mediaId: string; assetId: string }
+  | { kind: 'video'; mediaId: string; assetId: string; thumbnailAssetId?: string }
 
 export type AvTransition = {
   style: AvTransitionStyle
@@ -159,6 +168,27 @@ function mergeBackgroundLayer(raw: Partial<AvBackgroundLayer> & Record<string, u
       image.assetId.trim()
     ) {
       return { preset, image: { mediaId: image.mediaId, assetId: image.assetId } }
+    }
+    const video = raw.video as {
+      mediaId?: unknown
+      assetId?: unknown
+      thumbnailAssetId?: unknown
+    } | undefined
+    if (
+      video &&
+      typeof video.mediaId === 'string' && video.mediaId.trim() &&
+      typeof video.assetId === 'string' && video.assetId.trim()
+    ) {
+      return {
+        preset,
+        video: {
+          mediaId: video.mediaId,
+          assetId: video.assetId,
+          ...(typeof video.thumbnailAssetId === 'string' && video.thumbnailAssetId.trim()
+            ? { thumbnailAssetId: video.thumbnailAssetId }
+            : {}),
+        },
+      }
     }
     return { preset }
   }

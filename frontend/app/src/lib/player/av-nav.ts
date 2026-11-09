@@ -37,6 +37,7 @@ export type AvItemSlides = {
   kind: 'lyrics' | 'blob' | 'deck' | 'video' | 'audio' | 'youtube' | 'spotify' | 'livestream' | 'web_page'
   mediaId?: string
   assetId?: string
+  thumbnailAssetId?: string
   videoId?: string
   canonicalUrl?: string
   spotifyId?: string
@@ -143,6 +144,9 @@ export function avSlidesForItem(
       kind: item.content.type,
       mediaId: item.id,
       assetId: item.content.blob_id,
+      ...(item.content.type === 'video' && item.content.thumbnail_blob_id
+        ? { thumbnailAssetId: item.content.thumbnail_blob_id }
+        : {}),
     }
   }
   if (item.type === 'media' && item.content?.type === 'youtube') {

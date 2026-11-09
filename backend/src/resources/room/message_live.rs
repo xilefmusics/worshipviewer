@@ -364,6 +364,7 @@ mod tests {
                     background: RoomBackground {
                         preset: 5,
                         image: None,
+                        video: None,
                     },
                 }
             ),
@@ -397,6 +398,7 @@ mod tests {
                             media_id: "media:one".into(),
                             asset_id: "asset:one".into(),
                         }),
+                        video: None,
                     },
                 },
             )

@@ -352,15 +352,13 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
                 duration_ms,
                 width,
                 height,
+                thumbnail_blob_id,
             } => {
-                let content_type = self
-                    .repo
-                    .list_assets_for_media(source_media_id)
-                    .await?
-                    .into_iter()
-                    .find(|asset| asset.id == *blob_id)
-                    .map(|asset| asset.content_type)
-                    .unwrap_or_else(|| "application/octet-stream".into());
+                let source_assets = self.repo.list_assets_for_media(source_media_id).await?;
+                let video_asset = source_assets.iter().find(|asset| asset.id == *blob_id);
+                let (video_kind, content_type) = video_asset
+                    .map(|asset| (asset.kind, asset.content_type.clone()))
+                    .unwrap_or((MediaAssetKind::Video, "application/octet-stream".into()));
                 let new_id = uuid::Uuid::new_v4().to_string();
                 self.storage
                     .copy_final_file(blob_id, &new_id)
@@ -374,9 +372,9 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
                     .create_final(
                         &new_id,
                         CreateFinalAsset {
-                            owner,
-                            media_id: media_rid,
-                            kind: MediaAssetKind::Video,
+                            owner: owner.clone(),
+                            media_id: media_rid.clone(),
+                            kind: video_kind,
                             content_type,
                             byte_length: bytes.len() as u64,
                             etag,
@@ -384,11 +382,46 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
                     )
                     .await?;
                 cleanup.disarm();
+                let copied_thumbnail_id = if let Some(thumbnail_blob_id) = thumbnail_blob_id {
+                    let thumbnail_source = source_assets
+                        .iter()
+                        .find(|asset| asset.id == *thumbnail_blob_id);
+                    let (thumbnail_kind, thumbnail_type) = thumbnail_source
+                        .map(|asset| (asset.kind, asset.content_type.clone()))
+                        .unwrap_or((MediaAssetKind::Image, "application/octet-stream".into()));
+                    let thumbnail_id = uuid::Uuid::new_v4().to_string();
+                    self.storage
+                        .copy_final_file(thumbnail_blob_id, &thumbnail_id)
+                        .map_err(|e| AppError::Internal(e.to_string()))?;
+                    let mut thumbnail_cleanup =
+                        FinalFileCleanup::new(self.storage.clone(), &thumbnail_id);
+                    let thumbnail_bytes = std::fs::read(self.final_file_path(&thumbnail_id))
+                        .map_err(|e| AppError::internal_from_err("media.duplicate.read", e))?;
+                    let thumbnail_etag = crate::http_range::etag_from_file_bytes(&thumbnail_bytes);
+                    self.repo
+                        .create_final(
+                            &thumbnail_id,
+                            CreateFinalAsset {
+                                owner,
+                                media_id: media_rid,
+                                kind: thumbnail_kind,
+                                content_type: thumbnail_type,
+                                byte_length: thumbnail_bytes.len() as u64,
+                                etag: thumbnail_etag,
+                            },
+                        )
+                        .await?;
+                    thumbnail_cleanup.disarm();
+                    Some(thumbnail_id)
+                } else {
+                    None
+                };
                 Ok(MediaContent::Video {
                     blob_id: new_id,
                     duration_ms: *duration_ms,
                     width: *width,
                     height: *height,
+                    thumbnail_blob_id: copied_thumbnail_id,
                 })
             }
             MediaContent::Audio {

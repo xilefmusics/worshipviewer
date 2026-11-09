@@ -324,6 +324,7 @@ impl MediaProcessingHandle {
                 duration_ms: 0,
                 width: 0,
                 height: 0,
+                thumbnail_blob_id: None,
             },
             MediaAssetKind::Audio => MediaContent::Audio {
                 blob_id: asset.id.clone(),
@@ -345,10 +346,18 @@ impl MediaProcessingHandle {
         operation_id: &str,
         kind: MediaAssetKind,
         replace_page_id: Option<&str>,
+        thumbnail: bool,
     ) -> Result<Media, AppError> {
         let mut cleanup = StagingAssetCleanup::new(self.asset_svc.clone(), operation_id);
         let result = self
-            .replace_after_upload_locked(ctx, media_id, operation_id, kind, replace_page_id)
+            .replace_after_upload_locked(
+                ctx,
+                media_id,
+                operation_id,
+                kind,
+                replace_page_id,
+                thumbnail,
+            )
             .await;
         cleanup.cleanup_now().await;
         result
@@ -361,6 +370,7 @@ impl MediaProcessingHandle {
         operation_id: &str,
         kind: MediaAssetKind,
         replace_page_id: Option<&str>,
+        thumbnail: bool,
     ) -> Result<Media, AppError> {
         let write_teams = ctx.write_teams();
         let media = self.media_repo.get(&write_teams, media_id).await?;
@@ -376,6 +386,16 @@ impl MediaProcessingHandle {
             ));
         }
         let staging_path = self.asset_svc.staging_path(operation_id);
+        if thumbnail {
+            if replace_page_id.is_some() {
+                return Err(AppError::invalid_request(
+                    "replace_page cannot be used for a video thumbnail",
+                ));
+            }
+            return self
+                .replace_video_thumbnail_locked(&write_teams, media, owner, &staging_path, kind)
+                .await;
+        }
         match (&media.content, kind) {
             (MediaContent::Image { .. }, MediaAssetKind::Image | MediaAssetKind::Svg) => {
                 if replace_page_id.is_some() {
@@ -443,6 +463,12 @@ impl MediaProcessingHandle {
                         duration_ms: 0,
                         width: 0,
                         height: 0,
+                        thumbnail_blob_id: match &media.content {
+                            MediaContent::Video {
+                                thumbnail_blob_id, ..
+                            } => thumbnail_blob_id.clone(),
+                            _ => None,
+                        },
                     },
                     MediaAssetKind::Audio => MediaContent::Audio {
                         blob_id: asset.id,
@@ -450,7 +476,12 @@ impl MediaProcessingHandle {
                     },
                     _ => unreachable!(),
                 };
-                let old_ids = content_blob_ids(&media.content);
+                let old_ids = match &media.content {
+                    MediaContent::Video { blob_id, .. } | MediaContent::Audio { blob_id, .. } => {
+                        HashSet::from([blob_id.clone()])
+                    }
+                    _ => unreachable!(),
+                };
                 let updated = self
                     .media_repo
                     .update_if_current(
@@ -486,6 +517,83 @@ impl MediaProcessingHandle {
                 "upload kind must match the existing media content",
             )),
         }
+    }
+
+    async fn replace_video_thumbnail_locked(
+        &self,
+        write_teams: &[RecordId],
+        media: Media,
+        owner: RecordId,
+        source: &Path,
+        kind: MediaAssetKind,
+    ) -> Result<Media, AppError> {
+        if !matches!(kind, MediaAssetKind::Image | MediaAssetKind::Svg) {
+            return Err(AppError::invalid_request(
+                "video thumbnails must be PNG, JPEG, or sanitized SVG images",
+            ));
+        }
+        let MediaContent::Video {
+            blob_id,
+            duration_ms,
+            width,
+            height,
+            thumbnail_blob_id,
+        } = &media.content
+        else {
+            return Err(AppError::invalid_request(
+                "only video media can have a thumbnail",
+            ));
+        };
+        let expanded = self
+            .deck_processor
+            .expand_source(source, kind, &self.work_parent, 1)
+            .await
+            .map_err(app_error_from_failure)?;
+        if expanded.pages.len() != 1 {
+            return Err(AppError::invalid_request(
+                "a video thumbnail requires exactly one image",
+            ));
+        }
+        let page = &expanded.pages[0];
+        let mut cleanup = FinalAssetCleanup::new(self.asset_svc.clone());
+        let asset = self
+            .asset_svc
+            .ingest_final_file(
+                owner,
+                RecordId::new("media", media.id.clone()),
+                page.kind,
+                page.content_type.into(),
+                &page.path,
+            )
+            .await?;
+        cleanup.track(asset.id.clone());
+        let updated = self
+            .media_repo
+            .update_if_current(
+                write_teams,
+                &media.id,
+                &media,
+                None,
+                MediaWrite {
+                    title: media.title.clone(),
+                    content: MediaContent::Video {
+                        blob_id: blob_id.clone(),
+                        duration_ms: *duration_ms,
+                        width: *width,
+                        height: *height,
+                        thumbnail_blob_id: Some(asset.id.clone()),
+                    },
+                    pending_revision: media.pending_revision.clone(),
+                    is_background: media.is_background,
+                },
+            )
+            .await?;
+        cleanup.disarm();
+        if let Some(old_id) = thumbnail_blob_id {
+            self.cleanup_final_assets(std::slice::from_ref(old_id))
+                .await;
+        }
+        Ok(updated)
     }
 
     async fn add_deck_source(
@@ -778,9 +886,18 @@ fn content_blob_ids(content: &MediaContent) -> HashSet<String> {
         MediaContent::SlideDeck { pages } => {
             pages.iter().map(|page| page.blob_id.clone()).collect()
         }
-        MediaContent::Video { blob_id, .. } | MediaContent::Audio { blob_id, .. } => {
-            HashSet::from([blob_id.clone()])
+        MediaContent::Video {
+            blob_id,
+            thumbnail_blob_id,
+            ..
+        } => {
+            let mut ids = HashSet::from([blob_id.clone()]);
+            if let Some(thumbnail_blob_id) = thumbnail_blob_id {
+                ids.insert(thumbnail_blob_id.clone());
+            }
+            ids
         }
+        MediaContent::Audio { blob_id, .. } => HashSet::from([blob_id.clone()]),
         _ => HashSet::new(),
     }
 }

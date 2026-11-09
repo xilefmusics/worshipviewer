@@ -60,6 +60,17 @@
   text-shadow: 0 1px 8px rgb(0 0 0 / 55%);
 }
 
+.av-slide-view__video-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.av-background-selector__preview .av-slide-view__content {
+  visibility: hidden;
+}
+
 .av-slide-view {
   position: relative;
   width: 100%;
@@ -267,6 +278,15 @@
 }
 
 .av-background-layer__image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.av-background-layer__video {
   position: absolute;
   inset: 0;
   z-index: 0;

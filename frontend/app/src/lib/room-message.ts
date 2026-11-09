@@ -64,7 +64,9 @@ function sameMessage(a: RoomMessage, b: RoomMessage): boolean {
     const left = a.change.background
     const right = b.change.background
     sameChange = left.preset === right.preset &&
-      left.image?.media_id === right.image?.media_id && left.image?.asset_id === right.image?.asset_id
+      left.image?.media_id === right.image?.media_id && left.image?.asset_id === right.image?.asset_id &&
+      left.video?.media_id === right.video?.media_id && left.video?.asset_id === right.video?.asset_id &&
+      left.video?.thumbnail_asset_id === right.video?.thumbnail_asset_id
   } else if (a.change.type === 'set_av_configuration' && b.change.type === 'set_av_configuration') {
     sameChange = sameAvConfiguration(a.change.configuration, b.change.configuration)
   }
@@ -76,7 +78,12 @@ function validRoomBackground(background: RoomBackground): boolean {
     (background.image == null || (
       typeof background.image.media_id === 'string' && background.image.media_id.trim().length > 0 && background.image.media_id.length <= 128 &&
       typeof background.image.asset_id === 'string' && background.image.asset_id.trim().length > 0 && background.image.asset_id.length <= 128
-    ))
+    )) &&
+    (background.video == null || (
+      typeof background.video.media_id === 'string' && background.video.media_id.trim().length > 0 && background.video.media_id.length <= 128 &&
+      typeof background.video.asset_id === 'string' && background.video.asset_id.trim().length > 0 && background.video.asset_id.length <= 128 &&
+      (background.video.thumbnail_asset_id == null || (typeof background.video.thumbnail_asset_id === 'string' && background.video.thumbnail_asset_id.trim().length > 0 && background.video.thumbnail_asset_id.length <= 128))
+    )) && !(background.image != null && background.video != null)
 }
 
 function validRoomAvConfiguration(configuration: RoomAvConfiguration, songCount: number): boolean {

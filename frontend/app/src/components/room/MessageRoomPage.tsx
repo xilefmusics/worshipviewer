@@ -36,6 +36,17 @@ function avBackgroundLayer(background: RoomBackground | null): AvBackgroundLayer
     ...(background.image
       ? { image: { mediaId: background.image.media_id, assetId: background.image.asset_id } }
       : {}),
+    ...(background.video
+      ? {
+          video: {
+            mediaId: background.video.media_id,
+            assetId: background.video.asset_id,
+            ...(background.video.thumbnail_asset_id
+              ? { thumbnailAssetId: background.video.thumbnail_asset_id }
+              : {}),
+          },
+        }
+      : {}),
   }
 }
 
@@ -133,6 +144,17 @@ export function MessageRoomPage({ roomId, initialMode = 'sheet' }: { roomId: str
       preset: background.preset,
       ...(background.image
         ? { image: { media_id: background.image.mediaId, asset_id: background.image.assetId } }
+        : {}),
+      ...(background.video
+        ? {
+            video: {
+              media_id: background.video.mediaId,
+              asset_id: background.video.assetId,
+              ...(background.video.thumbnailAssetId
+                ? { thumbnail_asset_id: background.video.thumbnailAssetId }
+                : {}),
+            },
+          }
         : {}),
     },
   }), [sendChange])

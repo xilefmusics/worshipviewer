@@ -9,13 +9,13 @@ The database stores the room reference, visit ID, epoch, sequence and client mes
 ```json
 {"type":"selection","song":1,"section":2,"slide":7,"activate":false}
 {"type":"vote","song":1,"voted":true}
-{"type":"set_background","background":{"preset":2,"image":{"media_id":"media:123","asset_id":"asset:456"}}}
+{"type":"set_background","background":{"preset":2,"video":{"media_id":"media:123","asset_id":"asset:456","thumbnail_asset_id":"asset:789"}}}
 {"type":"set_av_configuration","configuration":{"content_layer":{"max_lines_per_slide":4,"balance_slide_lines":true,"font_size":60,"text_align":"center","vertical_align":"center","horizontal_align":"center","text_shadow":"none","text_transform":"uppercase","primary_text_lightness":100,"secondary_text_lightness":65},"transition":{"style":"none","duration_ms":0},"bilingual_enabled":true,"collapse_lyric_whitespace":true,"language_by_item":{"1":1},"screen_state":"live"}}
 ```
 
 - `selection` replaces the song, source section and AV slide. `activate: true` marks that fixed entry played and clears all votes. Selecting any song is an activation; moving between sections or slides is not. Sheet navigation sends the selected section and slide zero; AV navigation sends both the source section and the exact rendered slide index. Legacy messages have no `section`; replay treats their previous `slide` value as a section and starts at that section boundary.
 - `vote` sets this visit's vote. Setting it to true also marks the song unplayed; setting it to false removes the vote without changing played state. Votes remain after the visit disconnects.
-- `set_background` replaces the shared AV background preset and optional custom image reference. It is replayed for joiners and reconnects. A custom image is fetched using each participant's normal media access; if unavailable, the preset remains visible as a fallback.
+- `set_background` replaces the shared AV background preset and optional custom image or video reference. It is replayed for joiners and reconnects. Custom media is fetched using each participant's normal media access; if unavailable, the preset remains visible as a fallback.
 - `set_av_configuration` replaces the AV rendering snapshot. AV-mode clients publish it; its latest value is replayed to slide-only joiners and reconnects. The server validates setting ranges and song indexes. Language overrides that are unavailable in a recipient's song fall back to that song's default language.
 - The virtual queue contains each captured entry once. Rank unplayed entries first, then descending vote count, then original source index. It is derived from replay and is never separately persisted.
 

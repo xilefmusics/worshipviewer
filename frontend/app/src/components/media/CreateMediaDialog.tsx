@@ -91,7 +91,7 @@ export function CreateMediaDialog({
             quickFiles[0].name.replace(/\.[^.]+$/, '').trim() ||
             t('media.create.title'),
           owner,
-          isBackground: uploadKind === 'image' && isBackground,
+          isBackground: (uploadKind === 'image' || uploadKind === 'video') && isBackground,
           files: quickFiles,
           onProgress: setUploadProgress,
         })
@@ -137,6 +137,7 @@ export function CreateMediaDialog({
           kind,
           title: title.trim(),
           owner,
+          isBackground: kind === 'video' && isBackground,
           files: [file],
           onProgress: setUploadProgress,
         })

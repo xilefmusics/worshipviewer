@@ -244,6 +244,9 @@ export function AvProjectedMedia({ command, onAck }: AvProjectedMediaProps) {
         <video
           ref={setMediaRef}
           className="av-projected-media__element"
+          poster={content.thumbnailAssetId
+            ? mediaAssetDataUrl(content.mediaId, content.thumbnailAssetId)
+            : undefined}
           playsInline
           preload="auto"
           data-testid="av-projected-video"
