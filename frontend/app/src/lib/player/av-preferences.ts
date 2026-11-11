@@ -3,7 +3,7 @@ import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage
 import type { PlayerMode } from '@/lib/player/player-mode'
 
 export type AvTextAlign = 'left' | 'center' | 'right'
-export type AvVerticalAlign = 'top' | 'center' | 'bottom'
+export type AvVerticalAlign = 'top' | 'cross_center' | 'center' | 'bottom'
 export type AvHorizontalAlign = 'left' | 'center' | 'right'
 export type AvTextShadow = 'none' | 'subtle' | 'medium' | 'strong'
 export type AvTextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize'
@@ -159,7 +159,7 @@ function mergeContentLayer(raw: Partial<AvContentLayer> | undefined): AvContentL
     textAlign: parseEnum(raw?.textAlign, ['left', 'center', 'right'], defaults.textAlign),
     verticalAlign: parseEnum(
       raw?.verticalAlign,
-      ['top', 'center', 'bottom'],
+      ['top', 'cross_center', 'center', 'bottom'],
       defaults.verticalAlign,
     ),
     horizontalAlign: parseEnum(

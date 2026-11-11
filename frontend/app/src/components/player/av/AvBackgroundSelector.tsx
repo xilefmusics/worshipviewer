@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import { fetchMediaPage, mediaListKey, type Media } from '@/api/media'
 import { AvGeometryOverlayShape } from '@/components/player/av/AvGeometryOverlayShape'
+import { AvForegroundSelector, type AvForegroundSelectorSettings } from '@/components/player/av/AvForegroundSelector'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
 import {
   AV_BACKGROUND_PRESETS,
@@ -43,6 +44,7 @@ type AvBackgroundSelectorProps = {
   backgroundLayer: AvBackgroundLayer
   previewText: string
   contentLayer: AvContentLayer
+  foregroundSettings?: AvForegroundSelectorSettings
   initiallyExpanded?: boolean
   selectedInherited?: boolean
   onSelectInherited?: () => void
@@ -88,6 +90,7 @@ export function AvBackgroundSelector({
   backgroundLayer,
   previewText,
   contentLayer,
+  foregroundSettings,
   initiallyExpanded = false,
   selectedInherited = false,
   onSelectInherited,
@@ -109,10 +112,15 @@ export function AvBackgroundSelector({
 }: AvBackgroundSelectorProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [expanded, setExpanded] = useState(initiallyExpanded)
+  const [openPanel, setOpenPanel] = useState<'background' | 'foreground' | null>(
+    initiallyExpanded ? 'background' : null,
+  )
+  const backgroundExpanded = openPanel === 'background'
+  const foregroundExpanded = openPanel === 'foreground'
+  const panelExpanded = openPanel !== null
   const query = useInfiniteQuery({
     queryKey: mediaListKey('', null, true),
-    enabled: expanded,
+    enabled: backgroundExpanded,
     initialPageParam: 0,
     queryFn: ({ pageParam, signal }) =>
       fetchMediaPage(queryClient, {
@@ -148,40 +156,81 @@ export function AvBackgroundSelector({
   )
   return (
     <div className="av-background-selector-panel">
-      <button
-        type="button"
-        className="av-background-selector-panel__toggle"
-        aria-expanded={expanded}
-        aria-controls="av-background-selector-options"
-        aria-label={
-          expanded ? t('player.av.backgroundCollapse') : t('player.av.backgroundExpand')
-        }
-        onClick={() => setExpanded((open) => !open)}
+      <div
+        className={cn(
+          'av-background-selector-panel__tabs',
+          !foregroundSettings && 'av-background-selector-panel__tabs--single',
+        )}
+        role="group"
+        aria-label={t('player.av.layerSelectorAria')}
       >
-        <span className="av-background-selector-panel__toggle-label">
-          {t('player.av.backgroundTitle')}
-        </span>
-        <span className="av-background-selector-panel__toggle-value">
-          {selectedLabel}
-          {selectedOverlayLabel ? ` · ${selectedOverlayLabel}` : ''}
-        </span>
-        <span
+        <button
+          type="button"
           className={cn(
-            'av-background-selector-panel__chevron',
-            expanded && 'av-background-selector-panel__chevron--expanded',
+            'av-background-selector-panel__toggle',
+            backgroundExpanded && 'av-background-selector-panel__toggle--selected',
           )}
-          aria-hidden
-        />
-      </button>
+          aria-expanded={backgroundExpanded}
+          aria-controls="av-background-selector-options"
+          aria-label={backgroundExpanded ? t('player.av.backgroundCollapse') : t('player.av.backgroundExpand')}
+          onClick={() => setOpenPanel((open) => open === 'background' ? null : 'background')}
+        >
+          <span className="av-background-selector-panel__toggle-label">
+            {t('player.av.backgroundTitle')}
+          </span>
+          <span className="av-background-selector-panel__toggle-value">
+            {selectedLabel}
+            {selectedOverlayLabel ? ` · ${selectedOverlayLabel}` : ''}
+          </span>
+          <span
+            className={cn(
+              'av-background-selector-panel__chevron',
+              backgroundExpanded && 'av-background-selector-panel__chevron--expanded',
+            )}
+            aria-hidden
+          />
+        </button>
+        {foregroundSettings ? (
+          <button
+            type="button"
+            className={cn(
+              'av-background-selector-panel__toggle',
+              'av-background-selector-panel__toggle--foreground',
+              foregroundExpanded && 'av-background-selector-panel__toggle--selected',
+            )}
+            aria-expanded={foregroundExpanded}
+            aria-controls="av-background-selector-options"
+            aria-label={foregroundExpanded ? t('player.av.foregroundCollapse') : t('player.av.foregroundExpand')}
+            onClick={() => setOpenPanel((open) => open === 'foreground' ? null : 'foreground')}
+          >
+            <span className="av-background-selector-panel__toggle-label">
+              {t('player.av.foregroundTitle')}
+            </span>
+            <span
+              className={cn(
+                'av-background-selector-panel__chevron',
+                foregroundExpanded && 'av-background-selector-panel__chevron--expanded',
+              )}
+              aria-hidden
+            />
+          </button>
+        ) : null}
+      </div>
 
       <div
         id="av-background-selector-options"
         className={cn(
           'av-background-selector-panel__body',
-          expanded && 'av-background-selector-panel__body--expanded',
+          panelExpanded && 'av-background-selector-panel__body--expanded',
         )}
+        role="region"
+        aria-label={t(foregroundExpanded ? 'player.av.foregroundTitle' : 'player.av.backgroundTitle')}
       >
         <div className="av-background-selector-panel__body-inner">
+          {foregroundExpanded && foregroundSettings ? (
+            <AvForegroundSelector {...foregroundSettings} />
+          ) : null}
+          <div hidden={!backgroundExpanded}>
           <div
             className="av-background-selector"
             role="radiogroup"
@@ -524,6 +573,7 @@ export function AvBackgroundSelector({
               {query.isFetchingNextPage ? t('common.load') : t('hub.loadMore')}
             </button>
           ) : null}
+          </div>
         </div>
       </div>
     </div>

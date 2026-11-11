@@ -10,6 +10,7 @@ import { AvOutlinePanel } from '@/components/player/av/AvOutlinePanel'
 import { AvSectionShortcuts } from '@/components/player/av/AvSectionShortcuts'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
 import { AvSlidesPanel } from '@/components/player/av/AvSlidesPanel'
+import type { AvForegroundSelectorSettings } from '@/components/player/av/AvForegroundSelector'
 import { PlayerEditMenu } from '@/components/player/PlayerEditMenu'
 import { PlayerTocSidebar } from '@/components/player/PlayerTocSidebar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
@@ -23,6 +24,7 @@ import { useAvBilingualPreference } from '@/hooks/useAvBilingualPreference'
 import { useResolvedPlayerItemChordData } from '@/lib/player/apply-song-flow'
 import { readChordFormatPreference } from '@/lib/chord-format'
 import { readHideChordsPreference } from '@/lib/hide-chords-preference'
+import { writeAvBilingualPreference } from '@/lib/av-bilingual-preference'
 import { isCopyWorshipProShortcut, isPrintPlayerPdfShortcut } from '@/lib/player/player-keyboard'
 import { copyPlayerSongAsWorshipPro } from '@/lib/player/player-song-copy'
 import { printPlayerSongPdf } from '@/lib/player/player-song-print'
@@ -612,6 +614,19 @@ export function PlayerAv({
   }, [currentItem.slides, session.screenState, session.slideIndex])
 
   const projectedSlideCount = projectedItem.slides.length
+  const currentLastSlide = Math.max(currentItem.slides.length - 1, 0)
+  const projectedLastSlide = Math.max(projectedSlideCount - 1, 0)
+  if (session.slideIndex > currentLastSlide) {
+    setSession((state) => state.itemIndex === session.itemIndex && state.slideIndex > currentLastSlide
+      ? { ...state, slideIndex: currentLastSlide }
+      : state)
+  }
+  if (projected.slideIndex > projectedLastSlide) {
+    setProjected((state) => state.itemIndex === projected.itemIndex && state.slideIndex > projectedLastSlide
+      ? { ...state, slideIndex: projectedLastSlide }
+      : state)
+  }
+
   const projectedText = useMemo(() => {
     if (projected.screenState !== 'live') return ''
     return (
@@ -653,6 +668,20 @@ export function PlayerAv({
     currentLanguageOptions[currentLanguageIndex ?? 0]?.label ??
     `L${(currentLanguageIndex ?? 0) + 1}`
   const showLanguageSelector = rawItem?.type === 'chords' && currentLanguageOptions.length > 1
+  const nextLanguageOption = showLanguageSelector
+    ? currentLanguageOptions[((currentLanguageIndex ?? 0) + 1) % currentLanguageOptions.length]
+    : undefined
+  const selectLanguageForCurrentItem = useCallback((languageIndex: number) => {
+    setViewState((state) =>
+      languageIndex === 0
+        ? clearLanguageForItem(state, session.itemIndex)
+        : setLanguageForItem(state, session.itemIndex, languageIndex),
+    )
+    setLanguagePopoverOpen(false)
+  }, [session.itemIndex])
+  const selectNextLanguage = useCallback(() => {
+    if (nextLanguageOption) selectLanguageForCurrentItem(nextLanguageOption.index)
+  }, [nextLanguageOption, selectLanguageForCurrentItem])
 
   const navigateToSongEditor = useCallback(() => {
     const item = player.items[session.itemIndex]
@@ -865,6 +894,18 @@ export function PlayerAv({
     })
   }, [onSharedBackgroundChange])
 
+  const setContentLayer = useCallback((partial: Partial<AvContentLayer>) => {
+    setPrefs((prev) => {
+      const next = { ...prev, contentLayer: { ...prev.contentLayer, ...partial } }
+      writeAvPreferences(next)
+      return next
+    })
+  }, [])
+
+  const setBilingualPreference = useCallback((enabled: boolean) => {
+    writeAvBilingualPreference(enabled)
+  }, [])
+
   const setBackgroundAsset = useCallback((asset: AvBackgroundAsset) => {
     const nextBackground: AvBackgroundLayer = asset.kind === 'image'
       ? { preset: playerBackgroundLayer.preset, image: { mediaId: asset.mediaId, assetId: asset.assetId } }
@@ -934,6 +975,13 @@ export function PlayerAv({
       return next
     })
   }, [])
+
+  const foregroundSettings: AvForegroundSelectorSettings = {
+    contentLayer: prefs.contentLayer,
+    bilingualEnabled,
+    onContentLayerChange: setContentLayer,
+    onBilingualChange: setBilingualPreference,
+  }
 
   const goToSlide = useCallback(
     (slideIndex: number, clearScreenState = true) => {
@@ -1176,7 +1224,10 @@ export function PlayerAv({
         return
       }
 
-      const action = avKeyboardAction(e.key, e.target, { tocOpen: tocVisible })
+      const action = avKeyboardAction(e.key, e.target, {
+        tocOpen: tocVisible,
+        languageShortcuts: showLanguageSelector,
+      })
       if (!action && (e.key === 'n' || e.key === 'N')) {
         if (isEditableTarget(e.target)) return
         e.preventDefault()
@@ -1230,13 +1281,23 @@ export function PlayerAv({
         toggleBlackout()
         return
       }
+      if (action === 'nextLanguage') {
+        e.preventDefault()
+        selectNextLanguage()
+        return
+      }
+      if (action === 'toggleTranslation') {
+        e.preventDefault()
+        setBilingualPreference(!bilingualEnabled)
+        return
+      }
       if (action === 'openOutput') {
         e.preventDefault()
         openOutputWindow()
         return
       }
       if (action === 'jumpSection') {
-        const sectionTitle = avSectionJumpTitle(e.key)
+        const sectionTitle = avSectionJumpTitle(e.key, showLanguageSelector)
         if (sectionTitle) {
           e.preventDefault()
           jumpToSection(sectionTitle)
@@ -1262,9 +1323,13 @@ export function PlayerAv({
     toggleBlackout,
     tocVisible,
     languagePopoverOpen,
+    bilingualEnabled,
     currentItem.kind,
     currentLanguageIndex,
     rawItem,
+    selectNextLanguage,
+    setBilingualPreference,
+    showLanguageSelector,
     slideOnly,
     t,
   ])
@@ -1380,14 +1445,7 @@ export function PlayerAv({
                       type="button"
                       size="sm"
                       variant={currentLanguageIndex === option.index ? 'default' : 'outline'}
-                      onClick={() => {
-                        setViewState((state) =>
-                          option.index === 0
-                            ? clearLanguageForItem(state, session.itemIndex)
-                            : setLanguageForItem(state, session.itemIndex, option.index),
-                        )
-                        setLanguagePopoverOpen(false)
-                      }}
+                      onClick={() => selectLanguageForCurrentItem(option.index)}
                     >
                       {option.index === 0
                         ? t('player.language.defaultOption', { language: option.label })
@@ -1477,6 +1535,12 @@ export function PlayerAv({
             onJump={jumpToSection}
             onToggleBlank={toggleBlank}
             onToggleBlackout={toggleBlackout}
+            nextLanguageLabel={nextLanguageOption?.label}
+            onNextLanguage={showLanguageSelector ? selectNextLanguage : undefined}
+            translationEnabled={bilingualEnabled}
+            onToggleTranslation={showLanguageSelector
+              ? () => setBilingualPreference(!bilingualEnabled)
+              : undefined}
           />
 
           {/* Flow: I4, I5 */}
@@ -1491,6 +1555,7 @@ export function PlayerAv({
                 backgroundLayer={backgroundLayer}
                 backgroundPreviewText={currentText}
                 contentLayer={prefs.contentLayer}
+                foregroundSettings={foregroundSettings}
                 geometryOverlay={prefs.geometryOverlay}
                 geometryOverlayRotatedBackground={prefs.geometryOverlayRotatedBackground}
                 geometryOverlayOpacity={prefs.geometryOverlayOpacity}
@@ -1525,6 +1590,7 @@ export function PlayerAv({
                 backgroundLayer={backgroundLayer}
                 backgroundPreviewText={currentText}
                 contentLayer={prefs.contentLayer}
+                foregroundSettings={foregroundSettings}
                 geometryOverlay={prefs.geometryOverlay}
                 geometryOverlayRotatedBackground={prefs.geometryOverlayRotatedBackground}
                 geometryOverlayOpacity={prefs.geometryOverlayOpacity}
@@ -1582,6 +1648,7 @@ export function PlayerAv({
                 entries={slideDeckEntries}
                 currentSlideIndex={selectedDeckSlideIndex}
                 contentLayer={prefs.contentLayer}
+                foregroundSettings={foregroundSettings}
                 backgroundLayer={backgroundLayer}
                 fallbackBackgroundLayer={fallbackBackgroundLayer}
                 backgroundPreviewText={currentText}

@@ -195,6 +195,7 @@ function AvSlideCanvas({
             text={contentLines ? undefined : contentText}
             lines={contentLines}
             contentLayer={contentLayer}
+            geometryOverlaySize={geometryOverlaySize}
             compact={compact}
           />
         )}

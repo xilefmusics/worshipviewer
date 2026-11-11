@@ -1899,7 +1899,7 @@ export interface components {
         /** @enum {string} */
         RoomAvTransitionStyle: "none" | "fade" | "slide";
         /** @enum {string} */
-        RoomAvVerticalAlign: "top" | "center" | "bottom";
+        RoomAvVerticalAlign: "top" | "cross_center" | "center" | "bottom";
         /** @description A preset plus an optional custom image or video reference for the room AV background. */
         RoomBackground: {
             image?: components["schemas"]["RoomBackgroundImage"] | null;

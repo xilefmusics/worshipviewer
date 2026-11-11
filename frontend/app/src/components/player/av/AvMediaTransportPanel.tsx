@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { AvBackgroundSelector } from '@/components/player/av/AvBackgroundSelector'
+import type { AvForegroundSelectorSettings } from '@/components/player/av/AvForegroundSelector'
 import { Button } from '@/components/ui/button'
 import type {
   AvBackgroundAsset,
@@ -34,6 +35,7 @@ type AvMediaTransportPanelProps = {
   backgroundLayer: AvBackgroundLayer
   backgroundPreviewText: string
   contentLayer: AvContentLayer
+  foregroundSettings?: AvForegroundSelectorSettings
   geometryOverlay: AvGeometryOverlay
   geometryOverlayOpacity: number
   geometryOverlayColor: number
@@ -89,6 +91,7 @@ export function AvMediaTransportPanel({
   backgroundLayer,
   backgroundPreviewText,
   contentLayer,
+  foregroundSettings,
   geometryOverlay,
   geometryOverlayOpacity,
   geometryOverlayColor,
@@ -280,6 +283,7 @@ export function AvMediaTransportPanel({
         backgroundLayer={backgroundLayer}
         previewText={backgroundPreviewText}
         contentLayer={contentLayer}
+        foregroundSettings={foregroundSettings}
         geometryOverlay={geometryOverlay}
         geometryOverlayOpacity={geometryOverlayOpacity}
         geometryOverlayColor={geometryOverlayColor}

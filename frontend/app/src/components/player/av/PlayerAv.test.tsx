@@ -178,14 +178,39 @@ vi.mock('@/components/player/av/AvSlidesPanel', () => ({
     entries,
     currentSlideIndex,
     onSelectSlide,
+    foregroundSettings,
   }: {
     entries: Array<{ text: string; slideIndex: number }>
     currentSlideIndex: number | null
     onSelectSlide: (slideIndex: number) => void
+    foregroundSettings?: {
+      contentLayer: { fontSize: number; maxLinesPerSlide: number }
+      onContentLayerChange: (partial: { fontSize?: number; maxLinesPerSlide?: number }) => void
+    }
   }) => (
     <div>
       <div data-testid="slide-entry-texts">{entries.map((entry) => entry.text).join('|')}</div>
       <div data-testid="selected-slide-index">{String(currentSlideIndex)}</div>
+      {foregroundSettings ? (
+        <>
+          <div data-testid="foreground-font-size">{foregroundSettings.contentLayer.fontSize}</div>
+          <div data-testid="foreground-lines-per-slide">
+            {foregroundSettings.contentLayer.maxLinesPerSlide}
+          </div>
+          <button
+            type="button"
+            onClick={() => foregroundSettings.onContentLayerChange({ fontSize: 72 })}
+          >
+            Set foreground font size 72
+          </button>
+          <button
+            type="button"
+            onClick={() => foregroundSettings.onContentLayerChange({ maxLinesPerSlide: 3 })}
+          >
+            Set foreground lines per slide 3
+          </button>
+        </>
+      ) : null}
       {entries.map((entry) => (
         <button
           key={entry.slideIndex}
@@ -357,6 +382,42 @@ beforeEach(() => {
 })
 
 describe('PlayerAv', () => {
+  it('applies foreground changes to saved AV preferences and projected output', async () => {
+    const user = userEvent.setup()
+    render(
+      <PlayerAv
+        type="setlist"
+        id="setlist-1"
+        player={player}
+        allowNetworkFetch={false}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Set foreground font size 72' }))
+
+    expect(screen.getByTestId('foreground-font-size')).toHaveTextContent('72')
+    expect(writePreferences).toHaveBeenLastCalledWith(expect.objectContaining({
+      contentLayer: expect.objectContaining({ fontSize: 72 }),
+    }))
+    await waitFor(() => {
+      expect(broadcast.mock.calls.some(([command]) => (
+        (command as { contentLayer?: { fontSize?: number } }).contentLayer?.fontSize === 72
+      ))).toBe(true)
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Set foreground lines per slide 3' }))
+
+    expect(screen.getByTestId('foreground-lines-per-slide')).toHaveTextContent('3')
+    expect(writePreferences).toHaveBeenLastCalledWith(expect.objectContaining({
+      contentLayer: expect.objectContaining({ maxLinesPerSlide: 3 }),
+    }))
+    await waitFor(() => {
+      expect(broadcast.mock.calls.some(([command]) => (
+        (command as { contentLayer?: { maxLinesPerSlide?: number } }).contentLayer?.maxLinesPerSlide === 3
+      ))).toBe(true)
+    })
+  })
+
   it('renders a supplied TOC sidebar in the player body', () => {
     render(
       <PlayerAv

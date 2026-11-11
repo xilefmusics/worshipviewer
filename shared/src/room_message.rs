@@ -82,6 +82,7 @@ pub enum RoomAvTextAlign {
 #[serde(rename_all = "snake_case")]
 pub enum RoomAvVerticalAlign {
     Top,
+    CrossCenter,
     Center,
     Bottom,
 }
@@ -774,8 +775,13 @@ mod tests {
     #[test]
     fn replays_shared_av_configuration_and_rejects_invalid_values() {
         let mut configuration = av_configuration();
+        configuration.content_layer.vertical_align = RoomAvVerticalAlign::CrossCenter;
         configuration.geometry_overlay_rotated_background = Some(true);
         let serialized = serde_json::to_value(&configuration).unwrap();
+        assert_eq!(
+            serialized["content_layer"]["vertical_align"],
+            "cross_center"
+        );
         assert_eq!(serialized["geometry_overlay_rotated_background"], true);
         assert_eq!(
             serde_json::from_value::<RoomAvConfiguration>(serialized).unwrap(),

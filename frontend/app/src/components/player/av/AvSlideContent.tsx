@@ -20,12 +20,14 @@ type AvSlideContentProps = {
   text?: string
   lines?: AvLyricLine[]
   contentLayer: AvContentLayer
+  geometryOverlaySize?: number
   className?: string
   compact?: boolean
 }
 
 type AvLineKind = 'primary' | 'secondary'
 type AvLineStyle = CSSProperties & { '--av-text-lightness': string }
+type AvContentStyle = CSSProperties & { '--av-cross-center-offset': string }
 
 function renderLine(
   line: string,
@@ -76,10 +78,17 @@ export function AvSlideContent({
   text,
   lines,
   contentLayer,
+  geometryOverlaySize,
   className,
   compact = false,
 }: AvSlideContentProps) {
   const designFontSizePx = contentLayer.fontSize
+  const crossCenterOffset =
+    13.3 * ((geometryOverlaySize ?? DEFAULT_AV_PREFERENCES.geometryOverlaySize) / 64)
+  const contentStyle: AvContentStyle = {
+    '--av-cross-center-offset': `${crossCenterOffset}%`,
+    ...(compact ? {} : { padding: `${AV_SLIDE_EDGE_PADDING_PX}px` }),
+  }
   const structuredLines = lines
     ? compact
       ? lines.slice(0, 1)
@@ -100,7 +109,7 @@ export function AvSlideContent({
         compact && 'av-slide-content--compact',
         className,
       )}
-      style={compact ? undefined : { padding: `${AV_SLIDE_EDGE_PADDING_PX}px` }}
+      style={contentStyle}
     >
       <div
         className="av-slide-content__inner"

@@ -11,6 +11,8 @@ export type AvKeyboardAction =
   | 'escape'
   | 'toggleBlank'
   | 'toggleBlackout'
+  | 'toggleTranslation'
+  | 'nextLanguage'
   | 'openOutput'
   | 'jumpSection'
   | null
@@ -32,7 +34,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 export function avKeyboardAction(
   key: string,
   target: EventTarget | null,
-  options?: { tocOpen?: boolean },
+  options?: { tocOpen?: boolean; languageShortcuts?: boolean },
 ): AvKeyboardAction {
   if (isEditableTarget(target)) return null
 
@@ -64,7 +66,10 @@ export function avKeyboardAction(
       return 'toggleBlackout'
     case 'o':
       return 'openOutput'
+    case 'l':
+      return options?.languageShortcuts ? 'nextLanguage' : null
     case 't':
+      return options?.languageShortcuts ? 'toggleTranslation' : 'jumpSection'
     case 'e':
     case 'b':
     case 'c':
@@ -80,6 +85,8 @@ export function avKeyboardAction(
     case '8':
     case '9':
       return 'jumpSection'
+    case 'g':
+      return options?.languageShortcuts ? 'jumpSection' : null
     default:
       return null
   }
@@ -93,6 +100,8 @@ export type AvSectionJumpShortcut = {
 export const AV_BLANK_SHORTCUT_KEY = 'r'
 export const AV_BLACKOUT_SHORTCUT_KEY = 'R'
 export const AV_OPEN_OUTPUT_SHORTCUT_KEY = 'o'
+export const AV_NEXT_LANGUAGE_SHORTCUT_KEY = 'l'
+export const AV_TRANSLATION_SHORTCUT_KEY = 't'
 
 export const AV_SECTION_JUMP_SHORTCUTS: readonly AvSectionJumpShortcut[] = [
   { key: 'c', sectionTitle: 'Chorus' },
@@ -112,14 +121,20 @@ export const AV_SECTION_JUMP_SHORTCUTS: readonly AvSectionJumpShortcut[] = [
   { key: 'e', sectionTitle: 'Ending' },
 ]
 
-export function avSectionJumpTitle(key: string): string | null {
+export function avSectionJumpTitle(key: string, languageShortcuts = false): string | null {
+  if (languageShortcuts && key === 'g') return 'Tag'
   return AV_SECTION_JUMP_SHORTCUTS.find((shortcut) => shortcut.key === key)?.sectionTitle ?? null
 }
 
 export function avAvailableSectionJumpShortcuts(
   outline: AvSectionOutline[],
+  languageShortcuts = false,
 ): AvSectionJumpShortcut[] {
   return AV_SECTION_JUMP_SHORTCUTS.filter(
     (shortcut) => avPresentationIndexForSectionTitle(outline, shortcut.sectionTitle) != null,
+  ).map((shortcut) =>
+    languageShortcuts && shortcut.sectionTitle === 'Tag'
+      ? { ...shortcut, key: 'g' }
+      : shortcut,
   )
 }

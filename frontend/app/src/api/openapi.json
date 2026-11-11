@@ -2458,6 +2458,7 @@
       "RoomAvVerticalAlign": {
         "enum": [
           "top",
+          "cross_center",
           "center",
           "bottom"
         ],

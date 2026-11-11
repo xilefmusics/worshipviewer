@@ -108,7 +108,7 @@ function validRoomAvConfiguration(configuration: RoomAvConfiguration, songCount:
     typeof content.balance_slide_lines === 'boolean' &&
     Number.isSafeInteger(content.font_size) && content.font_size >= 20 && content.font_size <= 120 &&
     ['left', 'center', 'right'].includes(content.text_align) &&
-    ['top', 'center', 'bottom'].includes(content.vertical_align) &&
+    ['top', 'cross_center', 'center', 'bottom'].includes(content.vertical_align) &&
     ['left', 'center', 'right'].includes(content.horizontal_align) &&
     ['none', 'subtle', 'medium', 'strong'].includes(content.text_shadow) &&
     ['none', 'uppercase', 'lowercase', 'capitalize'].includes(content.text_transform) &&

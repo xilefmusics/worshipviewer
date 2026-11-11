@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { AvBackgroundSelector } from '@/components/player/av/AvBackgroundSelector'
+import type { AvForegroundSelectorSettings } from '@/components/player/av/AvForegroundSelector'
 import { Button } from '@/components/ui/button'
 import type {
   AvBackgroundAsset,
@@ -19,6 +20,7 @@ type AvSpotifyPanelProps = {
   backgroundLayer: AvBackgroundLayer
   backgroundPreviewText: string
   contentLayer: AvContentLayer
+  foregroundSettings?: AvForegroundSelectorSettings
   geometryOverlay: AvGeometryOverlay
   geometryOverlayOpacity: number
   geometryOverlayColor: number
@@ -42,6 +44,7 @@ export function AvSpotifyPanel({
   backgroundLayer,
   backgroundPreviewText,
   contentLayer,
+  foregroundSettings,
   geometryOverlay,
   geometryOverlayOpacity,
   geometryOverlayColor,
@@ -80,6 +83,7 @@ export function AvSpotifyPanel({
         backgroundLayer={backgroundLayer}
         previewText={previewText}
         contentLayer={contentLayer}
+        foregroundSettings={foregroundSettings}
         geometryOverlay={geometryOverlay}
         geometryOverlayOpacity={geometryOverlayOpacity}
         geometryOverlayColor={geometryOverlayColor}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { AvBackgroundSelector } from '@/components/player/av/AvBackgroundSelector'
+import type { AvForegroundSelectorSettings } from '@/components/player/av/AvForegroundSelector'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
 import { MediaDeckPageView } from '@/components/media/MediaDeckPageView'
 import { observeElementResize } from '@/lib/browser-apis'
@@ -68,6 +69,7 @@ type AvSlidesPanelProps = {
   entries: AvSlideDeckEntry[]
   currentSlideIndex: number | null
   contentLayer: AvContentLayer
+  foregroundSettings?: AvForegroundSelectorSettings
   backgroundLayer: AvBackgroundLayer
   fallbackBackgroundLayer?: AvBackgroundLayer
   backgroundPreviewText: string
@@ -93,6 +95,7 @@ export function AvSlidesPanel({
   entries,
   currentSlideIndex,
   contentLayer,
+  foregroundSettings,
   backgroundLayer,
   fallbackBackgroundLayer,
   backgroundPreviewText,
@@ -136,6 +139,7 @@ export function AvSlidesPanel({
           backgroundLayer={backgroundLayer}
           previewText={backgroundPreviewLine}
           contentLayer={contentLayer}
+          foregroundSettings={foregroundSettings}
           geometryOverlay={geometryOverlay}
           geometryOverlayOpacity={geometryOverlayOpacity}
           geometryOverlayColor={geometryOverlayColor}
@@ -221,6 +225,7 @@ export function AvSlidesPanel({
         backgroundLayer={backgroundLayer}
         previewText={backgroundPreviewLine}
         contentLayer={contentLayer}
+        foregroundSettings={foregroundSettings}
         geometryOverlay={geometryOverlay}
         geometryOverlayOpacity={geometryOverlayOpacity}
         geometryOverlayColor={geometryOverlayColor}
