@@ -6,6 +6,7 @@ import { mediaAssetDataUrl } from '@/api/media-upload'
 import type {
   AvBackgroundLayer as AvBackgroundLayerPrefs,
   AvContentLayer,
+  AvGeometryOverlay,
   AvScreenState,
   AvTransition,
 } from '@/lib/player/av-preferences'
@@ -39,6 +40,11 @@ type AvSlideViewProps = {
   }) => void
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayerPrefs
+  geometryOverlay?: AvGeometryOverlay
+  geometryOverlayOpacity?: number
+  geometryOverlayColor?: number
+  geometryOverlaySize?: number
+  geometryOverlayThickness?: number
   fallbackBackgroundLayer?: AvBackgroundLayerPrefs
   transition: AvTransition
   screenState: AvScreenState
@@ -61,6 +67,11 @@ function AvSlideCanvas({
   onVideoPreviewProgress,
   contentLayer,
   backgroundLayer,
+  geometryOverlay,
+  geometryOverlayOpacity,
+  geometryOverlayColor,
+  geometryOverlaySize,
+  geometryOverlayThickness,
   fallbackBackgroundLayer,
   compact,
   showBackground,
@@ -77,6 +88,11 @@ function AvSlideCanvas({
   | 'onVideoPreviewProgress'
   | 'contentLayer'
   | 'backgroundLayer'
+  | 'geometryOverlay'
+  | 'geometryOverlayOpacity'
+  | 'geometryOverlayColor'
+  | 'geometryOverlaySize'
+  | 'geometryOverlayThickness'
   | 'fallbackBackgroundLayer'
   | 'compact'
   | 'showBackground'
@@ -99,6 +115,11 @@ function AvSlideCanvas({
       {showBackground && !deckPage ? (
         <AvBackgroundLayer
           layer={backgroundLayer}
+          geometryOverlay={geometryOverlay}
+          geometryOverlayOpacity={geometryOverlayOpacity}
+          geometryOverlayColor={geometryOverlayColor}
+          geometryOverlaySize={geometryOverlaySize}
+          geometryOverlayThickness={geometryOverlayThickness}
           fallbackLayer={fallbackBackgroundLayer}
           className="av-slide-view__background"
           videoPreview={compact || preview}
@@ -189,6 +210,11 @@ export function AvSlideView({
   onVideoPreviewProgress,
   contentLayer,
   backgroundLayer,
+  geometryOverlay,
+  geometryOverlayOpacity,
+  geometryOverlayColor,
+  geometryOverlaySize,
+  geometryOverlayThickness,
   fallbackBackgroundLayer,
   transition,
   screenState,
@@ -213,6 +239,11 @@ export function AvSlideView({
           showBackground ? (
             <AvBackgroundLayer
               layer={backgroundLayer}
+              geometryOverlay={geometryOverlay}
+              geometryOverlayOpacity={geometryOverlayOpacity}
+              geometryOverlayColor={geometryOverlayColor}
+              geometryOverlaySize={geometryOverlaySize}
+              geometryOverlayThickness={geometryOverlayThickness}
               fallbackLayer={fallbackBackgroundLayer}
               className="av-slide-view__background"
               videoPreview={compact}
@@ -223,6 +254,11 @@ export function AvSlideView({
             {showBackground ? (
               <AvBackgroundLayer
                 layer={backgroundLayer}
+                geometryOverlay={geometryOverlay}
+                geometryOverlayOpacity={geometryOverlayOpacity}
+                geometryOverlayColor={geometryOverlayColor}
+                geometryOverlaySize={geometryOverlaySize}
+                geometryOverlayThickness={geometryOverlayThickness}
                 fallbackLayer={fallbackBackgroundLayer}
                 className="av-slide-view__background"
                 videoPreview={preview}
@@ -247,6 +283,11 @@ export function AvSlideView({
       onVideoPreviewProgress={onVideoPreviewProgress}
       contentLayer={contentLayer}
       backgroundLayer={backgroundLayer}
+      geometryOverlay={geometryOverlay}
+      geometryOverlayOpacity={geometryOverlayOpacity}
+      geometryOverlayColor={geometryOverlayColor}
+      geometryOverlaySize={geometryOverlaySize}
+      geometryOverlayThickness={geometryOverlayThickness}
       fallbackBackgroundLayer={fallbackBackgroundLayer}
       compact={compact}
       showBackground={compact || preview || Boolean(deckPage) ? showBackground : false}
@@ -287,6 +328,11 @@ export function AvSlideView({
             {showBackground ? (
               <AvBackgroundLayer
                 layer={backgroundLayer}
+                geometryOverlay={geometryOverlay}
+                geometryOverlayOpacity={geometryOverlayOpacity}
+                geometryOverlayColor={geometryOverlayColor}
+                geometryOverlaySize={geometryOverlaySize}
+                geometryOverlayThickness={geometryOverlayThickness}
                 fallbackLayer={fallbackBackgroundLayer}
                 className="av-slide-view__background"
                 videoPreview={preview}
@@ -325,6 +371,11 @@ export function AvSlideView({
         <div className="av-slide-view__blank-overlay">
           <AvBackgroundLayer
             layer={backgroundLayer}
+            geometryOverlay={geometryOverlay}
+            geometryOverlayOpacity={geometryOverlayOpacity}
+            geometryOverlayColor={geometryOverlayColor}
+            geometryOverlaySize={geometryOverlaySize}
+            geometryOverlayThickness={geometryOverlayThickness}
             fallbackLayer={fallbackBackgroundLayer}
             className="av-slide-view__blank-background"
             videoPreview={preview}

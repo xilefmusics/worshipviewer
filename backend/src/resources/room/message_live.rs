@@ -234,9 +234,10 @@ impl MessageRoomLive {
 mod tests {
     use super::*;
     use shared::room_message::{
-        RoomAvConfiguration, RoomAvContentLayer, RoomAvHorizontalAlign, RoomAvScreenState,
-        RoomAvTextAlign, RoomAvTextShadow, RoomAvTextTransform, RoomAvTransition,
-        RoomAvTransitionStyle, RoomAvVerticalAlign, RoomBackground, RoomBackgroundImage,
+        RoomAvConfiguration, RoomAvContentLayer, RoomAvGeometryOverlay, RoomAvHorizontalAlign,
+        RoomAvScreenState, RoomAvTextAlign, RoomAvTextShadow, RoomAvTextTransform,
+        RoomAvTransition, RoomAvTransitionStyle, RoomAvVerticalAlign, RoomBackground,
+        RoomBackgroundImage,
     };
     use tokio::sync::Semaphore;
 
@@ -282,6 +283,13 @@ mod tests {
             collapse_lyric_whitespace: false,
             language_by_item: std::collections::BTreeMap::from([(String::from("0"), 1)]),
             screen_state: RoomAvScreenState::Live,
+            geometry_overlay: Some(RoomAvGeometryOverlay::Cross),
+            geometry_overlay_grayscale: None,
+            geometry_overlay_transparency: None,
+            geometry_overlay_opacity: None,
+            geometry_overlay_color: None,
+            geometry_overlay_size: None,
+            geometry_overlay_thickness: None,
         }
     }
 

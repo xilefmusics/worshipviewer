@@ -48,6 +48,19 @@ function sameAvConfiguration(a: RoomAvConfiguration, b: RoomAvConfiguration): bo
     a.bilingual_enabled === b.bilingual_enabled &&
     a.collapse_lyric_whitespace === b.collapse_lyric_whitespace &&
     a.screen_state === b.screen_state &&
+    (a.geometry_overlay ?? 'none') === (b.geometry_overlay ?? 'none') &&
+    (a.geometry_overlay_opacity ??
+      (a.geometry_overlay_transparency != null
+        ? 100 - a.geometry_overlay_transparency
+        : a.geometry_overlay_grayscale === true ? 100 : 70)) ===
+      (b.geometry_overlay_opacity ??
+        (b.geometry_overlay_transparency != null
+          ? 100 - b.geometry_overlay_transparency
+          : b.geometry_overlay_grayscale === true ? 100 : 70)) &&
+    (a.geometry_overlay_color ?? (a.geometry_overlay_grayscale === true ? 0 : 100)) ===
+      (b.geometry_overlay_color ?? (b.geometry_overlay_grayscale === true ? 0 : 100)) &&
+    (a.geometry_overlay_size ?? 77) === (b.geometry_overlay_size ?? 77) &&
+    (a.geometry_overlay_thickness ?? 77) === (b.geometry_overlay_thickness ?? 77) &&
     leftLanguages.length === rightLanguages.length &&
     leftLanguages.every(([key, value], index) => key === rightLanguages[index]?.[0] && value === rightLanguages[index]?.[1])
 }
@@ -104,6 +117,19 @@ function validRoomAvConfiguration(configuration: RoomAvConfiguration, songCount:
     typeof configuration.bilingual_enabled === 'boolean' &&
     typeof configuration.collapse_lyric_whitespace === 'boolean' &&
     ['live', 'blank', 'blackout'].includes(configuration.screen_state) &&
+    (configuration.geometry_overlay == null ||
+      ['none', 'cross', 'inverted_cross', 'sliced_square', 'sliced_rectangle', 'circle', 'square', 'rectangle', 'triangle', 'inverted_triangle', 'diamond', 'heart'].includes(configuration.geometry_overlay)) &&
+    (configuration.geometry_overlay_grayscale == null || typeof configuration.geometry_overlay_grayscale === 'boolean') &&
+    (configuration.geometry_overlay_transparency == null ||
+      (Number.isSafeInteger(configuration.geometry_overlay_transparency) && configuration.geometry_overlay_transparency >= 0 && configuration.geometry_overlay_transparency <= 100)) &&
+    (configuration.geometry_overlay_opacity == null ||
+      (Number.isSafeInteger(configuration.geometry_overlay_opacity) && configuration.geometry_overlay_opacity >= 0 && configuration.geometry_overlay_opacity <= 100)) &&
+    (configuration.geometry_overlay_color == null ||
+      (Number.isSafeInteger(configuration.geometry_overlay_color) && configuration.geometry_overlay_color >= 0 && configuration.geometry_overlay_color <= 100)) &&
+    (configuration.geometry_overlay_size == null ||
+      (Number.isSafeInteger(configuration.geometry_overlay_size) && configuration.geometry_overlay_size >= 0 && configuration.geometry_overlay_size <= 100)) &&
+    (configuration.geometry_overlay_thickness == null ||
+      (Number.isSafeInteger(configuration.geometry_overlay_thickness) && configuration.geometry_overlay_thickness >= 0 && configuration.geometry_overlay_thickness <= 100)) &&
     configuration.language_by_item != null && typeof configuration.language_by_item === 'object' && !Array.isArray(configuration.language_by_item) &&
     Object.entries(configuration.language_by_item).length <= songCount &&
     Object.entries(configuration.language_by_item).every(([song, language]) => Number.isSafeInteger(Number(song)) && Number(song) >= 0 && Number(song) < songCount && Number.isSafeInteger(language) && language >= 0 && language <= 255)

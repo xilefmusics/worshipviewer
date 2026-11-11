@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { fetchMediaPage, mediaListKey, type Media } from '@/api/media'
+import { AvGeometryOverlayShape } from '@/components/player/av/AvGeometryOverlayShape'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
 import {
   AV_BACKGROUND_PRESETS,
@@ -10,6 +11,7 @@ import {
   type AvBackgroundLayer,
   type AvBackgroundPreset,
   type AvContentLayer,
+  type AvGeometryOverlay,
 } from '@/lib/player/av-preferences'
 import { getNextPageIndex } from '@/lib/list-pagination'
 import { cn } from '@/lib/utils'
@@ -17,6 +19,25 @@ import { cn } from '@/lib/utils'
 import './player-av.css'
 
 const NO_TRANSITION = { style: 'none' as const, durationMs: 0 }
+const GEOMETRY_OVERLAYS = [
+  'cross',
+  'inverted_cross',
+  'sliced_square',
+  'sliced_rectangle',
+  'circle',
+  'square',
+  'rectangle',
+  'triangle',
+  'inverted_triangle',
+  'diamond',
+  'heart',
+] as const
+const GEOMETRY_OVERLAY_LABEL_OVERRIDES: Partial<Record<Exclude<AvGeometryOverlay, 'none'>, string>> = {
+  inverted_cross: 'InvertedCross',
+  sliced_square: 'SlicedSquare',
+  sliced_rectangle: 'SlicedRectangle',
+  inverted_triangle: 'InvertedTriangle',
+}
 
 type AvBackgroundSelectorProps = {
   backgroundLayer: AvBackgroundLayer
@@ -27,6 +48,16 @@ type AvBackgroundSelectorProps = {
   onSelectInherited?: () => void
   onSelectPreset: (preset: AvBackgroundPreset) => void
   onSelectBackgroundAsset?: (asset: AvBackgroundAsset) => void
+  geometryOverlay?: AvGeometryOverlay
+  geometryOverlayOpacity?: number
+  geometryOverlayColor?: number
+  geometryOverlaySize?: number
+  geometryOverlayThickness?: number
+  onSelectGeometryOverlay?: (overlay: AvGeometryOverlay) => void
+  onSelectGeometryOverlayOpacity?: (opacity: number) => void
+  onSelectGeometryOverlayColor?: (color: number) => void
+  onSelectGeometryOverlaySize?: (size: number) => void
+  onSelectGeometryOverlayThickness?: (thickness: number) => void
   /** Kept for callers that only support image backgrounds. */
   onSelectBackgroundImage?: (image: { mediaId: string; assetId: string }) => void
 }
@@ -46,6 +77,11 @@ function backgroundAsset(media: Media): AvBackgroundAsset | null {
   return null
 }
 
+function geometryOverlayLabel(overlay: Exclude<AvGeometryOverlay, 'none'>): string {
+  return GEOMETRY_OVERLAY_LABEL_OVERRIDES[overlay]
+    ?? `${overlay[0].toUpperCase()}${overlay.slice(1)}`
+}
+
 export function AvBackgroundSelector({
   backgroundLayer,
   previewText,
@@ -56,6 +92,16 @@ export function AvBackgroundSelector({
   onSelectPreset,
   onSelectBackgroundAsset,
   onSelectBackgroundImage,
+  geometryOverlay = 'none',
+  geometryOverlayOpacity = 77,
+  geometryOverlayColor = 77,
+  geometryOverlaySize = 77,
+  geometryOverlayThickness = 77,
+  onSelectGeometryOverlay,
+  onSelectGeometryOverlayOpacity,
+  onSelectGeometryOverlayColor,
+  onSelectGeometryOverlaySize,
+  onSelectGeometryOverlayThickness,
 }: AvBackgroundSelectorProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -90,6 +136,13 @@ export function AvBackgroundSelector({
     : backgroundLayer.image || backgroundLayer.video
       ? selectedBackground?.title ?? t('player.av.customBackground')
       : t('settings.playerRoles.background.default')
+  const selectedOverlayLabel = onSelectGeometryOverlay
+    ? t(
+        geometryOverlay === 'none'
+          ? 'player.av.geometryOverlayNone'
+          : `player.av.geometryOverlay${geometryOverlayLabel(geometryOverlay)}`,
+      )
+    : null
 
   return (
     <div className="av-background-selector-panel">
@@ -106,7 +159,10 @@ export function AvBackgroundSelector({
         <span className="av-background-selector-panel__toggle-label">
           {t('player.av.backgroundTitle')}
         </span>
-        <span className="av-background-selector-panel__toggle-value">{selectedLabel}</span>
+        <span className="av-background-selector-panel__toggle-value">
+          {selectedLabel}
+          {selectedOverlayLabel ? ` · ${selectedOverlayLabel}` : ''}
+        </span>
         <span
           className={cn(
             'av-background-selector-panel__chevron',
@@ -169,6 +225,11 @@ export function AvBackgroundSelector({
                       contentText={previewText}
                       contentLayer={contentLayer}
                       backgroundLayer={{ preset: optionPreset }}
+                      geometryOverlay={geometryOverlay}
+                      geometryOverlayOpacity={geometryOverlayOpacity}
+                      geometryOverlayColor={geometryOverlayColor}
+                      geometryOverlaySize={geometryOverlaySize}
+                      geometryOverlayThickness={geometryOverlayThickness}
                       transition={NO_TRANSITION}
                       screenState="live"
                       compact
@@ -221,6 +282,11 @@ export function AvBackgroundSelector({
                       contentText={previewText}
                       contentLayer={contentLayer}
                       backgroundLayer={optionLayer}
+                      geometryOverlay={geometryOverlay}
+                      geometryOverlayOpacity={geometryOverlayOpacity}
+                      geometryOverlayColor={geometryOverlayColor}
+                      geometryOverlaySize={geometryOverlaySize}
+                      geometryOverlayThickness={geometryOverlayThickness}
                       transition={NO_TRANSITION}
                       screenState="live"
                       compact
@@ -232,6 +298,147 @@ export function AvBackgroundSelector({
               ]
             })}
           </div>
+          {onSelectGeometryOverlay ? (
+            <div className="av-geometry-selector-panel">
+              <span className="av-geometry-selector-panel__title">
+                {t('player.av.geometryOverlayTitle')}
+              </span>
+              <div
+                className="av-background-selector av-background-selector--geometry"
+                role="radiogroup"
+                aria-label={t('player.av.geometryOverlayAria')}
+              >
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={geometryOverlay === 'none'}
+                  className={cn(
+                    'av-background-selector__option',
+                    'av-geometry-selector__option',
+                    geometryOverlay === 'none' && 'av-background-selector__option--selected',
+                  )}
+                  onClick={() => onSelectGeometryOverlay('none')}
+                >
+                  <div className="av-background-selector__preview av-geometry-selector__preview av-geometry-selector__preview--none" aria-hidden>
+                    {t('player.av.geometryOverlayNone')}
+                  </div>
+                  <span className="av-background-selector__label">
+                    {t('player.av.geometryOverlayNone')}
+                  </span>
+                </button>
+                {GEOMETRY_OVERLAYS.map((overlay) => (
+                  <button
+                    key={overlay}
+                    type="button"
+                    role="radio"
+                    aria-checked={geometryOverlay === overlay}
+                    className={cn(
+                      'av-background-selector__option',
+                      'av-geometry-selector__option',
+                      geometryOverlay === overlay && 'av-background-selector__option--selected',
+                    )}
+                    onClick={() => onSelectGeometryOverlay(overlay)}
+                  >
+                    <div className="av-background-selector__preview av-geometry-selector__preview">
+                      <AvGeometryOverlayShape
+                        overlay={overlay}
+                        opacity={geometryOverlayOpacity}
+                        color={geometryOverlayColor}
+                        size={geometryOverlaySize}
+                        thickness={geometryOverlayThickness}
+                      />
+                    </div>
+                    <span className="av-background-selector__label">
+                      {t(`player.av.geometryOverlay${geometryOverlayLabel(overlay)}`)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {onSelectGeometryOverlayOpacity && onSelectGeometryOverlayColor && onSelectGeometryOverlaySize && onSelectGeometryOverlayThickness ? (
+                <div
+                  className="av-geometry-selector__settings"
+                  role="group"
+                  aria-label={t('player.av.geometryOverlaySettings')}
+                >
+                  <span className="av-geometry-selector-panel__title">
+                    {t('player.av.geometryOverlaySettings')}
+                  </span>
+                  <div className="av-geometry-selector__settings-sliders">
+                    <label className="av-geometry-selector__setting">
+                      <span className="av-geometry-selector__setting-copy">
+                        <span>{t('player.av.geometryOverlayOpacity')}</span>
+                        <span className="av-geometry-selector__setting-value">{geometryOverlayOpacity}%</span>
+                      </span>
+                      <input
+                        className="av-geometry-selector__slider"
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={geometryOverlayOpacity}
+                        aria-label={t('player.av.geometryOverlayOpacity')}
+                        onChange={(event) => onSelectGeometryOverlayOpacity(Number(event.currentTarget.value))}
+                      />
+                    </label>
+                    <label className="av-geometry-selector__setting">
+                      <span className="av-geometry-selector__setting-copy">
+                        <span>{t('player.av.geometryOverlayColor')}</span>
+                        <span className="av-geometry-selector__setting-value">{geometryOverlayColor}%</span>
+                      </span>
+                      <input
+                        className="av-geometry-selector__slider"
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={geometryOverlayColor}
+                        aria-label={t('player.av.geometryOverlayColor')}
+                        onChange={(event) => onSelectGeometryOverlayColor(Number(event.currentTarget.value))}
+                      />
+                    </label>
+                    <label className="av-geometry-selector__setting">
+                      <span className="av-geometry-selector__setting-copy">
+                        <span>{t('player.av.geometryOverlaySize')}</span>
+                        <span className="av-geometry-selector__setting-value">{geometryOverlaySize}%</span>
+                      </span>
+                      <input
+                        className="av-geometry-selector__slider"
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={geometryOverlaySize}
+                        aria-label={t('player.av.geometryOverlaySize')}
+                        onChange={(event) => onSelectGeometryOverlaySize(Number(event.currentTarget.value))}
+                      />
+                    </label>
+                    <label className="av-geometry-selector__setting">
+                      <span className="av-geometry-selector__setting-copy">
+                        <span>{t('player.av.geometryOverlayThickness')}</span>
+                        <span className="av-geometry-selector__setting-value">{geometryOverlayThickness}%</span>
+                      </span>
+                      <input
+                        className="av-geometry-selector__slider"
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={geometryOverlayThickness}
+                        aria-label={t('player.av.geometryOverlayThickness')}
+                        disabled={
+                          geometryOverlay !== 'cross' &&
+                          geometryOverlay !== 'inverted_cross' &&
+                          geometryOverlay !== 'sliced_square' &&
+                          geometryOverlay !== 'sliced_rectangle'
+                        }
+                        onChange={(event) => onSelectGeometryOverlayThickness(Number(event.currentTarget.value))}
+                      />
+                    </label>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {query.isError ? (
             <div className="flex flex-col items-center gap-2 py-3 text-center text-sm">
               <span>{t('player.av.backgroundsError')}</span>

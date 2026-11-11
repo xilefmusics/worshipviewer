@@ -7,6 +7,7 @@ import type {
   AvBackgroundLayer,
   AvBackgroundPreset,
   AvContentLayer,
+  AvGeometryOverlay,
 } from '@/lib/player/av-preferences'
 
 import './player-av.css'
@@ -18,8 +19,18 @@ type AvSpotifyPanelProps = {
   backgroundLayer: AvBackgroundLayer
   backgroundPreviewText: string
   contentLayer: AvContentLayer
+  geometryOverlay: AvGeometryOverlay
+  geometryOverlayOpacity: number
+  geometryOverlayColor: number
+  geometryOverlaySize: number
+  geometryOverlayThickness: number
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
   onSelectBackgroundAsset: (asset: AvBackgroundAsset) => void
+  onSelectGeometryOverlay: (overlay: AvGeometryOverlay) => void
+  onSelectGeometryOverlayOpacity: (transparency: number) => void
+  onSelectGeometryOverlayColor: (color: number) => void
+  onSelectGeometryOverlaySize: (size: number) => void
+  onSelectGeometryOverlayThickness: (thickness: number) => void
 }
 
 export function AvSpotifyPanel({
@@ -29,8 +40,18 @@ export function AvSpotifyPanel({
   backgroundLayer,
   backgroundPreviewText,
   contentLayer,
+  geometryOverlay,
+  geometryOverlayOpacity,
+  geometryOverlayColor,
+  geometryOverlaySize,
+  geometryOverlayThickness,
   onSelectBackgroundPreset,
   onSelectBackgroundAsset,
+  onSelectGeometryOverlay,
+  onSelectGeometryOverlayOpacity,
+  onSelectGeometryOverlayColor,
+  onSelectGeometryOverlaySize,
+  onSelectGeometryOverlayThickness,
 }: AvSpotifyPanelProps) {
   const { t } = useTranslation()
   const previewText = backgroundPreviewText.split('\n')[0]?.trim() || backgroundPreviewText.trim()
@@ -55,8 +76,18 @@ export function AvSpotifyPanel({
         backgroundLayer={backgroundLayer}
         previewText={previewText}
         contentLayer={contentLayer}
+        geometryOverlay={geometryOverlay}
+        geometryOverlayOpacity={geometryOverlayOpacity}
+        geometryOverlayColor={geometryOverlayColor}
+        geometryOverlaySize={geometryOverlaySize}
+        geometryOverlayThickness={geometryOverlayThickness}
         onSelectPreset={onSelectBackgroundPreset}
         onSelectBackgroundAsset={onSelectBackgroundAsset}
+        onSelectGeometryOverlay={onSelectGeometryOverlay}
+        onSelectGeometryOverlayOpacity={onSelectGeometryOverlayOpacity}
+        onSelectGeometryOverlayColor={onSelectGeometryOverlayColor}
+        onSelectGeometryOverlaySize={onSelectGeometryOverlaySize}
+        onSelectGeometryOverlayThickness={onSelectGeometryOverlayThickness}
       />
     </div>
   )

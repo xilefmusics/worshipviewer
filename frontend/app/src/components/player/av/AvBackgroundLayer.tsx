@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { mediaAssetDataUrl } from '@/api/media-upload'
+import { AvGeometryOverlayShape } from '@/components/player/av/AvGeometryOverlayShape'
 import {
   normalizeAvBackgroundPreset,
   type AvBackgroundLayer as AvBackgroundLayerPrefs,
+  type AvGeometryOverlay,
 } from '@/lib/player/av-preferences'
 import { cn } from '@/lib/utils'
 
@@ -11,6 +13,11 @@ import './player-av.css'
 
 type AvBackgroundLayerProps = {
   layer: AvBackgroundLayerPrefs
+  geometryOverlay?: AvGeometryOverlay
+  geometryOverlayOpacity?: number
+  geometryOverlayColor?: number
+  geometryOverlaySize?: number
+  geometryOverlayThickness?: number
   fallbackLayer?: AvBackgroundLayerPrefs
   className?: string
   videoPreview?: boolean
@@ -18,6 +25,11 @@ type AvBackgroundLayerProps = {
 
 export function AvBackgroundLayer({
   layer,
+  geometryOverlay = 'none',
+  geometryOverlayOpacity = 77,
+  geometryOverlayColor = 77,
+  geometryOverlaySize = 77,
+  geometryOverlayThickness = 77,
   fallbackLayer,
   className,
   videoPreview = false,
@@ -35,7 +47,18 @@ export function AvBackgroundLayer({
   }, [assetKey, hasFallback])
 
   if (useFallback && fallbackLayer) {
-    return <AvBackgroundLayer layer={fallbackLayer} className={className} videoPreview={videoPreview} />
+    return (
+      <AvBackgroundLayer
+        layer={fallbackLayer}
+        geometryOverlay={geometryOverlay}
+        geometryOverlayOpacity={geometryOverlayOpacity}
+        geometryOverlayColor={geometryOverlayColor}
+        geometryOverlaySize={geometryOverlaySize}
+        geometryOverlayThickness={geometryOverlayThickness}
+        className={className}
+        videoPreview={videoPreview}
+      />
+    )
   }
   const preset = normalizeAvBackgroundPreset(layer.preset)
   return (
@@ -81,6 +104,16 @@ export function AvBackgroundLayer({
             onError={markUnavailable}
           />
         )
+      ) : null}
+      {geometryOverlay !== 'none' ? (
+        <AvGeometryOverlayShape
+          overlay={geometryOverlay}
+          opacity={geometryOverlayOpacity}
+          color={geometryOverlayColor}
+          size={geometryOverlaySize}
+          thickness={geometryOverlayThickness}
+          className="av-background-layer__geometry"
+        />
       ) : null}
     </div>
   )

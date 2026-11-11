@@ -1,8 +1,11 @@
 import type { AvLyricLine } from '@/lib/player/av-lyric-slides'
 import {
+  DEFAULT_AV_PREFERENCES,
   effectiveAvTransition,
+  normalizeAvGeometryOverlay,
   type AvBackgroundLayer,
   type AvContentLayer,
+  type AvGeometryOverlay,
   type AvProjectionPayload,
   type AvScreenState,
   type AvTransition,
@@ -68,6 +71,15 @@ export type AvProjectionCommand = {
   intent: 'replace' | 'clear'
   screenState: AvScreenState
   backgroundLayer: AvBackgroundLayer
+  geometryOverlay: AvGeometryOverlay
+  geometryOverlayOpacity?: number
+  geometryOverlayColor?: number
+  geometryOverlaySize?: number
+  geometryOverlayThickness?: number
+  /** @deprecated Transitional compatibility with the former transparency slider. */
+  geometryOverlayTransparency?: number
+  /** @deprecated Compatibility with projections sent before overlay sliders existed. */
+  geometryOverlayGrayscale?: boolean
   fallbackBackgroundLayer?: AvBackgroundLayer
   contentLayer: AvContentLayer
   transition: AvTransition
@@ -182,6 +194,15 @@ export function legacyPayloadToCommand(
     intent: 'replace',
     screenState: payload.screenState,
     backgroundLayer: payload.backgroundLayer,
+    geometryOverlay: normalizeAvGeometryOverlay(payload.geometryOverlay),
+    geometryOverlayOpacity: payload.geometryOverlayOpacity ??
+      (payload.geometryOverlayTransparency != null
+        ? 100 - payload.geometryOverlayTransparency
+        : payload.geometryOverlayGrayscale === true ? 100 : 70),
+    geometryOverlayColor: payload.geometryOverlayColor ??
+      (payload.geometryOverlayGrayscale === true ? 0 : 100),
+    geometryOverlaySize: payload.geometryOverlaySize ?? DEFAULT_AV_PREFERENCES.geometryOverlaySize,
+    geometryOverlayThickness: payload.geometryOverlayThickness ?? DEFAULT_AV_PREFERENCES.geometryOverlayThickness,
     fallbackBackgroundLayer: payload.fallbackBackgroundLayer ?? payload.backgroundLayer,
     contentLayer: payload.contentLayer,
     transition: payload.transition,
@@ -213,6 +234,15 @@ export function buildAvProjectionCommand(input: {
   content: AvProjectionContent
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
+  geometryOverlay?: AvGeometryOverlay
+  geometryOverlayOpacity?: number
+  geometryOverlayColor?: number
+  geometryOverlaySize?: number
+  geometryOverlayThickness?: number
+  /** @deprecated Transitional compatibility with the former transparency slider. */
+  geometryOverlayTransparency?: number
+  /** @deprecated Compatibility with projections sent before overlay sliders existed. */
+  geometryOverlayGrayscale?: boolean
   fallbackBackgroundLayer?: AvBackgroundLayer
   transition: AvTransition
   screenState: AvScreenState
@@ -233,6 +263,15 @@ export function buildAvProjectionCommand(input: {
     intent: input.intent ?? 'replace',
     screenState: input.screenState,
     backgroundLayer: input.backgroundLayer,
+    geometryOverlay: normalizeAvGeometryOverlay(input.geometryOverlay),
+    geometryOverlayOpacity: input.geometryOverlayOpacity ??
+      (input.geometryOverlayTransparency != null
+        ? 100 - input.geometryOverlayTransparency
+        : input.geometryOverlayGrayscale === undefined ? DEFAULT_AV_PREFERENCES.geometryOverlayOpacity : input.geometryOverlayGrayscale ? 100 : 70),
+    geometryOverlayColor: input.geometryOverlayColor ??
+      (input.geometryOverlayGrayscale === undefined ? DEFAULT_AV_PREFERENCES.geometryOverlayColor : input.geometryOverlayGrayscale ? 0 : 100),
+    geometryOverlaySize: input.geometryOverlaySize ?? DEFAULT_AV_PREFERENCES.geometryOverlaySize,
+    geometryOverlayThickness: input.geometryOverlayThickness ?? DEFAULT_AV_PREFERENCES.geometryOverlayThickness,
     fallbackBackgroundLayer: input.fallbackBackgroundLayer ?? input.backgroundLayer,
     contentLayer: input.contentLayer,
     transition: effectiveAvTransition(
@@ -262,6 +301,15 @@ export function lyricsPayloadFromCommand(
     ...(contentLines && contentLines.length > 0 ? { contentLines } : {}),
     contentLayer: command.contentLayer,
     backgroundLayer: command.backgroundLayer,
+    geometryOverlay: normalizeAvGeometryOverlay(command.geometryOverlay),
+    geometryOverlayOpacity: command.geometryOverlayOpacity ??
+      (command.geometryOverlayTransparency != null
+        ? 100 - command.geometryOverlayTransparency
+        : command.geometryOverlayGrayscale === true ? 100 : 70),
+    geometryOverlayColor: command.geometryOverlayColor ??
+      (command.geometryOverlayGrayscale === true ? 0 : 100),
+    geometryOverlaySize: command.geometryOverlaySize ?? DEFAULT_AV_PREFERENCES.geometryOverlaySize,
+    geometryOverlayThickness: command.geometryOverlayThickness ?? DEFAULT_AV_PREFERENCES.geometryOverlayThickness,
     fallbackBackgroundLayer: command.fallbackBackgroundLayer ?? command.backgroundLayer,
     transition: command.transition,
     screenState: command.screenState,

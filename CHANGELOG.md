@@ -13,6 +13,9 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 - Add managed thumbnail uploads for video media and support looping video backgrounds and projected video previews in AV.
 - Fixed-pool team Rooms with immutable captured song content, authenticated direct-link access, ordered shared messages, virtual vote ranking, and reconnecting presence.
 - Rooms now share the AV controller's slide configuration with slide-only members, including line count, language, bilingual output, blank, and blackout state.
+- Add AV geometry overlays, including opacity, color and size controls and an inverted cross cutout.
+- Add a sliced square AV overlay with two panels and one vertical cutout.
+- Add a sliced rectangle AV overlay with four equal-width slices and three vertical cutouts.
 - Spotify track and playlist Media items with external playback controls in the AV player.
 - Independent grayscale text controls for primary and translated AV lyrics.
 - `./scripts/verify-ci.sh` — one-shot local run of CI-equivalent checks (fmt, audit, tests, OpenAPI, frontend build).

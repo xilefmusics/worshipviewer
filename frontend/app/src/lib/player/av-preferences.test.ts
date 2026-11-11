@@ -78,6 +78,19 @@ describe('buildAvProjectionPayload', () => {
 })
 
 describe('readAvPreferences', () => {
+  it('defaults geometry overlays to none and restores the saved cross selection', () => {
+    expect(readAvPreferences({ getItem: () => JSON.stringify({}) }).geometryOverlay).toBe('none')
+    expect(readAvPreferences({ getItem: () => JSON.stringify({ geometryOverlay: 'cross' }) }).geometryOverlay).toBe('cross')
+    expect(readAvPreferences({ getItem: () => JSON.stringify({ geometryOverlay: 'inverted_cross' }) }).geometryOverlay).toBe('inverted_cross')
+    expect(readAvPreferences({ getItem: () => JSON.stringify({ geometryOverlay: 'sliced_square' }) }).geometryOverlay).toBe('sliced_square')
+    expect(readAvPreferences({ getItem: () => JSON.stringify({ geometryOverlay: 'sliced_rectangle' }) }).geometryOverlay).toBe('sliced_rectangle')
+    expect(readAvPreferences({ getItem: () => JSON.stringify({ geometryOverlay: 'diamond' }) }).geometryOverlay).toBe('diamond')
+    expect(readAvPreferences({ getItem: () => JSON.stringify({ geometryOverlay: 'rectangle' }) }).geometryOverlay).toBe('rectangle')
+    expect(readAvPreferences({ getItem: () => JSON.stringify({ geometryOverlay: 'inverted_triangle' }) }).geometryOverlay).toBe('inverted_triangle')
+    expect(readAvPreferences({ getItem: () => JSON.stringify({ geometryOverlay: 'heart' }) }).geometryOverlay).toBe('heart')
+    expect(readAvPreferences({ getItem: () => JSON.stringify({ geometryOverlay: 'star' }) }).geometryOverlay).toBe('none')
+  })
+
   it.each([0, 1, 3, 4])('migrates removed background preset %i to Default', (preset) => {
     const storage = {
       getItem: () => JSON.stringify({ backgroundLayer: { preset } }),
@@ -123,11 +136,13 @@ describe('readAvPreferences', () => {
         preset: 2,
         image: { mediaId: 'media:bg', assetId: 'asset:bg' },
       },
+      geometryOverlay: 'cross',
     }, storage)
     expect(JSON.parse(saved).backgroundLayer).toEqual({
       preset: 2,
       image: { mediaId: 'media:bg', assetId: 'asset:bg' },
     })
+    expect(JSON.parse(saved).geometryOverlay).toBe('cross')
   })
 
   it('adds text lightness defaults to legacy preferences', () => {

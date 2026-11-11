@@ -17,8 +17,11 @@ vi.mock('@/api/media', () => ({
 }))
 
 vi.mock('@/components/player/av/AvSlideView', () => ({
-  AvSlideView: ({ backgroundLayer }: { backgroundLayer: { preset: number } }) => (
-    <div data-testid={`background-preview-${backgroundLayer.preset}`} />
+  AvSlideView: ({ backgroundLayer, geometryOverlay }: {
+    backgroundLayer: { preset: number }
+    geometryOverlay?: string
+  }) => (
+    <div data-testid={`background-preview-${backgroundLayer.preset}`} data-overlay={geometryOverlay} />
   ),
 }))
 
@@ -117,5 +120,48 @@ describe('AvBackgroundSelector', () => {
 
     await user.click(inherited)
     expect(onSelectInherited).toHaveBeenCalledOnce()
+  })
+
+  it('shows all geometry choices in AV selectors and lets overlays be changed or cleared', async () => {
+    const user = userEvent.setup()
+    const onSelectGeometryOverlay = vi.fn()
+    renderSelector({
+      initiallyExpanded: true,
+      geometryOverlay: 'cross',
+      onSelectGeometryOverlay,
+    })
+
+    const none = await screen.findByRole('radio', { name: 'player.av.geometryOverlayNone' })
+    const cross = screen.getByRole('radio', { name: 'player.av.geometryOverlayCross' })
+    expect(none).toHaveAttribute('aria-checked', 'false')
+    expect(cross).toHaveAttribute('aria-checked', 'true')
+    for (const label of ['InvertedCross', 'SlicedSquare', 'SlicedRectangle', 'Circle', 'Square', 'Rectangle', 'Triangle', 'InvertedTriangle', 'Diamond', 'Heart']) {
+      expect(screen.getByRole('radio', { name: `player.av.geometryOverlay${label}` })).toHaveAttribute('aria-checked', 'false')
+    }
+    expect(screen.getAllByRole('radio', { name: /player\.av\.geometryOverlay/ })).toHaveLength(12)
+    expect(screen.getByTestId('background-preview-2')).toHaveAttribute('data-overlay', 'cross')
+
+    await user.click(none)
+    expect(onSelectGeometryOverlay).toHaveBeenCalledWith('none')
+    await user.click(cross)
+    expect(onSelectGeometryOverlay).toHaveBeenCalledWith('cross')
+    await user.click(screen.getByRole('radio', { name: 'player.av.geometryOverlayInvertedCross' }))
+    expect(onSelectGeometryOverlay).toHaveBeenCalledWith('inverted_cross')
+    await user.click(screen.getByRole('radio', { name: 'player.av.geometryOverlaySlicedSquare' }))
+    expect(onSelectGeometryOverlay).toHaveBeenCalledWith('sliced_square')
+    await user.click(screen.getByRole('radio', { name: 'player.av.geometryOverlaySlicedRectangle' }))
+    expect(onSelectGeometryOverlay).toHaveBeenCalledWith('sliced_rectangle')
+    await user.click(screen.getByRole('radio', { name: 'player.av.geometryOverlayDiamond' }))
+    expect(onSelectGeometryOverlay).toHaveBeenCalledWith('diamond')
+    await user.click(screen.getByRole('radio', { name: 'player.av.geometryOverlayInvertedTriangle' }))
+    expect(onSelectGeometryOverlay).toHaveBeenCalledWith('inverted_triangle')
+    await user.click(screen.getByRole('radio', { name: 'player.av.geometryOverlayHeart' }))
+    expect(onSelectGeometryOverlay).toHaveBeenCalledWith('heart')
+  })
+
+  it('omits geometry controls from background override callers', async () => {
+    renderSelector({ initiallyExpanded: true })
+    expect(await screen.findByRole('radio', { name: 'settings.playerRoles.background.default' })).toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup', { name: 'player.av.geometryOverlayAria' })).not.toBeInTheDocument()
   })
 })

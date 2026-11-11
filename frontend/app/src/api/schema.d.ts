@@ -1814,12 +1814,42 @@ export interface components {
         Role: "default" | "admin";
         /**
          * @description Rendering settings shared by the AV controller with slide-only room members.
-         *     Output-window preferences remain local; the room background uses its own change.
+         *     Output-window preferences remain local; the background asset uses its own change,
+         *     while geometry overlays are part of this shared rendering configuration.
          */
         RoomAvConfiguration: {
             bilingual_enabled: boolean;
             collapse_lyric_whitespace: boolean;
             content_layer: components["schemas"]["RoomAvContentLayer"];
+            geometry_overlay?: components["schemas"]["RoomAvGeometryOverlay"] | null;
+            /**
+             * Format: int32
+             * @description Color visibility from 0 (grayscale) to 100 (the previous 70%-transparent colored option).
+             */
+            geometry_overlay_color?: number | null;
+            /** @description Optional for compatibility with configurations saved before grayscale overlays existed. */
+            geometry_overlay_grayscale?: boolean | null;
+            /**
+             * Format: int32
+             * @description Overlay opacity from 0 (invisible) to 100 (opaque).
+             */
+            geometry_overlay_opacity?: number | null;
+            /**
+             * Format: int32
+             * @description Overlay height as a percentage of the output height.
+             */
+            geometry_overlay_size?: number | null;
+            /**
+             * Format: int32
+             * @description Thickness from thin (0) to thick (100), defaulting to 77; applies to cross bars and sliced panels.
+             */
+            geometry_overlay_thickness?: number | null;
+            /**
+             * Format: int32
+             * @deprecated
+             * @description Deprecated compatibility with the former transparency slider (0 opaque, 100 invisible).
+             */
+            geometry_overlay_transparency?: number | null;
             language_by_item: {
                 [key: string]: number;
             };
@@ -1842,6 +1872,8 @@ export interface components {
             text_transform: components["schemas"]["RoomAvTextTransform"];
             vertical_align: components["schemas"]["RoomAvVerticalAlign"];
         };
+        /** @enum {string} */
+        RoomAvGeometryOverlay: "none" | "cross" | "inverted_cross" | "sliced_square" | "sliced_rectangle" | "circle" | "square" | "rectangle" | "triangle" | "inverted_triangle" | "diamond" | "heart";
         /** @enum {string} */
         RoomAvHorizontalAlign: "left" | "center" | "right";
         /** @enum {string} */

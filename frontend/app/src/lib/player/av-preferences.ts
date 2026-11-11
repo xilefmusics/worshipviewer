@@ -7,6 +7,19 @@ export type AvVerticalAlign = 'top' | 'center' | 'bottom'
 export type AvHorizontalAlign = 'left' | 'center' | 'right'
 export type AvTextShadow = 'none' | 'subtle' | 'medium' | 'strong'
 export type AvTextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize'
+export type AvGeometryOverlay =
+  | 'none'
+  | 'cross'
+  | 'inverted_cross'
+  | 'sliced_square'
+  | 'sliced_rectangle'
+  | 'circle'
+  | 'square'
+  | 'rectangle'
+  | 'triangle'
+  | 'inverted_triangle'
+  | 'diamond'
+  | 'heart'
 /** Preset IDs retained for saved preference compatibility; Ray (2) is the only built-in choice. */
 export type AvBackgroundPreset = 0 | 1 | 2 | 3 | 4
 export type AvTransitionStyle = 'none' | 'fade' | 'slide'
@@ -63,6 +76,11 @@ export type AvLyricSplitPrefs = Pick<AvContentLayer, 'maxLinesPerSlide' | 'balan
 export type AvPreferences = {
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
+  geometryOverlay: AvGeometryOverlay
+  geometryOverlayOpacity: number
+  geometryOverlayColor: number
+  geometryOverlaySize: number
+  geometryOverlayThickness: number
   transition: AvTransition
   projection: AvProjectionPrefs
 }
@@ -85,6 +103,11 @@ export const DEFAULT_AV_PREFERENCES: AvPreferences = {
   backgroundLayer: {
     preset: 2,
   },
+  geometryOverlay: 'none',
+  geometryOverlayOpacity: 77,
+  geometryOverlayColor: 77,
+  geometryOverlaySize: 77,
+  geometryOverlayThickness: 77,
   transition: {
     style: 'none',
     durationMs: 0,
@@ -109,6 +132,14 @@ function parseEnum<T extends string>(
   fallback: T,
 ): T {
   return allowed.includes(value as T) ? (value as T) : fallback
+}
+
+export function normalizeAvGeometryOverlay(value: unknown): AvGeometryOverlay {
+  return parseEnum(
+    value,
+    ['none', 'cross', 'inverted_cross', 'sliced_square', 'sliced_rectangle', 'circle', 'square', 'rectangle', 'triangle', 'inverted_triangle', 'diamond', 'heart'],
+    DEFAULT_AV_PREFERENCES.geometryOverlay,
+  )
 }
 
 export function normalizeAvBackgroundPreset(value: unknown): AvBackgroundPreset {
@@ -221,10 +252,48 @@ export function readAvPreferences(
   try {
     const raw = safeGetItem(AV_PREFERENCES_STORAGE_KEY, storage)
     if (!raw) return DEFAULT_AV_PREFERENCES
-    const parsed = JSON.parse(raw) as Partial<AvPreferences>
+    const parsed = JSON.parse(raw) as Partial<AvPreferences> & {
+      geometryOverlayGrayscale?: boolean
+      geometryOverlayTransparency?: number
+    }
+    const hasLegacyOverlaySetting = typeof parsed.geometryOverlayGrayscale === 'boolean'
+    const legacyGrayscale = parsed.geometryOverlayGrayscale === true
+    const legacyOpacity = parsed.geometryOverlayTransparency != null
+      ? 100 - clampNumber(parsed.geometryOverlayTransparency, 30, 0, 100)
+      : hasLegacyOverlaySetting
+        ? legacyGrayscale ? 100 : 70
+        : DEFAULT_AV_PREFERENCES.geometryOverlayOpacity
+    const legacyColor = hasLegacyOverlaySetting
+      ? legacyGrayscale ? 0 : 100
+      : DEFAULT_AV_PREFERENCES.geometryOverlayColor
     return {
       contentLayer: mergeContentLayer(parsed.contentLayer),
       backgroundLayer: mergeBackgroundLayer(parsed.backgroundLayer),
+      geometryOverlay: normalizeAvGeometryOverlay(parsed.geometryOverlay),
+      geometryOverlayOpacity: clampNumber(
+        parsed.geometryOverlayOpacity,
+        legacyOpacity,
+        0,
+        100,
+      ),
+      geometryOverlayColor: clampNumber(
+        parsed.geometryOverlayColor,
+        legacyColor,
+        0,
+        100,
+      ),
+      geometryOverlaySize: clampNumber(
+        parsed.geometryOverlaySize,
+        DEFAULT_AV_PREFERENCES.geometryOverlaySize,
+        0,
+        100,
+      ),
+      geometryOverlayThickness: clampNumber(
+        parsed.geometryOverlayThickness,
+        DEFAULT_AV_PREFERENCES.geometryOverlayThickness,
+        0,
+        100,
+      ),
       transition: mergeTransition(parsed.transition),
       projection: mergeProjection(parsed.projection),
     }
@@ -253,6 +322,15 @@ export type AvProjectionPayload = {
   contentLines?: AvLyricLine[]
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
+  geometryOverlay?: AvGeometryOverlay
+  geometryOverlayOpacity?: number
+  geometryOverlayColor?: number
+  geometryOverlaySize?: number
+  geometryOverlayThickness?: number
+  /** @deprecated Transitional compatibility with the former transparency slider. */
+  geometryOverlayTransparency?: number
+  /** @deprecated Compatibility with projections sent before overlay sliders existed. */
+  geometryOverlayGrayscale?: boolean
   fallbackBackgroundLayer?: AvBackgroundLayer
   transition: AvTransition
   screenState: AvScreenState
@@ -265,6 +343,15 @@ export function buildAvProjectionPayload(input: {
   contentLines?: AvLyricLine[]
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
+  geometryOverlay?: AvGeometryOverlay
+  geometryOverlayOpacity?: number
+  geometryOverlayColor?: number
+  geometryOverlaySize?: number
+  geometryOverlayThickness?: number
+  /** @deprecated Transitional compatibility with the former transparency slider. */
+  geometryOverlayTransparency?: number
+  /** @deprecated Compatibility with projections sent before overlay sliders existed. */
+  geometryOverlayGrayscale?: boolean
   fallbackBackgroundLayer?: AvBackgroundLayer
   transition: AvTransition
   screenState?: AvScreenState
@@ -285,6 +372,38 @@ export function buildAvProjectionPayload(input: {
     ...(contentLines ? { contentLines } : {}),
     contentLayer: input.contentLayer,
     backgroundLayer: input.backgroundLayer,
+    geometryOverlay: normalizeAvGeometryOverlay(input.geometryOverlay),
+    geometryOverlayOpacity: clampNumber(
+      input.geometryOverlayOpacity,
+      input.geometryOverlayTransparency != null
+        ? 100 - clampNumber(input.geometryOverlayTransparency, 30, 0, 100)
+        : input.geometryOverlayGrayscale === undefined
+          ? DEFAULT_AV_PREFERENCES.geometryOverlayOpacity
+          : input.geometryOverlayGrayscale ? 100 : 70,
+      0,
+      100,
+    ),
+    geometryOverlayColor: clampNumber(
+      input.geometryOverlayColor,
+      input.geometryOverlayGrayscale === undefined
+        ? DEFAULT_AV_PREFERENCES.geometryOverlayColor
+        : input.geometryOverlayGrayscale ? 0 : 100,
+      0,
+      100,
+    ),
+    geometryOverlaySize: clampNumber(
+      input.geometryOverlaySize,
+      DEFAULT_AV_PREFERENCES.geometryOverlaySize,
+      0,
+      100,
+    ),
+    geometryOverlayThickness: clampNumber(
+      input.geometryOverlayThickness,
+      DEFAULT_AV_PREFERENCES.geometryOverlayThickness,
+      0,
+      100,
+    ),
+    ...(input.geometryOverlayGrayscale === true ? { geometryOverlayGrayscale: true } : {}),
     ...(input.fallbackBackgroundLayer
       ? { fallbackBackgroundLayer: input.fallbackBackgroundLayer }
       : {}),

@@ -10,6 +10,7 @@ import type {
   AvBackgroundLayer,
   AvBackgroundPreset,
   AvContentLayer,
+  AvGeometryOverlay,
   AvTransition,
 } from '@/lib/player/av-preferences'
 import type { AvSlideDeckEntry } from '@/lib/player/av-lyric-slides'
@@ -70,10 +71,20 @@ type AvSlidesPanelProps = {
   backgroundLayer: AvBackgroundLayer
   fallbackBackgroundLayer?: AvBackgroundLayer
   backgroundPreviewText: string
+  geometryOverlay: AvGeometryOverlay
+  geometryOverlayOpacity: number
+  geometryOverlayColor: number
+  geometryOverlaySize: number
+  geometryOverlayThickness: number
   transition: AvTransition
   onSelectSlide: (slideIndex: number) => void
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
   onSelectBackgroundAsset: (asset: AvBackgroundAsset) => void
+  onSelectGeometryOverlay: (overlay: AvGeometryOverlay) => void
+  onSelectGeometryOverlayOpacity: (transparency: number) => void
+  onSelectGeometryOverlayColor: (color: number) => void
+  onSelectGeometryOverlaySize: (size: number) => void
+  onSelectGeometryOverlayThickness: (thickness: number) => void
 }
 
 export function AvSlidesPanel({
@@ -83,10 +94,20 @@ export function AvSlidesPanel({
   backgroundLayer,
   fallbackBackgroundLayer,
   backgroundPreviewText,
+  geometryOverlay,
+  geometryOverlayOpacity,
+  geometryOverlayColor,
+  geometryOverlaySize,
+  geometryOverlayThickness,
   transition,
   onSelectSlide,
   onSelectBackgroundPreset,
   onSelectBackgroundAsset,
+  onSelectGeometryOverlay,
+  onSelectGeometryOverlayOpacity,
+  onSelectGeometryOverlayColor,
+  onSelectGeometryOverlaySize,
+  onSelectGeometryOverlayThickness,
 }: AvSlidesPanelProps) {
   const { t } = useTranslation()
   const [panelRef, multiColumn] = useSlidePanelMultiColumn()
@@ -111,8 +132,18 @@ export function AvSlidesPanel({
           backgroundLayer={backgroundLayer}
           previewText={backgroundPreviewLine}
           contentLayer={contentLayer}
+          geometryOverlay={geometryOverlay}
+          geometryOverlayOpacity={geometryOverlayOpacity}
+          geometryOverlayColor={geometryOverlayColor}
+          geometryOverlaySize={geometryOverlaySize}
+          geometryOverlayThickness={geometryOverlayThickness}
           onSelectPreset={onSelectBackgroundPreset}
           onSelectBackgroundAsset={onSelectBackgroundAsset}
+          onSelectGeometryOverlay={onSelectGeometryOverlay}
+          onSelectGeometryOverlayOpacity={onSelectGeometryOverlayOpacity}
+          onSelectGeometryOverlayColor={onSelectGeometryOverlayColor}
+          onSelectGeometryOverlaySize={onSelectGeometryOverlaySize}
+          onSelectGeometryOverlayThickness={onSelectGeometryOverlayThickness}
         />
       </div>
     )
@@ -186,8 +217,18 @@ export function AvSlidesPanel({
         backgroundLayer={backgroundLayer}
         previewText={backgroundPreviewLine}
         contentLayer={contentLayer}
+        geometryOverlay={geometryOverlay}
+        geometryOverlayOpacity={geometryOverlayOpacity}
+        geometryOverlayColor={geometryOverlayColor}
+        geometryOverlaySize={geometryOverlaySize}
+        geometryOverlayThickness={geometryOverlayThickness}
         onSelectPreset={onSelectBackgroundPreset}
         onSelectBackgroundAsset={onSelectBackgroundAsset}
+        onSelectGeometryOverlay={onSelectGeometryOverlay}
+        onSelectGeometryOverlayOpacity={onSelectGeometryOverlayOpacity}
+        onSelectGeometryOverlayColor={onSelectGeometryOverlayColor}
+        onSelectGeometryOverlaySize={onSelectGeometryOverlaySize}
+        onSelectGeometryOverlayThickness={onSelectGeometryOverlayThickness}
       />
     </div>
   )

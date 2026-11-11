@@ -61,6 +61,7 @@ import {
   type AvBackgroundLayer,
   type AvBackgroundPreset,
   type AvContentLayer,
+  type AvGeometryOverlay,
   type AvPreferences,
   type AvScreenState,
   type AvTransition,
@@ -169,6 +170,11 @@ function toRoomAvConfiguration(
   collapseLyricWhitespace: boolean,
   languageByItem: Record<number, number> | undefined,
   screenState: AvScreenState,
+  geometryOverlay: AvGeometryOverlay,
+  geometryOverlayOpacity: number,
+  geometryOverlayColor: number,
+  geometryOverlaySize: number,
+  geometryOverlayThickness: number,
 ): RoomAvConfiguration {
   return {
     content_layer: {
@@ -188,6 +194,11 @@ function toRoomAvConfiguration(
     collapse_lyric_whitespace: collapseLyricWhitespace,
     language_by_item: Object.fromEntries(Object.entries(languageByItem ?? {})),
     screen_state: screenState,
+    geometry_overlay: geometryOverlay,
+    geometry_overlay_opacity: geometryOverlayOpacity,
+    geometry_overlay_color: geometryOverlayColor,
+    geometry_overlay_size: geometryOverlaySize,
+    geometry_overlay_thickness: geometryOverlayThickness,
   }
 }
 
@@ -354,6 +365,35 @@ export function PlayerAv({
   const effectiveTransition = slideOnly
     ? sharedAvConfiguration ? transitionFromRoom(sharedAvConfiguration) : DEFAULT_AV_PREFERENCES.transition
     : prefs.transition
+  const effectiveGeometryOverlay = slideOnly
+    ? sharedAvConfiguration?.geometry_overlay ?? DEFAULT_AV_PREFERENCES.geometryOverlay
+    : prefs.geometryOverlay
+  const sharedGeometryOverlayOpacity = sharedAvConfiguration
+    ? sharedAvConfiguration.geometry_overlay_opacity ??
+      (sharedAvConfiguration.geometry_overlay_transparency != null
+        ? 100 - sharedAvConfiguration.geometry_overlay_transparency
+        : sharedAvConfiguration.geometry_overlay_grayscale === true ? 100 : 70)
+    : DEFAULT_AV_PREFERENCES.geometryOverlayOpacity
+  const sharedGeometryOverlayColor = sharedAvConfiguration
+    ? sharedAvConfiguration.geometry_overlay_color ??
+      (sharedAvConfiguration.geometry_overlay_grayscale === true ? 0 : 100)
+    : DEFAULT_AV_PREFERENCES.geometryOverlayColor
+  const sharedGeometryOverlaySize = sharedAvConfiguration?.geometry_overlay_size ??
+    DEFAULT_AV_PREFERENCES.geometryOverlaySize
+  const sharedGeometryOverlayThickness = sharedAvConfiguration?.geometry_overlay_thickness ??
+    DEFAULT_AV_PREFERENCES.geometryOverlayThickness
+  const effectiveGeometryOverlayOpacity = slideOnly
+    ? sharedGeometryOverlayOpacity
+    : prefs.geometryOverlayOpacity
+  const effectiveGeometryOverlayColor = slideOnly
+    ? sharedGeometryOverlayColor
+    : prefs.geometryOverlayColor
+  const effectiveGeometryOverlaySize = slideOnly
+    ? sharedGeometryOverlaySize
+    : prefs.geometryOverlaySize
+  const effectiveGeometryOverlayThickness = slideOnly
+    ? sharedGeometryOverlayThickness
+    : prefs.geometryOverlayThickness
   const effectiveBilingualEnabled = slideOnly
     ? sharedAvConfiguration?.bilingual_enabled ?? false
     : bilingualEnabled
@@ -376,11 +416,21 @@ export function PlayerAv({
       collapseLyricWhitespace,
       viewState.languageByItem,
       projected.screenState,
+      prefs.geometryOverlay,
+      prefs.geometryOverlayOpacity,
+      prefs.geometryOverlayColor,
+      prefs.geometryOverlaySize,
+      prefs.geometryOverlayThickness,
     ),
     [
       bilingualEnabled,
       collapseLyricWhitespace,
       prefs.contentLayer,
+      prefs.geometryOverlay,
+      prefs.geometryOverlayOpacity,
+      prefs.geometryOverlayColor,
+      prefs.geometryOverlaySize,
+      prefs.geometryOverlayThickness,
       prefs.transition,
       projected.screenState,
       viewState.languageByItem,
@@ -704,6 +754,11 @@ export function PlayerAv({
         content: projectedContent,
         contentLayer: effectiveContentLayer,
         backgroundLayer: projectedBackgroundLayer,
+        geometryOverlay: effectiveGeometryOverlay,
+        geometryOverlayOpacity: effectiveGeometryOverlayOpacity,
+        geometryOverlayColor: effectiveGeometryOverlayColor,
+        geometryOverlaySize: effectiveGeometryOverlaySize,
+        geometryOverlayThickness: effectiveGeometryOverlayThickness,
         fallbackBackgroundLayer: projectedFallbackBackgroundLayer,
         transition: effectiveTransition,
         screenState: projected.screenState,
@@ -717,6 +772,11 @@ export function PlayerAv({
       projectedBackgroundLayer,
       projectedFallbackBackgroundLayer,
       effectiveContentLayer,
+      effectiveGeometryOverlay,
+      effectiveGeometryOverlayOpacity,
+      effectiveGeometryOverlayColor,
+      effectiveGeometryOverlaySize,
+      effectiveGeometryOverlayThickness,
       effectiveTransition,
       projected.screenState,
       projectedContent,
@@ -752,6 +812,11 @@ export function PlayerAv({
       screenState: command.screenState,
       content: command.content,
       backgroundLayer: command.backgroundLayer,
+      geometryOverlay: command.geometryOverlay,
+      geometryOverlayOpacity: command.geometryOverlayOpacity ?? DEFAULT_AV_PREFERENCES.geometryOverlayOpacity,
+      geometryOverlayColor: command.geometryOverlayColor ?? DEFAULT_AV_PREFERENCES.geometryOverlayColor,
+      geometryOverlaySize: command.geometryOverlaySize ?? DEFAULT_AV_PREFERENCES.geometryOverlaySize,
+      geometryOverlayThickness: command.geometryOverlayThickness ?? DEFAULT_AV_PREFERENCES.geometryOverlayThickness,
       fallbackBackgroundLayer: command.fallbackBackgroundLayer,
       contentLayer: command.contentLayer,
       transition: command.transition,
@@ -810,6 +875,46 @@ export function PlayerAv({
       return next
     })
   }, [onSharedBackgroundChange, playerBackgroundLayer.preset])
+
+  const setGeometryOverlay = useCallback((geometryOverlay: AvGeometryOverlay) => {
+    setPrefs((prev) => {
+      const next = { ...prev, geometryOverlay }
+      writeAvPreferences(next)
+      return next
+    })
+  }, [])
+
+  const setGeometryOverlayOpacity = useCallback((geometryOverlayOpacity: number) => {
+    setPrefs((prev) => {
+      const next = { ...prev, geometryOverlayOpacity }
+      writeAvPreferences(next)
+      return next
+    })
+  }, [])
+
+  const setGeometryOverlayColor = useCallback((geometryOverlayColor: number) => {
+    setPrefs((prev) => {
+      const next = { ...prev, geometryOverlayColor }
+      writeAvPreferences(next)
+      return next
+    })
+  }, [])
+
+  const setGeometryOverlaySize = useCallback((geometryOverlaySize: number) => {
+    setPrefs((prev) => {
+      const next = { ...prev, geometryOverlaySize }
+      writeAvPreferences(next)
+      return next
+    })
+  }, [])
+
+  const setGeometryOverlayThickness = useCallback((geometryOverlayThickness: number) => {
+    setPrefs((prev) => {
+      const next = { ...prev, geometryOverlayThickness }
+      writeAvPreferences(next)
+      return next
+    })
+  }, [])
 
   const goToSlide = useCallback(
     (slideIndex: number, clearScreenState = true) => {
@@ -1166,6 +1271,11 @@ export function PlayerAv({
           {...projectedSlideView}
           contentLayer={effectiveContentLayer}
           backgroundLayer={projectedBackgroundLayer}
+          geometryOverlay={effectiveGeometryOverlay}
+          geometryOverlayOpacity={effectiveGeometryOverlayOpacity}
+          geometryOverlayColor={effectiveGeometryOverlayColor}
+          geometryOverlaySize={effectiveGeometryOverlaySize}
+          geometryOverlayThickness={effectiveGeometryOverlayThickness}
           fallbackBackgroundLayer={projectedFallbackBackgroundLayer}
           transition={effectiveTransition}
           screenState={effectiveScreenState}
@@ -1361,8 +1471,18 @@ export function PlayerAv({
                 backgroundLayer={backgroundLayer}
                 backgroundPreviewText={currentText}
                 contentLayer={prefs.contentLayer}
+                geometryOverlay={prefs.geometryOverlay}
+                geometryOverlayOpacity={prefs.geometryOverlayOpacity}
+                geometryOverlayColor={prefs.geometryOverlayColor}
+                geometryOverlaySize={prefs.geometryOverlaySize}
+                geometryOverlayThickness={prefs.geometryOverlayThickness}
                 onSelectBackgroundPreset={setBackgroundPreset}
                 onSelectBackgroundAsset={setBackgroundAsset}
+                onSelectGeometryOverlay={setGeometryOverlay}
+                onSelectGeometryOverlayOpacity={setGeometryOverlayOpacity}
+                onSelectGeometryOverlayColor={setGeometryOverlayColor}
+                onSelectGeometryOverlaySize={setGeometryOverlaySize}
+                onSelectGeometryOverlayThickness={setGeometryOverlayThickness}
               />
             ) : isTimedAvKind(currentItem.kind) ? (
               <AvMediaTransportPanel
@@ -1383,6 +1503,11 @@ export function PlayerAv({
                 backgroundLayer={backgroundLayer}
                 backgroundPreviewText={currentText}
                 contentLayer={prefs.contentLayer}
+                geometryOverlay={prefs.geometryOverlay}
+                geometryOverlayOpacity={prefs.geometryOverlayOpacity}
+                geometryOverlayColor={prefs.geometryOverlayColor}
+                geometryOverlaySize={prefs.geometryOverlaySize}
+                geometryOverlayThickness={prefs.geometryOverlayThickness}
                 onPlay={() => startPlay()}
                 onPause={() => issuePlayback('pause')}
                 onResume={() => issuePlayback('resume')}
@@ -1422,6 +1547,11 @@ export function PlayerAv({
                 onRetry={() => startPlay()}
                 onSelectBackgroundPreset={setBackgroundPreset}
                 onSelectBackgroundAsset={setBackgroundAsset}
+                onSelectGeometryOverlay={setGeometryOverlay}
+                onSelectGeometryOverlayOpacity={setGeometryOverlayOpacity}
+                onSelectGeometryOverlayColor={setGeometryOverlayColor}
+                onSelectGeometryOverlaySize={setGeometryOverlaySize}
+                onSelectGeometryOverlayThickness={setGeometryOverlayThickness}
               />
             ) : (
               <AvSlidesPanel
@@ -1431,10 +1561,20 @@ export function PlayerAv({
                 backgroundLayer={backgroundLayer}
                 fallbackBackgroundLayer={fallbackBackgroundLayer}
                 backgroundPreviewText={currentText}
+                geometryOverlay={prefs.geometryOverlay}
+                geometryOverlayOpacity={prefs.geometryOverlayOpacity}
+                geometryOverlayColor={prefs.geometryOverlayColor}
+                geometryOverlaySize={prefs.geometryOverlaySize}
+                geometryOverlayThickness={prefs.geometryOverlayThickness}
                 transition={prefs.transition}
                 onSelectSlide={(slideIndex) => goToSlide(slideIndex)}
                 onSelectBackgroundPreset={setBackgroundPreset}
                 onSelectBackgroundAsset={setBackgroundAsset}
+                onSelectGeometryOverlay={setGeometryOverlay}
+                onSelectGeometryOverlayOpacity={setGeometryOverlayOpacity}
+                onSelectGeometryOverlayColor={setGeometryOverlayColor}
+                onSelectGeometryOverlaySize={setGeometryOverlaySize}
+                onSelectGeometryOverlayThickness={setGeometryOverlayThickness}
               />
             )}
           </div>
@@ -1473,6 +1613,11 @@ export function PlayerAv({
                   onVideoPreviewProgress={setVideoPreviewProgress}
                   contentLayer={prefs.contentLayer}
                   backgroundLayer={projectedBackgroundLayer}
+                  geometryOverlay={prefs.geometryOverlay}
+                  geometryOverlayOpacity={prefs.geometryOverlayOpacity}
+                  geometryOverlayColor={prefs.geometryOverlayColor}
+                  geometryOverlaySize={prefs.geometryOverlaySize}
+                  geometryOverlayThickness={prefs.geometryOverlayThickness}
                   fallbackBackgroundLayer={projectedFallbackBackgroundLayer}
                   transition={prefs.transition}
                   screenState={projected.screenState}

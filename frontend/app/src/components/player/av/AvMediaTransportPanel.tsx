@@ -7,6 +7,7 @@ import type {
   AvBackgroundLayer,
   AvBackgroundPreset,
   AvContentLayer,
+  AvGeometryOverlay,
 } from '@/lib/player/av-preferences'
 import {
   formatAvClock,
@@ -33,6 +34,11 @@ type AvMediaTransportPanelProps = {
   backgroundLayer: AvBackgroundLayer
   backgroundPreviewText: string
   contentLayer: AvContentLayer
+  geometryOverlay: AvGeometryOverlay
+  geometryOverlayOpacity: number
+  geometryOverlayColor: number
+  geometryOverlaySize: number
+  geometryOverlayThickness: number
   onPlay: () => void
   onPause: () => void
   onResume: () => void
@@ -44,6 +50,11 @@ type AvMediaTransportPanelProps = {
   onRetry: () => void
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
   onSelectBackgroundAsset: (asset: AvBackgroundAsset) => void
+  onSelectGeometryOverlay: (overlay: AvGeometryOverlay) => void
+  onSelectGeometryOverlayOpacity: (transparency: number) => void
+  onSelectGeometryOverlayColor: (color: number) => void
+  onSelectGeometryOverlaySize: (size: number) => void
+  onSelectGeometryOverlayThickness: (thickness: number) => void
 }
 
 function errorCopyKey(code: string | undefined): string {
@@ -76,6 +87,11 @@ export function AvMediaTransportPanel({
   backgroundLayer,
   backgroundPreviewText,
   contentLayer,
+  geometryOverlay,
+  geometryOverlayOpacity,
+  geometryOverlayColor,
+  geometryOverlaySize,
+  geometryOverlayThickness,
   onPlay,
   onPause,
   onResume,
@@ -87,6 +103,11 @@ export function AvMediaTransportPanel({
   onRetry,
   onSelectBackgroundPreset,
   onSelectBackgroundAsset,
+  onSelectGeometryOverlay,
+  onSelectGeometryOverlayOpacity,
+  onSelectGeometryOverlayColor,
+  onSelectGeometryOverlaySize,
+  onSelectGeometryOverlayThickness,
 }: AvMediaTransportPanelProps) {
   const { t } = useTranslation()
   const web = isWebPageAvKind(kind)
@@ -255,8 +276,18 @@ export function AvMediaTransportPanel({
         backgroundLayer={backgroundLayer}
         previewText={backgroundPreviewText}
         contentLayer={contentLayer}
+        geometryOverlay={geometryOverlay}
+        geometryOverlayOpacity={geometryOverlayOpacity}
+        geometryOverlayColor={geometryOverlayColor}
+        geometryOverlaySize={geometryOverlaySize}
+        geometryOverlayThickness={geometryOverlayThickness}
         onSelectPreset={onSelectBackgroundPreset}
         onSelectBackgroundAsset={onSelectBackgroundAsset}
+        onSelectGeometryOverlay={onSelectGeometryOverlay}
+        onSelectGeometryOverlayOpacity={onSelectGeometryOverlayOpacity}
+        onSelectGeometryOverlayColor={onSelectGeometryOverlayColor}
+        onSelectGeometryOverlaySize={onSelectGeometryOverlaySize}
+        onSelectGeometryOverlayThickness={onSelectGeometryOverlayThickness}
       />
     </div>
   )

@@ -86,6 +86,7 @@ vi.mock('@/lib/player/av-preferences', () => ({
       secondaryTextLightness: 65,
     },
     backgroundLayer: { preset: 2 },
+    geometryOverlay: 'none',
     transition: { style: 'none', durationMs: 0 },
     projection: { outputFullscreenOnDblClick: true },
   },
@@ -93,6 +94,10 @@ vi.mock('@/lib/player/av-preferences', () => ({
     typeof value === 'number' && Number.isFinite(value)
       ? Math.min(100, Math.max(0, Math.trunc(value)))
       : fallback,
+  normalizeAvGeometryOverlay: (value: unknown) =>
+    ['none', 'cross', 'inverted_cross', 'sliced_square', 'sliced_rectangle', 'circle', 'square', 'rectangle', 'triangle', 'inverted_triangle', 'diamond', 'heart'].includes(value as string)
+      ? value
+      : 'none',
   buildAvProjectionPayload: (input: unknown) => input,
   effectiveAvTransition: (transition: unknown) => transition,
   readAvPreferences: () => readPreferences(),
@@ -339,6 +344,7 @@ beforeEach(() => {
       secondaryTextLightness: 65,
     },
     backgroundLayer: { preset: 2 },
+    geometryOverlay: 'none',
     transition: { style: 'none', durationMs: 0 },
     projection: { outputFullscreenOnDblClick: true },
   })
