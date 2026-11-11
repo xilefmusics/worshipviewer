@@ -171,6 +171,7 @@ function toRoomAvConfiguration(
   languageByItem: Record<number, number> | undefined,
   screenState: AvScreenState,
   geometryOverlay: AvGeometryOverlay,
+  geometryOverlayRotatedBackground: boolean,
   geometryOverlayOpacity: number,
   geometryOverlayColor: number,
   geometryOverlaySize: number,
@@ -195,6 +196,7 @@ function toRoomAvConfiguration(
     language_by_item: Object.fromEntries(Object.entries(languageByItem ?? {})),
     screen_state: screenState,
     geometry_overlay: geometryOverlay,
+    geometry_overlay_rotated_background: geometryOverlayRotatedBackground,
     geometry_overlay_opacity: geometryOverlayOpacity,
     geometry_overlay_color: geometryOverlayColor,
     geometry_overlay_size: geometryOverlaySize,
@@ -368,6 +370,10 @@ export function PlayerAv({
   const effectiveGeometryOverlay = slideOnly
     ? sharedAvConfiguration?.geometry_overlay ?? DEFAULT_AV_PREFERENCES.geometryOverlay
     : prefs.geometryOverlay
+  const effectiveGeometryOverlayRotatedBackground = slideOnly
+    ? sharedAvConfiguration?.geometry_overlay_rotated_background ??
+      sharedAvConfiguration?.geometry_overlay_rotated_video ?? false
+    : prefs.geometryOverlayRotatedBackground
   const sharedGeometryOverlayOpacity = sharedAvConfiguration
     ? sharedAvConfiguration.geometry_overlay_opacity ??
       (sharedAvConfiguration.geometry_overlay_transparency != null
@@ -417,6 +423,7 @@ export function PlayerAv({
       viewState.languageByItem,
       projected.screenState,
       prefs.geometryOverlay,
+      prefs.geometryOverlayRotatedBackground,
       prefs.geometryOverlayOpacity,
       prefs.geometryOverlayColor,
       prefs.geometryOverlaySize,
@@ -427,6 +434,7 @@ export function PlayerAv({
       collapseLyricWhitespace,
       prefs.contentLayer,
       prefs.geometryOverlay,
+      prefs.geometryOverlayRotatedBackground,
       prefs.geometryOverlayOpacity,
       prefs.geometryOverlayColor,
       prefs.geometryOverlaySize,
@@ -755,6 +763,7 @@ export function PlayerAv({
         contentLayer: effectiveContentLayer,
         backgroundLayer: projectedBackgroundLayer,
         geometryOverlay: effectiveGeometryOverlay,
+        geometryOverlayRotatedBackground: effectiveGeometryOverlayRotatedBackground,
         geometryOverlayOpacity: effectiveGeometryOverlayOpacity,
         geometryOverlayColor: effectiveGeometryOverlayColor,
         geometryOverlaySize: effectiveGeometryOverlaySize,
@@ -773,6 +782,7 @@ export function PlayerAv({
       projectedFallbackBackgroundLayer,
       effectiveContentLayer,
       effectiveGeometryOverlay,
+      effectiveGeometryOverlayRotatedBackground,
       effectiveGeometryOverlayOpacity,
       effectiveGeometryOverlayColor,
       effectiveGeometryOverlaySize,
@@ -813,6 +823,7 @@ export function PlayerAv({
       content: command.content,
       backgroundLayer: command.backgroundLayer,
       geometryOverlay: command.geometryOverlay,
+      geometryOverlayRotatedBackground: command.geometryOverlayRotatedBackground ?? false,
       geometryOverlayOpacity: command.geometryOverlayOpacity ?? DEFAULT_AV_PREFERENCES.geometryOverlayOpacity,
       geometryOverlayColor: command.geometryOverlayColor ?? DEFAULT_AV_PREFERENCES.geometryOverlayColor,
       geometryOverlaySize: command.geometryOverlaySize ?? DEFAULT_AV_PREFERENCES.geometryOverlaySize,
@@ -911,6 +922,14 @@ export function PlayerAv({
   const setGeometryOverlayThickness = useCallback((geometryOverlayThickness: number) => {
     setPrefs((prev) => {
       const next = { ...prev, geometryOverlayThickness }
+      writeAvPreferences(next)
+      return next
+    })
+  }, [])
+
+  const setGeometryOverlayRotatedBackground = useCallback((geometryOverlayRotatedBackground: boolean) => {
+    setPrefs((prev) => {
+      const next = { ...prev, geometryOverlayRotatedBackground }
       writeAvPreferences(next)
       return next
     })
@@ -1272,6 +1291,7 @@ export function PlayerAv({
           contentLayer={effectiveContentLayer}
           backgroundLayer={projectedBackgroundLayer}
           geometryOverlay={effectiveGeometryOverlay}
+          geometryOverlayRotatedBackground={effectiveGeometryOverlayRotatedBackground}
           geometryOverlayOpacity={effectiveGeometryOverlayOpacity}
           geometryOverlayColor={effectiveGeometryOverlayColor}
           geometryOverlaySize={effectiveGeometryOverlaySize}
@@ -1472,6 +1492,7 @@ export function PlayerAv({
                 backgroundPreviewText={currentText}
                 contentLayer={prefs.contentLayer}
                 geometryOverlay={prefs.geometryOverlay}
+                geometryOverlayRotatedBackground={prefs.geometryOverlayRotatedBackground}
                 geometryOverlayOpacity={prefs.geometryOverlayOpacity}
                 geometryOverlayColor={prefs.geometryOverlayColor}
                 geometryOverlaySize={prefs.geometryOverlaySize}
@@ -1483,6 +1504,7 @@ export function PlayerAv({
                 onSelectGeometryOverlayColor={setGeometryOverlayColor}
                 onSelectGeometryOverlaySize={setGeometryOverlaySize}
                 onSelectGeometryOverlayThickness={setGeometryOverlayThickness}
+                onSelectGeometryOverlayRotatedBackground={setGeometryOverlayRotatedBackground}
               />
             ) : isTimedAvKind(currentItem.kind) ? (
               <AvMediaTransportPanel
@@ -1504,6 +1526,7 @@ export function PlayerAv({
                 backgroundPreviewText={currentText}
                 contentLayer={prefs.contentLayer}
                 geometryOverlay={prefs.geometryOverlay}
+                geometryOverlayRotatedBackground={prefs.geometryOverlayRotatedBackground}
                 geometryOverlayOpacity={prefs.geometryOverlayOpacity}
                 geometryOverlayColor={prefs.geometryOverlayColor}
                 geometryOverlaySize={prefs.geometryOverlaySize}
@@ -1552,6 +1575,7 @@ export function PlayerAv({
                 onSelectGeometryOverlayColor={setGeometryOverlayColor}
                 onSelectGeometryOverlaySize={setGeometryOverlaySize}
                 onSelectGeometryOverlayThickness={setGeometryOverlayThickness}
+                onSelectGeometryOverlayRotatedBackground={setGeometryOverlayRotatedBackground}
               />
             ) : (
               <AvSlidesPanel
@@ -1562,6 +1586,7 @@ export function PlayerAv({
                 fallbackBackgroundLayer={fallbackBackgroundLayer}
                 backgroundPreviewText={currentText}
                 geometryOverlay={prefs.geometryOverlay}
+                geometryOverlayRotatedBackground={prefs.geometryOverlayRotatedBackground}
                 geometryOverlayOpacity={prefs.geometryOverlayOpacity}
                 geometryOverlayColor={prefs.geometryOverlayColor}
                 geometryOverlaySize={prefs.geometryOverlaySize}
@@ -1575,6 +1600,7 @@ export function PlayerAv({
                 onSelectGeometryOverlayColor={setGeometryOverlayColor}
                 onSelectGeometryOverlaySize={setGeometryOverlaySize}
                 onSelectGeometryOverlayThickness={setGeometryOverlayThickness}
+                onSelectGeometryOverlayRotatedBackground={setGeometryOverlayRotatedBackground}
               />
             )}
           </div>
@@ -1614,6 +1640,7 @@ export function PlayerAv({
                   contentLayer={prefs.contentLayer}
                   backgroundLayer={projectedBackgroundLayer}
                   geometryOverlay={prefs.geometryOverlay}
+                  geometryOverlayRotatedBackground={prefs.geometryOverlayRotatedBackground}
                   geometryOverlayOpacity={prefs.geometryOverlayOpacity}
                   geometryOverlayColor={prefs.geometryOverlayColor}
                   geometryOverlaySize={prefs.geometryOverlaySize}

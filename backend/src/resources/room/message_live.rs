@@ -290,6 +290,8 @@ mod tests {
             geometry_overlay_color: None,
             geometry_overlay_size: None,
             geometry_overlay_thickness: None,
+            geometry_overlay_rotated_background: None,
+            geometry_overlay_rotated_video: None,
         }
     }
 

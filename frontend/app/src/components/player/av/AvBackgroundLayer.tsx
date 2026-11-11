@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { mediaAssetDataUrl } from '@/api/media-upload'
 import { AvGeometryOverlayShape } from '@/components/player/av/AvGeometryOverlayShape'
@@ -18,6 +18,7 @@ type AvBackgroundLayerProps = {
   geometryOverlayColor?: number
   geometryOverlaySize?: number
   geometryOverlayThickness?: number
+  geometryOverlayRotatedBackground?: boolean
   fallbackLayer?: AvBackgroundLayerPrefs
   className?: string
   videoPreview?: boolean
@@ -30,11 +31,13 @@ export function AvBackgroundLayer({
   geometryOverlayColor = 77,
   geometryOverlaySize = 77,
   geometryOverlayThickness = 77,
+  geometryOverlayRotatedBackground = false,
   fallbackLayer,
   className,
   videoPreview = false,
 }: AvBackgroundLayerProps) {
   const [failedAssetKey, setFailedAssetKey] = useState<string | null>(null)
+  const backgroundVideoRef = useRef<HTMLVideoElement>(null)
   const assetKey = layer.image
     ? `image:${layer.image.mediaId}:${layer.image.assetId}`
     : layer.video
@@ -55,6 +58,7 @@ export function AvBackgroundLayer({
         geometryOverlayColor={geometryOverlayColor}
         geometryOverlaySize={geometryOverlaySize}
         geometryOverlayThickness={geometryOverlayThickness}
+        geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
         className={className}
         videoPreview={videoPreview}
       />
@@ -90,6 +94,7 @@ export function AvBackgroundLayer({
           ) : null
         ) : (
           <video
+            ref={backgroundVideoRef}
             className="av-background-layer__video"
             src={mediaAssetDataUrl(layer.video.mediaId, layer.video.assetId)}
             poster={layer.video.thumbnailAssetId
@@ -112,6 +117,20 @@ export function AvBackgroundLayer({
           color={geometryOverlayColor}
           size={geometryOverlaySize}
           thickness={geometryOverlayThickness}
+          rotatedBackground={geometryOverlayRotatedBackground}
+          videoSrc={geometryOverlayRotatedBackground && layer.video && !videoPreview
+            ? mediaAssetDataUrl(layer.video.mediaId, layer.video.assetId)
+            : undefined}
+          backgroundImageSrc={geometryOverlayRotatedBackground
+            ? layer.image
+              ? mediaAssetDataUrl(layer.image.mediaId, layer.image.assetId)
+              : videoPreview && layer.video?.thumbnailAssetId
+                ? mediaAssetDataUrl(layer.video.mediaId, layer.video.thumbnailAssetId)
+                : preset === 2
+                  ? '/ray.png'
+                : undefined
+            : undefined}
+          masterVideoRef={backgroundVideoRef}
           className="av-background-layer__geometry"
         />
       ) : null}

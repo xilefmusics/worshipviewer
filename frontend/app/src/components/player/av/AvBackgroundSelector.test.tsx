@@ -134,12 +134,19 @@ describe('AvBackgroundSelector', () => {
     const none = await screen.findByRole('radio', { name: 'player.av.geometryOverlayNone' })
     const cross = screen.getByRole('radio', { name: 'player.av.geometryOverlayCross' })
     expect(none).toHaveAttribute('aria-checked', 'false')
+    expect(none.querySelector('.av-geometry-selector__preview')?.textContent).toBe('')
+    expect(within(none).getByText('player.av.geometryOverlayNone')).toBeInTheDocument()
     expect(cross).toHaveAttribute('aria-checked', 'true')
+    const defaultBackground = screen.getByRole('radio', {
+      name: 'settings.playerRoles.background.default',
+    })
+    const customBackground = await screen.findByRole('radio', { name: 'Sunset' })
     for (const label of ['InvertedCross', 'SlicedSquare', 'SlicedRectangle', 'Circle', 'Square', 'Rectangle', 'Triangle', 'InvertedTriangle', 'Diamond', 'Heart']) {
       expect(screen.getByRole('radio', { name: `player.av.geometryOverlay${label}` })).toHaveAttribute('aria-checked', 'false')
     }
     expect(screen.getAllByRole('radio', { name: /player\.av\.geometryOverlay/ })).toHaveLength(12)
-    expect(screen.getByTestId('background-preview-2')).toHaveAttribute('data-overlay', 'cross')
+    expect(within(defaultBackground).getByTestId('background-preview-2')).toHaveAttribute('data-overlay', 'none')
+    expect(within(customBackground).getByTestId('background-preview-2')).toHaveAttribute('data-overlay', 'none')
 
     await user.click(none)
     expect(onSelectGeometryOverlay).toHaveBeenCalledWith('none')
@@ -157,6 +164,17 @@ describe('AvBackgroundSelector', () => {
     expect(onSelectGeometryOverlay).toHaveBeenCalledWith('inverted_triangle')
     await user.click(screen.getByRole('radio', { name: 'player.av.geometryOverlayHeart' }))
     expect(onSelectGeometryOverlay).toHaveBeenCalledWith('heart')
+  })
+
+  it('omits None from the collapsed background summary', () => {
+    renderSelector({
+      geometryOverlay: 'none',
+      onSelectGeometryOverlay: vi.fn(),
+    })
+
+    const toggle = screen.getByRole('button', { name: 'player.av.backgroundExpand' })
+    expect(toggle).toHaveTextContent('settings.playerRoles.background.default')
+    expect(toggle).not.toHaveTextContent('player.av.geometryOverlayNone')
   })
 
   it('omits geometry controls from background override callers', async () => {

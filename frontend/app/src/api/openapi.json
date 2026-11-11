@@ -2243,6 +2243,21 @@
               "null"
             ]
           },
+          "geometry_overlay_rotated_background": {
+            "description": "Render the selected preset, image, or video background inside geometry overlays, rotated by 180 degrees.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "geometry_overlay_rotated_video": {
+            "deprecated": true,
+            "description": "Deprecated alias retained for compatibility with clients that only supported video backgrounds.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "geometry_overlay_size": {
             "description": "Overlay height as a percentage of the output height.",
             "format": "int32",

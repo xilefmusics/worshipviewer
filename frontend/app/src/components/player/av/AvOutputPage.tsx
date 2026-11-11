@@ -128,6 +128,9 @@ export function AvOutputPage({
         contentLayer={command?.contentLayer ?? DEFAULT_AV_PREFERENCES.contentLayer}
         backgroundLayer={command?.backgroundLayer ?? DEFAULT_AV_PREFERENCES.backgroundLayer}
         geometryOverlay={command?.geometryOverlay ?? DEFAULT_AV_PREFERENCES.geometryOverlay}
+        geometryOverlayRotatedBackground={
+          command?.geometryOverlayRotatedBackground ?? command?.geometryOverlayRotatedVideo ?? false
+        }
         geometryOverlayOpacity={command?.geometryOverlayOpacity ?? (
           command == null
             ? DEFAULT_AV_PREFERENCES.geometryOverlayOpacity

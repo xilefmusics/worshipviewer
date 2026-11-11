@@ -76,6 +76,7 @@ type AvSlidesPanelProps = {
   geometryOverlayColor: number
   geometryOverlaySize: number
   geometryOverlayThickness: number
+  geometryOverlayRotatedBackground: boolean
   transition: AvTransition
   onSelectSlide: (slideIndex: number) => void
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
@@ -85,6 +86,7 @@ type AvSlidesPanelProps = {
   onSelectGeometryOverlayColor: (color: number) => void
   onSelectGeometryOverlaySize: (size: number) => void
   onSelectGeometryOverlayThickness: (thickness: number) => void
+  onSelectGeometryOverlayRotatedBackground: (rotatedBackground: boolean) => void
 }
 
 export function AvSlidesPanel({
@@ -99,6 +101,7 @@ export function AvSlidesPanel({
   geometryOverlayColor,
   geometryOverlaySize,
   geometryOverlayThickness,
+  geometryOverlayRotatedBackground,
   transition,
   onSelectSlide,
   onSelectBackgroundPreset,
@@ -108,6 +111,7 @@ export function AvSlidesPanel({
   onSelectGeometryOverlayColor,
   onSelectGeometryOverlaySize,
   onSelectGeometryOverlayThickness,
+  onSelectGeometryOverlayRotatedBackground,
 }: AvSlidesPanelProps) {
   const { t } = useTranslation()
   const [panelRef, multiColumn] = useSlidePanelMultiColumn()
@@ -222,6 +226,7 @@ export function AvSlidesPanel({
         geometryOverlayColor={geometryOverlayColor}
         geometryOverlaySize={geometryOverlaySize}
         geometryOverlayThickness={geometryOverlayThickness}
+        geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
         onSelectPreset={onSelectBackgroundPreset}
         onSelectBackgroundAsset={onSelectBackgroundAsset}
         onSelectGeometryOverlay={onSelectGeometryOverlay}
@@ -229,6 +234,7 @@ export function AvSlidesPanel({
         onSelectGeometryOverlayColor={onSelectGeometryOverlayColor}
         onSelectGeometryOverlaySize={onSelectGeometryOverlaySize}
         onSelectGeometryOverlayThickness={onSelectGeometryOverlayThickness}
+        onSelectGeometryOverlayRotatedBackground={onSelectGeometryOverlayRotatedBackground}
       />
     </div>
   )

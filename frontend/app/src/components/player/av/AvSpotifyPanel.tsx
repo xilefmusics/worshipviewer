@@ -24,6 +24,7 @@ type AvSpotifyPanelProps = {
   geometryOverlayColor: number
   geometryOverlaySize: number
   geometryOverlayThickness: number
+  geometryOverlayRotatedBackground: boolean
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
   onSelectBackgroundAsset: (asset: AvBackgroundAsset) => void
   onSelectGeometryOverlay: (overlay: AvGeometryOverlay) => void
@@ -31,6 +32,7 @@ type AvSpotifyPanelProps = {
   onSelectGeometryOverlayColor: (color: number) => void
   onSelectGeometryOverlaySize: (size: number) => void
   onSelectGeometryOverlayThickness: (thickness: number) => void
+  onSelectGeometryOverlayRotatedBackground: (rotatedBackground: boolean) => void
 }
 
 export function AvSpotifyPanel({
@@ -45,6 +47,7 @@ export function AvSpotifyPanel({
   geometryOverlayColor,
   geometryOverlaySize,
   geometryOverlayThickness,
+  geometryOverlayRotatedBackground,
   onSelectBackgroundPreset,
   onSelectBackgroundAsset,
   onSelectGeometryOverlay,
@@ -52,6 +55,7 @@ export function AvSpotifyPanel({
   onSelectGeometryOverlayColor,
   onSelectGeometryOverlaySize,
   onSelectGeometryOverlayThickness,
+  onSelectGeometryOverlayRotatedBackground,
 }: AvSpotifyPanelProps) {
   const { t } = useTranslation()
   const previewText = backgroundPreviewText.split('\n')[0]?.trim() || backgroundPreviewText.trim()
@@ -81,6 +85,7 @@ export function AvSpotifyPanel({
         geometryOverlayColor={geometryOverlayColor}
         geometryOverlaySize={geometryOverlaySize}
         geometryOverlayThickness={geometryOverlayThickness}
+        geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
         onSelectPreset={onSelectBackgroundPreset}
         onSelectBackgroundAsset={onSelectBackgroundAsset}
         onSelectGeometryOverlay={onSelectGeometryOverlay}
@@ -88,6 +93,7 @@ export function AvSpotifyPanel({
         onSelectGeometryOverlayColor={onSelectGeometryOverlayColor}
         onSelectGeometryOverlaySize={onSelectGeometryOverlaySize}
         onSelectGeometryOverlayThickness={onSelectGeometryOverlayThickness}
+        onSelectGeometryOverlayRotatedBackground={onSelectGeometryOverlayRotatedBackground}
       />
     </div>
   )

@@ -1834,6 +1834,13 @@ export interface components {
              * @description Overlay opacity from 0 (invisible) to 100 (opaque).
              */
             geometry_overlay_opacity?: number | null;
+            /** @description Render the selected preset, image, or video background inside geometry overlays, rotated by 180 degrees. */
+            geometry_overlay_rotated_background?: boolean | null;
+            /**
+             * @deprecated
+             * @description Deprecated alias retained for compatibility with clients that only supported video backgrounds.
+             */
+            geometry_overlay_rotated_video?: boolean | null;
             /**
              * Format: int32
              * @description Overlay height as a percentage of the output height.

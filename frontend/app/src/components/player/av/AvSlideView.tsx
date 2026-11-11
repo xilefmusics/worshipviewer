@@ -45,6 +45,7 @@ type AvSlideViewProps = {
   geometryOverlayColor?: number
   geometryOverlaySize?: number
   geometryOverlayThickness?: number
+  geometryOverlayRotatedBackground?: boolean
   fallbackBackgroundLayer?: AvBackgroundLayerPrefs
   transition: AvTransition
   screenState: AvScreenState
@@ -72,6 +73,7 @@ function AvSlideCanvas({
   geometryOverlayColor,
   geometryOverlaySize,
   geometryOverlayThickness,
+  geometryOverlayRotatedBackground,
   fallbackBackgroundLayer,
   compact,
   showBackground,
@@ -93,6 +95,7 @@ function AvSlideCanvas({
   | 'geometryOverlayColor'
   | 'geometryOverlaySize'
   | 'geometryOverlayThickness'
+  | 'geometryOverlayRotatedBackground'
   | 'fallbackBackgroundLayer'
   | 'compact'
   | 'showBackground'
@@ -120,6 +123,7 @@ function AvSlideCanvas({
           geometryOverlayColor={geometryOverlayColor}
           geometryOverlaySize={geometryOverlaySize}
           geometryOverlayThickness={geometryOverlayThickness}
+          geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
           fallbackLayer={fallbackBackgroundLayer}
           className="av-slide-view__background"
           videoPreview={compact || preview}
@@ -215,6 +219,7 @@ export function AvSlideView({
   geometryOverlayColor,
   geometryOverlaySize,
   geometryOverlayThickness,
+  geometryOverlayRotatedBackground,
   fallbackBackgroundLayer,
   transition,
   screenState,
@@ -244,6 +249,7 @@ export function AvSlideView({
               geometryOverlayColor={geometryOverlayColor}
               geometryOverlaySize={geometryOverlaySize}
               geometryOverlayThickness={geometryOverlayThickness}
+              geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
               fallbackLayer={fallbackBackgroundLayer}
               className="av-slide-view__background"
               videoPreview={compact}
@@ -259,6 +265,7 @@ export function AvSlideView({
                 geometryOverlayColor={geometryOverlayColor}
                 geometryOverlaySize={geometryOverlaySize}
                 geometryOverlayThickness={geometryOverlayThickness}
+                geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
                 fallbackLayer={fallbackBackgroundLayer}
                 className="av-slide-view__background"
                 videoPreview={preview}
@@ -288,6 +295,7 @@ export function AvSlideView({
       geometryOverlayColor={geometryOverlayColor}
       geometryOverlaySize={geometryOverlaySize}
       geometryOverlayThickness={geometryOverlayThickness}
+      geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
       fallbackBackgroundLayer={fallbackBackgroundLayer}
       compact={compact}
       showBackground={compact || preview || Boolean(deckPage) ? showBackground : false}
@@ -333,6 +341,7 @@ export function AvSlideView({
                 geometryOverlayColor={geometryOverlayColor}
                 geometryOverlaySize={geometryOverlaySize}
                 geometryOverlayThickness={geometryOverlayThickness}
+                geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
                 fallbackLayer={fallbackBackgroundLayer}
                 className="av-slide-view__background"
                 videoPreview={preview}
@@ -376,6 +385,7 @@ export function AvSlideView({
             geometryOverlayColor={geometryOverlayColor}
             geometryOverlaySize={geometryOverlaySize}
             geometryOverlayThickness={geometryOverlayThickness}
+            geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
             fallbackLayer={fallbackBackgroundLayer}
             className="av-slide-view__blank-background"
             videoPreview={preview}

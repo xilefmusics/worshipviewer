@@ -53,11 +53,13 @@ type AvBackgroundSelectorProps = {
   geometryOverlayColor?: number
   geometryOverlaySize?: number
   geometryOverlayThickness?: number
+  geometryOverlayRotatedBackground?: boolean
   onSelectGeometryOverlay?: (overlay: AvGeometryOverlay) => void
   onSelectGeometryOverlayOpacity?: (opacity: number) => void
   onSelectGeometryOverlayColor?: (color: number) => void
   onSelectGeometryOverlaySize?: (size: number) => void
   onSelectGeometryOverlayThickness?: (thickness: number) => void
+  onSelectGeometryOverlayRotatedBackground?: (rotatedBackground: boolean) => void
   /** Kept for callers that only support image backgrounds. */
   onSelectBackgroundImage?: (image: { mediaId: string; assetId: string }) => void
 }
@@ -97,11 +99,13 @@ export function AvBackgroundSelector({
   geometryOverlayColor = 77,
   geometryOverlaySize = 77,
   geometryOverlayThickness = 77,
+  geometryOverlayRotatedBackground = false,
   onSelectGeometryOverlay,
   onSelectGeometryOverlayOpacity,
   onSelectGeometryOverlayColor,
   onSelectGeometryOverlaySize,
   onSelectGeometryOverlayThickness,
+  onSelectGeometryOverlayRotatedBackground,
 }: AvBackgroundSelectorProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -136,14 +140,12 @@ export function AvBackgroundSelector({
     : backgroundLayer.image || backgroundLayer.video
       ? selectedBackground?.title ?? t('player.av.customBackground')
       : t('settings.playerRoles.background.default')
-  const selectedOverlayLabel = onSelectGeometryOverlay
-    ? t(
-        geometryOverlay === 'none'
-          ? 'player.av.geometryOverlayNone'
-          : `player.av.geometryOverlay${geometryOverlayLabel(geometryOverlay)}`,
-      )
+  const selectedOverlayLabel = onSelectGeometryOverlay && geometryOverlay !== 'none'
+    ? t(`player.av.geometryOverlay${geometryOverlayLabel(geometryOverlay)}`)
     : null
-
+  const rotatedBackgroundActive = geometryOverlayRotatedBackground && (
+    Boolean(backgroundLayer.image || backgroundLayer.video) || backgroundLayer.preset === 2
+  )
   return (
     <div className="av-background-selector-panel">
       <button
@@ -225,11 +227,12 @@ export function AvBackgroundSelector({
                       contentText={previewText}
                       contentLayer={contentLayer}
                       backgroundLayer={{ preset: optionPreset }}
-                      geometryOverlay={geometryOverlay}
-                      geometryOverlayOpacity={geometryOverlayOpacity}
-                      geometryOverlayColor={geometryOverlayColor}
+                      geometryOverlay="none"
+                      geometryOverlayOpacity={100}
+                      geometryOverlayColor={100}
                       geometryOverlaySize={geometryOverlaySize}
                       geometryOverlayThickness={geometryOverlayThickness}
+                      geometryOverlayRotatedBackground={false}
                       transition={NO_TRANSITION}
                       screenState="live"
                       compact
@@ -282,11 +285,12 @@ export function AvBackgroundSelector({
                       contentText={previewText}
                       contentLayer={contentLayer}
                       backgroundLayer={optionLayer}
-                      geometryOverlay={geometryOverlay}
-                      geometryOverlayOpacity={geometryOverlayOpacity}
-                      geometryOverlayColor={geometryOverlayColor}
+                      geometryOverlay="none"
+                      geometryOverlayOpacity={100}
+                      geometryOverlayColor={100}
                       geometryOverlaySize={geometryOverlaySize}
                       geometryOverlayThickness={geometryOverlayThickness}
+                      geometryOverlayRotatedBackground={false}
                       transition={NO_TRANSITION}
                       screenState="live"
                       compact
@@ -319,9 +323,10 @@ export function AvBackgroundSelector({
                   )}
                   onClick={() => onSelectGeometryOverlay('none')}
                 >
-                  <div className="av-background-selector__preview av-geometry-selector__preview av-geometry-selector__preview--none" aria-hidden>
-                    {t('player.av.geometryOverlayNone')}
-                  </div>
+                  <div
+                    className="av-background-selector__preview av-geometry-selector__preview"
+                    aria-hidden
+                  />
                   <span className="av-background-selector__label">
                     {t('player.av.geometryOverlayNone')}
                   </span>
@@ -342,8 +347,8 @@ export function AvBackgroundSelector({
                     <div className="av-background-selector__preview av-geometry-selector__preview">
                       <AvGeometryOverlayShape
                         overlay={overlay}
-                        opacity={geometryOverlayOpacity}
-                        color={geometryOverlayColor}
+                        opacity={100}
+                        color={100}
                         size={geometryOverlaySize}
                         thickness={geometryOverlayThickness}
                       />
@@ -364,10 +369,65 @@ export function AvBackgroundSelector({
                     {t('player.av.geometryOverlaySettings')}
                   </span>
                   <div className="av-geometry-selector__settings-sliders">
+                    {onSelectGeometryOverlayRotatedBackground ? (
+                      <div className="av-geometry-selector__setting av-geometry-selector__setting--fill">
+                        <span className="av-geometry-selector__fill-title">
+                          {t('player.av.geometryOverlayFill')}
+                        </span>
+                        <div
+                          className="av-geometry-selector__fill-options"
+                          role="radiogroup"
+                          aria-label={t('player.av.geometryOverlayFill')}
+                        >
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={!geometryOverlayRotatedBackground}
+                            className={cn(
+                              'av-geometry-selector__fill-option',
+                              !geometryOverlayRotatedBackground && 'av-geometry-selector__fill-option--selected',
+                            )}
+                            onClick={() => onSelectGeometryOverlayRotatedBackground(false)}
+                          >
+                            <span className="av-geometry-selector__fill-label">
+                              {t('player.av.geometryOverlayFillBlack')}
+                            </span>
+                            <span
+                              className="av-geometry-selector__fill-indicator"
+                              aria-hidden
+                            >
+                              {!geometryOverlayRotatedBackground ? '✓' : ''}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            role="radio"
+                            aria-checked={geometryOverlayRotatedBackground}
+                            className={cn(
+                              'av-geometry-selector__fill-option',
+                              geometryOverlayRotatedBackground && 'av-geometry-selector__fill-option--selected',
+                            )}
+                            onClick={() => onSelectGeometryOverlayRotatedBackground(true)}
+                          >
+                            <span className="av-geometry-selector__fill-label">
+                              {t('player.av.geometryOverlayFillRotatedBackground')}
+                            </span>
+                            <span
+                              className="av-geometry-selector__fill-indicator"
+                              aria-hidden
+                            >
+                              {geometryOverlayRotatedBackground ? '✓' : ''}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                     <label className="av-geometry-selector__setting">
                       <span className="av-geometry-selector__setting-copy">
                         <span>{t('player.av.geometryOverlayOpacity')}</span>
-                        <span className="av-geometry-selector__setting-value">{geometryOverlayOpacity}%</span>
+                        <span className="av-geometry-selector__setting-value">
+                          {rotatedBackgroundActive ? '100%' : `${geometryOverlayOpacity}%`}
+                        </span>
                       </span>
                       <input
                         className="av-geometry-selector__slider"
@@ -375,8 +435,9 @@ export function AvBackgroundSelector({
                         min={0}
                         max={100}
                         step={1}
-                        value={geometryOverlayOpacity}
+                        value={rotatedBackgroundActive ? 100 : geometryOverlayOpacity}
                         aria-label={t('player.av.geometryOverlayOpacity')}
+                        disabled={rotatedBackgroundActive}
                         onChange={(event) => onSelectGeometryOverlayOpacity(Number(event.currentTarget.value))}
                       />
                     </label>
@@ -393,6 +454,7 @@ export function AvBackgroundSelector({
                         step={1}
                         value={geometryOverlayColor}
                         aria-label={t('player.av.geometryOverlayColor')}
+                        disabled={rotatedBackgroundActive}
                         onChange={(event) => onSelectGeometryOverlayColor(Number(event.currentTarget.value))}
                       />
                     </label>

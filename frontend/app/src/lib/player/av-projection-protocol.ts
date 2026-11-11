@@ -72,6 +72,9 @@ export type AvProjectionCommand = {
   screenState: AvScreenState
   backgroundLayer: AvBackgroundLayer
   geometryOverlay: AvGeometryOverlay
+  geometryOverlayRotatedBackground?: boolean
+  /** @deprecated Use geometryOverlayRotatedBackground instead. */
+  geometryOverlayRotatedVideo?: boolean
   geometryOverlayOpacity?: number
   geometryOverlayColor?: number
   geometryOverlaySize?: number
@@ -195,6 +198,10 @@ export function legacyPayloadToCommand(
     screenState: payload.screenState,
     backgroundLayer: payload.backgroundLayer,
     geometryOverlay: normalizeAvGeometryOverlay(payload.geometryOverlay),
+    geometryOverlayRotatedBackground:
+      payload.geometryOverlayRotatedBackground ?? payload.geometryOverlayRotatedVideo ?? false,
+    geometryOverlayRotatedVideo:
+      payload.geometryOverlayRotatedBackground ?? payload.geometryOverlayRotatedVideo ?? false,
     geometryOverlayOpacity: payload.geometryOverlayOpacity ??
       (payload.geometryOverlayTransparency != null
         ? 100 - payload.geometryOverlayTransparency
@@ -235,6 +242,9 @@ export function buildAvProjectionCommand(input: {
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
   geometryOverlay?: AvGeometryOverlay
+  geometryOverlayRotatedBackground?: boolean
+  /** @deprecated Use geometryOverlayRotatedBackground instead. */
+  geometryOverlayRotatedVideo?: boolean
   geometryOverlayOpacity?: number
   geometryOverlayColor?: number
   geometryOverlaySize?: number
@@ -255,6 +265,8 @@ export function buildAvProjectionCommand(input: {
     input.intent === 'clear'
       ? ({ type: 'empty' } satisfies AvProjectionContent)
       : input.content
+  const geometryOverlayRotatedBackground =
+    input.geometryOverlayRotatedBackground ?? input.geometryOverlayRotatedVideo ?? false
   return {
     type: 'command',
     v: AV_PROJECTION_PROTOCOL_VERSION,
@@ -264,6 +276,8 @@ export function buildAvProjectionCommand(input: {
     screenState: input.screenState,
     backgroundLayer: input.backgroundLayer,
     geometryOverlay: normalizeAvGeometryOverlay(input.geometryOverlay),
+    geometryOverlayRotatedBackground,
+    geometryOverlayRotatedVideo: geometryOverlayRotatedBackground,
     geometryOverlayOpacity: input.geometryOverlayOpacity ??
       (input.geometryOverlayTransparency != null
         ? 100 - input.geometryOverlayTransparency
@@ -302,6 +316,10 @@ export function lyricsPayloadFromCommand(
     contentLayer: command.contentLayer,
     backgroundLayer: command.backgroundLayer,
     geometryOverlay: normalizeAvGeometryOverlay(command.geometryOverlay),
+    geometryOverlayRotatedBackground:
+      command.geometryOverlayRotatedBackground ?? command.geometryOverlayRotatedVideo ?? false,
+    geometryOverlayRotatedVideo:
+      command.geometryOverlayRotatedBackground ?? command.geometryOverlayRotatedVideo ?? false,
     geometryOverlayOpacity: command.geometryOverlayOpacity ??
       (command.geometryOverlayTransparency != null
         ? 100 - command.geometryOverlayTransparency

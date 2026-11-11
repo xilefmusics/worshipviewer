@@ -214,6 +214,13 @@ pub struct RoomAvConfiguration {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "backend", schema(minimum = 0, maximum = 100))]
     pub geometry_overlay_thickness: Option<u8>,
+    /// Render the selected preset, image, or video background inside geometry overlays, rotated by 180 degrees.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub geometry_overlay_rotated_background: Option<bool>,
+    /// Deprecated alias retained for compatibility with clients that only supported video backgrounds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "backend", schema(deprecated = true))]
+    pub geometry_overlay_rotated_video: Option<bool>,
 }
 
 impl RoomAvConfiguration {
@@ -545,6 +552,8 @@ mod tests {
             geometry_overlay_color: None,
             geometry_overlay_size: None,
             geometry_overlay_thickness: None,
+            geometry_overlay_rotated_background: None,
+            geometry_overlay_rotated_video: None,
         }
     }
 
@@ -764,7 +773,15 @@ mod tests {
 
     #[test]
     fn replays_shared_av_configuration_and_rejects_invalid_values() {
-        let configuration = av_configuration();
+        let mut configuration = av_configuration();
+        configuration.geometry_overlay_rotated_background = Some(true);
+        let serialized = serde_json::to_value(&configuration).unwrap();
+        assert_eq!(serialized["geometry_overlay_rotated_background"], true);
+        assert_eq!(
+            serde_json::from_value::<RoomAvConfiguration>(serialized).unwrap(),
+            configuration
+        );
+
         let mut replay = RoomReplay::new("room".into(), vec![1]);
         replay
             .apply(message(
@@ -779,6 +796,13 @@ mod tests {
         assert_eq!(
             replay.av_configuration().unwrap().geometry_overlay,
             Some(RoomAvGeometryOverlay::Diamond)
+        );
+        assert_eq!(
+            replay
+                .av_configuration()
+                .unwrap()
+                .geometry_overlay_rotated_background,
+            Some(true)
         );
 
         let mut invalid = av_configuration();

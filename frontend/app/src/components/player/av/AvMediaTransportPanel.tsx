@@ -39,6 +39,7 @@ type AvMediaTransportPanelProps = {
   geometryOverlayColor: number
   geometryOverlaySize: number
   geometryOverlayThickness: number
+  geometryOverlayRotatedBackground: boolean
   onPlay: () => void
   onPause: () => void
   onResume: () => void
@@ -55,6 +56,7 @@ type AvMediaTransportPanelProps = {
   onSelectGeometryOverlayColor: (color: number) => void
   onSelectGeometryOverlaySize: (size: number) => void
   onSelectGeometryOverlayThickness: (thickness: number) => void
+  onSelectGeometryOverlayRotatedBackground: (rotatedBackground: boolean) => void
 }
 
 function errorCopyKey(code: string | undefined): string {
@@ -92,6 +94,7 @@ export function AvMediaTransportPanel({
   geometryOverlayColor,
   geometryOverlaySize,
   geometryOverlayThickness,
+  geometryOverlayRotatedBackground,
   onPlay,
   onPause,
   onResume,
@@ -108,6 +111,7 @@ export function AvMediaTransportPanel({
   onSelectGeometryOverlayColor,
   onSelectGeometryOverlaySize,
   onSelectGeometryOverlayThickness,
+  onSelectGeometryOverlayRotatedBackground,
 }: AvMediaTransportPanelProps) {
   const { t } = useTranslation()
   const web = isWebPageAvKind(kind)
@@ -281,6 +285,7 @@ export function AvMediaTransportPanel({
         geometryOverlayColor={geometryOverlayColor}
         geometryOverlaySize={geometryOverlaySize}
         geometryOverlayThickness={geometryOverlayThickness}
+        geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
         onSelectPreset={onSelectBackgroundPreset}
         onSelectBackgroundAsset={onSelectBackgroundAsset}
         onSelectGeometryOverlay={onSelectGeometryOverlay}
@@ -288,6 +293,7 @@ export function AvMediaTransportPanel({
         onSelectGeometryOverlayColor={onSelectGeometryOverlayColor}
         onSelectGeometryOverlaySize={onSelectGeometryOverlaySize}
         onSelectGeometryOverlayThickness={onSelectGeometryOverlayThickness}
+        onSelectGeometryOverlayRotatedBackground={onSelectGeometryOverlayRotatedBackground}
       />
     </div>
   )

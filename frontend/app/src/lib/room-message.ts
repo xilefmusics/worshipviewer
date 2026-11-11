@@ -61,6 +61,8 @@ function sameAvConfiguration(a: RoomAvConfiguration, b: RoomAvConfiguration): bo
       (b.geometry_overlay_color ?? (b.geometry_overlay_grayscale === true ? 0 : 100)) &&
     (a.geometry_overlay_size ?? 77) === (b.geometry_overlay_size ?? 77) &&
     (a.geometry_overlay_thickness ?? 77) === (b.geometry_overlay_thickness ?? 77) &&
+    (a.geometry_overlay_rotated_background ?? a.geometry_overlay_rotated_video ?? false) ===
+      (b.geometry_overlay_rotated_background ?? b.geometry_overlay_rotated_video ?? false) &&
     leftLanguages.length === rightLanguages.length &&
     leftLanguages.every(([key, value], index) => key === rightLanguages[index]?.[0] && value === rightLanguages[index]?.[1])
 }
@@ -130,6 +132,8 @@ function validRoomAvConfiguration(configuration: RoomAvConfiguration, songCount:
       (Number.isSafeInteger(configuration.geometry_overlay_size) && configuration.geometry_overlay_size >= 0 && configuration.geometry_overlay_size <= 100)) &&
     (configuration.geometry_overlay_thickness == null ||
       (Number.isSafeInteger(configuration.geometry_overlay_thickness) && configuration.geometry_overlay_thickness >= 0 && configuration.geometry_overlay_thickness <= 100)) &&
+    (configuration.geometry_overlay_rotated_background == null || typeof configuration.geometry_overlay_rotated_background === 'boolean') &&
+    (configuration.geometry_overlay_rotated_video == null || typeof configuration.geometry_overlay_rotated_video === 'boolean') &&
     configuration.language_by_item != null && typeof configuration.language_by_item === 'object' && !Array.isArray(configuration.language_by_item) &&
     Object.entries(configuration.language_by_item).length <= songCount &&
     Object.entries(configuration.language_by_item).every(([song, language]) => Number.isSafeInteger(Number(song)) && Number(song) >= 0 && Number(song) < songCount && Number.isSafeInteger(language) && language >= 0 && language <= 255)

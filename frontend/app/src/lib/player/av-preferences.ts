@@ -77,6 +77,7 @@ export type AvPreferences = {
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
   geometryOverlay: AvGeometryOverlay
+  geometryOverlayRotatedBackground: boolean
   geometryOverlayOpacity: number
   geometryOverlayColor: number
   geometryOverlaySize: number
@@ -104,6 +105,7 @@ export const DEFAULT_AV_PREFERENCES: AvPreferences = {
     preset: 2,
   },
   geometryOverlay: 'none',
+  geometryOverlayRotatedBackground: false,
   geometryOverlayOpacity: 77,
   geometryOverlayColor: 77,
   geometryOverlaySize: 77,
@@ -255,6 +257,7 @@ export function readAvPreferences(
     const parsed = JSON.parse(raw) as Partial<AvPreferences> & {
       geometryOverlayGrayscale?: boolean
       geometryOverlayTransparency?: number
+      geometryOverlayRotatedVideo?: boolean
     }
     const hasLegacyOverlaySetting = typeof parsed.geometryOverlayGrayscale === 'boolean'
     const legacyGrayscale = parsed.geometryOverlayGrayscale === true
@@ -270,6 +273,10 @@ export function readAvPreferences(
       contentLayer: mergeContentLayer(parsed.contentLayer),
       backgroundLayer: mergeBackgroundLayer(parsed.backgroundLayer),
       geometryOverlay: normalizeAvGeometryOverlay(parsed.geometryOverlay),
+      geometryOverlayRotatedBackground:
+        typeof parsed.geometryOverlayRotatedBackground === 'boolean'
+          ? parsed.geometryOverlayRotatedBackground
+          : parsed.geometryOverlayRotatedVideo === true,
       geometryOverlayOpacity: clampNumber(
         parsed.geometryOverlayOpacity,
         legacyOpacity,
@@ -323,6 +330,9 @@ export type AvProjectionPayload = {
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
   geometryOverlay?: AvGeometryOverlay
+  geometryOverlayRotatedBackground?: boolean
+  /** @deprecated Use geometryOverlayRotatedBackground instead. */
+  geometryOverlayRotatedVideo?: boolean
   geometryOverlayOpacity?: number
   geometryOverlayColor?: number
   geometryOverlaySize?: number
@@ -344,6 +354,9 @@ export function buildAvProjectionPayload(input: {
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayer
   geometryOverlay?: AvGeometryOverlay
+  geometryOverlayRotatedBackground?: boolean
+  /** @deprecated Use geometryOverlayRotatedBackground instead. */
+  geometryOverlayRotatedVideo?: boolean
   geometryOverlayOpacity?: number
   geometryOverlayColor?: number
   geometryOverlaySize?: number
@@ -367,12 +380,16 @@ export function buildAvProjectionPayload(input: {
     screenState === 'live' && input.contentLines && input.contentLines.length > 0
       ? input.contentLines
       : undefined
+  const geometryOverlayRotatedBackground =
+    input.geometryOverlayRotatedBackground ?? input.geometryOverlayRotatedVideo ?? false
   return {
     contentText: input.contentText,
     ...(contentLines ? { contentLines } : {}),
     contentLayer: input.contentLayer,
     backgroundLayer: input.backgroundLayer,
     geometryOverlay: normalizeAvGeometryOverlay(input.geometryOverlay),
+    geometryOverlayRotatedBackground,
+    geometryOverlayRotatedVideo: geometryOverlayRotatedBackground,
     geometryOverlayOpacity: clampNumber(
       input.geometryOverlayOpacity,
       input.geometryOverlayTransparency != null
