@@ -20,7 +20,7 @@ type AvGeometryOverlayShapeProps = {
 
 function crossClipPath(): string {
   const x = 'var(--av-geometry-overlay-bar-half-thickness-x, 4.2%)'
-  const y = 'var(--av-geometry-overlay-bar-half-thickness-y, 4.2%)'
+  const y = 'var(--av-geometry-overlay-bar-half-thickness-y, 7.47%)'
   const horizontalTop = `calc(36.7% - ${y})`
   const horizontalBottom = `calc(36.7% + ${y})`
   return `polygon(
@@ -35,25 +35,25 @@ function crossClipPath(): string {
 
 function geometryBackgroundCutouts(overlay: Exclude<AvGeometryOverlay, 'none'>, thickness: number): BackgroundCutout[] {
   const crossX = 'var(--av-geometry-overlay-bar-half-thickness-x, 4.2%)'
-  const crossY = 'var(--av-geometry-overlay-bar-half-thickness-y, 4.2%)'
   if (overlay === 'cross') return [{ key: 'cross', clipPath: crossClipPath() }]
   if (overlay === 'inverted_cross') {
+    const crossY = 'var(--av-geometry-overlay-bar-half-thickness-y, 4.2%)'
     return [
       {
         key: 'top-left',
-        clipPath: `inset(15% calc(50% - ${crossX}) calc(63.3% + ${crossY}) 30.4%)`,
+        clipPath: `inset(15% calc(50% + ${crossX}) calc(63.3% + ${crossY}) 30.4%)`,
       },
       {
         key: 'top-right',
-        clipPath: `inset(15% 15% calc(63.3% + ${crossY}) calc(50% + ${crossX}))`,
+        clipPath: `inset(15% 30.4% calc(63.3% + ${crossY}) calc(50% + ${crossX}))`,
       },
       {
         key: 'bottom-left',
-        clipPath: `inset(calc(36.7% + ${crossY}) calc(50% - ${crossX}) 15% 30.4%)`,
+        clipPath: `inset(calc(36.7% + ${crossY}) calc(50% + ${crossX}) 15% 30.4%)`,
       },
       {
         key: 'bottom-right',
-        clipPath: `inset(calc(36.7% + ${crossY}) 15% 15% calc(50% + ${crossX}))`,
+        clipPath: `inset(calc(36.7% + ${crossY}) 30.4% 15% calc(50% + ${crossX}))`,
       },
     ]
   }
@@ -197,13 +197,18 @@ export function AvGeometryOverlayShape({
   const clampedColor = Math.max(0, Math.min(100, color))
   const clampedSize = Math.max(0, Math.min(100, size))
   const clampedThickness = Math.max(0, Math.min(100, thickness))
+  const crossStemHalfThickness = 2 + clampedThickness * 0.08
+  const crossHorizontalHalfThickness = overlay === 'cross'
+    ? crossStemHalfThickness * (16 / 9)
+    : crossStemHalfThickness
+  const overlayScale = clampedSize / 64
   const backgroundCutouts = geometryBackgroundCutouts(overlay, clampedThickness)
   const hasRotatedBackgroundFill = rotatedBackground && Boolean(videoSrc || backgroundImageSrc)
   const rotatedBackgroundStyle = {
     '--av-geometry-overlay-opacity': clampedOpacity / 100,
-    '--av-geometry-overlay-scale': clampedSize / 70,
-    '--av-geometry-overlay-bar-half-thickness-x': `${(2 + clampedThickness * 0.08) * 0.7}%`,
-    '--av-geometry-overlay-bar-half-thickness-y': `${(2 + clampedThickness * 0.08) * 0.7}%`,
+    '--av-geometry-overlay-scale': overlayScale,
+    '--av-geometry-overlay-bar-half-thickness-x': `${crossStemHalfThickness * 0.7}%`,
+    '--av-geometry-overlay-bar-half-thickness-y': `${crossHorizontalHalfThickness * 0.7}%`,
     '--av-geometry-overlay-sliced-square-panel-width': `${(27.25 + clampedThickness * 0.2175) * 0.7}cqh`,
   } as CSSProperties
 
@@ -227,8 +232,9 @@ export function AvGeometryOverlayShape({
         '--av-geometry-overlay-grayscale': clampedOpacity === 0
           ? 0
           : (100 - clampedColor) / 100,
-        '--av-geometry-overlay-scale': clampedSize / 70,
-        '--av-geometry-overlay-bar-half-thickness': `${2 + clampedThickness * 0.08}%`,
+        '--av-geometry-overlay-scale': overlayScale,
+        '--av-geometry-overlay-bar-half-thickness-x': `${crossStemHalfThickness}%`,
+        '--av-geometry-overlay-bar-half-thickness-y': `${crossHorizontalHalfThickness}%`,
         ...rotatedBackgroundStyle,
       } as CSSProperties}
     >

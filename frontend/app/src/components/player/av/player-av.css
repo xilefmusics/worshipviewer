@@ -80,6 +80,12 @@
   overflow: hidden;
 }
 
+.av-background-layer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
 .av-slide-view__stage {
   display: flex;
   width: 100%;
@@ -104,6 +110,7 @@
 
 .av-slide-view__animated-layer {
   position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
 }
@@ -272,12 +279,6 @@
   text-transform: capitalize;
 }
 
-.av-background-layer {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
 .av-geometry-overlay {
   position: absolute;
   z-index: 1;
@@ -354,42 +355,42 @@
 .av-geometry-overlay__cross-shape {
   inset: 0;
   clip-path: polygon(
-    calc(50% - var(--av-geometry-overlay-bar-half-thickness, 6%)) 0,
-    calc(50% + var(--av-geometry-overlay-bar-half-thickness, 6%)) 0,
-    calc(50% + var(--av-geometry-overlay-bar-half-thickness, 6%)) calc(31% - var(--av-geometry-overlay-bar-half-thickness, 6%)),
-    78% calc(31% - var(--av-geometry-overlay-bar-half-thickness, 6%)),
-    78% calc(31% + var(--av-geometry-overlay-bar-half-thickness, 6%)),
-    calc(50% + var(--av-geometry-overlay-bar-half-thickness, 6%)) calc(31% + var(--av-geometry-overlay-bar-half-thickness, 6%)),
-    calc(50% + var(--av-geometry-overlay-bar-half-thickness, 6%)) 100%,
-    calc(50% - var(--av-geometry-overlay-bar-half-thickness, 6%)) 100%,
-    calc(50% - var(--av-geometry-overlay-bar-half-thickness, 6%)) calc(31% + var(--av-geometry-overlay-bar-half-thickness, 6%)),
-    22% calc(31% + var(--av-geometry-overlay-bar-half-thickness, 6%)),
-    22% calc(31% - var(--av-geometry-overlay-bar-half-thickness, 6%)),
-    calc(50% - var(--av-geometry-overlay-bar-half-thickness, 6%)) calc(31% - var(--av-geometry-overlay-bar-half-thickness, 6%))
+    calc(50% - var(--av-geometry-overlay-bar-half-thickness-x, 6%)) 0,
+    calc(50% + var(--av-geometry-overlay-bar-half-thickness-x, 6%)) 0,
+    calc(50% + var(--av-geometry-overlay-bar-half-thickness-x, 6%)) calc(31% - var(--av-geometry-overlay-bar-half-thickness-y, 10.67%)),
+    78% calc(31% - var(--av-geometry-overlay-bar-half-thickness-y, 10.67%)),
+    78% calc(31% + var(--av-geometry-overlay-bar-half-thickness-y, 10.67%)),
+    calc(50% + var(--av-geometry-overlay-bar-half-thickness-x, 6%)) calc(31% + var(--av-geometry-overlay-bar-half-thickness-y, 10.67%)),
+    calc(50% + var(--av-geometry-overlay-bar-half-thickness-x, 6%)) 100%,
+    calc(50% - var(--av-geometry-overlay-bar-half-thickness-x, 6%)) 100%,
+    calc(50% - var(--av-geometry-overlay-bar-half-thickness-x, 6%)) calc(31% + var(--av-geometry-overlay-bar-half-thickness-y, 10.67%)),
+    22% calc(31% + var(--av-geometry-overlay-bar-half-thickness-y, 10.67%)),
+    22% calc(31% - var(--av-geometry-overlay-bar-half-thickness-y, 10.67%)),
+    calc(50% - var(--av-geometry-overlay-bar-half-thickness-x, 6%)) calc(31% - var(--av-geometry-overlay-bar-half-thickness-y, 10.67%))
   );
 }
 
 .av-geometry-overlay__inverted-cross-panel--top-left,
 .av-geometry-overlay__inverted-cross-panel--top-right {
   top: 0;
-  height: calc(31% - var(--av-geometry-overlay-bar-half-thickness, 6%));
+  height: calc(31% - var(--av-geometry-overlay-bar-half-thickness-y, 6%));
 }
 
 .av-geometry-overlay__inverted-cross-panel--top-left,
 .av-geometry-overlay__inverted-cross-panel--bottom-left {
   left: 22%;
-  right: calc(50% + var(--av-geometry-overlay-bar-half-thickness, 6%));
+  right: calc(50% + var(--av-geometry-overlay-bar-half-thickness-x, 6%));
 }
 
 .av-geometry-overlay__inverted-cross-panel--top-right,
 .av-geometry-overlay__inverted-cross-panel--bottom-right {
-  left: calc(50% + var(--av-geometry-overlay-bar-half-thickness, 6%));
+  left: calc(50% + var(--av-geometry-overlay-bar-half-thickness-x, 6%));
   right: 22%;
 }
 
 .av-geometry-overlay__inverted-cross-panel--bottom-left,
 .av-geometry-overlay__inverted-cross-panel--bottom-right {
-  top: calc(31% + var(--av-geometry-overlay-bar-half-thickness, 6%));
+  top: calc(31% + var(--av-geometry-overlay-bar-half-thickness-y, 6%));
   bottom: 0;
 }
 
