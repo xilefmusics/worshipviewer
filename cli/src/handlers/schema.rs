@@ -171,12 +171,13 @@ fn map_cli_command_to_openapi_operation(
         ("media", "list") => ("get", "/api/v1/media"),
         ("media", "get") => ("get", "/api/v1/media/{id}"),
         ("media", "create") => ("post", "/api/v1/media"),
-        ("media", "upload") => ("post", "/api/v1/media/uploads"),
+        ("media", "upload") | ("media", "upload-asset") => {
+            ("post", "/api/v1/media/upload-sessions")
+        }
         ("media", "update") => ("put", "/api/v1/media/{id}"),
         ("media", "move") => ("post", "/api/v1/media/{id}/move"),
         ("media", "duplicate") => ("post", "/api/v1/media/{id}/duplicate"),
         ("media", "delete") => ("delete", "/api/v1/media/{id}"),
-        ("media", "upload-asset") => ("put", "/api/v1/media/{media_id}/uploads"),
         ("media", "deck-begin") => ("post", "/api/v1/media/{id}/deck/revisions"),
         ("media", "deck-commit") => ("post", "/api/v1/media/{id}/deck/commit"),
         ("media", "download-asset") => ("get", "/api/v1/media/{media_id}/assets/{asset_id}/data"),

@@ -2,6 +2,8 @@
 
 Rooms use the ordered message contract documented in [room-message-contract.md](room-message-contract.md). The REST API lists, creates, joins, replays and deletes immutable message rooms. The WebSocket at `/api/v1/rooms/ws` consumes a one-use ticket in its first JSON message, then accepts only absolute `selection` and `vote` changes. Presence and the history handoff are separate ephemeral protocol events.
 
+The backend listener uses HTTP/1.1 so the room route can complete the standard WebSocket upgrade handshake.
+
 ## State and persistence
 
 `room` stores team ownership, room name and the captured `RoomContent` object. No playback, queue, vote or presence state is written back to room metadata. `room_change` stores message envelopes with epoch and sequence columns used for ordered reads. `room_visit` stores account-bound resume and one-use ticket hashes. `room_message_epoch:global` is incremented before a cold active-room process accepts changes.

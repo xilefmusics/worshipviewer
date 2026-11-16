@@ -113,6 +113,113 @@ impl FsMediaAssetStorage {
             etag,
         })
     }
+
+    pub fn upload_session_source_path(&self, session_id: &str, source_index: usize) -> PathBuf {
+        Path::new(&self.staging_dir).join(format!("upload-session-{session_id}-{source_index}"))
+    }
+
+    pub async fn create_upload_session_source(
+        &self,
+        session_id: &str,
+        source_index: usize,
+    ) -> Result<(), AppError> {
+        let path = self.upload_session_source_path(session_id, source_index);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .await
+                .map_err(|e| AppError::internal_from_err("media_asset.storage.session_dir", e))?;
+        }
+        File::create(&path)
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.session_create", e))?;
+        Ok(())
+    }
+
+    pub async fn copy_file_to_staging(
+        &self,
+        source: &Path,
+        operation_id: &str,
+        max_bytes: usize,
+    ) -> Result<StagingUploadResult, AppError> {
+        let path = self.staging_path(operation_id);
+        let mut input = File::open(source)
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.source_open", e))?;
+        let mut output = File::create(&path)
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.create", e))?;
+        let mut total = 0usize;
+        let mut hasher = Context::new(&SHA256);
+        let mut buffer = vec![0u8; 64 * 1024];
+        loop {
+            use tokio::io::AsyncReadExt;
+            let count = input
+                .read(&mut buffer)
+                .await
+                .map_err(|e| AppError::internal_from_err("media_asset.storage.source_read", e))?;
+            if count == 0 {
+                break;
+            }
+            if total + count > max_bytes {
+                drop(output);
+                let _ = fs::remove_file(&path).await;
+                return Err(AppError::payload_too_large());
+            }
+            hasher.update(&buffer[..count]);
+            output
+                .write_all(&buffer[..count])
+                .await
+                .map_err(|e| AppError::internal_from_err("media_asset.storage.write", e))?;
+            total += count;
+        }
+        output
+            .flush()
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.flush", e))?;
+        Ok(StagingUploadResult {
+            byte_length: total as u64,
+            etag: format!("W/\"{}\"", hex::encode(hasher.finish().as_ref())),
+        })
+    }
+
+    pub async fn append_upload_session_chunk(
+        &self,
+        session_id: &str,
+        source_index: usize,
+        bytes: &[u8],
+    ) -> Result<(), AppError> {
+        use tokio::fs::OpenOptions;
+
+        let path = self.upload_session_source_path(session_id, source_index);
+        let mut file = OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.session_open", e))?;
+        file.write_all(bytes)
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.session_write", e))?;
+        file.flush()
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.session_flush", e))?;
+        Ok(())
+    }
+
+    pub fn delete_upload_session_sources(&self, session_id: &str, source_count: usize) {
+        for source_index in 0..source_count {
+            let path = self.upload_session_source_path(session_id, source_index);
+            if let Err(error) = std::fs::remove_file(path)
+                && error.kind() != ErrorKind::NotFound
+            {
+                tracing::warn!(
+                    session_id = %session_id,
+                    source_index,
+                    error = %error,
+                    "media upload session cleanup failed"
+                );
+            }
+        }
+    }
 }
 
 impl MediaAssetStorage for FsMediaAssetStorage {

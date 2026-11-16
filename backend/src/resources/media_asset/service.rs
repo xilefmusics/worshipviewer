@@ -1,10 +1,14 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use actix_web::web::Payload;
+use shared::media::{
+    CreateUploadSession, UploadSession, UploadSessionTarget, UploadSourceDescriptor,
+    UploadedMediaKind,
+};
 use shared::{MediaAsset, MediaAssetKind, MediaAssetStatus};
 use surrealdb::types::RecordId;
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 use tracing::instrument;
 
 use crate::auth::AuthorizationContext;
@@ -28,7 +32,23 @@ pub struct MediaAssetService<R, M> {
     pub storage: Arc<FsMediaAssetStorage>,
     pub settings: MediaAssetSettings,
     active_uploads: Arc<RwLock<HashSet<String>>>,
+    upload_sessions: Arc<RwLock<HashMap<String, Arc<Mutex<UploadSessionState>>>>>,
 }
+
+#[derive(Clone)]
+pub struct UploadSessionState {
+    pub id: String,
+    pub creator_user_id: String,
+    pub target: UploadSessionTarget,
+    pub sources: Vec<UploadSourceDescriptor>,
+    pub next_source: usize,
+    pub next_chunk: usize,
+    pub received_bytes_in_source: u64,
+    pub last_activity: tokio::time::Instant,
+    pub finalizing: bool,
+}
+
+pub const MEDIA_UPLOAD_CHUNK_SIZE_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Clone, Debug)]
 pub struct MediaAssetSettings {
@@ -103,6 +123,7 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
             storage,
             settings,
             active_uploads: Arc::new(RwLock::new(HashSet::new())),
+            upload_sessions: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -122,7 +143,319 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
     }
 
     async fn active_upload_ids(&self) -> HashSet<String> {
-        self.active_uploads.read().await.clone()
+        let mut active = self.active_uploads.read().await.clone();
+        let sessions = self.upload_sessions.read().await.clone();
+        for (session_id, session) in sessions {
+            let session = session.lock().await;
+            for source_index in 0..session.sources.len() {
+                active.insert(format!("upload-session-{session_id}-{source_index}"));
+            }
+        }
+        active
+    }
+
+    async fn authorize_upload_target(
+        &self,
+        ctx: &AuthorizationContext,
+        target: &UploadSessionTarget,
+    ) -> Result<(), AppError> {
+        let media_id = match target {
+            UploadSessionTarget::Create { metadata, .. } => {
+                let owner = match metadata.owner.as_deref() {
+                    Some(owner) => parse_owner_record_id(owner)?,
+                    None => ctx.personal_team()?,
+                };
+                ctx.require_write_access_to_owner(&owner)?;
+                return Ok(());
+            }
+            UploadSessionTarget::Asset { media_id, .. } => media_id,
+        };
+        let media = self.media_repo.get(&ctx.read_teams(), media_id).await?;
+        let owner = parse_owner_record_id(&media.owner)?;
+        ctx.require_write_access_to_owner(&owner)
+    }
+
+    fn upload_session_max_bytes(&self, target: &UploadSessionTarget) -> usize {
+        match target {
+            UploadSessionTarget::Asset { kind, .. } => self.settings.max_bytes_for_kind(*kind),
+            UploadSessionTarget::Create { kind, .. } => match kind {
+                UploadedMediaKind::Video => self.settings.video_max_bytes,
+                UploadedMediaKind::Audio => self.settings.audio_max_bytes,
+                UploadedMediaKind::Image => self
+                    .settings
+                    .image_max_bytes
+                    .max(self.settings.svg_max_bytes),
+                UploadedMediaKind::SlideDeck => self
+                    .settings
+                    .pdf_max_bytes
+                    .max(self.settings.image_max_bytes)
+                    .max(self.settings.svg_max_bytes),
+            },
+        }
+    }
+
+    #[instrument(level = "debug", err, skip(self, ctx, request))]
+    pub async fn begin_upload_session(
+        &self,
+        ctx: &AuthorizationContext,
+        request: CreateUploadSession,
+    ) -> Result<UploadSession, AppError> {
+        if request.sources.is_empty() || request.sources.len() > 500 {
+            return Err(AppError::invalid_request(
+                "upload session must contain between 1 and 500 sources",
+            ));
+        }
+        match &request.target {
+            UploadSessionTarget::Create { kind, .. } => {
+                if !matches!(kind, UploadedMediaKind::SlideDeck) && request.sources.len() != 1 {
+                    return Err(AppError::invalid_request(
+                        "image, video, and audio uploads accept exactly one source",
+                    ));
+                }
+            }
+            UploadSessionTarget::Asset { role, kind, .. } => {
+                if request.sources.len() != 1 {
+                    return Err(AppError::invalid_request(
+                        "media asset uploads accept exactly one source",
+                    ));
+                }
+                if role.as_deref().is_some_and(|value| value != "thumbnail") {
+                    return Err(AppError::invalid_request("unsupported upload role"));
+                }
+                if role.as_deref() == Some("thumbnail")
+                    && !matches!(kind, MediaAssetKind::Image | MediaAssetKind::Svg)
+                {
+                    return Err(AppError::invalid_request(
+                        "thumbnail uploads must use image or svg kind",
+                    ));
+                }
+            }
+        }
+        let max_bytes = self.upload_session_max_bytes(&request.target) as u64;
+        if request
+            .sources
+            .iter()
+            .any(|source| source.byte_length == 0 || source.byte_length > max_bytes)
+        {
+            return Err(AppError::payload_too_large());
+        }
+        self.authorize_upload_target(ctx, &request.target).await?;
+
+        let id = uuid::Uuid::new_v4().to_string();
+        for source_index in 0..request.sources.len() {
+            if let Err(error) = self
+                .storage
+                .create_upload_session_source(&id, source_index)
+                .await
+            {
+                self.storage
+                    .delete_upload_session_sources(&id, request.sources.len());
+                return Err(error);
+            }
+        }
+        let state = UploadSessionState {
+            id: id.clone(),
+            creator_user_id: ctx.user.id.clone(),
+            target: request.target,
+            sources: request.sources,
+            next_source: 0,
+            next_chunk: 0,
+            received_bytes_in_source: 0,
+            last_activity: tokio::time::Instant::now(),
+            finalizing: false,
+        };
+        self.upload_sessions
+            .write()
+            .await
+            .insert(id.clone(), Arc::new(Mutex::new(state)));
+        Ok(UploadSession {
+            id,
+            chunk_size_bytes: MEDIA_UPLOAD_CHUNK_SIZE_BYTES as u64,
+        })
+    }
+
+    #[instrument(level = "debug", err, skip(self, ctx, bytes))]
+    pub async fn append_upload_session_chunk(
+        &self,
+        ctx: &AuthorizationContext,
+        session_id: &str,
+        source_index: usize,
+        chunk_index: usize,
+        bytes: &[u8],
+    ) -> Result<(), AppError> {
+        let session = self
+            .upload_sessions
+            .read()
+            .await
+            .get(session_id)
+            .cloned()
+            .ok_or_else(|| AppError::NotFound("upload session not found".into()))?;
+        let mut state = session.lock().await;
+        if state.creator_user_id != ctx.user.id || state.finalizing {
+            return Err(AppError::NotFound("upload session not found".into()));
+        }
+        if state.last_activity.elapsed()
+            > std::time::Duration::from_secs(self.settings.staging_max_age_seconds)
+        {
+            state.finalizing = true;
+            drop(state);
+            self.remove_upload_session(session_id).await;
+            return Err(AppError::NotFound("upload session expired".into()));
+        }
+        self.authorize_upload_target(ctx, &state.target).await?;
+        if source_index != state.next_source || chunk_index != state.next_chunk {
+            return Err(AppError::invalid_request(
+                "upload chunks must be sent in source and chunk order",
+            ));
+        }
+        let source_length = state
+            .sources
+            .get(source_index)
+            .ok_or_else(|| AppError::invalid_request("invalid upload source index"))?
+            .byte_length;
+        let remaining = source_length - state.received_bytes_in_source;
+        let expected_len = remaining.min(MEDIA_UPLOAD_CHUNK_SIZE_BYTES as u64) as usize;
+        if bytes.len() != expected_len {
+            return Err(AppError::invalid_request(
+                "chunk size does not match the expected source length",
+            ));
+        }
+        if let Err(error) = self
+            .storage
+            .append_upload_session_chunk(session_id, source_index, bytes)
+            .await
+        {
+            state.finalizing = true;
+            drop(state);
+            self.remove_upload_session(session_id).await;
+            return Err(error);
+        }
+        state.received_bytes_in_source += bytes.len() as u64;
+        state.last_activity = tokio::time::Instant::now();
+        if state.received_bytes_in_source == source_length {
+            state.next_source += 1;
+            state.next_chunk = 0;
+            state.received_bytes_in_source = 0;
+        } else {
+            state.next_chunk += 1;
+        }
+        Ok(())
+    }
+
+    #[instrument(level = "debug", err, skip(self, ctx))]
+    pub async fn take_upload_session(
+        &self,
+        ctx: &AuthorizationContext,
+        session_id: &str,
+    ) -> Result<UploadSessionState, AppError> {
+        let session = self
+            .upload_sessions
+            .read()
+            .await
+            .get(session_id)
+            .cloned()
+            .ok_or_else(|| AppError::NotFound("upload session not found".into()))?;
+        let mut state = session.lock().await;
+        if state.creator_user_id != ctx.user.id || state.finalizing {
+            return Err(AppError::NotFound("upload session not found".into()));
+        }
+        if state.last_activity.elapsed()
+            > std::time::Duration::from_secs(self.settings.staging_max_age_seconds)
+        {
+            state.finalizing = true;
+            drop(state);
+            self.remove_upload_session(session_id).await;
+            return Err(AppError::NotFound("upload session expired".into()));
+        }
+        if state.next_source != state.sources.len() {
+            return Err(AppError::invalid_request(
+                "upload session is missing one or more chunks",
+            ));
+        }
+        self.authorize_upload_target(ctx, &state.target).await?;
+        state.finalizing = true;
+        let output = state.clone();
+        drop(state);
+        let mut sessions = self.upload_sessions.write().await;
+        if sessions
+            .get(session_id)
+            .is_some_and(|current| Arc::ptr_eq(current, &session))
+        {
+            sessions.remove(session_id);
+            Ok(output)
+        } else {
+            Err(AppError::NotFound("upload session not found".into()))
+        }
+    }
+
+    #[instrument(level = "debug", err, skip(self, ctx))]
+    pub async fn abort_upload_session(
+        &self,
+        ctx: &AuthorizationContext,
+        session_id: &str,
+    ) -> Result<(), AppError> {
+        let session = self
+            .upload_sessions
+            .read()
+            .await
+            .get(session_id)
+            .cloned()
+            .ok_or_else(|| AppError::NotFound("upload session not found".into()))?;
+        let mut state = session.lock().await;
+        if state.creator_user_id != ctx.user.id || state.finalizing {
+            return Err(AppError::NotFound("upload session not found".into()));
+        }
+        self.authorize_upload_target(ctx, &state.target).await?;
+        let count = state.sources.len();
+        state.finalizing = true;
+        drop(state);
+        let mut sessions = self.upload_sessions.write().await;
+        if !sessions
+            .get(session_id)
+            .is_some_and(|current| Arc::ptr_eq(current, &session))
+        {
+            return Err(AppError::NotFound("upload session not found".into()));
+        }
+        sessions.remove(session_id);
+        drop(sessions);
+        self.storage
+            .delete_upload_session_sources(session_id, count);
+        Ok(())
+    }
+
+    async fn remove_upload_session(&self, session_id: &str) {
+        let session = self.upload_sessions.write().await.remove(session_id);
+        if let Some(session) = session {
+            let count = session.lock().await.sources.len();
+            self.storage
+                .delete_upload_session_sources(session_id, count);
+        }
+    }
+
+    async fn expire_upload_sessions(&self) {
+        let snapshot = self.upload_sessions.read().await.clone();
+        let ttl = std::time::Duration::from_secs(self.settings.staging_max_age_seconds);
+        let mut expired = Vec::new();
+        for (id, session) in snapshot {
+            let mut state = session.lock().await;
+            if !state.finalizing && state.last_activity.elapsed() > ttl {
+                state.finalizing = true;
+                expired.push((id, session.clone(), state.sources.len()));
+            }
+        }
+        if expired.is_empty() {
+            return;
+        }
+        let mut map = self.upload_sessions.write().await;
+        for (id, session, count) in expired {
+            if map
+                .get(&id)
+                .is_some_and(|current| Arc::ptr_eq(current, &session))
+            {
+                map.remove(&id);
+                self.storage.delete_upload_session_sources(&id, count);
+            }
+        }
     }
 
     #[instrument(level = "debug", err, skip(self, ctx, payload))]
@@ -186,6 +519,59 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
         guard.disarm();
         self.unregister_active_upload(&operation_id).await;
         let _ = asset;
+        Ok(operation_id)
+    }
+
+    #[instrument(level = "debug", err, skip(self, ctx, source_path))]
+    pub async fn upload_staging_from_path_for_user(
+        &self,
+        ctx: &AuthorizationContext,
+        media_id: &str,
+        kind: MediaAssetKind,
+        content_type: String,
+        source_path: &std::path::Path,
+    ) -> Result<String, AppError> {
+        let media = self.media_repo.get(&ctx.read_teams(), media_id).await?;
+        let owner = parse_owner_record_id(&media.owner)?;
+        ctx.require_write_access_to_owner(&owner)?;
+
+        let operation_id = uuid::Uuid::new_v4().to_string();
+        self.register_active_upload(&operation_id).await;
+        let mut guard = StagingCleanupGuard::new(self.storage.clone(), operation_id.clone());
+        let result = self
+            .storage
+            .copy_file_to_staging(
+                source_path,
+                &operation_id,
+                self.settings.max_bytes_for_kind(kind),
+            )
+            .await;
+        let StagingUploadResult { byte_length, etag } = match result {
+            Ok(result) => result,
+            Err(error) => {
+                self.unregister_active_upload(&operation_id).await;
+                return Err(error);
+            }
+        };
+
+        if let Err(error) = self
+            .repo
+            .create_staging(CreateStagingAsset {
+                owner,
+                media_id: RecordId::new("media", media_id.to_owned()),
+                kind,
+                content_type,
+                byte_length,
+                operation_id: operation_id.clone(),
+                etag,
+            })
+            .await
+        {
+            self.unregister_active_upload(&operation_id).await;
+            return Err(error);
+        }
+        guard.disarm();
+        self.unregister_active_upload(&operation_id).await;
         Ok(operation_id)
     }
 
@@ -519,6 +905,7 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
         &self,
         extra_active: &std::collections::HashSet<String>,
     ) -> Result<u64, AppError> {
+        self.expire_upload_sessions().await;
         let active = self.active_upload_ids().await;
         let merged: std::collections::HashSet<String> =
             active.union(extra_active).cloned().collect();

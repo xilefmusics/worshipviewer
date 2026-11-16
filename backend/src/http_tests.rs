@@ -3465,18 +3465,37 @@ mod media_http {
             .to_request();
         let url_media: Media = test::read_body_json(test::call_service(&app, request).await).await;
 
+        let request = test::TestRequest::post()
+            .uri("/api/v1/media/upload-sessions")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .set_json(serde_json::json!({
+                "target": { "type": "asset", "media_id": url_media.id, "kind": "video" },
+                "sources": [{ "byte_length": 10, "content_type": "video/mp4" }],
+            }))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let upload_session: serde_json::Value = test::read_body_json(response).await;
+        let session_id = upload_session["id"].as_str().unwrap();
         let request = test::TestRequest::put()
             .uri(&format!(
-                "/api/v1/media/{}/uploads?kind=video",
-                url_media.id
+                "/api/v1/media/upload-sessions/{session_id}/sources/0/chunks/0"
             ))
             .insert_header(("Authorization", format!("Bearer {token}")))
             .set_payload(b"fake-video".as_slice())
             .to_request();
         assert_eq!(
             test::call_service(&app, request).await.status(),
-            StatusCode::BAD_REQUEST
+            StatusCode::NO_CONTENT
         );
+        let request = test::TestRequest::post()
+            .uri(&format!(
+                "/api/v1/media/upload-sessions/{session_id}/complete"
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 }
 
@@ -3484,8 +3503,11 @@ mod media_asset_http {
     use actix_web::http::StatusCode;
     use actix_web::http::header::{CONTENT_LENGTH, CONTENT_TYPE, RANGE};
     use actix_web::test;
+    use shared::MediaAssetKind;
     use shared::media::{
-        CreateMedia, CreateMediaContent, DuplicateMedia, MediaContent, UpdateMedia,
+        CreateMedia, CreateMediaContent, CreateUploadSession, CreateUploadedMedia, DuplicateMedia,
+        MediaContent, UpdateMedia, UploadSession, UploadSessionTarget, UploadSourceDescriptor,
+        UploadedMediaKind,
     };
 
     use crate::http_tests::{build_app_with_api_limits, create_session_token};
@@ -3512,46 +3534,75 @@ mod media_asset_http {
         }
     }
 
-    fn image_upload_body(
-        boundary: &str,
-        title: &str,
-        owner: &str,
-        is_background: bool,
-        bytes: &[u8],
-    ) -> Vec<u8> {
-        let metadata = serde_json::json!({
-            "title": title,
-            "owner": owner,
-            "is_background": is_background,
-        });
-        let mut body = format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"metadata\"\r\nContent-Type: application/json\r\n\r\n{metadata}\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"background.png\"\r\nContent-Type: image/png\r\n\r\n"
-        )
-        .into_bytes();
-        body.extend_from_slice(bytes);
-        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-        body
+    macro_rules! chunked_upload {
+        ($app:expr, $token:expr, $target:expr, $sources:expr $(,)?) => {{
+            let sources: Vec<(Vec<u8>, String)> = $sources;
+            let request_body = CreateUploadSession {
+                target: $target,
+                sources: sources
+                    .iter()
+                    .map(|(bytes, content_type)| UploadSourceDescriptor {
+                        byte_length: bytes.len() as u64,
+                        content_type: Some(content_type.clone()),
+                    })
+                    .collect(),
+            };
+            let request = test::TestRequest::post()
+                .uri("/api/v1/media/upload-sessions")
+                .insert_header(("Authorization", format!("Bearer {}", $token)))
+                .set_json(&request_body)
+                .to_request();
+            let response = test::call_service($app, request).await;
+            assert_eq!(response.status(), StatusCode::CREATED);
+            let session: UploadSession = test::read_body_json(response).await;
+            for (source_index, (bytes, _)) in sources.iter().enumerate() {
+                let chunk_size = session.chunk_size_bytes as usize;
+                for (chunk_index, start) in (0..bytes.len()).step_by(chunk_size).enumerate() {
+                    let end = (start + chunk_size).min(bytes.len());
+                    let request = test::TestRequest::put()
+                        .uri(&format!(
+                            "/api/v1/media/upload-sessions/{}/sources/{source_index}/chunks/{chunk_index}",
+                            session.id
+                        ))
+                        .insert_header(("Authorization", format!("Bearer {}", $token)))
+                        .insert_header((CONTENT_TYPE, "application/octet-stream"))
+                        .set_payload(bytes[start..end].to_vec())
+                        .to_request();
+                    let response = test::call_service($app, request).await;
+                    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+                }
+            }
+            test::call_service(
+                $app,
+                test::TestRequest::post()
+                    .uri(&format!(
+                        "/api/v1/media/upload-sessions/{}/complete",
+                        session.id
+                    ))
+                    .insert_header(("Authorization", format!("Bearer {}", $token)))
+                    .to_request(),
+            )
+            .await
+        }};
     }
 
     macro_rules! create_image {
-        ($app:expr, $token:expr, $boundary:expr, $title:expr, $owner:expr, $is_background:expr $(,)?) => {{
-            let bytes = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
-            let request = test::TestRequest::post()
-                .uri("/api/v1/media/uploads?kind=image")
-                .insert_header(("Authorization", format!("Bearer {}", $token)))
-                .insert_header((
-                    "Content-Type",
-                    format!("multipart/form-data; boundary={}", $boundary),
-                ))
-                .set_payload(image_upload_body(
-                    $boundary,
-                    $title,
-                    $owner,
-                    $is_background,
-                    &bytes,
-                ))
-                .to_request();
-            let response = test::call_service($app, request).await;
+        ($app:expr, $token:expr, $title:expr, $owner:expr, $is_background:expr $(,)?) => {{
+            let mut bytes = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+            bytes.extend_from_slice(b" image data");
+            let response = chunked_upload!(
+                $app,
+                $token,
+                UploadSessionTarget::Create {
+                    kind: UploadedMediaKind::Image,
+                    metadata: CreateUploadedMedia {
+                        title: $title.into(),
+                        owner: Some($owner.into()),
+                        is_background: $is_background,
+                    },
+                },
+                vec![(bytes, "image/png".into())],
+            );
             assert_eq!(response.status(), StatusCode::CREATED);
             test::read_body_json(response).await
         }};
@@ -3580,7 +3631,7 @@ mod media_asset_http {
     }
 
     #[actix_web::test]
-    async fn multipart_deck_creation_is_synchronous_and_deliverable() {
+    async fn chunked_deck_creation_is_synchronous_and_deliverable() {
         let db = test_db().await.unwrap();
         let fixture = TeamFixture::build(&db).await.unwrap();
         let token = create_session_token(&db, fixture.writer.clone())
@@ -3594,23 +3645,21 @@ mod media_asset_http {
             Some(settings.clone()),
         ))
         .await;
-        let boundary = "worshipviewer-boundary";
-        let mut body = format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"metadata\"\r\nContent-Type: application/json\r\n\r\n{{\"title\":\"Deck\",\"owner\":\"{}\"}}\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"page.png\"\r\nContent-Type: image/png\r\n\r\n",
-            fixture.shared_team_id
-        ).into_bytes();
-        body.extend_from_slice(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]);
-        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-        let request = test::TestRequest::post()
-            .uri("/api/v1/media/uploads?kind=slide_deck")
-            .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((
-                "Content-Type",
-                format!("multipart/form-data; boundary={boundary}"),
-            ))
-            .set_payload(body)
-            .to_request();
-        let response = test::call_service(&app, request).await;
+        let mut image = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+        image.extend_from_slice(b"image data");
+        let response = chunked_upload!(
+            &app,
+            token,
+            UploadSessionTarget::Create {
+                kind: UploadedMediaKind::SlideDeck,
+                metadata: CreateUploadedMedia {
+                    title: "Deck".into(),
+                    owner: Some(fixture.shared_team_id.clone()),
+                    is_background: false,
+                },
+            },
+            vec![(image, "image/png".into())],
+        );
         assert_eq!(response.status(), StatusCode::CREATED);
         let media: shared::media::Media = test::read_body_json(response).await;
         let asset_id = match &media.content {
@@ -3672,7 +3721,6 @@ mod media_asset_http {
         let first: shared::media::Media = create_image!(
             &app,
             &writer_token,
-            "background-one",
             "Background one",
             &fixture.shared_team_id,
             true,
@@ -3680,7 +3728,6 @@ mod media_asset_http {
         let regular: shared::media::Media = create_image!(
             &app,
             &writer_token,
-            "ordinary-image",
             "Ordinary image",
             &fixture.shared_team_id,
             false,
@@ -3688,7 +3735,6 @@ mod media_asset_http {
         let second: shared::media::Media = create_image!(
             &app,
             &writer_token,
-            "background-two",
             "Background two",
             &fixture.shared_team_id,
             true,
@@ -3735,9 +3781,10 @@ mod media_asset_http {
             .to_request();
         let response = test::call_service(&app, request).await;
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(
-            &test::read_body(response).await[..],
-            &[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]
+        assert!(
+            test::read_body(response)
+                .await
+                .starts_with(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a])
         );
 
         let request = test::TestRequest::post()
@@ -3827,30 +3874,24 @@ mod media_asset_http {
             StatusCode::BAD_REQUEST
         );
 
-        let boundary = "invalid-image-boundary";
-        let request = test::TestRequest::post()
-            .uri("/api/v1/media/uploads?kind=image")
-            .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((
-                "Content-Type",
-                format!("multipart/form-data; boundary={boundary}"),
-            ))
-            .set_payload(image_upload_body(
-                boundary,
-                "Invalid image",
-                &fixture.shared_team_id,
-                true,
-                b"not an image",
-            ))
-            .to_request();
-        assert_eq!(
-            test::call_service(&app, request).await.status(),
-            StatusCode::BAD_REQUEST
+        let request = chunked_upload!(
+            &app,
+            token,
+            UploadSessionTarget::Create {
+                kind: UploadedMediaKind::Image,
+                metadata: CreateUploadedMedia {
+                    title: "Invalid image".into(),
+                    owner: Some(fixture.shared_team_id.clone()),
+                    is_background: true,
+                },
+            },
+            vec![(b"not an image".to_vec(), "image/png".into())],
         );
+        assert_eq!(request.status(), StatusCode::BAD_REQUEST);
     }
 
     #[actix_web::test]
-    async fn failed_multipart_deck_creation_leaves_no_media_or_assets() {
+    async fn failed_chunked_deck_creation_leaves_no_media_or_assets() {
         use serde::Deserialize;
         use surrealdb::types::SurrealValue;
 
@@ -3873,28 +3914,24 @@ mod media_asset_http {
             Some(settings),
         ))
         .await;
-        let boundary = "worshipviewer-failing-boundary";
-        let mut body = format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"metadata\"\r\nContent-Type: application/json\r\n\r\n{{\"title\":\"Broken deck\"}}\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"page.png\"\r\n\r\n"
-        )
-        .into_bytes();
-        body.extend_from_slice(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]);
-        body.extend_from_slice(
-            format!(
-                "\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"broken.pdf\"\r\n\r\n%PDF-not-a-document\r\n--{boundary}--\r\n"
-            )
-            .as_bytes(),
+        let mut png = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+        png.extend_from_slice(b"image data");
+        let response = chunked_upload!(
+            &app,
+            token,
+            UploadSessionTarget::Create {
+                kind: UploadedMediaKind::SlideDeck,
+                metadata: CreateUploadedMedia {
+                    title: "Broken deck".into(),
+                    owner: Some(fixture.shared_team_id.clone()),
+                    is_background: false,
+                },
+            },
+            vec![
+                (png, "image/png".into()),
+                (b"%PDF-not-a-document".to_vec(), "application/pdf".into()),
+            ],
         );
-        let request = test::TestRequest::post()
-            .uri("/api/v1/media/uploads?kind=slide_deck")
-            .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((
-                "Content-Type",
-                format!("multipart/form-data; boundary={boundary}"),
-            ))
-            .set_payload(body)
-            .to_request();
-        let response = test::call_service(&app, request).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
         for _ in 0..20 {
@@ -3944,17 +3981,211 @@ mod media_asset_http {
         .await;
         let media = writer_media(&db, &fixture).await;
 
-        let request = test::TestRequest::default()
-            .method(actix_web::http::Method::PUT)
-            .uri(&format!("/api/v1/media/{}/uploads?kind=image", media.id))
+        let request = test::TestRequest::post()
+            .uri("/api/v1/media/upload-sessions")
             .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((CONTENT_LENGTH, "999999999"))
-            .insert_header(("Content-Type", "application/octet-stream"))
+            .set_json(CreateUploadSession {
+                target: UploadSessionTarget::Asset {
+                    media_id: media.id,
+                    kind: MediaAssetKind::Image,
+                    replace_page: None,
+                    role: None,
+                },
+                sources: vec![UploadSourceDescriptor {
+                    byte_length: 999_999_999,
+                    content_type: Some("image/png".into()),
+                }],
+            })
             .to_request();
         assert_eq!(
             test::call_service(&app, request).await.status(),
             StatusCode::PAYLOAD_TOO_LARGE
         );
+    }
+
+    #[actix_web::test]
+    async fn upload_session_accepts_source_larger_than_http1_request_limit_without_partial_asset() {
+        use serde::Deserialize;
+        use surrealdb::types::SurrealValue;
+
+        #[derive(Deserialize, SurrealValue)]
+        struct CountRow {
+            count: i64,
+        }
+
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let settings = media_test_settings();
+        let app = test::init_service(build_app_with_api_limits(
+            db.clone(),
+            50,
+            200,
+            Some(settings),
+        ))
+        .await;
+        let total_bytes = 33 * 1024 * 1024;
+        let bytes = vec![0xA5; total_bytes];
+        let request = test::TestRequest::post()
+            .uri("/api/v1/media/upload-sessions")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .set_json(CreateUploadSession {
+                target: UploadSessionTarget::Create {
+                    kind: UploadedMediaKind::Video,
+                    metadata: CreateUploadedMedia {
+                        title: "Large chunked video".into(),
+                        owner: Some(fixture.shared_team_id.clone()),
+                        is_background: false,
+                    },
+                },
+                sources: vec![UploadSourceDescriptor {
+                    byte_length: total_bytes as u64,
+                    content_type: Some("video/mp4".into()),
+                }],
+            })
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let session: UploadSession = test::read_body_json(response).await;
+
+        let mut result = db
+            .db
+            .query("SELECT count() AS count FROM media_asset GROUP ALL")
+            .await
+            .unwrap();
+        let count = result.take::<Vec<CountRow>>(0).unwrap()[0].count;
+        assert_eq!(count, 0, "chunks must not create visible asset records");
+        let media: Vec<shared::media::Media> = test::call_and_read_body_json(
+            &app,
+            test::TestRequest::get()
+                .uri("/api/v1/media?page=0&page_size=50")
+                .insert_header(("Authorization", format!("Bearer {token}")))
+                .to_request(),
+        )
+        .await;
+        assert!(media.is_empty(), "Media is created only after completion");
+
+        let chunk_size = session.chunk_size_bytes as usize;
+        for (chunk_index, start) in (0..total_bytes).step_by(chunk_size).enumerate() {
+            let end = (start + chunk_size).min(total_bytes);
+            let request = test::TestRequest::put()
+                .uri(&format!(
+                    "/api/v1/media/upload-sessions/{}/sources/0/chunks/{chunk_index}",
+                    session.id
+                ))
+                .insert_header(("Authorization", format!("Bearer {token}")))
+                .insert_header((CONTENT_TYPE, "application/octet-stream"))
+                .set_payload(bytes[start..end].to_vec())
+                .to_request();
+            assert_eq!(
+                test::call_service(&app, request).await.status(),
+                StatusCode::NO_CONTENT
+            );
+        }
+
+        let request = test::TestRequest::post()
+            .uri(&format!(
+                "/api/v1/media/upload-sessions/{}/complete",
+                session.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let media: shared::media::Media = test::read_body_json(response).await;
+        let asset_id = match media.content {
+            MediaContent::Video { blob_id, .. } => blob_id,
+            other => panic!("expected video, got {other:?}"),
+        };
+        let request = test::TestRequest::default()
+            .method(actix_web::http::Method::HEAD)
+            .uri(&format!(
+                "/api/v1/media/{}/assets/{}/data",
+                media.id, asset_id
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get(CONTENT_LENGTH).unwrap(),
+            total_bytes.to_string().as_str()
+        );
+    }
+
+    #[actix_web::test]
+    async fn incomplete_upload_session_rejects_out_of_order_chunks_and_can_be_aborted() {
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let settings = media_test_settings();
+        let staging_dir = settings.media_staging_dir.clone();
+        let app = test::init_service(build_app_with_api_limits(
+            db.clone(),
+            50,
+            200,
+            Some(settings),
+        ))
+        .await;
+        let media = writer_media(&db, &fixture).await;
+        let request = test::TestRequest::post()
+            .uri("/api/v1/media/upload-sessions")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .set_json(CreateUploadSession {
+                target: UploadSessionTarget::Asset {
+                    media_id: media.id,
+                    kind: MediaAssetKind::Audio,
+                    replace_page: None,
+                    role: None,
+                },
+                sources: vec![UploadSourceDescriptor {
+                    byte_length: 4,
+                    content_type: Some("audio/ogg".into()),
+                }],
+            })
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let session: UploadSession = test::read_body_json(response).await;
+
+        let request = test::TestRequest::put()
+            .uri(&format!(
+                "/api/v1/media/upload-sessions/{}/sources/0/chunks/1",
+                session.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .set_payload(b"data".as_slice())
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::BAD_REQUEST
+        );
+
+        let request = test::TestRequest::post()
+            .uri(&format!(
+                "/api/v1/media/upload-sessions/{}/complete",
+                session.id
+            ))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::BAD_REQUEST
+        );
+
+        let request = test::TestRequest::delete()
+            .uri(&format!("/api/v1/media/upload-sessions/{}", session.id))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::NO_CONTENT
+        );
+        assert_eq!(std::fs::read_dir(staging_dir).unwrap().count(), 0);
     }
 
     #[actix_web::test]
@@ -3973,10 +4204,21 @@ mod media_asset_http {
         .await;
         let media = writer_media(&db, &fixture).await;
 
-        let guest_upload = test::TestRequest::put()
-            .uri(&format!("/api/v1/media/{}/uploads?kind=audio", media.id))
+        let guest_upload = test::TestRequest::post()
+            .uri("/api/v1/media/upload-sessions")
             .insert_header(("Authorization", format!("Bearer {guest_token}")))
-            .set_payload(&b"x"[..])
+            .set_json(CreateUploadSession {
+                target: UploadSessionTarget::Asset {
+                    media_id: media.id,
+                    kind: MediaAssetKind::Audio,
+                    replace_page: None,
+                    role: None,
+                },
+                sources: vec![UploadSourceDescriptor {
+                    byte_length: 1,
+                    content_type: Some("audio/ogg".into()),
+                }],
+            })
             .to_request();
         assert_eq!(
             test::call_service(&app, guest_upload).await.status(),
@@ -3999,24 +4241,20 @@ mod media_asset_http {
             Some(settings),
         ))
         .await;
-        let boundary = "worshipviewer-raw-video-boundary";
         let original = b"raw-webm-video";
-        let mut body = format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"metadata\"\r\nContent-Type: application/json\r\n\r\n{{\"title\":\"Raw video\"}}\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"source.webm\"\r\nContent-Type: video/webm\r\n\r\n"
-        )
-        .into_bytes();
-        body.extend_from_slice(original);
-        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-        let request = test::TestRequest::post()
-            .uri("/api/v1/media/uploads?kind=video")
-            .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((
-                CONTENT_TYPE,
-                format!("multipart/form-data; boundary={boundary}"),
-            ))
-            .set_payload(body)
-            .to_request();
-        let response = test::call_service(&app, request).await;
+        let response = chunked_upload!(
+            &app,
+            token,
+            UploadSessionTarget::Create {
+                kind: UploadedMediaKind::Video,
+                metadata: CreateUploadedMedia {
+                    title: "Raw video".into(),
+                    owner: Some(fixture.shared_team_id.clone()),
+                    is_background: false,
+                },
+            },
+            vec![(original.to_vec(), "video/webm".into())],
+        );
         assert_eq!(response.status(), StatusCode::CREATED);
         let media: shared::media::Media = test::read_body_json(response).await;
         let original_asset_id = match &media.content {
@@ -4049,23 +4287,34 @@ mod media_asset_http {
         );
         assert_eq!(&test::read_body(response).await[..], original);
 
-        let request = test::TestRequest::put()
-            .uri(&format!("/api/v1/media/{}/uploads?kind=video", media.id))
-            .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((CONTENT_TYPE, "text/html"))
-            .set_payload("<script>location='/api/v1/users'</script>")
-            .to_request();
-        let response = test::call_service(&app, request).await;
+        let response = chunked_upload!(
+            &app,
+            token,
+            UploadSessionTarget::Asset {
+                media_id: media.id.clone(),
+                kind: MediaAssetKind::Video,
+                replace_page: None,
+                role: None,
+            },
+            vec![(
+                b"<script>location='/api/v1/users'</script>".to_vec(),
+                "text/html".into(),
+            )],
+        );
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
         let replacement = b"raw-quicktime-video";
-        let request = test::TestRequest::put()
-            .uri(&format!("/api/v1/media/{}/uploads?kind=video", media.id))
-            .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((CONTENT_TYPE, "video/quicktime"))
-            .set_payload(replacement.as_slice())
-            .to_request();
-        let response = test::call_service(&app, request).await;
+        let response = chunked_upload!(
+            &app,
+            token,
+            UploadSessionTarget::Asset {
+                media_id: media.id.clone(),
+                kind: MediaAssetKind::Video,
+                replace_page: None,
+                role: None,
+            },
+            vec![(replacement.to_vec(), "video/quicktime".into())],
+        );
         assert_eq!(response.status(), StatusCode::OK);
         let replaced: shared::media::Media = test::read_body_json(response).await;
         let replacement_asset_id = match replaced.content {
@@ -4089,24 +4338,20 @@ mod media_asset_http {
         );
         assert_eq!(&test::read_body(response).await[..], replacement);
 
-        let audio_boundary = "worshipviewer-raw-audio-boundary";
         let audio = b"raw-ogg-audio";
-        let mut body = format!(
-            "--{audio_boundary}\r\nContent-Disposition: form-data; name=\"metadata\"\r\nContent-Type: application/json\r\n\r\n{{\"title\":\"Raw audio\"}}\r\n--{audio_boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"source.ogg\"\r\nContent-Type: audio/ogg\r\n\r\n"
-        )
-        .into_bytes();
-        body.extend_from_slice(audio);
-        body.extend_from_slice(format!("\r\n--{audio_boundary}--\r\n").as_bytes());
-        let request = test::TestRequest::post()
-            .uri("/api/v1/media/uploads?kind=audio")
-            .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((
-                CONTENT_TYPE,
-                format!("multipart/form-data; boundary={audio_boundary}"),
-            ))
-            .set_payload(body)
-            .to_request();
-        let response = test::call_service(&app, request).await;
+        let response = chunked_upload!(
+            &app,
+            token,
+            UploadSessionTarget::Create {
+                kind: UploadedMediaKind::Audio,
+                metadata: CreateUploadedMedia {
+                    title: "Raw audio".into(),
+                    owner: Some(fixture.shared_team_id.clone()),
+                    is_background: false,
+                },
+            },
+            vec![(audio.to_vec(), "audio/ogg".into())],
+        );
         assert_eq!(response.status(), StatusCode::CREATED);
         let audio_media: shared::media::Media = test::read_body_json(response).await;
         let audio_asset_id = match audio_media.content {
@@ -4147,39 +4392,35 @@ mod media_asset_http {
         ))
         .await;
 
-        let boundary = "worshipviewer-video-thumbnail-source";
-        let mut body = format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"metadata\"\r\nContent-Type: application/json\r\n\r\n{{\"title\":\"Video with thumbnail\",\"owner\":\"{}\"}}\r\n--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"source.webm\"\r\nContent-Type: video/webm\r\n\r\n",
-            fixture.shared_team_id
-        )
-        .into_bytes();
-        body.extend_from_slice(b"raw-webm-video");
-        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-        let request = test::TestRequest::post()
-            .uri("/api/v1/media/uploads?kind=video")
-            .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((
-                CONTENT_TYPE,
-                format!("multipart/form-data; boundary={boundary}"),
-            ))
-            .set_payload(body)
-            .to_request();
-        let response = test::call_service(&app, request).await;
+        let response = chunked_upload!(
+            &app,
+            token,
+            UploadSessionTarget::Create {
+                kind: UploadedMediaKind::Video,
+                metadata: CreateUploadedMedia {
+                    title: "Video with thumbnail".into(),
+                    owner: Some(fixture.shared_team_id.clone()),
+                    is_background: false,
+                },
+            },
+            vec![(b"raw-webm-video".to_vec(), "video/webm".into())],
+        );
         assert_eq!(response.status(), StatusCode::CREATED);
         let media: shared::media::Media = test::read_body_json(response).await;
         assert!(matches!(media.content, MediaContent::Video { .. }));
 
         let first_thumbnail = b"\x89PNG\r\n\x1a\nfirst";
-        let request = test::TestRequest::put()
-            .uri(&format!(
-                "/api/v1/media/{}/uploads?kind=image&role=thumbnail",
-                media.id
-            ))
-            .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((CONTENT_TYPE, "image/png"))
-            .set_payload(first_thumbnail.as_slice())
-            .to_request();
-        let response = test::call_service(&app, request).await;
+        let response = chunked_upload!(
+            &app,
+            token,
+            UploadSessionTarget::Asset {
+                media_id: media.id.clone(),
+                kind: MediaAssetKind::Image,
+                replace_page: None,
+                role: Some("thumbnail".into()),
+            },
+            vec![(first_thumbnail.to_vec(), "image/png".into())],
+        );
         assert_eq!(response.status(), StatusCode::OK);
         let media: shared::media::Media = test::read_body_json(response).await;
         let first_thumbnail_id = match &media.content {
@@ -4191,16 +4432,17 @@ mod media_asset_http {
         };
 
         let second_thumbnail = b"\x89PNG\r\n\x1a\nsecond";
-        let request = test::TestRequest::put()
-            .uri(&format!(
-                "/api/v1/media/{}/uploads?kind=image&role=thumbnail",
-                media.id
-            ))
-            .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((CONTENT_TYPE, "image/png"))
-            .set_payload(second_thumbnail.as_slice())
-            .to_request();
-        let response = test::call_service(&app, request).await;
+        let response = chunked_upload!(
+            &app,
+            token,
+            UploadSessionTarget::Asset {
+                media_id: media.id.clone(),
+                kind: MediaAssetKind::Image,
+                replace_page: None,
+                role: Some("thumbnail".into()),
+            },
+            vec![(second_thumbnail.to_vec(), "image/png".into())],
+        );
         assert_eq!(response.status(), StatusCode::OK);
         let media: shared::media::Media = test::read_body_json(response).await;
         let second_thumbnail_id = match &media.content {
@@ -4264,28 +4506,42 @@ mod media_asset_http {
         assert_eq!(response.headers().get(CONTENT_TYPE).unwrap(), "image/png");
         assert_eq!(&test::read_body(response).await[..], second_thumbnail);
 
-        let request = test::TestRequest::put()
-            .uri(&format!(
-                "/api/v1/media/{}/uploads?kind=video&role=thumbnail",
-                media.id
-            ))
+        let request = test::TestRequest::post()
+            .uri("/api/v1/media/upload-sessions")
             .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((CONTENT_TYPE, "video/webm"))
-            .set_payload(b"not-an-image".as_slice())
+            .set_json(CreateUploadSession {
+                target: UploadSessionTarget::Asset {
+                    media_id: media.id.clone(),
+                    kind: MediaAssetKind::Video,
+                    replace_page: None,
+                    role: Some("thumbnail".into()),
+                },
+                sources: vec![UploadSourceDescriptor {
+                    byte_length: 13,
+                    content_type: Some("video/webm".into()),
+                }],
+            })
             .to_request();
         assert_eq!(
             test::call_service(&app, request).await.status(),
             StatusCode::BAD_REQUEST
         );
 
-        let request = test::TestRequest::put()
-            .uri(&format!(
-                "/api/v1/media/{}/uploads?kind=image&role=poster",
-                media.id
-            ))
+        let request = test::TestRequest::post()
+            .uri("/api/v1/media/upload-sessions")
             .insert_header(("Authorization", format!("Bearer {token}")))
-            .insert_header((CONTENT_TYPE, "image/png"))
-            .set_payload(second_thumbnail.as_slice())
+            .set_json(CreateUploadSession {
+                target: UploadSessionTarget::Asset {
+                    media_id: media.id.clone(),
+                    kind: MediaAssetKind::Image,
+                    replace_page: None,
+                    role: Some("poster".into()),
+                },
+                sources: vec![UploadSourceDescriptor {
+                    byte_length: second_thumbnail.len() as u64,
+                    content_type: Some("image/png".into()),
+                }],
+            })
             .to_request();
         assert_eq!(
             test::call_service(&app, request).await.status(),

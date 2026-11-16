@@ -1,4 +1,5 @@
 use crate::api::ListQuery;
+use crate::MediaAssetKind;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "backend")]
@@ -90,7 +91,7 @@ pub struct MediaDeckPage {
     pub section_title: Option<String>,
 }
 
-/// Uploaded media kind accepted by synchronous multipart creation.
+/// Uploaded media kind accepted when creating media from uploaded sources.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
@@ -127,7 +128,7 @@ pub struct Media {
     pub pending_revision: Option<MediaPendingRevision>,
 }
 
-/// Metadata part for synchronous multipart uploaded-media creation.
+/// Metadata for uploaded-media creation.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
@@ -138,6 +139,53 @@ pub struct CreateUploadedMedia {
     /// Whether the uploaded item should appear in AV background selection.
     #[serde(default)]
     pub is_background: bool,
+}
+
+/// A source file included in a chunked media upload session.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct UploadSourceDescriptor {
+    pub byte_length: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_type: Option<String>,
+}
+
+/// Destination and processing mode for a media upload session.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub enum UploadSessionTarget {
+    Create {
+        kind: UploadedMediaKind,
+        metadata: CreateUploadedMedia,
+    },
+    Asset {
+        media_id: String,
+        kind: MediaAssetKind,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        replace_page: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        role: Option<String>,
+    },
+}
+
+/// Begin a chunked media upload session. Sources are uploaded in the listed order.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct CreateUploadSession {
+    pub target: UploadSessionTarget,
+    pub sources: Vec<UploadSourceDescriptor>,
+}
+
+/// Upload session id and the maximum size of each raw chunk request.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct UploadSession {
+    pub id: String,
+    pub chunk_size_bytes: u64,
 }
 
 /// Create a synchronously validated URL-backed media resource.

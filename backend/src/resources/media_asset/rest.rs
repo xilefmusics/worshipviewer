@@ -1,16 +1,15 @@
-use actix_multipart::Multipart;
-use actix_web::http::header;
 use actix_web::{
-    HttpRequest, HttpResponse, Scope, get, head, post, put,
-    web::{self, Data, Path, Query, ReqData},
+    HttpRequest, HttpResponse, Scope, delete, get, head, post, put,
+    web::{self, Data, Json, Path, ReqData},
 };
 
 use std::sync::Arc;
 
 use futures_util::StreamExt;
 use shared::MediaAssetKind;
-use shared::media::{CreateUploadedMedia, Media, UploadedMediaKind};
-use tokio::io::AsyncWriteExt;
+use shared::media::{
+    CreateUploadSession, Media, UploadSession, UploadSessionTarget, UploadedMediaKind,
+};
 
 use crate::auth::AuthorizationContext;
 use crate::docs::Problem;
@@ -48,236 +47,236 @@ fn normalized_upload_content_type(
 }
 use crate::settings::MediaAssetUploadLimits;
 
-use super::service::MediaAssetServiceHandle;
-
-#[derive(serde::Deserialize)]
-struct UploadQuery {
-    kind: String,
-    #[serde(default)]
-    replace_page: Option<String>,
-    #[serde(default)]
-    role: Option<String>,
-}
+use super::service::{MEDIA_UPLOAD_CHUNK_SIZE_BYTES, MediaAssetServiceHandle, UploadSessionState};
 
 pub fn upload_scope(limits: MediaAssetUploadLimits) -> Scope {
     web::scope("")
-        .app_data(web::PayloadConfig::new(limits.payload_ceiling_bytes))
+        .app_data(web::PayloadConfig::new(MEDIA_UPLOAD_CHUNK_SIZE_BYTES))
         .app_data(Data::new(limits))
-        .service(create_uploaded_media)
-        .service(upload_media_asset)
+        .service(begin_upload_session)
+        .service(upload_session_chunk)
+        .service(complete_upload_session)
+        .service(abort_upload_session)
 }
 
-#[derive(serde::Deserialize)]
-struct CreateUploadQuery {
-    kind: String,
+struct UploadSessionCleanup {
+    storage: Arc<super::storage::FsMediaAssetStorage>,
+    session_id: String,
+    source_count: usize,
+}
+
+impl UploadSessionCleanup {
+    fn new(svc: &MediaAssetServiceHandle, state: &UploadSessionState) -> Self {
+        Self {
+            storage: svc.storage.clone(),
+            session_id: state.id.clone(),
+            source_count: state.sources.len(),
+        }
+    }
+}
+
+impl Drop for UploadSessionCleanup {
+    fn drop(&mut self) {
+        self.storage
+            .delete_upload_session_sources(&self.session_id, self.source_count);
+    }
 }
 
 #[utoipa::path(
     post,
-    path = "/api/v1/media/uploads",
-    params(("kind" = String, Query, description = "Uploaded media kind: image, video, audio, or slide_deck")),
-    request_body(content = String, content_type = "multipart/form-data", description = "One JSON metadata part and one or more file parts"),
+    path = "/api/v1/media/upload-sessions",
+    request_body = CreateUploadSession,
     responses(
-        (status = 201, description = "Uploaded media processed and created", body = Media),
-        (status = 400, description = "Invalid metadata, source, or file count", body = Problem, content_type = "application/problem+json"),
+        (status = 201, description = "Upload session created", body = UploadSession),
+        (status = 400, description = "Invalid target or source list", body = Problem, content_type = "application/problem+json"),
+        (status = 404, description = "Target not found or write access denied", body = Problem, content_type = "application/problem+json"),
         (status = 413, description = "A source exceeds its configured limit", body = Problem, content_type = "application/problem+json")
     ),
     tag = "Media",
     security(("SessionCookie" = []), ("SessionToken" = []))
 )]
-#[post("/uploads")]
-pub async fn create_uploaded_media(
-    processing: Data<Arc<crate::resources::media::processing::MediaProcessingHandle>>,
-    limits: Data<MediaAssetUploadLimits>,
+#[post("/upload-sessions")]
+async fn begin_upload_session(
+    svc: Data<MediaAssetServiceHandle>,
     ctx: ReqData<AuthorizationContext>,
-    query: Query<CreateUploadQuery>,
-    mut multipart: Multipart,
+    request: Json<CreateUploadSession>,
 ) -> Result<HttpResponse, AppError> {
-    let kind = UploadedMediaKind::parse(&query.kind)
-        .ok_or_else(|| AppError::invalid_request("invalid uploaded media kind"))?;
-    let work = TempWorkDir::new(std::env::temp_dir().join("worshipviewer_media_uploads"))
-        .map_err(|e| AppError::internal_from_err("media.multipart.temp", e))?;
-    let mut metadata = None;
-    let mut sources = Vec::new();
-    while let Some(field) = multipart.next().await {
-        let mut field =
-            field.map_err(|e| AppError::invalid_request(format!("multipart upload error: {e}")))?;
-        let name = field.name().unwrap_or_default().to_owned();
-        if name == "metadata" {
-            if metadata.is_some() {
-                return Err(AppError::invalid_request(
-                    "metadata part must appear exactly once",
-                ));
-            }
-            let mut bytes = Vec::new();
-            while let Some(chunk) = field.next().await {
-                let chunk = chunk.map_err(|e| {
-                    AppError::invalid_request(format!("multipart upload error: {e}"))
-                })?;
-                if bytes.len() + chunk.len() > 64 * 1024 {
-                    return Err(AppError::payload_too_large());
-                }
-                bytes.extend_from_slice(&chunk);
-            }
-            metadata = Some(
-                serde_json::from_slice::<CreateUploadedMedia>(&bytes).map_err(|e| {
-                    AppError::invalid_request(format!("invalid metadata part: {e}"))
-                })?,
-            );
-        } else if name == "file" {
-            let submitted_content_type = field.content_type().map(ToString::to_string);
-            let index = sources.len();
-            let path = work.path().join(format!("source-{index}"));
-            let mut output = tokio::fs::File::create(&path)
-                .await
-                .map_err(|e| AppError::internal_from_err("media.multipart.create", e))?;
-            let provisional_limit = match kind {
-                UploadedMediaKind::Video => limits.video_max_bytes,
-                UploadedMediaKind::Audio => limits.audio_max_bytes,
-                UploadedMediaKind::Image => limits.image_max_bytes.max(limits.svg_max_bytes),
-                UploadedMediaKind::SlideDeck => limits
-                    .pdf_max_bytes
-                    .max(limits.image_max_bytes)
-                    .max(limits.svg_max_bytes),
-            };
-            let mut written = 0usize;
-            while let Some(chunk) = field.next().await {
-                let chunk = chunk.map_err(|e| {
-                    AppError::invalid_request(format!("multipart upload error: {e}"))
-                })?;
-                if written + chunk.len() > provisional_limit {
-                    return Err(AppError::payload_too_large());
-                }
-                output
-                    .write_all(&chunk)
-                    .await
-                    .map_err(|e| AppError::internal_from_err("media.multipart.write", e))?;
-                written += chunk.len();
-            }
-            output
-                .flush()
-                .await
-                .map_err(|e| AppError::internal_from_err("media.multipart.flush", e))?;
-            let asset_kind = match kind {
-                UploadedMediaKind::Video => MediaAssetKind::Video,
-                UploadedMediaKind::Audio => MediaAssetKind::Audio,
-                UploadedMediaKind::Image => {
-                    detect_deck_source_kind(&path).map_err(app_error_from_failure)?
-                }
-                UploadedMediaKind::SlideDeck => {
-                    detect_deck_source_kind(&path).map_err(app_error_from_failure)?
-                }
-            };
-            let content_type =
-                normalized_upload_content_type(asset_kind, submitted_content_type.as_deref())?;
-            let exact_limit = match asset_kind {
-                MediaAssetKind::Video => limits.video_max_bytes,
-                MediaAssetKind::Audio => limits.audio_max_bytes,
-                MediaAssetKind::Pdf => limits.pdf_max_bytes,
-                MediaAssetKind::Image => limits.image_max_bytes,
-                MediaAssetKind::Svg => limits.svg_max_bytes,
-            };
-            if written > exact_limit {
-                return Err(AppError::payload_too_large());
-            }
-            sources.push(UploadedSource {
-                path,
-                kind: asset_kind,
-                content_type,
-            });
-        } else {
-            return Err(AppError::invalid_request(
-                "multipart fields must be named metadata or file",
-            ));
-        }
-    }
-    let metadata =
-        metadata.ok_or_else(|| AppError::invalid_request("metadata part is required"))?;
-    let media = processing
-        .create_uploaded_for_user(&ctx, metadata, kind, sources)
-        .await?;
-    Ok(HttpResponse::Created().json(media))
+    let session = svc.begin_upload_session(&ctx, request.into_inner()).await?;
+    Ok(HttpResponse::Created().json(session))
 }
 
 #[utoipa::path(
     put,
-    path = "/api/v1/media/{media_id}/uploads",
+    path = "/api/v1/media/upload-sessions/{id}/sources/{source_index}/chunks/{chunk_index}",
     params(
-        ("media_id" = String, Path, description = "Media identifier"),
-        ("kind" = String, Query, description = "Source kind: video, audio, image, pdf, or svg"),
-        ("replace_page" = Option<String>, Query, description = "Existing staged/ready deck page id to replace"),
-        ("role" = Option<String>, Query, description = "Set to thumbnail to upload a video thumbnail")
+        ("id" = String, Path, description = "Upload session identifier"),
+        ("source_index" = usize, Path, description = "Zero-based source index"),
+        ("chunk_index" = usize, Path, description = "Zero-based chunk index for the source")
     ),
-    request_body(
-        content = Vec<u8>,
-        content_type = "application/octet-stream",
-        description = "Streaming upload body"
-    ),
+    request_body(content = Vec<u8>, content_type = "application/octet-stream", description = "One chunk, no larger than the session chunk size"),
     responses(
-        (status = 200, description = "Upload processed and media updated", body = Media),
-        (status = 400, description = "Invalid kind or request", body = Problem, content_type = "application/problem+json"),
-        (status = 409, description = "Media changed concurrently", body = Problem, content_type = "application/problem+json"),
-        (status = 401, description = "Authentication required", body = Problem, content_type = "application/problem+json"),
-        (status = 404, description = "Media not found or write access denied", body = Problem, content_type = "application/problem+json"),
-        (status = 413, description = "Payload too large", body = Problem, content_type = "application/problem+json"),
-        (status = 500, description = "Upload failed", body = Problem, content_type = "application/problem+json")
+        (status = 204, description = "Chunk accepted"),
+        (status = 400, description = "Chunk order or length is invalid", body = Problem, content_type = "application/problem+json"),
+        (status = 404, description = "Session not found or write access denied", body = Problem, content_type = "application/problem+json"),
+        (status = 413, description = "Chunk exceeds the maximum chunk size", body = Problem, content_type = "application/problem+json")
     ),
     tag = "Media",
     security(("SessionCookie" = []), ("SessionToken" = []))
 )]
-#[put("/{media_id}/uploads")]
-async fn upload_media_asset(
+#[put("/upload-sessions/{id}/sources/{source_index}/chunks/{chunk_index}")]
+async fn upload_session_chunk(
+    svc: Data<MediaAssetServiceHandle>,
+    ctx: ReqData<AuthorizationContext>,
+    path: Path<(String, usize, usize)>,
+    mut payload: web::Payload,
+) -> Result<HttpResponse, AppError> {
+    let (session_id, source_index, chunk_index) = path.into_inner();
+    let mut bytes = Vec::with_capacity(MEDIA_UPLOAD_CHUNK_SIZE_BYTES);
+    while let Some(chunk) = payload.next().await {
+        let chunk = chunk.map_err(|e| AppError::invalid_request(format!("upload error: {e}")))?;
+        if bytes.len() + chunk.len() > MEDIA_UPLOAD_CHUNK_SIZE_BYTES {
+            return Err(AppError::payload_too_large());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    svc.append_upload_session_chunk(&ctx, &session_id, source_index, chunk_index, &bytes)
+        .await?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/media/upload-sessions/{id}/complete",
+    params(("id" = String, Path, description = "Upload session identifier")),
+    responses(
+        (status = 200, description = "Existing media asset upload finalized", body = Media),
+        (status = 201, description = "New uploaded media created", body = Media),
+        (status = 400, description = "Session is incomplete or source is invalid", body = Problem, content_type = "application/problem+json"),
+        (status = 404, description = "Session not found or write access denied", body = Problem, content_type = "application/problem+json"),
+        (status = 409, description = "Media changed concurrently", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Media",
+    security(("SessionCookie" = []), ("SessionToken" = []))
+)]
+#[post("/upload-sessions/{id}/complete")]
+async fn complete_upload_session(
     svc: Data<MediaAssetServiceHandle>,
     processing: Data<Arc<crate::resources::media::processing::MediaProcessingHandle>>,
+    limits: Data<MediaAssetUploadLimits>,
     ctx: ReqData<AuthorizationContext>,
-    media_id: Path<String>,
-    query: Query<UploadQuery>,
-    req: HttpRequest,
-    payload: web::Payload,
+    id: Path<String>,
 ) -> Result<HttpResponse, AppError> {
-    let kind = MediaAssetKind::parse(&query.kind)
-        .ok_or_else(|| AppError::invalid_request("invalid media asset kind"))?;
-    let replace_page = query.replace_page.clone();
-    let thumbnail = match query.role.as_deref() {
-        None => false,
-        Some("thumbnail") => true,
-        Some(_) => return Err(AppError::invalid_request("unsupported upload role")),
-    };
-    let submitted_content_type = req
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .map(str::to_owned);
-    let content_type = normalized_upload_content_type(kind, submitted_content_type.as_deref())?;
-    let content_length = req
-        .headers()
-        .get(header::CONTENT_LENGTH)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.parse().ok());
-    let operation_id = svc
-        .upload_staging_for_user(&ctx, &media_id, kind, content_type, content_length, payload)
-        .await?;
-    if matches!(
-        kind,
-        MediaAssetKind::Video
-            | MediaAssetKind::Audio
-            | MediaAssetKind::Image
-            | MediaAssetKind::Pdf
-            | MediaAssetKind::Svg
-    ) {
-        let media = processing
-            .replace_after_upload_for_user(
-                &ctx,
-                &media_id,
-                &operation_id,
-                kind,
-                replace_page.as_deref(),
-                thumbnail,
-            )
-            .await?;
-        return Ok(HttpResponse::Ok().json(media));
+    let state = svc.take_upload_session(&ctx, &id).await?;
+    let _cleanup = UploadSessionCleanup::new(&svc, &state);
+    let work = TempWorkDir::new(std::env::temp_dir().join("worshipviewer_media_uploads"))
+        .map_err(|e| AppError::internal_from_err("media.upload_session.temp", e))?;
+    let mut source_paths = Vec::with_capacity(state.sources.len());
+    for source_index in 0..state.sources.len() {
+        let stored_path = svc
+            .storage
+            .upload_session_source_path(&state.id, source_index);
+        let stored_length = tokio::fs::metadata(&stored_path)
+            .await
+            .map_err(|e| AppError::internal_from_err("media.upload_session.stat", e))?
+            .len();
+        if stored_length != state.sources[source_index].byte_length {
+            return Err(AppError::invalid_request(
+                "stored upload source length does not match its descriptor",
+            ));
+        }
+        let work_path = work.path().join(format!("source-{source_index}"));
+        tokio::fs::rename(&stored_path, &work_path)
+            .await
+            .map_err(|e| AppError::internal_from_err("media.upload_session.move", e))?;
+        source_paths.push(work_path);
     }
-    Err(AppError::invalid_request("unsupported media upload kind"))
+
+    match state.target {
+        UploadSessionTarget::Create { kind, metadata } => {
+            let mut sources = Vec::with_capacity(source_paths.len());
+            for (source_index, path) in source_paths.into_iter().enumerate() {
+                let descriptor = &state.sources[source_index];
+                let asset_kind = match kind {
+                    UploadedMediaKind::Video => MediaAssetKind::Video,
+                    UploadedMediaKind::Audio => MediaAssetKind::Audio,
+                    UploadedMediaKind::Image | UploadedMediaKind::SlideDeck => {
+                        detect_deck_source_kind(&path).map_err(app_error_from_failure)?
+                    }
+                };
+                let content_type =
+                    normalized_upload_content_type(asset_kind, descriptor.content_type.as_deref())?;
+                let exact_limit = match asset_kind {
+                    MediaAssetKind::Video => limits.video_max_bytes,
+                    MediaAssetKind::Audio => limits.audio_max_bytes,
+                    MediaAssetKind::Pdf => limits.pdf_max_bytes,
+                    MediaAssetKind::Image => limits.image_max_bytes,
+                    MediaAssetKind::Svg => limits.svg_max_bytes,
+                };
+                if descriptor.byte_length > exact_limit as u64 {
+                    return Err(AppError::payload_too_large());
+                }
+                sources.push(UploadedSource {
+                    path,
+                    kind: asset_kind,
+                    content_type,
+                });
+            }
+            let media = processing
+                .create_uploaded_for_user(&ctx, metadata, kind, sources)
+                .await?;
+            Ok(HttpResponse::Created().json(media))
+        }
+        UploadSessionTarget::Asset {
+            media_id,
+            kind,
+            replace_page,
+            role,
+        } => {
+            let content_type =
+                normalized_upload_content_type(kind, state.sources[0].content_type.as_deref())?;
+            let operation_id = svc
+                .upload_staging_from_path_for_user(
+                    &ctx,
+                    &media_id,
+                    kind,
+                    content_type,
+                    &source_paths[0],
+                )
+                .await?;
+            let media = processing
+                .replace_after_upload_for_user(
+                    &ctx,
+                    &media_id,
+                    &operation_id,
+                    kind,
+                    replace_page.as_deref(),
+                    role.as_deref() == Some("thumbnail"),
+                )
+                .await?;
+            Ok(HttpResponse::Ok().json(media))
+        }
+    }
+}
+
+#[utoipa::path(
+    delete,
+    path = "/api/v1/media/upload-sessions/{id}",
+    params(("id" = String, Path, description = "Upload session identifier")),
+    responses(
+        (status = 204, description = "Upload session aborted"),
+        (status = 404, description = "Session not found or write access denied", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Media",
+    security(("SessionCookie" = []), ("SessionToken" = []))
+)]
+#[delete("/upload-sessions/{id}")]
+async fn abort_upload_session(
+    svc: Data<MediaAssetServiceHandle>,
+    ctx: ReqData<AuthorizationContext>,
+    id: Path<String>,
+) -> Result<HttpResponse, AppError> {
+    svc.abort_upload_session(&ctx, &id).await?;
+    Ok(HttpResponse::NoContent().finish())
 }
 
 #[utoipa::path(

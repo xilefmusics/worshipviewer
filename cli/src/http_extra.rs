@@ -2,17 +2,21 @@ use std::path::Path;
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
-use reqwest::multipart::{Form, Part};
 use reqwest::{Client, RequestBuilder};
 use serde_json::Value;
 use shared::collection::{Collection, TransferCollectionSong, TransferCollectionSongResult};
 use shared::error::NetworkClientError;
-use shared::media::{CreateUploadedMedia, Media};
+use shared::media::{
+    CreateUploadSession, CreateUploadedMedia, Media, UploadSession, UploadSessionTarget,
+    UploadSourceDescriptor, UploadedMediaKind,
+};
 use shared::net::{DefaultHttpClient, HttpClient, HttpClientConfig};
 use shared::room_message::{MessageRoomClientEvent, MessageRoomReplay, MessageRoomServerEvent};
 use shared::team::Team;
+use shared::MediaAssetKind;
 
 use crate::session::CliSession;
+use crate::validate::media_content_type_for_path;
 
 pub async fn room_socket(
     session: &CliSession,
@@ -197,67 +201,143 @@ fn api_url(config: &HttpClientConfig, path: &str) -> String {
 
 pub async fn create_uploaded_media(
     session: &CliSession,
-    kind: &str,
+    kind: UploadedMediaKind,
     metadata: CreateUploadedMedia,
     files: &[std::path::PathBuf],
 ) -> Result<Media, Box<dyn std::error::Error>> {
-    let config = session.config();
-    let client = reqwest_client(config)?;
-    let metadata = serde_json::to_string(&metadata)?;
-    let metadata_part = Part::text(metadata).mime_str("application/json")?;
-    let mut form = Form::new().part("metadata", metadata_part);
+    let mut sources = Vec::with_capacity(files.len());
     for file in files {
-        form = form.part("file", Part::file(file).await?);
+        let byte_length = tokio::fs::metadata(file).await?.len();
+        let content_type = media_content_type_for_path(file, None)?.to_string();
+        sources.push(UploadSourceDescriptor {
+            byte_length,
+            content_type: Some(content_type.clone()),
+        });
     }
-    let response = request_with_auth(
-        client.post(api_url(
-            config,
-            &format!("api/v1/media/uploads?kind={kind}"),
-        )),
-        config,
+    chunked_upload(
+        session,
+        CreateUploadSession {
+            target: UploadSessionTarget::Create { kind, metadata },
+            sources,
+        },
+        files,
     )
-    .multipart(form)
-    .send()
-    .await?
-    .error_for_status()?;
-    Ok(response.json().await?)
+    .await
 }
 
 pub async fn upload_media_asset_file(
     session: &CliSession,
     media_id: &str,
-    query: &str,
+    kind: MediaAssetKind,
+    replace_page: Option<&str>,
     content_type: &str,
     path: &Path,
+) -> Result<Media, Box<dyn std::error::Error>> {
+    let byte_length = tokio::fs::metadata(path).await?.len();
+    chunked_upload(
+        session,
+        CreateUploadSession {
+            target: UploadSessionTarget::Asset {
+                media_id: media_id.to_owned(),
+                kind,
+                replace_page: replace_page.map(str::to_owned),
+                role: None,
+            },
+            sources: vec![UploadSourceDescriptor {
+                byte_length,
+                content_type: Some(content_type.to_owned()),
+            }],
+        },
+        &[path.to_path_buf()],
+    )
+    .await
+}
+
+async fn chunked_upload(
+    session: &CliSession,
+    request: CreateUploadSession,
+    files: &[std::path::PathBuf],
 ) -> Result<Media, Box<dyn std::error::Error>> {
     use tokio::io::AsyncReadExt;
 
     let config = session.config();
     let client = reqwest_client(config)?;
-    let file = tokio::fs::File::open(path).await?;
-    let stream = futures_util::stream::try_unfold(file, |mut file| async move {
-        let mut buffer = vec![0; 64 * 1024];
-        let count = file.read(&mut buffer).await?;
-        if count == 0 {
-            Ok::<_, std::io::Error>(None)
-        } else {
-            buffer.truncate(count);
-            Ok(Some((buffer, file)))
-        }
-    });
-    let response = request_with_auth(
-        client.put(api_url(
-            config,
-            &format!("api/v1/media/{media_id}/uploads?{query}"),
-        )),
+    let upload: UploadSession = request_with_auth(
+        client.post(api_url(config, "api/v1/media/upload-sessions")),
         config,
     )
-    .header(reqwest::header::CONTENT_TYPE, content_type)
-    .body(reqwest::Body::wrap_stream(stream))
+    .json(&request)
     .send()
     .await?
-    .error_for_status()?;
-    Ok(response.json().await?)
+    .error_for_status()?
+    .json()
+    .await?;
+
+    let transfer = async {
+        if upload.chunk_size_bytes == 0 {
+            return Err::<Media, Box<dyn std::error::Error>>(
+                "server returned an invalid media upload chunk size".into(),
+            );
+        }
+        for (source_index, path) in files.iter().enumerate() {
+            let mut file = tokio::fs::File::open(path).await?;
+            let source_length = request.sources[source_index].byte_length;
+            let mut offset = 0u64;
+            let mut chunk_index = 0usize;
+            while offset < source_length {
+                let chunk_length = (source_length - offset).min(upload.chunk_size_bytes) as usize;
+                let mut bytes = vec![0u8; chunk_length];
+                file.read_exact(&mut bytes).await?;
+                request_with_auth(
+                    client.put(api_url(
+                        config,
+                        &format!(
+                            "api/v1/media/upload-sessions/{}/sources/{source_index}/chunks/{chunk_index}",
+                            upload.id
+                        ),
+                    )),
+                    config,
+                )
+                .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
+                .body(bytes)
+                .send()
+                .await?
+                .error_for_status()?;
+                offset += chunk_length as u64;
+                chunk_index += 1;
+            }
+        }
+        let media = request_with_auth(
+            client.post(api_url(
+                config,
+                &format!("api/v1/media/upload-sessions/{}/complete", upload.id),
+            )),
+            config,
+        )
+        .send()
+        .await?
+        .error_for_status()?
+        .json::<Media>()
+        .await?;
+        Ok::<_, Box<dyn std::error::Error>>(media)
+    }
+    .await;
+
+    match transfer {
+        Ok(media) => Ok(media),
+        Err(error) => {
+            let _ = request_with_auth(
+                client.delete(api_url(
+                    config,
+                    &format!("api/v1/media/upload-sessions/{}", upload.id),
+                )),
+                config,
+            )
+            .send()
+            .await;
+            Err(error)
+        }
+    }
 }
 
 pub async fn start_impersonation(

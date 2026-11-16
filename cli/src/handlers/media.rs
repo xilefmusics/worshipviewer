@@ -15,18 +15,6 @@ use crate::validate::{
     media_content_type_for_path, media_list_query_from_args, validate_resource_id,
 };
 
-fn encode_query_value(value: &str) -> String {
-    let mut encoded = String::with_capacity(value.len());
-    for byte in value.bytes() {
-        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
-            encoded.push(byte as char);
-        } else {
-            encoded.push_str(&format!("%{byte:02X}"));
-        }
-    }
-    encoded
-}
-
 pub async fn handle_media(
     session: &CliSession,
     output: OutputFormat,
@@ -86,15 +74,15 @@ pub async fn handle_media(
                 output::print_json(
                     &serde_json::json!({
                         "method": "POST",
-                        "path": format!("api/v1/media/uploads?kind={kind}"),
-                        "metadata": metadata,
+                        "path": "api/v1/media/upload-sessions",
+                        "target": { "type": "create", "kind": kind_value, "metadata": metadata },
                         "files": files,
                     }),
                     &output,
                 )?;
                 return Ok(());
             }
-            let media = create_uploaded_media(session, kind, metadata, files).await?;
+            let media = create_uploaded_media(session, kind_value, metadata, files).await?;
             output::print_json(&media, &output)
         }
         MediaCommand::Update { id, json } => {
@@ -180,16 +168,17 @@ pub async fn handle_media(
                 validate_resource_id(page)?;
             }
             let content_type = media_content_type_for_path(file, content_type.as_deref())?;
-            let mut query = format!("kind={}", kind_value.as_str());
-            if let Some(page) = replace_page {
-                query.push_str("&replace_page=");
-                query.push_str(&encode_query_value(page));
-            }
             if dry_run {
                 output::print_json(
                     &serde_json::json!({
                         "method": "PUT",
-                        "path": format!("api/v1/media/{id}/uploads?{query}"),
+                        "path": "api/v1/media/upload-sessions",
+                        "target": {
+                            "type": "asset",
+                            "media_id": id,
+                            "kind": kind_value,
+                            "replace_page": replace_page,
+                        },
                         "content_type": content_type,
                         "file": file,
                     }),
@@ -197,7 +186,15 @@ pub async fn handle_media(
                 )?;
                 return Ok(());
             }
-            let media = upload_media_asset_file(session, id, &query, &content_type, file).await?;
+            let media = upload_media_asset_file(
+                session,
+                id,
+                kind_value,
+                replace_page.as_deref(),
+                &content_type,
+                file,
+            )
+            .await?;
             output::print_json(&media, &output)
         }
         MediaCommand::DeckBegin { id } => {

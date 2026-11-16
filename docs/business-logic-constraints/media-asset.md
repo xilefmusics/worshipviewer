@@ -12,9 +12,9 @@ See also [media.md](./media.md) for the parent Media resource.
 
 ## Upload transport
 
-- **BLC-MAST-004:** `PUT /api/v1/media/{media_id}/uploads?kind=` streams a single request body to private staging storage without buffering the entire payload in memory. The `kind` query selects the configured byte limit (`video`, `audio`, `image`, `pdf`, `svg`).
-- **BLC-MAST-005:** Oversize uploads are rejected with **413** when `Content-Length` exceeds the limit and while streaming when the body exceeds the limit regardless of headers. Partial staging files are removed on disconnect, limit failure, or handler error.
-- **BLC-MAST-006:** Replacement upload requires write access to the parent owner. Atomic creation uses multipart metadata plus repeated file parts; neither endpoint is resumable.
+- **BLC-MAST-004:** Media uploads use `POST /api/v1/media/upload-sessions` followed by ordered `PUT` chunk requests. Each request body is at most 8 MiB; the session target selects the configured total source limit (`video`, `audio`, `image`, `pdf`, `svg`).
+- **BLC-MAST-005:** Source lengths and each chunk length are checked against the session descriptor. Incomplete chunk files remain private and are removed on explicit abort or after the staging cleanup window; no public asset is created until successful finalization.
+- **BLC-MAST-006:** Session creation and every chunk, completion, or abort request require the initiating user and current write access to the target owner. Chunks must arrive in source and chunk order. Sessions cannot resume after interruption; retry creates a new session from byte zero.
 - **BLC-MAST-012:** All accepted uploads finish validation, any required deck expansion, asset ingestion, and Media mutation before returning. Audio and video sources are stored synchronously without conversion. Image sources are PNG, JPEG, or sanitized SVG. Uploads whose kind does not match existing content are rejected and their staging data is removed.
 
 ## Delivery
