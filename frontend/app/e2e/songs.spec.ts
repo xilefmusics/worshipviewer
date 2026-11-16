@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 
 import { expect, secondUserTest, test, uniqueToken } from './fixtures/auth'
 import { HubPage } from './pages/hub'
-import { openContextMenu, setOffline, waitForToast } from './helpers'
+import { grantClipboard, openContextMenu, setOffline, waitForToast } from './helpers'
 
 // Flow: D1
 test('D1: open the song create chooser', async ({ page, context }) => {
@@ -90,6 +90,77 @@ test('D5: import songs (files)', async ({ page, seed, context }) => {
   await hub.goto('/songs')
   await hub.search('E2E Import Song')
   await expect(hub.row(/E2E Import Song/i)).toBeVisible({ timeout: 15_000 })
+})
+
+test('paste ChordPro or WorshipPro text on the songs list to create a song', async ({
+  page,
+  seed,
+  context,
+}) => {
+  const token = uniqueToken('paste-song')
+  await seed.createCollection({ title: `${token}-collection` })
+  await grantClipboard(context)
+
+  const hub = new HubPage(page)
+  await hub.goto('/songs')
+  await page.evaluate(
+    (source) => navigator.clipboard.writeText(source),
+    `{title: ${token}}\n{artist: Clipboard Band}\n{start_of_verse}\n[C]Pasted song lyrics\n{end_of_verse}`,
+  )
+  await page.keyboard.press('Control+V')
+
+  await expect(page).toHaveURL(/\/songs\/[^/]+/, { timeout: 20_000 })
+  await expect(page.getByLabel('Title 1').first()).toHaveValue(token, { timeout: 20_000 })
+})
+
+test('paste saved Ultimate Guitar HTML on the songs list to create a song', async ({
+  page,
+  seed,
+  context,
+}) => {
+  const token = uniqueToken('paste-ug')
+  await seed.createCollection({ title: `${token}-collection` })
+  await grantClipboard(context)
+
+  const hub = new HubPage(page)
+  await hub.goto('/songs')
+  const dataContent = JSON.stringify({
+    store: {
+      page: {
+        data: {
+          tab_view: { wiki_tab: { content: 'Tempo: 120\n[Verse 1]\n[ch]C[/ch] Pasted lyrics' } },
+          tab: { song_name: token, artist_name: 'Clipboard Band', tonality_name: 'C' },
+        },
+      },
+    },
+  }).replaceAll('"', '&quot;')
+  const html = `<!DOCTYPE html><html><body><div class="js-store" data-content="${dataContent}"></div></body></html>`
+  await page.evaluate((source) => navigator.clipboard.writeText(source), html)
+  await page.keyboard.press('Control+V')
+
+  await expect(page).toHaveURL(/\/songs\/[^/]+/, { timeout: 20_000 })
+  await expect(page.getByLabel('Title 1').first()).toHaveValue(token, { timeout: 20_000 })
+})
+
+test('pasting an Ultimate Guitar URL on the songs list stays a normal paste', async ({
+  page,
+  seed,
+  context,
+}) => {
+  const token = uniqueToken('paste-url')
+  await seed.createCollection({ title: `${token}-collection` })
+  await grantClipboard(context)
+
+  const hub = new HubPage(page)
+  await hub.goto('/songs')
+  const search = page.getByRole('searchbox', { name: 'Search library' })
+  await search.click()
+  const url = 'https://tabs.ultimate-guitar.com/tab/artist/song-123'
+  await page.evaluate((text) => navigator.clipboard.writeText(text), url)
+  await page.keyboard.press('Control+V')
+
+  await expect(search).toHaveValue(url)
+  await expect(page).toHaveURL(/\/songs(?:\?|$)/)
 })
 
 // Flow: D6

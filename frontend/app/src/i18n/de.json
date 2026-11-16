@@ -1219,6 +1219,7 @@
       "summaryFailed_other": "{{count}} Dateien konnten nicht importiert werden.",
       "failedItem": "{{name}}: {{error}}",
       "failed": "Import fehlgeschlagen.",
+      "clipboardTooLarge": "Der Songtext in der Zwischenablage darf höchstens 2 MB groß sein.",
       "offlineHint": "Import erfordert eine Internetverbindung."
     }
   },
