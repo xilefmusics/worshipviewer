@@ -499,9 +499,29 @@
         ],
         "type": "object"
       },
+      "CreateUploadSession": {
+        "additionalProperties": false,
+        "description": "Begin a chunked media upload session. Sources are uploaded in the listed order.",
+        "properties": {
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/UploadSourceDescriptor"
+            },
+            "type": "array"
+          },
+          "target": {
+            "$ref": "#/components/schemas/UploadSessionTarget"
+          }
+        },
+        "required": [
+          "target",
+          "sources"
+        ],
+        "type": "object"
+      },
       "CreateUploadedMedia": {
         "additionalProperties": false,
-        "description": "Metadata part for synchronous multipart uploaded-media creation.",
+        "description": "Metadata for uploaded-media creation.",
         "properties": {
           "is_background": {
             "description": "Whether the uploaded item should appear in AV background selection.",
@@ -3674,8 +3694,109 @@
         ],
         "type": "object"
       },
+      "UploadSession": {
+        "additionalProperties": false,
+        "description": "Upload session id and the maximum size of each raw chunk request.",
+        "properties": {
+          "chunk_size_bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "chunk_size_bytes"
+        ],
+        "type": "object"
+      },
+      "UploadSessionTarget": {
+        "description": "Destination and processing mode for a media upload session.",
+        "oneOf": [
+          {
+            "properties": {
+              "kind": {
+                "$ref": "#/components/schemas/UploadedMediaKind"
+              },
+              "metadata": {
+                "$ref": "#/components/schemas/CreateUploadedMedia"
+              },
+              "type": {
+                "enum": [
+                  "create"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "metadata",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "kind": {
+                "$ref": "#/components/schemas/MediaAssetKind"
+              },
+              "media_id": {
+                "type": "string"
+              },
+              "replace_page": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "role": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "type": {
+                "enum": [
+                  "asset"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "media_id",
+              "kind",
+              "type"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "UploadSourceDescriptor": {
+        "additionalProperties": false,
+        "description": "A source file included in a chunked media upload session.",
+        "properties": {
+          "byte_length": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "content_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "byte_length"
+        ],
+        "type": "object"
+      },
       "UploadedMediaKind": {
-        "description": "Uploaded media kind accepted by synchronous multipart creation.",
+        "description": "Uploaded media kind accepted when creating media from uploaded sources.",
         "enum": [
           "image",
           "slide_deck",
@@ -6132,29 +6253,17 @@
         ]
       }
     },
-    "/api/v1/media/uploads": {
+    "/api/v1/media/upload-sessions": {
       "post": {
-        "operationId": "create_uploaded_media",
-        "parameters": [
-          {
-            "description": "Uploaded media kind: image, video, audio, or slide_deck",
-            "in": "query",
-            "name": "kind",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "operationId": "begin_upload_session",
         "requestBody": {
           "content": {
-            "multipart/form-data": {
+            "application/json": {
               "schema": {
-                "type": "string"
+                "$ref": "#/components/schemas/CreateUploadSession"
               }
             }
           },
-          "description": "One JSON metadata part and one or more file parts",
           "required": true
         },
         "responses": {
@@ -6162,11 +6271,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Media"
+                  "$ref": "#/components/schemas/UploadSession"
                 }
               }
             },
-            "description": "Uploaded media processed and created"
+            "description": "Upload session created"
           },
           "400": {
             "content": {
@@ -6176,7 +6285,17 @@
                 }
               }
             },
-            "description": "Invalid metadata, source, or file count"
+            "description": "Invalid target or source list"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Target not found or write access denied"
           },
           "413": {
             "content": {
@@ -6187,6 +6306,225 @@
               }
             },
             "description": "A source exceeds its configured limit"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Media"
+        ]
+      }
+    },
+    "/api/v1/media/upload-sessions/{id}": {
+      "delete": {
+        "operationId": "abort_upload_session",
+        "parameters": [
+          {
+            "description": "Upload session identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Upload session aborted"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Session not found or write access denied"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Media"
+        ]
+      }
+    },
+    "/api/v1/media/upload-sessions/{id}/complete": {
+      "post": {
+        "operationId": "complete_upload_session",
+        "parameters": [
+          {
+            "description": "Upload session identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Media"
+                }
+              }
+            },
+            "description": "Existing media asset upload finalized"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Media"
+                }
+              }
+            },
+            "description": "New uploaded media created"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Session is incomplete or source is invalid"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Session not found or write access denied"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Media changed concurrently"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          },
+          {
+            "SessionToken": []
+          }
+        ],
+        "tags": [
+          "Media"
+        ]
+      }
+    },
+    "/api/v1/media/upload-sessions/{id}/sources/{source_index}/chunks/{chunk_index}": {
+      "put": {
+        "operationId": "upload_session_chunk",
+        "parameters": [
+          {
+            "description": "Upload session identifier",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Zero-based source index",
+            "in": "path",
+            "name": "source_index",
+            "required": true,
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Zero-based chunk index for the source",
+            "in": "path",
+            "name": "chunk_index",
+            "required": true,
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "items": {
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            }
+          },
+          "description": "One chunk, no larger than the session chunk size",
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Chunk accepted"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Chunk order or length is invalid"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Session not found or write access denied"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Chunk exceeds the maximum chunk size"
           }
         },
         "security": [
@@ -6783,148 +7121,6 @@
               }
             },
             "description": "Range not satisfiable"
-          }
-        },
-        "security": [
-          {
-            "SessionCookie": []
-          },
-          {
-            "SessionToken": []
-          }
-        ],
-        "tags": [
-          "Media"
-        ]
-      }
-    },
-    "/api/v1/media/{media_id}/uploads": {
-      "put": {
-        "operationId": "upload_media_asset",
-        "parameters": [
-          {
-            "description": "Media identifier",
-            "in": "path",
-            "name": "media_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Source kind: video, audio, image, pdf, or svg",
-            "in": "query",
-            "name": "kind",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Existing staged/ready deck page id to replace",
-            "in": "query",
-            "name": "replace_page",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Set to thumbnail to upload a video thumbnail",
-            "in": "query",
-            "name": "role",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/octet-stream": {
-              "schema": {
-                "items": {
-                  "format": "int32",
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "type": "array"
-              }
-            }
-          },
-          "description": "Streaming upload body",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Media"
-                }
-              }
-            },
-            "description": "Upload processed and media updated"
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Invalid kind or request"
-          },
-          "401": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Authentication required"
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Media not found or write access denied"
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Media changed concurrently"
-          },
-          "413": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Payload too large"
-          },
-          "500": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Upload failed"
           }
         },
         "security": [

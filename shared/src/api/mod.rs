@@ -3,7 +3,11 @@ use crate::blob::{Blob, CreateBlob, UpdateBlob};
 use crate::collection::{Collection, CreateCollection, UpdateCollection};
 use crate::error::NetworkClientError;
 use crate::like::LikeStatus;
-use crate::media::{CommitDeck, CreateMedia, DuplicateMedia, Media, MediaListQuery, UpdateMedia};
+use crate::media::{
+    CommitDeck, CreateMedia, CreateUploadSession, DuplicateMedia, Media, MediaListQuery,
+    UpdateMedia, UploadSession, UploadSessionTarget, UploadSourceDescriptor,
+};
+use crate::media_asset::MediaAssetKind;
 use crate::monitoring::{HttpAuditLog, MonitoringMetricsQuery};
 use crate::move_owner::MoveOwner;
 use crate::net::HttpClient;
@@ -706,17 +710,71 @@ impl<C: HttpClient> ApiClient<C> {
     pub async fn upload_media_asset(
         &self,
         id: &str,
-        query: &str,
+        kind: MediaAssetKind,
         content_type: &str,
         body: &[u8],
+        replace_page: Option<&str>,
+        role: Option<&str>,
     ) -> Result<Media, NetworkClientError> {
-        self.client
-            .put_bytes_json(
-                &format!("api/v1/media/{id}/uploads?{query}"),
-                content_type,
-                body,
-            )
-            .await
+        let request = CreateUploadSession {
+            target: UploadSessionTarget::Asset {
+                media_id: id.to_owned(),
+                kind,
+                replace_page: replace_page.map(str::to_owned),
+                role: role.map(str::to_owned),
+            },
+            sources: vec![UploadSourceDescriptor {
+                byte_length: body.len() as u64,
+                content_type: Some(content_type.to_owned()),
+            }],
+        };
+        let session: UploadSession = self
+            .client
+            .post("api/v1/media/upload-sessions", &request)
+            .await?;
+
+        let transfer = async {
+            let chunk_size = usize::try_from(session.chunk_size_bytes).map_err(|_| {
+                NetworkClientError::InvalidRequest {
+                    message: "server returned an invalid media upload chunk size".into(),
+                }
+            })?;
+            if chunk_size == 0 {
+                return Err(NetworkClientError::InvalidRequest {
+                    message: "server returned an invalid media upload chunk size".into(),
+                });
+            }
+            for (chunk_index, chunk) in body.chunks(chunk_size).enumerate() {
+                self.client
+                    .put_bytes_no_content(
+                        &format!(
+                            "api/v1/media/upload-sessions/{}/sources/0/chunks/{chunk_index}",
+                            session.id
+                        ),
+                        "application/octet-stream",
+                        chunk,
+                    )
+                    .await?;
+            }
+            self.client
+                .post::<_, Media>(
+                    &format!("api/v1/media/upload-sessions/{}/complete", session.id),
+                    &serde_json::json!({}),
+                )
+                .await
+        }
+        .await;
+
+        match transfer {
+            Ok(media) => Ok(media),
+            Err(error) => {
+                let _ = self
+                    .client
+                    .delete_no_content(&format!("api/v1/media/upload-sessions/{}", session.id))
+                    .await;
+                Err(error)
+            }
+        }
     }
 
     pub async fn get_media_asset_data(

@@ -229,7 +229,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/media/uploads": {
+    "/api/v1/media/upload-sessions": {
         parameters: {
             query?: never;
             header?: never;
@@ -238,7 +238,55 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["create_uploaded_media"];
+        post: operations["begin_upload_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/media/upload-sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["abort_upload_session"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/media/upload-sessions/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["complete_upload_session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/media/upload-sessions/{id}/sources/{source_index}/chunks/{chunk_index}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["upload_session_chunk"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -338,22 +386,6 @@ export interface paths {
         delete?: never;
         options?: never;
         head: operations["head_media_asset_data"];
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/media/{media_id}/uploads": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["upload_media_asset"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -1266,7 +1298,12 @@ export interface components {
             members?: components["schemas"]["TeamMemberInput"][];
             name: string;
         };
-        /** @description Metadata part for synchronous multipart uploaded-media creation. */
+        /** @description Begin a chunked media upload session. Sources are uploaded in the listed order. */
+        CreateUploadSession: {
+            sources: components["schemas"]["UploadSourceDescriptor"][];
+            target: components["schemas"]["UploadSessionTarget"];
+        };
+        /** @description Metadata for uploaded-media creation. */
         CreateUploadedMedia: {
             /** @description Whether the uploaded item should appear in AV background selection. */
             is_background?: boolean;
@@ -2308,8 +2345,34 @@ export interface components {
             members?: components["schemas"]["TeamMemberInput"][] | null;
             name: string;
         };
+        /** @description Upload session id and the maximum size of each raw chunk request. */
+        UploadSession: {
+            /** Format: int64 */
+            chunk_size_bytes: number;
+            id: string;
+        };
+        /** @description Destination and processing mode for a media upload session. */
+        UploadSessionTarget: {
+            kind: components["schemas"]["UploadedMediaKind"];
+            metadata: components["schemas"]["CreateUploadedMedia"];
+            /** @enum {string} */
+            type: "create";
+        } | {
+            kind: components["schemas"]["MediaAssetKind"];
+            media_id: string;
+            replace_page?: string | null;
+            role?: string | null;
+            /** @enum {string} */
+            type: "asset";
+        };
+        /** @description A source file included in a chunked media upload session. */
+        UploadSourceDescriptor: {
+            /** Format: int64 */
+            byte_length: number;
+            content_type?: string | null;
+        };
         /**
-         * @description Uploaded media kind accepted by synchronous multipart creation.
+         * @description Uploaded media kind accepted when creating media from uploaded sources.
          * @enum {string}
          */
         UploadedMediaKind: "image" | "slide_deck" | "video" | "audio";
@@ -4074,33 +4137,29 @@ export interface operations {
             };
         };
     };
-    create_uploaded_media: {
+    begin_upload_session: {
         parameters: {
-            query: {
-                /** @description Uploaded media kind: image, video, audio, or slide_deck */
-                kind: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description One JSON metadata part and one or more file parts */
         requestBody: {
             content: {
-                "multipart/form-data": string;
+                "application/json": components["schemas"]["CreateUploadSession"];
             };
         };
         responses: {
-            /** @description Uploaded media processed and created */
+            /** @description Upload session created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Media"];
+                    "application/json": components["schemas"]["UploadSession"];
                 };
             };
-            /** @description Invalid metadata, source, or file count */
+            /** @description Invalid target or source list */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4109,7 +4168,162 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Target not found or write access denied */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description A source exceeds its configured limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    abort_upload_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Upload session identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Upload session aborted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Session not found or write access denied */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    complete_upload_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Upload session identifier */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Existing media asset upload finalized */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Media"];
+                };
+            };
+            /** @description New uploaded media created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Media"];
+                };
+            };
+            /** @description Session is incomplete or source is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Session not found or write access denied */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Media changed concurrently */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    upload_session_chunk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Upload session identifier */
+                id: string;
+                /** @description Zero-based source index */
+                source_index: number;
+                /** @description Zero-based chunk index for the source */
+                chunk_index: number;
+            };
+            cookie?: never;
+        };
+        /** @description One chunk, no larger than the session chunk size */
+        requestBody: {
+            content: {
+                "application/octet-stream": number[];
+            };
+        };
+        responses: {
+            /** @description Chunk accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Chunk order or length is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Session not found or write access denied */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Chunk exceeds the maximum chunk size */
             413: {
                 headers: {
                     [name: string]: unknown;
@@ -4545,95 +4759,6 @@ export interface operations {
             };
             /** @description Range not satisfiable */
             416: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    upload_media_asset: {
-        parameters: {
-            query: {
-                /** @description Source kind: video, audio, image, pdf, or svg */
-                kind: string;
-                /** @description Existing staged/ready deck page id to replace */
-                replace_page?: string;
-                /** @description Set to thumbnail to upload a video thumbnail */
-                role?: string;
-            };
-            header?: never;
-            path: {
-                /** @description Media identifier */
-                media_id: string;
-            };
-            cookie?: never;
-        };
-        /** @description Streaming upload body */
-        requestBody: {
-            content: {
-                "application/octet-stream": number[];
-            };
-        };
-        responses: {
-            /** @description Upload processed and media updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Media"];
-                };
-            };
-            /** @description Invalid kind or request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Media not found or write access denied */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Media changed concurrently */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Payload too large */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Upload failed */
-            500: {
                 headers: {
                     [name: string]: unknown;
                 };

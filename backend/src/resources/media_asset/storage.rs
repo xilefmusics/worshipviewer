@@ -8,9 +8,34 @@ use futures_util::StreamExt;
 use ring::digest::{Context, SHA256};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
+use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::http_range::etag_from_file_bytes;
+
+fn checked_path_in_directory(directory: &str, file_name: &str) -> Result<PathBuf, AppError> {
+    if file_name.contains("..") {
+        return Err(AppError::invalid_request(
+            "invalid media asset file identifier",
+        ));
+    }
+    if file_name.contains("/") || file_name.contains("\\") {
+        return Err(AppError::invalid_request(
+            "invalid media asset file identifier",
+        ));
+    }
+
+    let canonical_directory = Path::new(directory)
+        .canonicalize()
+        .map_err(|e| AppError::internal_from_err("media_asset.storage.canonicalize_dir", e))?;
+    let path = canonical_directory.join(file_name);
+    if !path.starts_with(&canonical_directory) {
+        return Err(AppError::invalid_request(
+            "invalid media asset file identifier",
+        ));
+    }
+    Ok(path)
+}
 
 /// Result of a completed streaming upload.
 #[derive(Debug, Clone)]
@@ -20,8 +45,8 @@ pub struct StagingUploadResult {
 }
 
 pub trait MediaAssetStorage: Send + Sync {
-    fn staging_path(&self, operation_id: &str) -> PathBuf;
-    fn final_path(&self, asset_id: &str) -> PathBuf;
+    fn staging_path(&self, operation_id: &str) -> Result<PathBuf, AppError>;
+    fn final_path(&self, asset_id: &str) -> Result<PathBuf, AppError>;
 
     fn delete_staging_file(&self, operation_id: &str);
     fn delete_final_file(&self, asset_id: &str);
@@ -78,7 +103,7 @@ impl FsMediaAssetStorage {
         mut payload: Payload,
         max_bytes: usize,
     ) -> Result<StagingUploadResult, AppError> {
-        let path = self.staging_path(operation_id);
+        let path = self.staging_path(operation_id)?;
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)
                 .await
@@ -113,19 +138,167 @@ impl FsMediaAssetStorage {
             etag,
         })
     }
+
+    pub fn upload_session_source_path(
+        &self,
+        session_id: &Uuid,
+        source_index: usize,
+    ) -> Result<PathBuf, AppError> {
+        let file_name = format!("upload-session-{session_id}-{source_index}");
+        if !file_name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        {
+            return Err(AppError::invalid_request(
+                "invalid media upload session file identifier",
+            ));
+        }
+        checked_path_in_directory(&self.staging_dir, &file_name)
+    }
+
+    pub async fn create_upload_session_source(
+        &self,
+        session_id: &Uuid,
+        source_index: usize,
+    ) -> Result<(), AppError> {
+        let path = self.upload_session_source_path(session_id, source_index)?;
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .await
+                .map_err(|e| AppError::internal_from_err("media_asset.storage.session_dir", e))?;
+        }
+        File::create(&path)
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.session_create", e))?;
+        Ok(())
+    }
+
+    pub async fn copy_file_to_staging(
+        &self,
+        source: &Path,
+        operation_id: &str,
+        max_bytes: usize,
+    ) -> Result<StagingUploadResult, AppError> {
+        let path = self.staging_path(operation_id)?;
+        let mut input = File::open(source)
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.source_open", e))?;
+        let mut output = File::create(&path)
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.create", e))?;
+        let mut total = 0usize;
+        let mut hasher = Context::new(&SHA256);
+        let mut buffer = vec![0u8; 64 * 1024];
+        loop {
+            use tokio::io::AsyncReadExt;
+            let count = input
+                .read(&mut buffer)
+                .await
+                .map_err(|e| AppError::internal_from_err("media_asset.storage.source_read", e))?;
+            if count == 0 {
+                break;
+            }
+            if total + count > max_bytes {
+                drop(output);
+                let _ = fs::remove_file(&path).await;
+                return Err(AppError::payload_too_large());
+            }
+            hasher.update(&buffer[..count]);
+            output
+                .write_all(&buffer[..count])
+                .await
+                .map_err(|e| AppError::internal_from_err("media_asset.storage.write", e))?;
+            total += count;
+        }
+        output
+            .flush()
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.flush", e))?;
+        Ok(StagingUploadResult {
+            byte_length: total as u64,
+            etag: format!("W/\"{}\"", hex::encode(hasher.finish().as_ref())),
+        })
+    }
+
+    pub async fn append_upload_session_chunk(
+        &self,
+        session_id: &Uuid,
+        source_index: usize,
+        bytes: &[u8],
+    ) -> Result<(), AppError> {
+        use tokio::fs::OpenOptions;
+
+        let path = self.upload_session_source_path(session_id, source_index)?;
+        let mut file = OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.session_open", e))?;
+        file.write_all(bytes)
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.session_write", e))?;
+        file.flush()
+            .await
+            .map_err(|e| AppError::internal_from_err("media_asset.storage.session_flush", e))?;
+        Ok(())
+    }
+
+    pub fn delete_upload_session_sources(&self, session_id: &Uuid, source_count: usize) {
+        for source_index in 0..source_count {
+            let Ok(path) = self.upload_session_source_path(session_id, source_index) else {
+                tracing::warn!(
+                    session_id = %session_id,
+                    source_index,
+                    "invalid media upload session file identifier"
+                );
+                continue;
+            };
+            if let Err(error) = std::fs::remove_file(path)
+                && error.kind() != ErrorKind::NotFound
+            {
+                tracing::warn!(
+                    session_id = %session_id,
+                    source_index,
+                    error = %error,
+                    "media upload session cleanup failed"
+                );
+            }
+        }
+    }
 }
 
 impl MediaAssetStorage for FsMediaAssetStorage {
-    fn staging_path(&self, operation_id: &str) -> PathBuf {
-        Path::new(&self.staging_dir).join(operation_id)
+    fn staging_path(&self, operation_id: &str) -> Result<PathBuf, AppError> {
+        if operation_id.is_empty()
+            || !operation_id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        {
+            return Err(AppError::invalid_request(
+                "invalid media staging file identifier",
+            ));
+        }
+        checked_path_in_directory(&self.staging_dir, operation_id)
     }
 
-    fn final_path(&self, asset_id: &str) -> PathBuf {
-        Path::new(&self.final_dir).join(asset_id)
+    fn final_path(&self, asset_id: &str) -> Result<PathBuf, AppError> {
+        if asset_id.is_empty()
+            || !asset_id
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        {
+            return Err(AppError::invalid_request(
+                "invalid media asset file identifier",
+            ));
+        }
+        checked_path_in_directory(&self.final_dir, asset_id)
     }
 
     fn delete_staging_file(&self, operation_id: &str) {
-        let path = self.staging_path(operation_id);
+        let Ok(path) = self.staging_path(operation_id) else {
+            tracing::warn!(operation_id = %operation_id, "invalid media staging file identifier");
+            return;
+        };
         match std::fs::remove_file(&path) {
             Ok(()) => {}
             Err(err) if err.kind() == ErrorKind::NotFound => {}
@@ -140,7 +313,10 @@ impl MediaAssetStorage for FsMediaAssetStorage {
     }
 
     fn delete_final_file(&self, asset_id: &str) {
-        let path = self.final_path(asset_id);
+        let Ok(path) = self.final_path(asset_id) else {
+            tracing::warn!(asset_id = %asset_id, "invalid media asset identifier for file cleanup");
+            return;
+        };
         match std::fs::remove_file(&path) {
             Ok(()) => {}
             Err(err) if err.kind() == ErrorKind::NotFound => {}
@@ -155,8 +331,8 @@ impl MediaAssetStorage for FsMediaAssetStorage {
     }
 
     fn promote_file(&self, operation_id: &str, asset_id: &str) -> Result<(), AppError> {
-        let from = self.staging_path(operation_id);
-        let to = self.final_path(asset_id);
+        let from = self.staging_path(operation_id)?;
+        let to = self.final_path(asset_id)?;
         if let Some(parent) = to.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| AppError::internal_from_err("media_asset.storage.promote_mkdir", e))?;
@@ -208,7 +384,7 @@ impl MediaAssetStorage for FsMediaAssetStorage {
         source: &Path,
         asset_id: &str,
     ) -> Result<(u64, String), AppError> {
-        let to = self.final_path(asset_id);
+        let to = self.final_path(asset_id)?;
         if let Some(parent) = to.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| AppError::internal_from_err("media_asset.storage.ingest_mkdir", e))?;
@@ -226,7 +402,7 @@ impl MediaAssetStorage for FsMediaAssetStorage {
         from_asset_id: &str,
         to_asset_id: &str,
     ) -> Result<(u64, String), AppError> {
-        let from = self.final_path(from_asset_id);
+        let from = self.final_path(from_asset_id)?;
         self.ingest_final_from_path(&from, to_asset_id)
     }
 }
@@ -268,29 +444,45 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let staging = dir.path().join("staging").to_string_lossy().into_owned();
         let final_dir = dir.path().join("final").to_string_lossy().into_owned();
+        std::fs::create_dir_all(&staging).unwrap();
+        std::fs::create_dir_all(&final_dir).unwrap();
         (dir, FsMediaAssetStorage::new(staging, final_dir))
     }
 
     #[test]
     fn promote_moves_file() {
         let (_dir, storage) = temp_dirs();
-        let staging = storage.staging_path("op3");
+        let staging = storage
+            .staging_path("3f2dbb9b-560e-43a7-b641-2bd72e94d8c3")
+            .unwrap();
         std::fs::create_dir_all(staging.parent().unwrap()).unwrap();
         std::fs::write(&staging, b"data").unwrap();
-        storage.promote_file("op3", "asset3").unwrap();
+        let asset_id = "d9257839-a673-4cd5-b28c-3f02f9c0758d";
+        storage
+            .promote_file("3f2dbb9b-560e-43a7-b641-2bd72e94d8c3", asset_id)
+            .unwrap();
         assert!(!staging.exists());
-        assert!(storage.final_path("asset3").exists());
+        assert!(storage.final_path(asset_id).unwrap().exists());
+    }
+
+    #[test]
+    fn final_path_accepts_record_ids_and_rejects_traversal() {
+        let (_dir, storage) = temp_dirs();
+        assert!(storage.final_path("c12zpwxmlf9zbe7qvwe0").is_ok());
+        assert!(storage.final_path("../../outside").is_err());
+        assert!(storage.staging_path("../../outside").is_err());
     }
 
     #[test]
     fn cleanup_guard_removes_on_drop() {
         let (_dir, storage) = temp_dirs();
         let storage = std::sync::Arc::new(storage);
-        let path = storage.staging_path("op4");
+        let operation_id = "341d206e-70ea-49a3-92c5-6990c763ca98";
+        let path = storage.staging_path(operation_id).unwrap();
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, b"x").unwrap();
         {
-            let _guard = StagingCleanupGuard::new(storage.clone(), "op4".into());
+            let _guard = StagingCleanupGuard::new(storage.clone(), operation_id.into());
         }
         assert!(!path.exists());
     }

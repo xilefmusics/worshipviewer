@@ -12,9 +12,10 @@ use shared::AboutResponse;
 use crate::resources::blob::PatchBlob;
 use crate::resources::collection::PatchCollection;
 use crate::resources::media::{
-    CommitDeck, CreateMedia, CreateMediaContent, CreateUploadedMedia, DuplicateMedia,
-    LivestreamType, Media, MediaContent, MediaDeckPage, MediaPendingRevision, MediaStagedDeckPage,
-    SpotifyResourceType, UpdateMedia, UploadedMediaKind,
+    CommitDeck, CreateMedia, CreateMediaContent, CreateUploadSession, CreateUploadedMedia,
+    DuplicateMedia, LivestreamType, Media, MediaContent, MediaDeckPage, MediaPendingRevision,
+    MediaStagedDeckPage, SpotifyResourceType, UpdateMedia, UploadSession, UploadSessionTarget,
+    UploadSourceDescriptor, UploadedMediaKind,
 };
 use crate::resources::media_asset::{MediaAsset, MediaAssetKind, MediaAssetStatus};
 use crate::resources::monitoring::{
@@ -245,8 +246,10 @@ fn populate_operation_response_descriptions(operation: &mut Operation) {
         crate::resources::media::rest::delete_media,
         crate::resources::media::rest::begin_deck_revision,
         crate::resources::media::rest::commit_deck,
-        crate::resources::media_asset::rest::upload_media_asset,
-        crate::resources::media_asset::rest::create_uploaded_media,
+        crate::resources::media_asset::rest::begin_upload_session,
+        crate::resources::media_asset::rest::upload_session_chunk,
+        crate::resources::media_asset::rest::complete_upload_session,
+        crate::resources::media_asset::rest::abort_upload_session,
         crate::resources::media_asset::rest::get_media_asset_data,
         crate::resources::media_asset::rest::head_media_asset_data,
         crate::resources::blob::rest::get_blobs,
@@ -336,6 +339,10 @@ fn populate_operation_response_descriptions(operation: &mut Operation) {
             SpotifyResourceType,
             CreateMedia,
             CreateUploadedMedia,
+            CreateUploadSession,
+            UploadSessionTarget,
+            UploadSourceDescriptor,
+            UploadSession,
             CreateMediaContent,
             UpdateMedia,
             DuplicateMedia,

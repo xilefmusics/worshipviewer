@@ -931,8 +931,10 @@ flowchart TD
     fab(["Media + Add media"]) --> dlg["Kind = Slide deck · multi-file PNG/JPEG/SVG/PDF"]
     dlg -->|No files| guard["'Choose a file to upload.'"]
     dlg -->|Wrong type| type["'Choose PNG, JPEG, SVG, or PDF files.'"]
-    dlg -->|Valid| create["Multipart POST /media/uploads?kind=slide_deck"]
-    create -->|All sources processed| editor["Open completed deck editor"]
+    dlg -->|Valid| begin["POST /media/upload-sessions"]
+    begin --> chunks["PUT ordered source chunks (≤ 8 MiB each)"]
+    chunks --> complete["POST /media/upload-sessions/{id}/complete"]
+    complete -->|All sources processed| editor["Open completed deck editor"]
 ```
 
 ### M2. Preview and edit draft pages
@@ -946,7 +948,7 @@ flowchart TD
     live --> prev
     prev --> acts{Action}
     acts -->|Add| add["Upload more sources · append to revision"]
-    acts -->|Replace| rep["PUT uploads?replace_page=id"]
+    acts -->|Replace| rep["Upload session targeting replace_page=id"]
     acts -->|Remove| rm["Omit from local order until Save"]
     acts -->|Request pending| wait["Local progress · Save disabled"]
     acts -->|Request failed| keep["Error · committed deck remains active"]
