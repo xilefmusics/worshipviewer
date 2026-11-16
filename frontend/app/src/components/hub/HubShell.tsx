@@ -1,7 +1,7 @@
 import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -54,6 +54,7 @@ import { useSetlistDetailQuery } from '@/hooks/useSetlistDetailQuery'
 import { useSongDetailQuery } from '@/hooks/useSongDetailQuery'
 import { useMediaDetailQuery } from '@/hooks/useMediaDetailQuery'
 import { useWritableTeams } from '@/hooks/useWritableTeams'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { listenToMediaQuery } from '@/lib/browser-apis'
 import { getTeamDisplayName } from '@/lib/team-display-name'
 import {
@@ -64,6 +65,7 @@ import {
 import {
   buildRoomSettingsReturnNavigation,
   parseRoomSettingsReturnSearch,
+  resolveSettingsBackDestination,
 } from '@/lib/settings-route'
 import { playerQueryKey } from '@/lib/setlist-detail-key'
 import { cn } from '@/lib/utils'
@@ -482,9 +484,7 @@ function HubChrome({
     prevOnlineRef.current = online
   }, [online, t])
 
-  if (!user) return null
-
-  function navigateBackToPlayer(context: PlayerEditorReturnContext) {
+  const navigateBackToPlayer = useCallback((context: PlayerEditorReturnContext) => {
     void queryClient.invalidateQueries({
       queryKey: playerQueryKey(context.playerType, context.playerId),
     })
@@ -492,7 +492,24 @@ function HubChrome({
       to: '/player',
       search: buildPlayerReturnSearch(context),
     })
-  }
+  }, [navigate, queryClient])
+
+  const navigateBackFromSettings = useCallback(() => {
+    const destination = resolveSettingsBackDestination(settingsRoomReturn, settingsPlayerReturn)
+    if (destination.kind === 'room') {
+      void navigate(buildRoomSettingsReturnNavigation(destination.context))
+      return
+    }
+    if (destination.kind === 'player') {
+      navigateBackToPlayer(destination.context)
+      return
+    }
+    void navigate({ to: '/collections' })
+  }, [navigate, navigateBackToPlayer, settingsPlayerReturn, settingsRoomReturn])
+
+  useEscapeKey(isSettings && !!user, navigateBackFromSettings)
+
+  if (!user) return null
 
   async function leaveSongEditor() {
     const ok = (await songEditorNavigationBridge?.flushBeforeLeave()) ?? true
@@ -711,17 +728,7 @@ function HubChrome({
                 type="button"
                 size="icon"
                 variant="outline"
-                onClick={() => {
-                  if (settingsRoomReturn) {
-                    void navigate(buildRoomSettingsReturnNavigation(settingsRoomReturn))
-                    return
-                  }
-                  if (settingsPlayerReturn) {
-                    navigateBackToPlayer(settingsPlayerReturn)
-                    return
-                  }
-                  void navigate({ to: '/collections' })
-                }}
+                onClick={navigateBackFromSettings}
                 className={hubDetailBackButtonClass}
                 aria-label={
                   settingsRoomReturn

@@ -11,6 +11,20 @@ export type RoomSettingsReturnContext = {
   mode: RoomDisplayMode
 }
 
+export type SettingsBackDestination =
+  | { kind: 'room'; context: RoomSettingsReturnContext }
+  | { kind: 'player'; context: PlayerEditorReturnContext }
+  | { kind: 'collections' }
+
+export function resolveSettingsBackDestination(
+  roomReturn: RoomSettingsReturnContext | null,
+  playerReturn: PlayerEditorReturnContext | null,
+): SettingsBackDestination {
+  if (roomReturn) return { kind: 'room', context: roomReturn }
+  if (playerReturn) return { kind: 'player', context: playerReturn }
+  return { kind: 'collections' }
+}
+
 export function parseSettingsTab(raw: unknown): SettingsTab {
   if (raw === 'player') return 'player'
   if (raw === 'playerRoles') return 'playerRoles'
