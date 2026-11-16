@@ -4,6 +4,29 @@ import { cn } from '@/lib/utils'
 import type { AvGeometryOverlay } from '@/lib/player/av-preferences'
 
 type BackgroundCutout = { key: string; clipPath: string }
+const GEOMETRY_OVERLAY_MAX_SCALE = 1.28
+const HEART_OVERLAY_MAX_SCALE = 1.38
+const FULL_HEIGHT_OVERLAY_MAX_SCALE = 10 / 7
+
+type SlicedRectangleLayout = {
+  panelWidth: number
+  gapWidth: number
+  groupWidth: number
+}
+
+function slicedRectangleLayout(thickness: number, panelCount: 3 | 4): SlicedRectangleLayout {
+  const fourPanelWidth = 10 + thickness * 0.1363636364
+  const fourPanelGap = (100 - fourPanelWidth * 4) / 3
+  const scale = panelCount === 3 ? 0.8 : 1
+  const panelWidth = fourPanelWidth * scale
+  const gapWidth = fourPanelGap * scale
+
+  return {
+    panelWidth,
+    gapWidth,
+    groupWidth: panelWidth * panelCount + gapWidth * (panelCount - 1),
+  }
+}
 
 type AvGeometryOverlayShapeProps = {
   overlay: Exclude<AvGeometryOverlay, 'none'>
@@ -33,7 +56,36 @@ function crossClipPath(): string {
   )`
 }
 
+const HEART_POINTS = (() => {
+  const samples = Array.from({ length: 96 }, (_, index) => {
+    const angle = (index / 96) * Math.PI * 2
+    const sine = Math.sin(angle)
+    const rawY = 13 * Math.cos(angle) - 5 * Math.cos(2 * angle) - 2 * Math.cos(3 * angle) - Math.cos(4 * angle)
+    return { x: 50 + 50 * sine ** 3, rawY }
+  })
+  const minY = Math.min(...samples.map(({ rawY }) => rawY))
+  const maxY = Math.max(...samples.map(({ rawY }) => rawY))
+  return samples.map(({ x, rawY }) => ({
+    x: Math.abs(x - 50) < 0.001 ? 50 : x,
+    y: ((maxY - rawY) / (maxY - minY)) * 100,
+  }))
+})()
+
+function heartClipPath(forCanvas = false): string {
+  const polygon = HEART_POINTS.map(({ x, y }) => {
+    const horizontal = forCanvas
+      ? x === 50
+        ? '50%'
+        : `calc(50% ${x < 50 ? '-' : '+'} ${Math.abs(x - 50) * 0.7}cqh)`
+      : `${x}%`
+    const vertical = forCanvas ? `${15 + y * 0.7}%` : `${y}%`
+    return `${horizontal} ${vertical}`
+  }).join(', ')
+  return `polygon(${polygon})`
+}
+
 function geometryBackgroundCutouts(overlay: Exclude<AvGeometryOverlay, 'none'>, thickness: number): BackgroundCutout[] {
+  if (overlay === 'gospel') return []
   const crossX = 'var(--av-geometry-overlay-bar-half-thickness-x, 4.2%)'
   if (overlay === 'cross') return [{ key: 'cross', clipPath: crossClipPath() }]
   if (overlay === 'inverted_cross') {
@@ -69,11 +121,14 @@ function geometryBackgroundCutouts(overlay: Exclude<AvGeometryOverlay, 'none'>, 
       },
     ]
   }
-  if (overlay === 'sliced_rectangle') {
-    const panelWidth = (10 + thickness * 0.1363636364) * 0.7
-    const gap = (70 - panelWidth * 4) / 3
-    return Array.from({ length: 4 }, (_, index) => {
-      const left = 15 + index * (panelWidth + gap)
+  if (overlay === 'sliced_rectangle' || overlay === 'sliced_rectangle_three') {
+    const panelCount = overlay === 'sliced_rectangle_three' ? 3 : 4
+    const layout = slicedRectangleLayout(thickness, panelCount)
+    const panelWidth = layout.panelWidth * 0.7
+    const gap = layout.gapWidth * 0.7
+    const groupWidth = layout.groupWidth * 0.7
+    return Array.from({ length: panelCount }, (_, index) => {
+      const left = 50 - groupWidth / 2 + index * (panelWidth + gap)
       const right = 100 - left - panelWidth
       return { key: `panel-${index + 1}`, clipPath: `inset(15% ${right}% 15% ${left}%)` }
     })
@@ -93,16 +148,7 @@ function geometryBackgroundCutouts(overlay: Exclude<AvGeometryOverlay, 'none'>, 
     return [{ key: 'diamond', clipPath: 'polygon(50% 15%, calc(50% + 35cqh) 50%, 50% 85%, calc(50% - 35cqh) 50%)' }]
   }
 
-  const heartPoints = [
-    [50, 100], [12, 63], [3, 52], [0, 40], [0, 26], [5, 13], [14, 5], [25, 2],
-    [36, 4], [44, 11], [50, 21], [56, 11], [64, 4], [75, 2], [86, 5], [95, 13],
-    [100, 26], [100, 40], [97, 52], [88, 63],
-  ]
-  const heartPolygon = heartPoints.map(([x, y]) => {
-    const horizontal = x === 50 ? '50%' : `calc(50% ${x < 50 ? '-' : '+'} ${Math.abs(x - 50) * 0.7}cqh)`
-    return `${horizontal} ${15 + y * 0.7}%`
-  }).join(', ')
-  return [{ key: 'heart', clipPath: `polygon(${heartPolygon})` }]
+  return [{ key: 'heart', clipPath: heartClipPath(true) }]
 }
 
 function RotatedBackgroundFill({
@@ -198,15 +244,33 @@ export function AvGeometryOverlayShape({
   const clampedSize = Math.max(0, Math.min(100, size))
   const clampedThickness = Math.max(0, Math.min(100, thickness))
   const crossStemHalfThickness = 2 + clampedThickness * 0.08
-  const crossHorizontalHalfThickness = overlay === 'cross'
-    ? crossStemHalfThickness * (16 / 9)
-    : crossStemHalfThickness
+  const crossHorizontalHalfThickness = crossStemHalfThickness * (16 / 9)
+  const slicedRectanglePanelCount = overlay === 'sliced_rectangle_three' ? 3 : 4
+  const slicedRectangleDimensions = slicedRectangleLayout(clampedThickness, slicedRectanglePanelCount)
   const overlayScale = clampedSize / 64
+  const geometryOverlayMaxScale = overlay === 'rectangle' ||
+    overlay === 'square' ||
+    overlay === 'circle' ||
+    overlay === 'cross' ||
+    overlay === 'inverted_cross' ||
+    overlay === 'triangle' ||
+    overlay === 'inverted_triangle' ||
+    overlay === 'diamond' ||
+    overlay === 'sliced_square' ||
+    overlay === 'sliced_rectangle' ||
+    overlay === 'sliced_rectangle_three'
+    ? FULL_HEIGHT_OVERLAY_MAX_SCALE
+    : overlay === 'heart'
+      ? HEART_OVERLAY_MAX_SCALE
+      : GEOMETRY_OVERLAY_MAX_SCALE
+  const geometryOverlayScale = overlay === 'gospel'
+    ? overlayScale
+    : Math.min(overlayScale, geometryOverlayMaxScale)
   const backgroundCutouts = geometryBackgroundCutouts(overlay, clampedThickness)
-  const hasRotatedBackgroundFill = rotatedBackground && Boolean(videoSrc || backgroundImageSrc)
+  const hasRotatedBackgroundFill = overlay !== 'gospel' && rotatedBackground && Boolean(videoSrc || backgroundImageSrc)
   const rotatedBackgroundStyle = {
     '--av-geometry-overlay-opacity': clampedOpacity / 100,
-    '--av-geometry-overlay-scale': overlayScale,
+    '--av-geometry-overlay-scale': geometryOverlayScale,
     '--av-geometry-overlay-bar-half-thickness-x': `${crossStemHalfThickness * 0.7}%`,
     '--av-geometry-overlay-bar-half-thickness-y': `${crossHorizontalHalfThickness * 0.7}%`,
     '--av-geometry-overlay-sliced-square-panel-width': `${(27.25 + clampedThickness * 0.2175) * 0.7}cqh`,
@@ -232,7 +296,7 @@ export function AvGeometryOverlayShape({
         '--av-geometry-overlay-grayscale': clampedOpacity === 0
           ? 0
           : (100 - clampedColor) / 100,
-        '--av-geometry-overlay-scale': overlayScale,
+        '--av-geometry-overlay-scale': geometryOverlayScale,
         '--av-geometry-overlay-bar-half-thickness-x': `${crossStemHalfThickness}%`,
         '--av-geometry-overlay-bar-half-thickness-y': `${crossHorizontalHalfThickness}%`,
         ...rotatedBackgroundStyle,
@@ -247,15 +311,35 @@ export function AvGeometryOverlayShape({
             masterVideoRef={masterVideoRef}
             clipPath={cutout.clipPath}
           />
-        )) : overlay === 'sliced_rectangle' ? (
+        )) : overlay === 'gospel' ? (
+          <div className="av-geometry-overlay__gospel-symbols">
+            <span className="av-geometry-overlay__gospel-symbol">♥︎</span>
+            <span className="av-geometry-overlay__gospel-symbol">÷</span>
+            <span className="av-geometry-overlay__gospel-symbol">✝︎</span>
+            <span className="av-geometry-overlay__gospel-symbol">?</span>
+          </div>
+        ) : overlay === 'sliced_rectangle' || overlay === 'sliced_rectangle_three' ? (
           <div
-            className="av-geometry-overlay__sliced-rectangle"
-            style={{ top: '15%', left: '15%', width: '70%', height: '70%' }}
+            className={cn(
+              'av-geometry-overlay__sliced-rectangle',
+              overlay === 'sliced_rectangle_three' && 'av-geometry-overlay__sliced-rectangle--three',
+            )}
+            style={{
+              top: '15%',
+              left: overlay === 'sliced_rectangle_three' ? '50%' : '15%',
+              width: overlay === 'sliced_rectangle_three'
+                ? `${slicedRectangleDimensions.groupWidth * 0.7}%`
+                : '70%',
+              height: '70%',
+              transform: overlay === 'sliced_rectangle_three' ? 'translateX(-50%)' : undefined,
+              '--av-geometry-overlay-slice-width': `${overlay === 'sliced_rectangle_three'
+                ? (slicedRectangleDimensions.panelWidth / slicedRectangleDimensions.groupWidth) * 100
+                : slicedRectangleDimensions.panelWidth}%`,
+            } as CSSProperties}
           >
-            <span className="av-geometry-overlay__sliced-rectangle-panel av-geometry-overlay__sliced-rectangle-panel--one" />
-            <span className="av-geometry-overlay__sliced-rectangle-panel av-geometry-overlay__sliced-rectangle-panel--two" />
-            <span className="av-geometry-overlay__sliced-rectangle-panel av-geometry-overlay__sliced-rectangle-panel--three" />
-            <span className="av-geometry-overlay__sliced-rectangle-panel av-geometry-overlay__sliced-rectangle-panel--four" />
+            {Array.from({ length: slicedRectanglePanelCount }, (_, index) => (
+              <span key={index} className="av-geometry-overlay__sliced-rectangle-panel" />
+            ))}
           </div>
         ) : overlay === 'sliced_square' ? (
           <div
@@ -297,6 +381,7 @@ export function AvGeometryOverlayShape({
                   height: '70%',
                   transform: 'translateX(-50%)',
                   aspectRatio: '1 / 1',
+                  ...(overlay === 'heart' ? { clipPath: heartClipPath() } : {}),
                 }}
           />
         )}

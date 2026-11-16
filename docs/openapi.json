@@ -2321,6 +2321,17 @@
           "balance_slide_lines": {
             "type": "boolean"
           },
+          "font_family": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RoomAvFontFamily",
+                "description": "Optional for compatibility with saved configurations that predate font selection."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "font_size": {
             "format": "int32",
             "minimum": 0,
@@ -2371,6 +2382,19 @@
         ],
         "type": "object"
       },
+      "RoomAvFontFamily": {
+        "enum": [
+          "rubik",
+          "arial",
+          "verdana",
+          "trebuchet_ms",
+          "tahoma",
+          "georgia",
+          "palatino",
+          "garamond"
+        ],
+        "type": "string"
+      },
       "RoomAvGeometryOverlay": {
         "enum": [
           "none",
@@ -2378,13 +2402,15 @@
           "inverted_cross",
           "sliced_square",
           "sliced_rectangle",
+          "sliced_rectangle_three",
           "circle",
           "square",
           "rectangle",
           "triangle",
           "inverted_triangle",
           "diamond",
-          "heart"
+          "heart",
+          "gospel"
         ],
         "type": "string"
       },

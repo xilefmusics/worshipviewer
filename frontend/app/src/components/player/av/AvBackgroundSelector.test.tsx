@@ -216,10 +216,10 @@ describe('AvBackgroundSelector', () => {
       name: 'settings.playerRoles.background.default',
     })
     const customBackground = await screen.findByRole('radio', { name: 'Sunset' })
-    for (const label of ['InvertedCross', 'SlicedSquare', 'SlicedRectangle', 'Circle', 'Square', 'Rectangle', 'Triangle', 'InvertedTriangle', 'Diamond', 'Heart']) {
+    for (const label of ['InvertedCross', 'SlicedSquare', 'SlicedRectangle', 'SlicedRectangleThree', 'Circle', 'Square', 'Rectangle', 'Triangle', 'InvertedTriangle', 'Diamond', 'Heart', 'Gospel']) {
       expect(screen.getByRole('radio', { name: `player.av.geometryOverlay${label}` })).toHaveAttribute('aria-checked', 'false')
     }
-    expect(screen.getAllByRole('radio', { name: /player\.av\.geometryOverlay/ })).toHaveLength(12)
+    expect(screen.getAllByRole('radio', { name: /player\.av\.geometryOverlay/ })).toHaveLength(14)
     expect(within(defaultBackground).getByTestId('background-preview-2')).toHaveAttribute('data-overlay', 'none')
     expect(within(customBackground).getByTestId('background-preview-2')).toHaveAttribute('data-overlay', 'none')
 

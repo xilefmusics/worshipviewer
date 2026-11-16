@@ -37,6 +37,7 @@ function sameAvConfiguration(a: RoomAvConfiguration, b: RoomAvConfiguration): bo
   return a.content_layer.max_lines_per_slide === b.content_layer.max_lines_per_slide &&
     a.content_layer.balance_slide_lines === b.content_layer.balance_slide_lines &&
     a.content_layer.font_size === b.content_layer.font_size &&
+    (a.content_layer.font_family ?? 'rubik') === (b.content_layer.font_family ?? 'rubik') &&
     a.content_layer.text_align === b.content_layer.text_align &&
     a.content_layer.vertical_align === b.content_layer.vertical_align &&
     a.content_layer.horizontal_align === b.content_layer.horizontal_align &&
@@ -107,6 +108,8 @@ function validRoomAvConfiguration(configuration: RoomAvConfiguration, songCount:
   return Number.isSafeInteger(content.max_lines_per_slide) && content.max_lines_per_slide >= 1 && content.max_lines_per_slide <= 10 &&
     typeof content.balance_slide_lines === 'boolean' &&
     Number.isSafeInteger(content.font_size) && content.font_size >= 20 && content.font_size <= 120 &&
+    (content.font_family == null ||
+      ['rubik', 'arial', 'verdana', 'trebuchet_ms', 'tahoma', 'georgia', 'palatino', 'garamond'].includes(content.font_family)) &&
     ['left', 'center', 'right'].includes(content.text_align) &&
     ['top', 'cross_center', 'center', 'bottom'].includes(content.vertical_align) &&
     ['left', 'center', 'right'].includes(content.horizontal_align) &&
@@ -120,7 +123,7 @@ function validRoomAvConfiguration(configuration: RoomAvConfiguration, songCount:
     typeof configuration.collapse_lyric_whitespace === 'boolean' &&
     ['live', 'blank', 'blackout'].includes(configuration.screen_state) &&
     (configuration.geometry_overlay == null ||
-      ['none', 'cross', 'inverted_cross', 'sliced_square', 'sliced_rectangle', 'circle', 'square', 'rectangle', 'triangle', 'inverted_triangle', 'diamond', 'heart'].includes(configuration.geometry_overlay)) &&
+      ['none', 'cross', 'inverted_cross', 'sliced_square', 'sliced_rectangle', 'sliced_rectangle_three', 'circle', 'square', 'rectangle', 'triangle', 'inverted_triangle', 'diamond', 'heart', 'gospel'].includes(configuration.geometry_overlay)) &&
     (configuration.geometry_overlay_grayscale == null || typeof configuration.geometry_overlay_grayscale === 'boolean') &&
     (configuration.geometry_overlay_transparency == null ||
       (Number.isSafeInteger(configuration.geometry_overlay_transparency) && configuration.geometry_overlay_transparency >= 0 && configuration.geometry_overlay_transparency <= 100)) &&

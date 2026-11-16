@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import {
+  AV_FONT_FAMILY_CHOICES,
   type AvContentLayer,
   type AvTextAlign,
   type AvTextShadow,
@@ -121,6 +122,24 @@ export function AvForegroundSelector({
             onChange={onBilingualChange}
           />
         </div>
+        <div className="av-foreground-selector__settings">
+          <SteppedSlider
+            title={t('settings.playerRoles.content.textAlignTitle')}
+            choices={TEXT_ALIGN_CHOICES.map((choice) => ({ ...choice, label: t(choice.label) }))}
+            value={contentLayer.textAlign}
+            onChange={(textAlign) => onContentLayerChange({ textAlign })}
+            orientation="horizontal"
+          />
+          <SteppedSlider
+            title={t('settings.playerRoles.content.verticalAlignTitle')}
+            choices={VERTICAL_ALIGN_CHOICES.map((choice) => ({
+              ...choice,
+              label: t(choice.label),
+            }))}
+            value={contentLayer.verticalAlign}
+            onChange={(verticalAlign) => onContentLayerChange({ verticalAlign })}
+          />
+        </div>
       </section>
 
       <section
@@ -176,26 +195,44 @@ export function AvForegroundSelector({
 
       <section
         className="av-foreground-selector__section"
-        aria-label={t('player.av.foregroundAlignment')}
+        aria-label={t('player.av.foregroundTypeface')}
       >
-        <h3 className="av-geometry-selector-panel__title">{t('player.av.foregroundAlignment')}</h3>
-        <div className="av-foreground-selector__settings">
-          <SteppedSlider
-            title={t('settings.playerRoles.content.textAlignTitle')}
-            choices={TEXT_ALIGN_CHOICES.map((choice) => ({ ...choice, label: t(choice.label) }))}
-            value={contentLayer.textAlign}
-            onChange={(textAlign) => onContentLayerChange({ textAlign })}
-            orientation="horizontal"
-          />
-          <SteppedSlider
-            title={t('settings.playerRoles.content.verticalAlignTitle')}
-            choices={VERTICAL_ALIGN_CHOICES.map((choice) => ({
-              ...choice,
-              label: t(choice.label),
-            }))}
-            value={contentLayer.verticalAlign}
-            onChange={(verticalAlign) => onContentLayerChange({ verticalAlign })}
-          />
+        <h3 className="av-geometry-selector-panel__title">
+          {t('player.av.foregroundTypeface')}
+        </h3>
+        <div
+          className="av-foreground-selector__font-options"
+          role="radiogroup"
+          aria-label={t('settings.playerRoles.content.fontFamily')}
+        >
+          {AV_FONT_FAMILY_CHOICES.map((choice) => (
+            <label
+              key={choice.value}
+              className={cn(
+                'av-foreground-selector__font-choice',
+                (contentLayer.fontFamily ?? 'rubik') === choice.value &&
+                  'av-foreground-selector__font-choice--selected',
+              )}
+            >
+              <input
+                type="radio"
+                name="av-font-family"
+                value={choice.value}
+                checked={(contentLayer.fontFamily ?? 'rubik') === choice.value}
+                aria-label={t('settings.playerRoles.content.fontFamilyOption', {
+                  font: choice.label,
+                })}
+                onChange={() => onContentLayerChange({ fontFamily: choice.value })}
+              />
+              <span
+                className="av-foreground-selector__font-sample"
+                style={{ fontFamily: choice.css }}
+              >
+                {t('player.av.fontSample')}
+              </span>
+              <span className="av-foreground-selector__font-name">{choice.label}</span>
+            </label>
+          ))}
         </div>
       </section>
     </div>

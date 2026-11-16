@@ -1865,6 +1865,7 @@ export interface components {
         };
         RoomAvContentLayer: {
             balance_slide_lines: boolean;
+            font_family?: components["schemas"]["RoomAvFontFamily"] | null;
             /** Format: int32 */
             font_size: number;
             horizontal_align: components["schemas"]["RoomAvHorizontalAlign"];
@@ -1880,7 +1881,9 @@ export interface components {
             vertical_align: components["schemas"]["RoomAvVerticalAlign"];
         };
         /** @enum {string} */
-        RoomAvGeometryOverlay: "none" | "cross" | "inverted_cross" | "sliced_square" | "sliced_rectangle" | "circle" | "square" | "rectangle" | "triangle" | "inverted_triangle" | "diamond" | "heart";
+        RoomAvFontFamily: "rubik" | "arial" | "verdana" | "trebuchet_ms" | "tahoma" | "georgia" | "palatino" | "garamond";
+        /** @enum {string} */
+        RoomAvGeometryOverlay: "none" | "cross" | "inverted_cross" | "sliced_square" | "sliced_rectangle" | "sliced_rectangle_three" | "circle" | "square" | "rectangle" | "triangle" | "inverted_triangle" | "diamond" | "heart" | "gospel";
         /** @enum {string} */
         RoomAvHorizontalAlign: "left" | "center" | "right";
         /** @enum {string} */

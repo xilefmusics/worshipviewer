@@ -7,12 +7,28 @@ export type AvVerticalAlign = 'top' | 'cross_center' | 'center' | 'bottom'
 export type AvHorizontalAlign = 'left' | 'center' | 'right'
 export type AvTextShadow = 'none' | 'subtle' | 'medium' | 'strong'
 export type AvTextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize'
+export const AV_FONT_FAMILY_CHOICES = [
+  { value: 'rubik', label: 'Rubik', css: "'Rubik', ui-sans-serif, system-ui, sans-serif" },
+  { value: 'arial', label: 'Arial', css: 'Arial, Helvetica, sans-serif' },
+  { value: 'verdana', label: 'Verdana', css: 'Verdana, Geneva, sans-serif' },
+  { value: 'trebuchet_ms', label: 'Trebuchet MS', css: "'Trebuchet MS', sans-serif" },
+  { value: 'tahoma', label: 'Tahoma', css: 'Tahoma, Geneva, sans-serif' },
+  { value: 'georgia', label: 'Georgia', css: 'Georgia, serif' },
+  {
+    value: 'palatino',
+    label: 'Palatino',
+    css: "'Palatino Linotype', 'Book Antiqua', Palatino, serif",
+  },
+  { value: 'garamond', label: 'Garamond', css: 'Garamond, Baskerville, "Times New Roman", serif' },
+] as const
+export type AvFontFamily = typeof AV_FONT_FAMILY_CHOICES[number]['value']
 export type AvGeometryOverlay =
   | 'none'
   | 'cross'
   | 'inverted_cross'
   | 'sliced_square'
   | 'sliced_rectangle'
+  | 'sliced_rectangle_three'
   | 'circle'
   | 'square'
   | 'rectangle'
@@ -20,6 +36,7 @@ export type AvGeometryOverlay =
   | 'inverted_triangle'
   | 'diamond'
   | 'heart'
+  | 'gospel'
 /** Preset IDs retained for saved preference compatibility; Ray (2) is the only built-in choice. */
 export type AvBackgroundPreset = 0 | 1 | 2 | 3 | 4
 export type AvTransitionStyle = 'none' | 'fade' | 'slide'
@@ -34,6 +51,7 @@ export type AvContentLayer = {
   maxLinesPerSlide: number
   balanceSlideLines: boolean
   fontSize: number
+  fontFamily?: AvFontFamily
   textAlign: AvTextAlign
   verticalAlign: AvVerticalAlign
   horizontalAlign: AvHorizontalAlign
@@ -93,6 +111,7 @@ export const DEFAULT_AV_PREFERENCES: AvPreferences = {
     maxLinesPerSlide: 2,
     balanceSlideLines: true,
     fontSize: 60,
+    fontFamily: 'rubik',
     textAlign: 'center',
     verticalAlign: 'center',
     horizontalAlign: 'center',
@@ -139,7 +158,7 @@ function parseEnum<T extends string>(
 export function normalizeAvGeometryOverlay(value: unknown): AvGeometryOverlay {
   return parseEnum(
     value,
-    ['none', 'cross', 'inverted_cross', 'sliced_square', 'sliced_rectangle', 'circle', 'square', 'rectangle', 'triangle', 'inverted_triangle', 'diamond', 'heart'],
+    ['none', 'cross', 'inverted_cross', 'sliced_square', 'sliced_rectangle', 'sliced_rectangle_three', 'circle', 'square', 'rectangle', 'triangle', 'inverted_triangle', 'diamond', 'heart', 'gospel'],
     DEFAULT_AV_PREFERENCES.geometryOverlay,
   )
 }
@@ -156,6 +175,11 @@ function mergeContentLayer(raw: Partial<AvContentLayer> | undefined): AvContentL
     maxLinesPerSlide: clampNumber(raw?.maxLinesPerSlide, defaults.maxLinesPerSlide, 1, 10),
     balanceSlideLines: raw?.balanceSlideLines ?? defaults.balanceSlideLines,
     fontSize: clampNumber(raw?.fontSize, defaults.fontSize, 20, 120),
+    fontFamily: parseEnum(
+      raw?.fontFamily,
+      AV_FONT_FAMILY_CHOICES.map((choice) => choice.value),
+      defaults.fontFamily ?? 'rubik',
+    ),
     textAlign: parseEnum(raw?.textAlign, ['left', 'center', 'right'], defaults.textAlign),
     verticalAlign: parseEnum(
       raw?.verticalAlign,

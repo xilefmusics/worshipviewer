@@ -234,10 +234,10 @@ impl MessageRoomLive {
 mod tests {
     use super::*;
     use shared::room_message::{
-        RoomAvConfiguration, RoomAvContentLayer, RoomAvGeometryOverlay, RoomAvHorizontalAlign,
-        RoomAvScreenState, RoomAvTextAlign, RoomAvTextShadow, RoomAvTextTransform,
-        RoomAvTransition, RoomAvTransitionStyle, RoomAvVerticalAlign, RoomBackground,
-        RoomBackgroundImage,
+        RoomAvConfiguration, RoomAvContentLayer, RoomAvFontFamily, RoomAvGeometryOverlay,
+        RoomAvHorizontalAlign, RoomAvScreenState, RoomAvTextAlign, RoomAvTextShadow,
+        RoomAvTextTransform, RoomAvTransition, RoomAvTransitionStyle, RoomAvVerticalAlign,
+        RoomBackground, RoomBackgroundImage,
     };
     use tokio::sync::Semaphore;
 
@@ -267,6 +267,7 @@ mod tests {
                 max_lines_per_slide: 4,
                 balance_slide_lines: true,
                 font_size: 50,
+                font_family: Some(RoomAvFontFamily::Rubik),
                 text_align: RoomAvTextAlign::Center,
                 vertical_align: RoomAvVerticalAlign::Center,
                 horizontal_align: RoomAvHorizontalAlign::Center,

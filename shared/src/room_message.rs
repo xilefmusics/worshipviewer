@@ -119,6 +119,20 @@ pub enum RoomAvTextTransform {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 #[serde(rename_all = "snake_case")]
+pub enum RoomAvFontFamily {
+    Rubik,
+    Arial,
+    Verdana,
+    TrebuchetMs,
+    Tahoma,
+    Georgia,
+    Palatino,
+    Garamond,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[serde(rename_all = "snake_case")]
 pub enum RoomAvTransitionStyle {
     None,
     Fade,
@@ -143,6 +157,7 @@ pub enum RoomAvGeometryOverlay {
     InvertedCross,
     SlicedSquare,
     SlicedRectangle,
+    SlicedRectangleThree,
     Circle,
     Square,
     Rectangle,
@@ -150,6 +165,7 @@ pub enum RoomAvGeometryOverlay {
     InvertedTriangle,
     Diamond,
     Heart,
+    Gospel,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -158,6 +174,9 @@ pub struct RoomAvContentLayer {
     pub max_lines_per_slide: u8,
     pub balance_slide_lines: bool,
     pub font_size: u8,
+    /// Optional for compatibility with saved configurations that predate font selection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font_family: Option<RoomAvFontFamily>,
     pub text_align: RoomAvTextAlign,
     pub vertical_align: RoomAvVerticalAlign,
     pub horizontal_align: RoomAvHorizontalAlign,
@@ -530,6 +549,7 @@ mod tests {
                 max_lines_per_slide: 4,
                 balance_slide_lines: true,
                 font_size: 50,
+                font_family: Some(RoomAvFontFamily::Rubik),
                 text_align: RoomAvTextAlign::Center,
                 vertical_align: RoomAvVerticalAlign::Center,
                 horizontal_align: RoomAvHorizontalAlign::Center,

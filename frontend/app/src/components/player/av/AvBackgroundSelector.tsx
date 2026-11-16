@@ -25,6 +25,7 @@ const GEOMETRY_OVERLAYS = [
   'inverted_cross',
   'sliced_square',
   'sliced_rectangle',
+  'sliced_rectangle_three',
   'circle',
   'square',
   'rectangle',
@@ -32,12 +33,15 @@ const GEOMETRY_OVERLAYS = [
   'inverted_triangle',
   'diamond',
   'heart',
+  'gospel',
 ] as const
 const GEOMETRY_OVERLAY_LABEL_OVERRIDES: Partial<Record<Exclude<AvGeometryOverlay, 'none'>, string>> = {
   inverted_cross: 'InvertedCross',
   sliced_square: 'SlicedSquare',
   sliced_rectangle: 'SlicedRectangle',
+  sliced_rectangle_three: 'SlicedRectangleThree',
   inverted_triangle: 'InvertedTriangle',
+  gospel: 'Gospel',
 }
 
 type AvBackgroundSelectorProps = {
@@ -151,7 +155,7 @@ export function AvBackgroundSelector({
   const selectedOverlayLabel = onSelectGeometryOverlay && geometryOverlay !== 'none'
     ? t(`player.av.geometryOverlay${geometryOverlayLabel(geometryOverlay)}`)
     : null
-  const rotatedBackgroundActive = geometryOverlayRotatedBackground && (
+  const rotatedBackgroundActive = geometryOverlay !== 'gospel' && geometryOverlayRotatedBackground && (
     Boolean(backgroundLayer.image || backgroundLayer.video) || backgroundLayer.preset === 2
   )
   return (
@@ -418,7 +422,7 @@ export function AvBackgroundSelector({
                     {t('player.av.geometryOverlaySettings')}
                   </span>
                   <div className="av-geometry-selector__settings-sliders">
-                    {onSelectGeometryOverlayRotatedBackground ? (
+                    {onSelectGeometryOverlayRotatedBackground && geometryOverlay !== 'gospel' ? (
                       <div className="av-geometry-selector__setting av-geometry-selector__setting--fill">
                         <span className="av-geometry-selector__fill-title">
                           {t('player.av.geometryOverlayFill')}
@@ -503,7 +507,7 @@ export function AvBackgroundSelector({
                         step={1}
                         value={geometryOverlayColor}
                         aria-label={t('player.av.geometryOverlayColor')}
-                        disabled={rotatedBackgroundActive}
+                        disabled={rotatedBackgroundActive || geometryOverlay === 'gospel'}
                         onChange={(event) => onSelectGeometryOverlayColor(Number(event.currentTarget.value))}
                       />
                     </label>
@@ -540,7 +544,8 @@ export function AvBackgroundSelector({
                           geometryOverlay !== 'cross' &&
                           geometryOverlay !== 'inverted_cross' &&
                           geometryOverlay !== 'sliced_square' &&
-                          geometryOverlay !== 'sliced_rectangle'
+                          geometryOverlay !== 'sliced_rectangle' &&
+                          geometryOverlay !== 'sliced_rectangle_three'
                         }
                         onChange={(event) => onSelectGeometryOverlayThickness(Number(event.currentTarget.value))}
                       />

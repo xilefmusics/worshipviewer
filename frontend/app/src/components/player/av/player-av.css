@@ -377,6 +377,26 @@
   container-type: size;
 }
 
+.av-geometry-overlay__gospel-symbols {
+  position: absolute;
+  top: 50%;
+  left: 20%;
+  display: grid;
+  width: 60%;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: center;
+  transform: translateY(-50%);
+}
+
+.av-geometry-overlay__gospel-symbol {
+  color: rgb(0 0 0 / var(--av-geometry-overlay-opacity, 0.77));
+  font-family: Arial, sans-serif;
+  font-size: 28cqh;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
 .av-geometry-overlay__cross-shape {
   inset: 0;
   clip-path: polygon(
@@ -445,6 +465,10 @@
   justify-content: space-between;
 }
 
+.av-geometry-overlay__sliced-rectangle--three {
+  grid-template-columns: repeat(3, var(--av-geometry-overlay-slice-width, 20.5%));
+}
+
 .av-geometry-overlay__sliced-rectangle-panel {
   position: relative;
   top: auto;
@@ -469,31 +493,6 @@
 
 .av-geometry-overlay__shape--diamond {
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-}
-
-.av-geometry-overlay__shape--heart {
-  clip-path: polygon(
-    50% 100%,
-    12% 63%,
-    3% 52%,
-    0 40%,
-    0 26%,
-    5% 13%,
-    14% 5%,
-    25% 2%,
-    36% 4%,
-    44% 11%,
-    50% 21%,
-    56% 11%,
-    64% 4%,
-    75% 2%,
-    86% 5%,
-    95% 13%,
-    100% 26%,
-    100% 40%,
-    97% 52%,
-    88% 63%
-  );
 }
 
 .av-background-layer__image {
@@ -940,6 +939,75 @@
   padding-bottom: 0.25rem;
 }
 
+.av-foreground-selector__font-options {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 0.375rem;
+  padding-bottom: 0.25rem;
+}
+
+.av-foreground-selector__font-choice {
+  position: relative;
+  display: flex;
+  min-width: 7.25rem;
+  min-height: 3.5rem;
+  flex: 0 0 7.25rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  background: var(--color-bg);
+  padding: 0.375rem;
+  color: var(--color-foreground);
+  text-align: center;
+  cursor: pointer;
+}
+
+.av-foreground-selector__font-choice:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
+}
+
+.av-foreground-selector__font-choice:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.av-foreground-selector__font-choice--selected {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-bg));
+}
+
+.av-foreground-selector__font-choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.av-foreground-selector__font-sample,
+.av-foreground-selector__font-name {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.av-foreground-selector__font-sample {
+  font-size: 0.875rem;
+}
+
+.av-foreground-selector__font-name {
+  color: var(--color-muted-foreground);
+  font-size: 0.6875rem;
+}
+
 .av-foreground-selector .av-foreground-selector__setting {
   min-height: 5rem;
   padding: 0.375rem 0.5rem;
@@ -1090,6 +1158,10 @@
   backdrop-filter: none;
 }
 
+.av-slide-view--background-thumb .av-geometry-overlay__gospel-symbol {
+  color: var(--color-muted-foreground);
+}
+
 .av-geometry-selector__preview .av-geometry-overlay__cross-shape,
 .av-geometry-selector__preview .av-geometry-overlay__inverted-cross-panel,
 .av-geometry-selector__preview .av-geometry-overlay__sliced-square-panel,
@@ -1098,6 +1170,10 @@
   background: var(--color-muted-foreground);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+}
+
+.av-geometry-selector__preview .av-geometry-overlay__gospel-symbol {
+  color: var(--color-muted-foreground);
 }
 
 .av-geometry-selector__settings {

@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 
 import {
+  AV_FONT_FAMILY_CHOICES,
   AV_TEXT_SHADOW_LIGHT_THRESHOLD,
   DEFAULT_AV_PREFERENCES,
   resolveAvTextLightness,
@@ -47,8 +48,12 @@ function renderLine(
     ],
     fallbackLightness,
   )
+  const fontFamily = AV_FONT_FAMILY_CHOICES.find(
+    (choice) => choice.value === (contentLayer.fontFamily ?? 'rubik'),
+  )?.css ?? AV_FONT_FAMILY_CHOICES[0].css
   const lineStyle: AvLineStyle = {
     '--av-text-lightness': `${lightness}%`,
+    fontFamily,
     ...(compact
       ? {}
       : {
