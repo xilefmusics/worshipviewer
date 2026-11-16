@@ -1219,6 +1219,7 @@
       "summaryFailed_other": "{{count}} files could not be imported.",
       "failedItem": "{{name}}: {{error}}",
       "failed": "Import failed.",
+      "clipboardTooLarge": "Clipboard song source must be 2 MB or smaller.",
       "offlineHint": "Import requires an internet connection."
     }
   },

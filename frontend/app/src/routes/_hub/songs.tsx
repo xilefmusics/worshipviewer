@@ -6,6 +6,7 @@ import { fetchTeamsPage } from '@/api/teams-sessions-fetch'
 import { CcliPdfImportSheet } from '@/components/songs/CcliPdfImportSheet'
 import { CreateSongDialog } from '@/components/songs/CreateSongDialog'
 import { ImportSongsDialog } from '@/components/songs/ImportSongsDialog'
+import { SongClipboardImport } from '@/components/songs/SongClipboardImport'
 import { SongCreateChooserSheet } from '@/components/songs/SongCreateChooserSheet'
 import { UltimateGuitarImportSheet } from '@/components/songs/UltimateGuitarImportSheet'
 import { EntityListView } from '@/components/hub/EntityListView'
@@ -67,6 +68,15 @@ function SongsRoute() {
 
   return (
     <>
+      <SongClipboardImport
+        onImported={(id) => {
+          void navigate({
+            to: '/songs/$songId',
+            params: { songId: id },
+            search: emptyEditorReturnSearch(),
+          })
+        }}
+      />
       <EntityListView entity="songs" />
       <SongCreateChooserSheet
         open={chooserOpen}
