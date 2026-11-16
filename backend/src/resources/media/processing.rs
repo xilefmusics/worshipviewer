@@ -385,7 +385,7 @@ impl MediaProcessingHandle {
                 "staged upload does not match media",
             ));
         }
-        let staging_path = self.asset_svc.staging_path(operation_id);
+        let staging_path = self.asset_svc.staging_path(operation_id)?;
         if thumbnail {
             if replace_page_id.is_some() {
                 return Err(AppError::invalid_request(

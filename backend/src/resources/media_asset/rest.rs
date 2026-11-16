@@ -174,7 +174,7 @@ async fn complete_upload_session(
     for source_index in 0..state.sources.len() {
         let stored_path = svc
             .storage
-            .upload_session_source_path(&state.id, source_index);
+            .upload_session_source_path(&state.id, source_index)?;
         let stored_length = tokio::fs::metadata(&stored_path)
             .await
             .map_err(|e| AppError::internal_from_err("media.upload_session.stat", e))?

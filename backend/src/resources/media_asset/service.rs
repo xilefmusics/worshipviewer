@@ -650,7 +650,7 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
         self.repo.get_staging_by_operation(operation_id).await
     }
 
-    pub fn staging_path(&self, operation_id: &str) -> std::path::PathBuf {
+    pub fn staging_path(&self, operation_id: &str) -> Result<std::path::PathBuf, AppError> {
         self.storage.staging_path(operation_id)
     }
 
@@ -1013,7 +1013,7 @@ mod tests {
             .unwrap();
 
         let operation_id = uuid::Uuid::new_v4().to_string();
-        let staging_path = asset_svc.storage.staging_path(&operation_id);
+        let staging_path = asset_svc.storage.staging_path(&operation_id).unwrap();
         std::fs::create_dir_all(staging_path.parent().unwrap()).unwrap();
         std::fs::write(&staging_path, b"testdata").unwrap();
         let etag = crate::http_range::etag_from_file_bytes(b"testdata");
