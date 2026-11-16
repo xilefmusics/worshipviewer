@@ -159,7 +159,7 @@ type PlayerAvProps = {
   sharedSelection?: { song: number; section: number; slide: number } | null
   onSharedSelectionChange?: (song: number, section: number, slide: number, activate: boolean) => void
   sharedBackgroundLayer?: AvBackgroundLayer | null
-  onSharedBackgroundChange?: (background: AvBackgroundLayer) => void
+  onSharedBackgroundChange?: (background: AvBackgroundLayer) => boolean | void
   sharedAvConfiguration?: RoomAvConfiguration | null
   onSharedAvConfigurationChange?: (configuration: RoomAvConfiguration) => boolean | void
   roomConnectionStatus?: string
@@ -298,6 +298,10 @@ export function PlayerAv({
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const bilingualEnabled = useAvBilingualPreference()
   const [prefs, setPrefs] = useState<AvPreferences>(() => readAvPreferences())
+  const pendingRoomBackgroundRef = useRef<{
+    playerId: string
+    background: AvBackgroundLayer
+  } | null>(null)
   const playerBackgroundLayer = sharedBackgroundLayer ?? prefs.backgroundLayer
   const [viewState, setViewState] = useState<PlayerViewState>(() => readPlayerViewState(type, id))
   const [session, setSession] = useState<AvSessionState>(() => {
@@ -461,9 +465,43 @@ export function PlayerAv({
       lastPublishedRoomConfigurationRef.current = serialized
     }
   }, [currentRoomAvConfiguration, onSharedAvConfigurationChange, roomConnectionStatus, slideOnly])
+
+  const publishRoomBackground = useCallback((background: AvBackgroundLayer) => {
+    if (!onSharedBackgroundChange) return
+    if (onSharedBackgroundChange(background) === false) {
+      pendingRoomBackgroundRef.current = { playerId: id, background }
+    } else {
+      pendingRoomBackgroundRef.current = null
+    }
+  }, [id, onSharedBackgroundChange])
+
   useEffect(() => {
-    if (!slideOnly && !sharedBackgroundLayer) onSharedBackgroundChange?.(prefs.backgroundLayer)
-  }, [onSharedBackgroundChange, prefs.backgroundLayer, sharedBackgroundLayer, slideOnly])
+    if (
+      slideOnly ||
+      !onSharedBackgroundChange ||
+      (roomConnectionStatus != null && roomConnectionStatus !== 'connected')
+    ) return
+
+    const pending = pendingRoomBackgroundRef.current
+    if (pending) {
+      if (pending.playerId !== id) {
+        pendingRoomBackgroundRef.current = null
+      } else {
+        publishRoomBackground(pending.background)
+        return
+      }
+    }
+
+    if (!sharedBackgroundLayer) publishRoomBackground(prefs.backgroundLayer)
+  }, [
+    id,
+    onSharedBackgroundChange,
+    prefs.backgroundLayer,
+    publishRoomBackground,
+    roomConnectionStatus,
+    sharedBackgroundLayer,
+    slideOnly,
+  ])
 
   const currentPlayerItem = player.items[session.itemIndex]
   const projectedPlayerItem = player.items[projected.itemIndex]
@@ -886,7 +924,7 @@ export function PlayerAv({
 
   const setBackgroundPreset = useCallback((preset: AvBackgroundPreset) => {
     if (onSharedBackgroundChange) {
-      onSharedBackgroundChange({ preset })
+      publishRoomBackground({ preset })
       return
     }
     setPrefs((prev) => {
@@ -894,7 +932,7 @@ export function PlayerAv({
       writeAvPreferences(next)
       return next
     })
-  }, [onSharedBackgroundChange])
+  }, [onSharedBackgroundChange, publishRoomBackground])
 
   const setContentLayer = useCallback((partial: Partial<AvContentLayer>) => {
     setPrefs((prev) => {
@@ -920,7 +958,7 @@ export function PlayerAv({
           },
         }
     if (onSharedBackgroundChange) {
-      onSharedBackgroundChange(nextBackground)
+      publishRoomBackground(nextBackground)
       return
     }
     setPrefs((prev) => {
@@ -928,7 +966,7 @@ export function PlayerAv({
       writeAvPreferences(next)
       return next
     })
-  }, [onSharedBackgroundChange, playerBackgroundLayer.preset])
+  }, [onSharedBackgroundChange, playerBackgroundLayer.preset, publishRoomBackground])
 
   const setGeometryOverlay = useCallback((geometryOverlay: AvGeometryOverlay) => {
     setPrefs((prev) => {

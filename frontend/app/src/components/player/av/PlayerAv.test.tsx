@@ -178,11 +178,13 @@ vi.mock('@/components/player/av/AvSlidesPanel', () => ({
     entries,
     currentSlideIndex,
     onSelectSlide,
+    onSelectBackgroundPreset,
     foregroundSettings,
   }: {
     entries: Array<{ text: string; slideIndex: number }>
     currentSlideIndex: number | null
     onSelectSlide: (slideIndex: number) => void
+    onSelectBackgroundPreset?: (preset: number) => void
     foregroundSettings?: {
       contentLayer: { fontSize: number; maxLinesPerSlide: number }
       onContentLayerChange: (partial: { fontSize?: number; maxLinesPerSlide?: number }) => void
@@ -191,6 +193,11 @@ vi.mock('@/components/player/av/AvSlidesPanel', () => ({
     <div>
       <div data-testid="slide-entry-texts">{entries.map((entry) => entry.text).join('|')}</div>
       <div data-testid="selected-slide-index">{String(currentSlideIndex)}</div>
+      {onSelectBackgroundPreset ? (
+        <button type="button" onClick={() => onSelectBackgroundPreset(4)}>
+          Set shared background 4
+        </button>
+      ) : null}
       {foregroundSettings ? (
         <>
           <div data-testid="foreground-font-size">{foregroundSettings.contentLayer.fontSize}</div>
@@ -382,6 +389,34 @@ beforeEach(() => {
 })
 
 describe('PlayerAv', () => {
+  it('retries a shared background change after the room reconnects', async () => {
+    const user = userEvent.setup()
+    const onSharedBackgroundChange = vi.fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValue(true)
+    const props = {
+      type: 'setlist' as const,
+      id: 'setlist-1',
+      player,
+      allowNetworkFetch: false,
+      sharedBackgroundLayer: null,
+      onSharedBackgroundChange,
+      roomConnectionStatus: 'reconnecting',
+    }
+    const { rerender } = render(<PlayerAv {...props} />)
+
+    await user.click(screen.getByRole('button', { name: 'Set shared background 4' }))
+
+    expect(onSharedBackgroundChange).toHaveBeenCalledExactlyOnceWith({ preset: 4 })
+
+    rerender(<PlayerAv {...props} roomConnectionStatus="connected" />)
+
+    await waitFor(() => {
+      expect(onSharedBackgroundChange).toHaveBeenCalledTimes(2)
+    })
+    expect(onSharedBackgroundChange).toHaveBeenLastCalledWith({ preset: 4 })
+  })
+
   it('applies foreground changes to saved AV preferences and projected output', async () => {
     const user = userEvent.setup()
     render(
