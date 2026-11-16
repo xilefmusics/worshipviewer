@@ -4007,6 +4007,80 @@ mod media_asset_http {
         );
     }
 
+    #[cfg(target_os = "linux")]
+    #[actix_web::test]
+    async fn upload_session_completes_when_staging_is_on_another_filesystem() {
+        use std::os::unix::fs::MetadataExt;
+
+        let staging_root = std::path::Path::new("/dev/shm");
+        if !staging_root.is_dir()
+            || std::fs::metadata(staging_root).unwrap().dev()
+                == std::fs::metadata(std::env::temp_dir()).unwrap().dev()
+        {
+            eprintln!("Skipping cross-filesystem upload test: no separate /dev/shm filesystem");
+            return;
+        }
+
+        let storage_dir = tempfile::Builder::new()
+            .prefix("worshipviewer_media_cross_device_")
+            .tempdir_in(staging_root)
+            .unwrap();
+        let settings = Settings {
+            media_staging_dir: storage_dir
+                .path()
+                .join("staging")
+                .to_string_lossy()
+                .into_owned(),
+            media_final_dir: storage_dir
+                .path()
+                .join("final")
+                .to_string_lossy()
+                .into_owned(),
+            ..Settings::default()
+        };
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let app = test::init_service(build_app_with_api_limits(db, 50, 200, Some(settings))).await;
+
+        let audio = b"cross-filesystem audio";
+        let response = chunked_upload!(
+            &app,
+            token,
+            UploadSessionTarget::Create {
+                kind: UploadedMediaKind::Audio,
+                metadata: CreateUploadedMedia {
+                    title: "Cross-filesystem audio".into(),
+                    owner: Some(fixture.shared_team_id),
+                    is_background: false,
+                },
+            },
+            vec![(audio.to_vec(), "audio/mpeg".into())],
+        );
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let media: shared::media::Media = test::read_body_json(response).await;
+        let asset_id = match media.content {
+            MediaContent::Audio { blob_id, .. } => blob_id,
+            other => panic!("expected audio, got {other:?}"),
+        };
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri(&format!(
+                    "/api/v1/media/{}/assets/{}/data",
+                    media.id, asset_id
+                ))
+                .insert_header(("Authorization", format!("Bearer {token}")))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(&test::read_body(response).await[..], audio);
+    }
+
     #[actix_web::test]
     async fn upload_session_accepts_source_larger_than_http1_request_limit_without_partial_asset() {
         use serde::Deserialize;
