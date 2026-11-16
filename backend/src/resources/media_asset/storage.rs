@@ -13,6 +13,30 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::http_range::etag_from_file_bytes;
 
+fn checked_path_in_directory(directory: &str, file_name: &str) -> Result<PathBuf, AppError> {
+    if file_name.contains("..") {
+        return Err(AppError::invalid_request(
+            "invalid media asset file identifier",
+        ));
+    }
+    if file_name.contains("/") || file_name.contains("\\") {
+        return Err(AppError::invalid_request(
+            "invalid media asset file identifier",
+        ));
+    }
+
+    let canonical_directory = Path::new(directory)
+        .canonicalize()
+        .map_err(|e| AppError::internal_from_err("media_asset.storage.canonicalize_dir", e))?;
+    let path = canonical_directory.join(file_name);
+    if !path.starts_with(&canonical_directory) {
+        return Err(AppError::invalid_request(
+            "invalid media asset file identifier",
+        ));
+    }
+    Ok(path)
+}
+
 /// Result of a completed streaming upload.
 #[derive(Debug, Clone)]
 pub struct StagingUploadResult {
@@ -121,22 +145,15 @@ impl FsMediaAssetStorage {
         source_index: usize,
     ) -> Result<PathBuf, AppError> {
         let file_name = format!("upload-session-{session_id}-{source_index}");
-        if file_name.contains("..") {
-            return Err(AppError::invalid_request(
-                "invalid media upload session file identifier",
-            ));
-        }
-        if file_name.contains("/")
-            || file_name.contains("\\")
-            || !file_name
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        if !file_name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
         {
             return Err(AppError::invalid_request(
                 "invalid media upload session file identifier",
             ));
         }
-        Ok(Path::new(&self.staging_dir).join(file_name))
+        checked_path_in_directory(&self.staging_dir, &file_name)
     }
 
     pub async fn create_upload_session_source(
@@ -252,13 +269,7 @@ impl FsMediaAssetStorage {
 
 impl MediaAssetStorage for FsMediaAssetStorage {
     fn staging_path(&self, operation_id: &str) -> Result<PathBuf, AppError> {
-        if operation_id.contains("..") {
-            return Err(AppError::invalid_request(
-                "invalid media staging file identifier",
-            ));
-        }
-        if operation_id.contains("/")
-            || operation_id.contains("\\")
+        if operation_id.is_empty()
             || !operation_id
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
@@ -267,17 +278,11 @@ impl MediaAssetStorage for FsMediaAssetStorage {
                 "invalid media staging file identifier",
             ));
         }
-        Ok(Path::new(&self.staging_dir).join(operation_id))
+        checked_path_in_directory(&self.staging_dir, operation_id)
     }
 
     fn final_path(&self, asset_id: &str) -> Result<PathBuf, AppError> {
-        if asset_id.contains("..") {
-            return Err(AppError::invalid_request(
-                "invalid media asset file identifier",
-            ));
-        }
-        if asset_id.contains("/")
-            || asset_id.contains("\\")
+        if asset_id.is_empty()
             || !asset_id
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
@@ -286,7 +291,7 @@ impl MediaAssetStorage for FsMediaAssetStorage {
                 "invalid media asset file identifier",
             ));
         }
-        Ok(Path::new(&self.final_dir).join(asset_id))
+        checked_path_in_directory(&self.final_dir, asset_id)
     }
 
     fn delete_staging_file(&self, operation_id: &str) {
@@ -439,6 +444,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let staging = dir.path().join("staging").to_string_lossy().into_owned();
         let final_dir = dir.path().join("final").to_string_lossy().into_owned();
+        std::fs::create_dir_all(&staging).unwrap();
+        std::fs::create_dir_all(&final_dir).unwrap();
         (dir, FsMediaAssetStorage::new(staging, final_dir))
     }
 

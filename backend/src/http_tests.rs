@@ -107,6 +107,10 @@ fn build_app_with_api_limits(
             ..Settings::default()
         }
     });
+    std::fs::create_dir_all(&test_settings.media_staging_dir)
+        .expect("create test media staging directory");
+    std::fs::create_dir_all(&test_settings.media_final_dir)
+        .expect("create test media final directory");
     let media_asset_limits = test_settings.media_asset_upload_limits();
     let media_asset_svc = media_asset_service(&db, &test_settings);
     let media_processing_handle = media_processing(&db, &test_settings, media_asset_svc.clone());
