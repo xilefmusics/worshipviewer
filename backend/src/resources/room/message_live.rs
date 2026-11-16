@@ -234,9 +234,10 @@ impl MessageRoomLive {
 mod tests {
     use super::*;
     use shared::room_message::{
-        RoomAvConfiguration, RoomAvContentLayer, RoomAvHorizontalAlign, RoomAvScreenState,
-        RoomAvTextAlign, RoomAvTextShadow, RoomAvTextTransform, RoomAvTransition,
-        RoomAvTransitionStyle, RoomAvVerticalAlign, RoomBackground, RoomBackgroundImage,
+        RoomAvConfiguration, RoomAvContentLayer, RoomAvFontFamily, RoomAvGeometryOverlay,
+        RoomAvHorizontalAlign, RoomAvScreenState, RoomAvTextAlign, RoomAvTextShadow,
+        RoomAvTextTransform, RoomAvTransition, RoomAvTransitionStyle, RoomAvVerticalAlign,
+        RoomBackground, RoomBackgroundImage,
     };
     use tokio::sync::Semaphore;
 
@@ -266,6 +267,7 @@ mod tests {
                 max_lines_per_slide: 4,
                 balance_slide_lines: true,
                 font_size: 50,
+                font_family: Some(RoomAvFontFamily::Rubik),
                 text_align: RoomAvTextAlign::Center,
                 vertical_align: RoomAvVerticalAlign::Center,
                 horizontal_align: RoomAvHorizontalAlign::Center,
@@ -282,6 +284,15 @@ mod tests {
             collapse_lyric_whitespace: false,
             language_by_item: std::collections::BTreeMap::from([(String::from("0"), 1)]),
             screen_state: RoomAvScreenState::Live,
+            geometry_overlay: Some(RoomAvGeometryOverlay::Cross),
+            geometry_overlay_grayscale: None,
+            geometry_overlay_transparency: None,
+            geometry_overlay_opacity: None,
+            geometry_overlay_color: None,
+            geometry_overlay_size: None,
+            geometry_overlay_thickness: None,
+            geometry_overlay_rotated_background: None,
+            geometry_overlay_rotated_video: None,
         }
     }
 

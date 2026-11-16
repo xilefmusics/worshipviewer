@@ -82,6 +82,7 @@ pub enum RoomAvTextAlign {
 #[serde(rename_all = "snake_case")]
 pub enum RoomAvVerticalAlign {
     Top,
+    CrossCenter,
     Center,
     Bottom,
 }
@@ -118,6 +119,20 @@ pub enum RoomAvTextTransform {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 #[serde(rename_all = "snake_case")]
+pub enum RoomAvFontFamily {
+    Rubik,
+    Arial,
+    Verdana,
+    TrebuchetMs,
+    Tahoma,
+    Georgia,
+    Palatino,
+    Garamond,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[serde(rename_all = "snake_case")]
 pub enum RoomAvTransitionStyle {
     None,
     Fade,
@@ -133,12 +148,35 @@ pub enum RoomAvScreenState {
     Blackout,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum RoomAvGeometryOverlay {
+    None,
+    Cross,
+    InvertedCross,
+    SlicedSquare,
+    SlicedRectangle,
+    SlicedRectangleThree,
+    Circle,
+    Square,
+    Rectangle,
+    Triangle,
+    InvertedTriangle,
+    Diamond,
+    Heart,
+    Gospel,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct RoomAvContentLayer {
     pub max_lines_per_slide: u8,
     pub balance_slide_lines: bool,
     pub font_size: u8,
+    /// Optional for compatibility with saved configurations that predate font selection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font_family: Option<RoomAvFontFamily>,
     pub text_align: RoomAvTextAlign,
     pub vertical_align: RoomAvVerticalAlign,
     pub horizontal_align: RoomAvHorizontalAlign,
@@ -156,7 +194,8 @@ pub struct RoomAvTransition {
 }
 
 /// Rendering settings shared by the AV controller with slide-only room members.
-/// Output-window preferences remain local; the room background uses its own change.
+/// Output-window preferences remain local; the background asset uses its own change,
+/// while geometry overlays are part of this shared rendering configuration.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct RoomAvConfiguration {
@@ -166,6 +205,42 @@ pub struct RoomAvConfiguration {
     pub collapse_lyric_whitespace: bool,
     pub language_by_item: BTreeMap<String, usize>,
     pub screen_state: RoomAvScreenState,
+    /// Optional for compatibility with configurations saved before geometry overlays existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub geometry_overlay: Option<RoomAvGeometryOverlay>,
+    /// Optional for compatibility with configurations saved before grayscale overlays existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub geometry_overlay_grayscale: Option<bool>,
+    /// Deprecated compatibility with the former transparency slider (0 opaque, 100 invisible).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(
+        feature = "backend",
+        schema(minimum = 0, maximum = 100, deprecated = true)
+    )]
+    pub geometry_overlay_transparency: Option<u8>,
+    /// Overlay opacity from 0 (invisible) to 100 (opaque).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "backend", schema(minimum = 0, maximum = 100))]
+    pub geometry_overlay_opacity: Option<u8>,
+    /// Color visibility from 0 (grayscale) to 100 (the previous 70%-transparent colored option).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "backend", schema(minimum = 0, maximum = 100))]
+    pub geometry_overlay_color: Option<u8>,
+    /// Overlay height as a percentage of the output height.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "backend", schema(minimum = 0, maximum = 100))]
+    pub geometry_overlay_size: Option<u8>,
+    /// Thickness from thin (0) to thick (100), defaulting to 77; applies to cross bars and sliced panels.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "backend", schema(minimum = 0, maximum = 100))]
+    pub geometry_overlay_thickness: Option<u8>,
+    /// Render the selected preset, image, or video background inside geometry overlays, rotated by 180 degrees.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub geometry_overlay_rotated_background: Option<bool>,
+    /// Deprecated alias retained for compatibility with clients that only supported video backgrounds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "backend", schema(deprecated = true))]
+    pub geometry_overlay_rotated_video: Option<bool>,
 }
 
 impl RoomAvConfiguration {
@@ -175,6 +250,17 @@ impl RoomAvConfiguration {
             && self.content_layer.primary_text_lightness <= 100
             && self.content_layer.secondary_text_lightness <= 100
             && self.transition.duration_ms <= 2000
+            && self
+                .geometry_overlay_transparency
+                .is_none_or(|value| value <= 100)
+            && self
+                .geometry_overlay_opacity
+                .is_none_or(|value| value <= 100)
+            && self.geometry_overlay_color.is_none_or(|value| value <= 100)
+            && self.geometry_overlay_size.is_none_or(|value| value <= 100)
+            && self
+                .geometry_overlay_thickness
+                .is_none_or(|value| value <= 100)
             && self.language_by_item.len() <= song_count
             && self.language_by_item.iter().all(|(song, language)| {
                 song.parse::<usize>().is_ok_and(|index| index < song_count) && *language <= 255
@@ -463,6 +549,7 @@ mod tests {
                 max_lines_per_slide: 4,
                 balance_slide_lines: true,
                 font_size: 50,
+                font_family: Some(RoomAvFontFamily::Rubik),
                 text_align: RoomAvTextAlign::Center,
                 vertical_align: RoomAvVerticalAlign::Center,
                 horizontal_align: RoomAvHorizontalAlign::Center,
@@ -479,6 +566,15 @@ mod tests {
             collapse_lyric_whitespace: false,
             language_by_item: BTreeMap::from([(String::from("0"), 1)]),
             screen_state: RoomAvScreenState::Live,
+            geometry_overlay: Some(RoomAvGeometryOverlay::Diamond),
+            geometry_overlay_grayscale: None,
+            geometry_overlay_transparency: None,
+            geometry_overlay_opacity: None,
+            geometry_overlay_color: None,
+            geometry_overlay_size: None,
+            geometry_overlay_thickness: None,
+            geometry_overlay_rotated_background: None,
+            geometry_overlay_rotated_video: None,
         }
     }
 
@@ -698,7 +794,20 @@ mod tests {
 
     #[test]
     fn replays_shared_av_configuration_and_rejects_invalid_values() {
-        let configuration = av_configuration();
+        let mut configuration = av_configuration();
+        configuration.content_layer.vertical_align = RoomAvVerticalAlign::CrossCenter;
+        configuration.geometry_overlay_rotated_background = Some(true);
+        let serialized = serde_json::to_value(&configuration).unwrap();
+        assert_eq!(
+            serialized["content_layer"]["vertical_align"],
+            "cross_center"
+        );
+        assert_eq!(serialized["geometry_overlay_rotated_background"], true);
+        assert_eq!(
+            serde_json::from_value::<RoomAvConfiguration>(serialized).unwrap(),
+            configuration
+        );
+
         let mut replay = RoomReplay::new("room".into(), vec![1]);
         replay
             .apply(message(
@@ -710,6 +819,17 @@ mod tests {
             ))
             .unwrap();
         assert_eq!(replay.av_configuration(), Some(&configuration));
+        assert_eq!(
+            replay.av_configuration().unwrap().geometry_overlay,
+            Some(RoomAvGeometryOverlay::Diamond)
+        );
+        assert_eq!(
+            replay
+                .av_configuration()
+                .unwrap()
+                .geometry_overlay_rotated_background,
+            Some(true)
+        );
 
         let mut invalid = av_configuration();
         invalid.content_layer.max_lines_per_slide = 0;
@@ -723,5 +843,39 @@ mod tests {
             )),
             Err(RoomReplayError::InvalidReference)
         );
+    }
+
+    #[test]
+    fn old_room_av_configurations_default_geometry_overlay_to_none() {
+        let mut serialized = serde_json::to_value(av_configuration()).unwrap();
+        serialized
+            .as_object_mut()
+            .unwrap()
+            .remove("geometry_overlay");
+        let configuration: RoomAvConfiguration = serde_json::from_value(serialized).unwrap();
+        assert_eq!(configuration.geometry_overlay, None);
+
+        let mut invalid = serde_json::to_value(av_configuration()).unwrap();
+        invalid["geometry_overlay"] = serde_json::Value::String("star".into());
+        assert!(serde_json::from_value::<RoomAvConfiguration>(invalid).is_err());
+
+        for overlay in [
+            "none",
+            "cross",
+            "inverted_cross",
+            "sliced_square",
+            "sliced_rectangle",
+            "circle",
+            "square",
+            "rectangle",
+            "triangle",
+            "inverted_triangle",
+            "diamond",
+            "heart",
+        ] {
+            let mut serialized = serde_json::to_value(av_configuration()).unwrap();
+            serialized["geometry_overlay"] = serde_json::Value::String(overlay.into());
+            assert!(serde_json::from_value::<RoomAvConfiguration>(serialized).is_ok());
+        }
     }
 }

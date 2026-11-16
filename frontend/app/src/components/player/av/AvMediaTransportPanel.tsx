@@ -1,12 +1,14 @@
 import { useTranslation } from 'react-i18next'
 
 import { AvBackgroundSelector } from '@/components/player/av/AvBackgroundSelector'
+import type { AvForegroundSelectorSettings } from '@/components/player/av/AvForegroundSelector'
 import { Button } from '@/components/ui/button'
 import type {
   AvBackgroundAsset,
   AvBackgroundLayer,
   AvBackgroundPreset,
   AvContentLayer,
+  AvGeometryOverlay,
 } from '@/lib/player/av-preferences'
 import {
   formatAvClock,
@@ -33,6 +35,13 @@ type AvMediaTransportPanelProps = {
   backgroundLayer: AvBackgroundLayer
   backgroundPreviewText: string
   contentLayer: AvContentLayer
+  foregroundSettings?: AvForegroundSelectorSettings
+  geometryOverlay: AvGeometryOverlay
+  geometryOverlayOpacity: number
+  geometryOverlayColor: number
+  geometryOverlaySize: number
+  geometryOverlayThickness: number
+  geometryOverlayRotatedBackground: boolean
   onPlay: () => void
   onPause: () => void
   onResume: () => void
@@ -44,6 +53,12 @@ type AvMediaTransportPanelProps = {
   onRetry: () => void
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
   onSelectBackgroundAsset: (asset: AvBackgroundAsset) => void
+  onSelectGeometryOverlay: (overlay: AvGeometryOverlay) => void
+  onSelectGeometryOverlayOpacity: (transparency: number) => void
+  onSelectGeometryOverlayColor: (color: number) => void
+  onSelectGeometryOverlaySize: (size: number) => void
+  onSelectGeometryOverlayThickness: (thickness: number) => void
+  onSelectGeometryOverlayRotatedBackground: (rotatedBackground: boolean) => void
 }
 
 function errorCopyKey(code: string | undefined): string {
@@ -76,6 +91,13 @@ export function AvMediaTransportPanel({
   backgroundLayer,
   backgroundPreviewText,
   contentLayer,
+  foregroundSettings,
+  geometryOverlay,
+  geometryOverlayOpacity,
+  geometryOverlayColor,
+  geometryOverlaySize,
+  geometryOverlayThickness,
+  geometryOverlayRotatedBackground,
   onPlay,
   onPause,
   onResume,
@@ -87,6 +109,12 @@ export function AvMediaTransportPanel({
   onRetry,
   onSelectBackgroundPreset,
   onSelectBackgroundAsset,
+  onSelectGeometryOverlay,
+  onSelectGeometryOverlayOpacity,
+  onSelectGeometryOverlayColor,
+  onSelectGeometryOverlaySize,
+  onSelectGeometryOverlayThickness,
+  onSelectGeometryOverlayRotatedBackground,
 }: AvMediaTransportPanelProps) {
   const { t } = useTranslation()
   const web = isWebPageAvKind(kind)
@@ -255,8 +283,21 @@ export function AvMediaTransportPanel({
         backgroundLayer={backgroundLayer}
         previewText={backgroundPreviewText}
         contentLayer={contentLayer}
+        foregroundSettings={foregroundSettings}
+        geometryOverlay={geometryOverlay}
+        geometryOverlayOpacity={geometryOverlayOpacity}
+        geometryOverlayColor={geometryOverlayColor}
+        geometryOverlaySize={geometryOverlaySize}
+        geometryOverlayThickness={geometryOverlayThickness}
+        geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
         onSelectPreset={onSelectBackgroundPreset}
         onSelectBackgroundAsset={onSelectBackgroundAsset}
+        onSelectGeometryOverlay={onSelectGeometryOverlay}
+        onSelectGeometryOverlayOpacity={onSelectGeometryOverlayOpacity}
+        onSelectGeometryOverlayColor={onSelectGeometryOverlayColor}
+        onSelectGeometryOverlaySize={onSelectGeometryOverlaySize}
+        onSelectGeometryOverlayThickness={onSelectGeometryOverlayThickness}
+        onSelectGeometryOverlayRotatedBackground={onSelectGeometryOverlayRotatedBackground}
       />
     </div>
   )

@@ -1,12 +1,14 @@
 import { useTranslation } from 'react-i18next'
 
 import { AvBackgroundSelector } from '@/components/player/av/AvBackgroundSelector'
+import type { AvForegroundSelectorSettings } from '@/components/player/av/AvForegroundSelector'
 import { Button } from '@/components/ui/button'
 import type {
   AvBackgroundAsset,
   AvBackgroundLayer,
   AvBackgroundPreset,
   AvContentLayer,
+  AvGeometryOverlay,
 } from '@/lib/player/av-preferences'
 
 import './player-av.css'
@@ -18,8 +20,21 @@ type AvSpotifyPanelProps = {
   backgroundLayer: AvBackgroundLayer
   backgroundPreviewText: string
   contentLayer: AvContentLayer
+  foregroundSettings?: AvForegroundSelectorSettings
+  geometryOverlay: AvGeometryOverlay
+  geometryOverlayOpacity: number
+  geometryOverlayColor: number
+  geometryOverlaySize: number
+  geometryOverlayThickness: number
+  geometryOverlayRotatedBackground: boolean
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
   onSelectBackgroundAsset: (asset: AvBackgroundAsset) => void
+  onSelectGeometryOverlay: (overlay: AvGeometryOverlay) => void
+  onSelectGeometryOverlayOpacity: (transparency: number) => void
+  onSelectGeometryOverlayColor: (color: number) => void
+  onSelectGeometryOverlaySize: (size: number) => void
+  onSelectGeometryOverlayThickness: (thickness: number) => void
+  onSelectGeometryOverlayRotatedBackground: (rotatedBackground: boolean) => void
 }
 
 export function AvSpotifyPanel({
@@ -29,8 +44,21 @@ export function AvSpotifyPanel({
   backgroundLayer,
   backgroundPreviewText,
   contentLayer,
+  foregroundSettings,
+  geometryOverlay,
+  geometryOverlayOpacity,
+  geometryOverlayColor,
+  geometryOverlaySize,
+  geometryOverlayThickness,
+  geometryOverlayRotatedBackground,
   onSelectBackgroundPreset,
   onSelectBackgroundAsset,
+  onSelectGeometryOverlay,
+  onSelectGeometryOverlayOpacity,
+  onSelectGeometryOverlayColor,
+  onSelectGeometryOverlaySize,
+  onSelectGeometryOverlayThickness,
+  onSelectGeometryOverlayRotatedBackground,
 }: AvSpotifyPanelProps) {
   const { t } = useTranslation()
   const previewText = backgroundPreviewText.split('\n')[0]?.trim() || backgroundPreviewText.trim()
@@ -55,8 +83,21 @@ export function AvSpotifyPanel({
         backgroundLayer={backgroundLayer}
         previewText={previewText}
         contentLayer={contentLayer}
+        foregroundSettings={foregroundSettings}
+        geometryOverlay={geometryOverlay}
+        geometryOverlayOpacity={geometryOverlayOpacity}
+        geometryOverlayColor={geometryOverlayColor}
+        geometryOverlaySize={geometryOverlaySize}
+        geometryOverlayThickness={geometryOverlayThickness}
+        geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
         onSelectPreset={onSelectBackgroundPreset}
         onSelectBackgroundAsset={onSelectBackgroundAsset}
+        onSelectGeometryOverlay={onSelectGeometryOverlay}
+        onSelectGeometryOverlayOpacity={onSelectGeometryOverlayOpacity}
+        onSelectGeometryOverlayColor={onSelectGeometryOverlayColor}
+        onSelectGeometryOverlaySize={onSelectGeometryOverlaySize}
+        onSelectGeometryOverlayThickness={onSelectGeometryOverlayThickness}
+        onSelectGeometryOverlayRotatedBackground={onSelectGeometryOverlayRotatedBackground}
       />
     </div>
   )

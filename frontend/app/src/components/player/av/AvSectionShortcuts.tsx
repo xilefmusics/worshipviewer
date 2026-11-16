@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import {
   AV_BLANK_SHORTCUT_KEY,
   AV_BLACKOUT_SHORTCUT_KEY,
+  AV_NEXT_LANGUAGE_SHORTCUT_KEY,
+  AV_TRANSLATION_SHORTCUT_KEY,
   avAvailableSectionJumpShortcuts,
   type AvSectionJumpShortcut,
 } from '@/lib/player/av-keyboard'
@@ -18,6 +20,10 @@ type AvSectionShortcutsProps = {
   onJump: (sectionTitle: string) => void
   onToggleBlank: () => void
   onToggleBlackout: () => void
+  nextLanguageLabel?: string
+  onNextLanguage?: () => void
+  translationEnabled?: boolean
+  onToggleTranslation?: () => void
 }
 
 export function AvSectionShortcuts({
@@ -26,15 +32,45 @@ export function AvSectionShortcuts({
   onJump,
   onToggleBlank,
   onToggleBlackout,
+  nextLanguageLabel,
+  onNextLanguage,
+  translationEnabled = false,
+  onToggleTranslation,
 }: AvSectionShortcutsProps) {
   const { t } = useTranslation()
-  const sectionShortcuts = avAvailableSectionJumpShortcuts(outline)
+  const hasLanguageShortcuts = onNextLanguage != null
+  const sectionShortcuts = avAvailableSectionJumpShortcuts(outline, hasLanguageShortcuts)
 
   return (
     <div className="player-av__section-shortcuts" role="toolbar" aria-label={t('player.av.sectionShortcutsAria')}>
       {sectionShortcuts.map((shortcut) => (
         <SectionShortcutButton key={shortcut.key} shortcut={shortcut} onJump={onJump} />
       ))}
+      {onNextLanguage && nextLanguageLabel ? (
+        <button
+          type="button"
+          className="player-av__section-shortcut"
+          aria-keyshortcuts={AV_NEXT_LANGUAGE_SHORTCUT_KEY}
+          aria-label={t('player.av.nextLanguage', { language: nextLanguageLabel })}
+          onClick={onNextLanguage}
+        >
+          <kbd className="player-av__section-shortcut-key">{AV_NEXT_LANGUAGE_SHORTCUT_KEY.toUpperCase()}</kbd>
+          <span className="player-av__section-shortcut-label">{nextLanguageLabel}</span>
+        </button>
+      ) : null}
+      {onToggleTranslation ? (
+        <button
+          type="button"
+          className="player-av__section-shortcut"
+          aria-keyshortcuts={AV_TRANSLATION_SHORTCUT_KEY}
+          aria-label={t('player.av.toggleTranslation')}
+          aria-pressed={translationEnabled}
+          onClick={onToggleTranslation}
+        >
+          <kbd className="player-av__section-shortcut-key">{AV_TRANSLATION_SHORTCUT_KEY.toUpperCase()}</kbd>
+          <span className="player-av__section-shortcut-label">{t('player.av.translation')}</span>
+        </button>
+      ) : null}
       <button
         type="button"
         className={cn(

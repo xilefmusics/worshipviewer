@@ -81,6 +81,30 @@ describe('av-projection-protocol', () => {
     expect(lyricsPayloadFromCommand(command)?.fallbackBackgroundLayer).toEqual(playerBackground)
   })
 
+  it('projects geometry overlays and defaults older snapshots to none', () => {
+    const command = buildAvProjectionCommand({
+      sessionId: 'shared',
+      commandId: 5,
+      ...layers,
+      geometryOverlay: 'cross',
+      screenState: 'live',
+      itemTitle: 'Song',
+      nextPreview: null,
+      content: { type: 'lyrics', contentText: 'Hello' },
+    })
+    expect(command.geometryOverlay).toBe('cross')
+    expect(lyricsPayloadFromCommand(command)?.geometryOverlay).toBe('cross')
+
+    const legacy = parseAvProjectionCommandSnapshot({
+      contentText: 'Hello',
+      ...layers,
+      screenState: 'live',
+      itemTitle: 'Song',
+      nextPreview: null,
+    }, 'shared')
+    expect(legacy?.geometryOverlay).toBe('none')
+  })
+
   it('maps lyrics commands to room payloads and withholds deck/timed content', () => {
     const lyrics = buildAvProjectionCommand({
       sessionId: 'shared',

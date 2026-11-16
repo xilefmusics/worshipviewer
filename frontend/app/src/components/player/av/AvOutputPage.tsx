@@ -127,6 +127,24 @@ export function AvOutputPage({
         }}
         contentLayer={command?.contentLayer ?? DEFAULT_AV_PREFERENCES.contentLayer}
         backgroundLayer={command?.backgroundLayer ?? DEFAULT_AV_PREFERENCES.backgroundLayer}
+        geometryOverlay={command?.geometryOverlay ?? DEFAULT_AV_PREFERENCES.geometryOverlay}
+        geometryOverlayRotatedBackground={
+          command?.geometryOverlayRotatedBackground ?? command?.geometryOverlayRotatedVideo ?? false
+        }
+        geometryOverlayOpacity={command?.geometryOverlayOpacity ?? (
+          command == null
+            ? DEFAULT_AV_PREFERENCES.geometryOverlayOpacity
+            : command.geometryOverlayTransparency != null
+              ? 100 - command.geometryOverlayTransparency
+              : command.geometryOverlayGrayscale === true ? 100 : 70
+        )}
+        geometryOverlayColor={command?.geometryOverlayColor ?? (
+          command == null
+            ? DEFAULT_AV_PREFERENCES.geometryOverlayColor
+            : command.geometryOverlayGrayscale === true ? 0 : 100
+        )}
+        geometryOverlaySize={command?.geometryOverlaySize ?? DEFAULT_AV_PREFERENCES.geometryOverlaySize}
+        geometryOverlayThickness={command?.geometryOverlayThickness ?? DEFAULT_AV_PREFERENCES.geometryOverlayThickness}
         fallbackBackgroundLayer={command?.fallbackBackgroundLayer ?? command?.backgroundLayer}
         transition={command?.transition ?? DEFAULT_AV_PREFERENCES.transition}
         screenState={screenState}

@@ -37,6 +37,7 @@ function sameAvConfiguration(a: RoomAvConfiguration, b: RoomAvConfiguration): bo
   return a.content_layer.max_lines_per_slide === b.content_layer.max_lines_per_slide &&
     a.content_layer.balance_slide_lines === b.content_layer.balance_slide_lines &&
     a.content_layer.font_size === b.content_layer.font_size &&
+    (a.content_layer.font_family ?? 'rubik') === (b.content_layer.font_family ?? 'rubik') &&
     a.content_layer.text_align === b.content_layer.text_align &&
     a.content_layer.vertical_align === b.content_layer.vertical_align &&
     a.content_layer.horizontal_align === b.content_layer.horizontal_align &&
@@ -48,6 +49,21 @@ function sameAvConfiguration(a: RoomAvConfiguration, b: RoomAvConfiguration): bo
     a.bilingual_enabled === b.bilingual_enabled &&
     a.collapse_lyric_whitespace === b.collapse_lyric_whitespace &&
     a.screen_state === b.screen_state &&
+    (a.geometry_overlay ?? 'none') === (b.geometry_overlay ?? 'none') &&
+    (a.geometry_overlay_opacity ??
+      (a.geometry_overlay_transparency != null
+        ? 100 - a.geometry_overlay_transparency
+        : a.geometry_overlay_grayscale === true ? 100 : 70)) ===
+      (b.geometry_overlay_opacity ??
+        (b.geometry_overlay_transparency != null
+          ? 100 - b.geometry_overlay_transparency
+          : b.geometry_overlay_grayscale === true ? 100 : 70)) &&
+    (a.geometry_overlay_color ?? (a.geometry_overlay_grayscale === true ? 0 : 100)) ===
+      (b.geometry_overlay_color ?? (b.geometry_overlay_grayscale === true ? 0 : 100)) &&
+    (a.geometry_overlay_size ?? 77) === (b.geometry_overlay_size ?? 77) &&
+    (a.geometry_overlay_thickness ?? 77) === (b.geometry_overlay_thickness ?? 77) &&
+    (a.geometry_overlay_rotated_background ?? a.geometry_overlay_rotated_video ?? false) ===
+      (b.geometry_overlay_rotated_background ?? b.geometry_overlay_rotated_video ?? false) &&
     leftLanguages.length === rightLanguages.length &&
     leftLanguages.every(([key, value], index) => key === rightLanguages[index]?.[0] && value === rightLanguages[index]?.[1])
 }
@@ -92,8 +108,10 @@ function validRoomAvConfiguration(configuration: RoomAvConfiguration, songCount:
   return Number.isSafeInteger(content.max_lines_per_slide) && content.max_lines_per_slide >= 1 && content.max_lines_per_slide <= 10 &&
     typeof content.balance_slide_lines === 'boolean' &&
     Number.isSafeInteger(content.font_size) && content.font_size >= 20 && content.font_size <= 120 &&
+    (content.font_family == null ||
+      ['rubik', 'arial', 'verdana', 'trebuchet_ms', 'tahoma', 'georgia', 'palatino', 'garamond'].includes(content.font_family)) &&
     ['left', 'center', 'right'].includes(content.text_align) &&
-    ['top', 'center', 'bottom'].includes(content.vertical_align) &&
+    ['top', 'cross_center', 'center', 'bottom'].includes(content.vertical_align) &&
     ['left', 'center', 'right'].includes(content.horizontal_align) &&
     ['none', 'subtle', 'medium', 'strong'].includes(content.text_shadow) &&
     ['none', 'uppercase', 'lowercase', 'capitalize'].includes(content.text_transform) &&
@@ -104,6 +122,21 @@ function validRoomAvConfiguration(configuration: RoomAvConfiguration, songCount:
     typeof configuration.bilingual_enabled === 'boolean' &&
     typeof configuration.collapse_lyric_whitespace === 'boolean' &&
     ['live', 'blank', 'blackout'].includes(configuration.screen_state) &&
+    (configuration.geometry_overlay == null ||
+      ['none', 'cross', 'inverted_cross', 'sliced_square', 'sliced_rectangle', 'sliced_rectangle_three', 'circle', 'square', 'rectangle', 'triangle', 'inverted_triangle', 'diamond', 'heart', 'gospel'].includes(configuration.geometry_overlay)) &&
+    (configuration.geometry_overlay_grayscale == null || typeof configuration.geometry_overlay_grayscale === 'boolean') &&
+    (configuration.geometry_overlay_transparency == null ||
+      (Number.isSafeInteger(configuration.geometry_overlay_transparency) && configuration.geometry_overlay_transparency >= 0 && configuration.geometry_overlay_transparency <= 100)) &&
+    (configuration.geometry_overlay_opacity == null ||
+      (Number.isSafeInteger(configuration.geometry_overlay_opacity) && configuration.geometry_overlay_opacity >= 0 && configuration.geometry_overlay_opacity <= 100)) &&
+    (configuration.geometry_overlay_color == null ||
+      (Number.isSafeInteger(configuration.geometry_overlay_color) && configuration.geometry_overlay_color >= 0 && configuration.geometry_overlay_color <= 100)) &&
+    (configuration.geometry_overlay_size == null ||
+      (Number.isSafeInteger(configuration.geometry_overlay_size) && configuration.geometry_overlay_size >= 0 && configuration.geometry_overlay_size <= 100)) &&
+    (configuration.geometry_overlay_thickness == null ||
+      (Number.isSafeInteger(configuration.geometry_overlay_thickness) && configuration.geometry_overlay_thickness >= 0 && configuration.geometry_overlay_thickness <= 100)) &&
+    (configuration.geometry_overlay_rotated_background == null || typeof configuration.geometry_overlay_rotated_background === 'boolean') &&
+    (configuration.geometry_overlay_rotated_video == null || typeof configuration.geometry_overlay_rotated_video === 'boolean') &&
     configuration.language_by_item != null && typeof configuration.language_by_item === 'object' && !Array.isArray(configuration.language_by_item) &&
     Object.entries(configuration.language_by_item).length <= songCount &&
     Object.entries(configuration.language_by_item).every(([song, language]) => Number.isSafeInteger(Number(song)) && Number(song) >= 0 && Number(song) < songCount && Number.isSafeInteger(language) && language >= 0 && language <= 255)

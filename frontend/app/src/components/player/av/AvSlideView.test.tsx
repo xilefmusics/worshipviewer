@@ -92,4 +92,197 @@ describe('AvSlideView', () => {
     expect(screen.queryByTestId('deck-page')).not.toBeInTheDocument()
     expect(document.querySelector('.av-slide-view--blackout')).toBeTruthy()
   })
+
+  it('renders the persistent cross above the background and below slide content', () => {
+    const { container, rerender } = render(
+      <AvSlideView
+        contentText="Lyrics"
+        contentLayer={DEFAULT_AV_PREFERENCES.contentLayer}
+        backgroundLayer={DEFAULT_AV_PREFERENCES.backgroundLayer}
+        geometryOverlay="cross"
+        geometryOverlayOpacity={70}
+        transition={DEFAULT_AV_PREFERENCES.transition}
+        screenState="live"
+        compact
+      />,
+    )
+    const overlay = screen.getByTestId('av-geometry-overlay-cross')
+    const background = container.querySelector('.av-slide-view__background')!
+    const content = container.querySelector('.av-slide-view__content')!
+    const cross = overlay.querySelector<HTMLElement>('.av-geometry-overlay__cross')!
+    const shape = overlay.querySelector('.av-geometry-overlay__cross-shape')
+    expect(overlay.style.getPropertyValue('--av-geometry-overlay-opacity')).toBe('0.7')
+    expect(cross.style.inset).toBe('15%')
+    expect(shape).toBeInTheDocument()
+    expect(background.compareDocumentPosition(overlay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(overlay.compareDocumentPosition(content) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    rerender(
+      <AvSlideView
+        contentText="Next lyric slide"
+        contentLayer={DEFAULT_AV_PREFERENCES.contentLayer}
+        backgroundLayer={DEFAULT_AV_PREFERENCES.backgroundLayer}
+        geometryOverlay="cross"
+        transition={DEFAULT_AV_PREFERENCES.transition}
+        screenState="live"
+        compact
+      />,
+    )
+    expect(screen.getByTestId('av-geometry-overlay-cross')).toBeInTheDocument()
+
+    rerender(
+      <AvSlideView
+        contentText="Lyrics"
+        contentLayer={DEFAULT_AV_PREFERENCES.contentLayer}
+        backgroundLayer={DEFAULT_AV_PREFERENCES.backgroundLayer}
+        geometryOverlay="cross"
+        transition={DEFAULT_AV_PREFERENCES.transition}
+        screenState="blank"
+        compact
+      />,
+    )
+    expect(screen.getByTestId('av-geometry-overlay-cross')).toBeInTheDocument()
+
+    rerender(
+      <AvSlideView
+        contentText="Lyrics"
+        contentLayer={DEFAULT_AV_PREFERENCES.contentLayer}
+        backgroundLayer={DEFAULT_AV_PREFERENCES.backgroundLayer}
+        geometryOverlay="cross"
+        transition={DEFAULT_AV_PREFERENCES.transition}
+        screenState="blackout"
+        compact
+      />,
+    )
+    expect(screen.queryByTestId('av-geometry-overlay-cross')).not.toBeInTheDocument()
+  })
+
+  it.each(['circle', 'square', 'triangle', 'inverted_triangle', 'diamond', 'heart'] as const)(
+    'centers the %s with 15 percent top and bottom gaps at 70 percent opacity',
+    (geometryOverlay) => {
+      render(
+        <AvSlideView
+          contentText="Lyrics"
+          contentLayer={DEFAULT_AV_PREFERENCES.contentLayer}
+          backgroundLayer={DEFAULT_AV_PREFERENCES.backgroundLayer}
+          geometryOverlay={geometryOverlay}
+          geometryOverlayOpacity={70}
+          transition={DEFAULT_AV_PREFERENCES.transition}
+          screenState="live"
+          compact
+        />,
+      )
+
+      const overlay = screen.getByTestId(`av-geometry-overlay-${geometryOverlay}`)
+      expect(overlay.style.getPropertyValue('--av-geometry-overlay-opacity')).toBe('0.7')
+      expect(overlay.querySelector('.av-geometry-overlay__shape')).toHaveClass(
+        `av-geometry-overlay__shape--${geometryOverlay}`,
+      )
+      const shape = overlay.querySelector<HTMLElement>('.av-geometry-overlay__shape')!
+      expect(shape.style.width).toBe('70cqh')
+      expect(shape.style.height).toBe('70%')
+      expect(shape.style.top).toBe('15%')
+      expect(shape.style.aspectRatio).toBe('1 / 1')
+    },
+  )
+
+  it('renders an inverted cross as four panels around a cross-shaped cutout', () => {
+    render(
+      <AvSlideView
+        contentText="Lyrics"
+        contentLayer={DEFAULT_AV_PREFERENCES.contentLayer}
+        backgroundLayer={DEFAULT_AV_PREFERENCES.backgroundLayer}
+        geometryOverlay="inverted_cross"
+        transition={DEFAULT_AV_PREFERENCES.transition}
+        screenState="live"
+        compact
+      />,
+    )
+
+    const overlay = screen.getByTestId('av-geometry-overlay-inverted_cross')
+    const panels = overlay.querySelectorAll('.av-geometry-overlay__inverted-cross-panel')
+    expect(panels).toHaveLength(4)
+    expect(overlay.querySelector('.av-geometry-overlay__shape')).not.toBeInTheDocument()
+    expect(overlay.querySelector('.av-geometry-overlay__cross-shape')).not.toBeInTheDocument()
+  })
+
+  it('renders a sliced square as two vertical panels around one full-height slit', () => {
+    render(
+      <AvSlideView
+        contentText="Lyrics"
+        contentLayer={DEFAULT_AV_PREFERENCES.contentLayer}
+        backgroundLayer={DEFAULT_AV_PREFERENCES.backgroundLayer}
+        geometryOverlay="sliced_square"
+        transition={DEFAULT_AV_PREFERENCES.transition}
+        screenState="live"
+        compact
+      />,
+    )
+
+    const overlay = screen.getByTestId('av-geometry-overlay-sliced_square')
+    const panels = overlay.querySelectorAll('.av-geometry-overlay__sliced-square-panel')
+    expect(panels).toHaveLength(2)
+    expect(overlay.querySelector('.av-geometry-overlay__shape')).not.toBeInTheDocument()
+    expect(overlay.querySelector('.av-geometry-overlay__cross-vertical')).not.toBeInTheDocument()
+    expect(overlay.querySelector('.av-geometry-overlay__cross-horizontal')).not.toBeInTheDocument()
+  })
+
+  it('renders four equal-width slices in a rectangle with three vertical slits', () => {
+    render(
+      <AvSlideView
+        contentText="Lyrics"
+        contentLayer={DEFAULT_AV_PREFERENCES.contentLayer}
+        backgroundLayer={DEFAULT_AV_PREFERENCES.backgroundLayer}
+        geometryOverlay="sliced_rectangle"
+        transition={DEFAULT_AV_PREFERENCES.transition}
+        screenState="live"
+        compact
+      />,
+    )
+
+    const overlay = screen.getByTestId('av-geometry-overlay-sliced_rectangle')
+    const panels = overlay.querySelectorAll('.av-geometry-overlay__sliced-rectangle-panel')
+    expect(panels).toHaveLength(4)
+    expect(overlay.querySelector('.av-geometry-overlay__shape')).not.toBeInTheDocument()
+  })
+
+  it('scales the background-matched rectangle to 70 percent and centers it', () => {
+    render(
+      <AvSlideView
+        contentText="Lyrics"
+        contentLayer={DEFAULT_AV_PREFERENCES.contentLayer}
+        backgroundLayer={DEFAULT_AV_PREFERENCES.backgroundLayer}
+        geometryOverlay="rectangle"
+        geometryOverlayOpacity={70}
+        transition={DEFAULT_AV_PREFERENCES.transition}
+        screenState="live"
+        compact
+      />,
+    )
+
+    const overlay = screen.getByTestId('av-geometry-overlay-rectangle')
+    const shape = overlay.querySelector<HTMLElement>('.av-geometry-overlay__shape')!
+    expect(overlay.style.getPropertyValue('--av-geometry-overlay-opacity')).toBe('0.7')
+    expect(shape.style.width).toBe('70%')
+    expect(shape.style.height).toBe('70%')
+    expect(shape.style.top).toBe('15%')
+    expect(shape.style.left).toBe('15%')
+    expect(shape.style.aspectRatio).toBe('')
+  })
+
+  it('omits the overlay when the background is hidden', () => {
+    render(
+      <AvSlideView
+        contentText="Lyrics"
+        contentLayer={DEFAULT_AV_PREFERENCES.contentLayer}
+        backgroundLayer={DEFAULT_AV_PREFERENCES.backgroundLayer}
+        geometryOverlay="cross"
+        transition={DEFAULT_AV_PREFERENCES.transition}
+        screenState="live"
+        compact
+        showBackground={false}
+      />,
+    )
+    expect(screen.queryByTestId('av-geometry-overlay-cross')).not.toBeInTheDocument()
+  })
 })

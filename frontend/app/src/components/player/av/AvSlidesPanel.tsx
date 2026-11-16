@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { AvBackgroundSelector } from '@/components/player/av/AvBackgroundSelector'
+import type { AvForegroundSelectorSettings } from '@/components/player/av/AvForegroundSelector'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
 import { MediaDeckPageView } from '@/components/media/MediaDeckPageView'
 import { observeElementResize } from '@/lib/browser-apis'
@@ -10,6 +11,7 @@ import type {
   AvBackgroundLayer,
   AvBackgroundPreset,
   AvContentLayer,
+  AvGeometryOverlay,
   AvTransition,
 } from '@/lib/player/av-preferences'
 import type { AvSlideDeckEntry } from '@/lib/player/av-lyric-slides'
@@ -67,26 +69,52 @@ type AvSlidesPanelProps = {
   entries: AvSlideDeckEntry[]
   currentSlideIndex: number | null
   contentLayer: AvContentLayer
+  foregroundSettings?: AvForegroundSelectorSettings
   backgroundLayer: AvBackgroundLayer
   fallbackBackgroundLayer?: AvBackgroundLayer
   backgroundPreviewText: string
+  geometryOverlay: AvGeometryOverlay
+  geometryOverlayOpacity: number
+  geometryOverlayColor: number
+  geometryOverlaySize: number
+  geometryOverlayThickness: number
+  geometryOverlayRotatedBackground: boolean
   transition: AvTransition
   onSelectSlide: (slideIndex: number) => void
   onSelectBackgroundPreset: (preset: AvBackgroundPreset) => void
   onSelectBackgroundAsset: (asset: AvBackgroundAsset) => void
+  onSelectGeometryOverlay: (overlay: AvGeometryOverlay) => void
+  onSelectGeometryOverlayOpacity: (transparency: number) => void
+  onSelectGeometryOverlayColor: (color: number) => void
+  onSelectGeometryOverlaySize: (size: number) => void
+  onSelectGeometryOverlayThickness: (thickness: number) => void
+  onSelectGeometryOverlayRotatedBackground: (rotatedBackground: boolean) => void
 }
 
 export function AvSlidesPanel({
   entries,
   currentSlideIndex,
   contentLayer,
+  foregroundSettings,
   backgroundLayer,
   fallbackBackgroundLayer,
   backgroundPreviewText,
+  geometryOverlay,
+  geometryOverlayOpacity,
+  geometryOverlayColor,
+  geometryOverlaySize,
+  geometryOverlayThickness,
+  geometryOverlayRotatedBackground,
   transition,
   onSelectSlide,
   onSelectBackgroundPreset,
   onSelectBackgroundAsset,
+  onSelectGeometryOverlay,
+  onSelectGeometryOverlayOpacity,
+  onSelectGeometryOverlayColor,
+  onSelectGeometryOverlaySize,
+  onSelectGeometryOverlayThickness,
+  onSelectGeometryOverlayRotatedBackground,
 }: AvSlidesPanelProps) {
   const { t } = useTranslation()
   const [panelRef, multiColumn] = useSlidePanelMultiColumn()
@@ -111,8 +139,19 @@ export function AvSlidesPanel({
           backgroundLayer={backgroundLayer}
           previewText={backgroundPreviewLine}
           contentLayer={contentLayer}
+          foregroundSettings={foregroundSettings}
+          geometryOverlay={geometryOverlay}
+          geometryOverlayOpacity={geometryOverlayOpacity}
+          geometryOverlayColor={geometryOverlayColor}
+          geometryOverlaySize={geometryOverlaySize}
+          geometryOverlayThickness={geometryOverlayThickness}
           onSelectPreset={onSelectBackgroundPreset}
           onSelectBackgroundAsset={onSelectBackgroundAsset}
+          onSelectGeometryOverlay={onSelectGeometryOverlay}
+          onSelectGeometryOverlayOpacity={onSelectGeometryOverlayOpacity}
+          onSelectGeometryOverlayColor={onSelectGeometryOverlayColor}
+          onSelectGeometryOverlaySize={onSelectGeometryOverlaySize}
+          onSelectGeometryOverlayThickness={onSelectGeometryOverlayThickness}
         />
       </div>
     )
@@ -186,8 +225,21 @@ export function AvSlidesPanel({
         backgroundLayer={backgroundLayer}
         previewText={backgroundPreviewLine}
         contentLayer={contentLayer}
+        foregroundSettings={foregroundSettings}
+        geometryOverlay={geometryOverlay}
+        geometryOverlayOpacity={geometryOverlayOpacity}
+        geometryOverlayColor={geometryOverlayColor}
+        geometryOverlaySize={geometryOverlaySize}
+        geometryOverlayThickness={geometryOverlayThickness}
+        geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
         onSelectPreset={onSelectBackgroundPreset}
         onSelectBackgroundAsset={onSelectBackgroundAsset}
+        onSelectGeometryOverlay={onSelectGeometryOverlay}
+        onSelectGeometryOverlayOpacity={onSelectGeometryOverlayOpacity}
+        onSelectGeometryOverlayColor={onSelectGeometryOverlayColor}
+        onSelectGeometryOverlaySize={onSelectGeometryOverlaySize}
+        onSelectGeometryOverlayThickness={onSelectGeometryOverlayThickness}
+        onSelectGeometryOverlayRotatedBackground={onSelectGeometryOverlayRotatedBackground}
       />
     </div>
   )

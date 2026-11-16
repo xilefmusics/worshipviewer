@@ -77,10 +77,12 @@ describe('room message replay', () => {
 
   it('replays the shared AV configuration and validates its screen state and layout', () => {
     const configuration = avConfiguration()
+    configuration.content_layer.vertical_align = 'cross_center'
     const first = message(1, 'host', { type: 'set_av_configuration', configuration })
     const state = applyRoomMessage(createRoomReplay('room', [1]), first)
 
     expect(state.avConfiguration).toEqual(configuration)
+    expect(state.avConfiguration?.content_layer.vertical_align).toBe('cross_center')
     expect(applyRoomMessage(state, first)).toBe(state)
     expect(() => applyRoomMessage(state, message(2, 'host', {
       type: 'set_av_configuration',
@@ -90,5 +92,38 @@ describe('room message replay', () => {
     const blackout = { ...configuration, screen_state: 'blackout' as const }
     const updated = applyRoomMessage(state, message(2, 'host', { type: 'set_av_configuration', configuration: blackout }))
     expect(updated.avConfiguration?.screen_state).toBe('blackout')
+
+    const cross = { ...configuration, geometry_overlay: 'inverted_triangle' as const }
+    const crossState = applyRoomMessage(state, message(3, 'host', {
+      type: 'set_av_configuration',
+      configuration: cross,
+    }))
+    expect(crossState.avConfiguration?.geometry_overlay).toBe('inverted_triangle')
+    const invertedCross = { ...configuration, geometry_overlay: 'inverted_cross' as const }
+    const invertedCrossState = applyRoomMessage(state, message(4, 'host', {
+      type: 'set_av_configuration',
+      configuration: invertedCross,
+    }))
+    expect(invertedCrossState.avConfiguration?.geometry_overlay).toBe('inverted_cross')
+    const slicedSquare = { ...configuration, geometry_overlay: 'sliced_square' as const }
+    const slicedSquareState = applyRoomMessage(state, message(5, 'host', {
+      type: 'set_av_configuration',
+      configuration: slicedSquare,
+    }))
+    expect(slicedSquareState.avConfiguration?.geometry_overlay).toBe('sliced_square')
+    const slicedRectangle = { ...configuration, geometry_overlay: 'sliced_rectangle' as const }
+    const slicedRectangleState = applyRoomMessage(state, message(6, 'host', {
+      type: 'set_av_configuration',
+      configuration: slicedRectangle,
+    }))
+    expect(slicedRectangleState.avConfiguration?.geometry_overlay).toBe('sliced_rectangle')
+    expect(() => applyRoomMessage(crossState, {
+      ...message(3, 'host', { type: 'set_av_configuration', configuration }),
+      id: '3',
+    })).toThrow('Conflicting')
+    expect(() => applyRoomMessage(crossState, message(4, 'host', {
+      type: 'set_av_configuration',
+      configuration: { ...cross, geometry_overlay: 'star' as never },
+    }))).toThrow('AV configuration')
   })
 })

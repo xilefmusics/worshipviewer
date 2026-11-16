@@ -2194,7 +2194,7 @@
         "type": "string"
       },
       "RoomAvConfiguration": {
-        "description": "Rendering settings shared by the AV controller with slide-only room members.\nOutput-window preferences remain local; the room background uses its own change.",
+        "description": "Rendering settings shared by the AV controller with slide-only room members.\nOutput-window preferences remain local; the background asset uses its own change,\nwhile geometry overlays are part of this shared rendering configuration.",
         "properties": {
           "bilingual_enabled": {
             "type": "boolean"
@@ -2204,6 +2204,90 @@
           },
           "content_layer": {
             "$ref": "#/components/schemas/RoomAvContentLayer"
+          },
+          "geometry_overlay": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RoomAvGeometryOverlay",
+                "description": "Optional for compatibility with configurations saved before geometry overlays existed."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geometry_overlay_color": {
+            "description": "Color visibility from 0 (grayscale) to 100 (the previous 70%-transparent colored option).",
+            "format": "int32",
+            "maximum": 100,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "geometry_overlay_grayscale": {
+            "description": "Optional for compatibility with configurations saved before grayscale overlays existed.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "geometry_overlay_opacity": {
+            "description": "Overlay opacity from 0 (invisible) to 100 (opaque).",
+            "format": "int32",
+            "maximum": 100,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "geometry_overlay_rotated_background": {
+            "description": "Render the selected preset, image, or video background inside geometry overlays, rotated by 180 degrees.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "geometry_overlay_rotated_video": {
+            "deprecated": true,
+            "description": "Deprecated alias retained for compatibility with clients that only supported video backgrounds.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "geometry_overlay_size": {
+            "description": "Overlay height as a percentage of the output height.",
+            "format": "int32",
+            "maximum": 100,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "geometry_overlay_thickness": {
+            "description": "Thickness from thin (0) to thick (100), defaulting to 77; applies to cross bars and sliced panels.",
+            "format": "int32",
+            "maximum": 100,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "geometry_overlay_transparency": {
+            "deprecated": true,
+            "description": "Deprecated compatibility with the former transparency slider (0 opaque, 100 invisible).",
+            "format": "int32",
+            "maximum": 100,
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "language_by_item": {
             "additionalProperties": {
@@ -2236,6 +2320,17 @@
         "properties": {
           "balance_slide_lines": {
             "type": "boolean"
+          },
+          "font_family": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RoomAvFontFamily",
+                "description": "Optional for compatibility with saved configurations that predate font selection."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "font_size": {
             "format": "int32",
@@ -2286,6 +2381,38 @@
           "secondary_text_lightness"
         ],
         "type": "object"
+      },
+      "RoomAvFontFamily": {
+        "enum": [
+          "rubik",
+          "arial",
+          "verdana",
+          "trebuchet_ms",
+          "tahoma",
+          "georgia",
+          "palatino",
+          "garamond"
+        ],
+        "type": "string"
+      },
+      "RoomAvGeometryOverlay": {
+        "enum": [
+          "none",
+          "cross",
+          "inverted_cross",
+          "sliced_square",
+          "sliced_rectangle",
+          "sliced_rectangle_three",
+          "circle",
+          "square",
+          "rectangle",
+          "triangle",
+          "inverted_triangle",
+          "diamond",
+          "heart",
+          "gospel"
+        ],
+        "type": "string"
       },
       "RoomAvHorizontalAlign": {
         "enum": [
@@ -2357,6 +2484,7 @@
       "RoomAvVerticalAlign": {
         "enum": [
           "top",
+          "cross_center",
           "center",
           "bottom"
         ],
