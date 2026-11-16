@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use uuid::Uuid;
 
 use actix_web::web::Payload;
 use shared::media::{
@@ -32,12 +33,12 @@ pub struct MediaAssetService<R, M> {
     pub storage: Arc<FsMediaAssetStorage>,
     pub settings: MediaAssetSettings,
     active_uploads: Arc<RwLock<HashSet<String>>>,
-    upload_sessions: Arc<RwLock<HashMap<String, Arc<Mutex<UploadSessionState>>>>>,
+    upload_sessions: Arc<RwLock<HashMap<Uuid, Arc<Mutex<UploadSessionState>>>>>,
 }
 
 #[derive(Clone)]
 pub struct UploadSessionState {
-    pub id: String,
+    pub id: Uuid,
     pub creator_user_id: String,
     pub target: UploadSessionTarget,
     pub sources: Vec<UploadSourceDescriptor>,
@@ -241,7 +242,7 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
         }
         self.authorize_upload_target(ctx, &request.target).await?;
 
-        let id = uuid::Uuid::new_v4().to_string();
+        let id = Uuid::new_v4();
         for source_index in 0..request.sources.len() {
             if let Err(error) = self
                 .storage
@@ -254,7 +255,7 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
             }
         }
         let state = UploadSessionState {
-            id: id.clone(),
+            id,
             creator_user_id: ctx.user.id.clone(),
             target: request.target,
             sources: request.sources,
@@ -267,9 +268,9 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
         self.upload_sessions
             .write()
             .await
-            .insert(id.clone(), Arc::new(Mutex::new(state)));
+            .insert(id, Arc::new(Mutex::new(state)));
         Ok(UploadSession {
-            id,
+            id: id.to_string(),
             chunk_size_bytes: MEDIA_UPLOAD_CHUNK_SIZE_BYTES as u64,
         })
     }
@@ -283,11 +284,13 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
         chunk_index: usize,
         bytes: &[u8],
     ) -> Result<(), AppError> {
+        let session_id = Uuid::parse_str(session_id)
+            .map_err(|_| AppError::NotFound("upload session not found".into()))?;
         let session = self
             .upload_sessions
             .read()
             .await
-            .get(session_id)
+            .get(&session_id)
             .cloned()
             .ok_or_else(|| AppError::NotFound("upload session not found".into()))?;
         let mut state = session.lock().await;
@@ -322,7 +325,7 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
         }
         if let Err(error) = self
             .storage
-            .append_upload_session_chunk(session_id, source_index, bytes)
+            .append_upload_session_chunk(&state.id, source_index, bytes)
             .await
         {
             state.finalizing = true;
@@ -348,11 +351,13 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
         ctx: &AuthorizationContext,
         session_id: &str,
     ) -> Result<UploadSessionState, AppError> {
+        let session_id = Uuid::parse_str(session_id)
+            .map_err(|_| AppError::NotFound("upload session not found".into()))?;
         let session = self
             .upload_sessions
             .read()
             .await
-            .get(session_id)
+            .get(&session_id)
             .cloned()
             .ok_or_else(|| AppError::NotFound("upload session not found".into()))?;
         let mut state = session.lock().await;
@@ -378,10 +383,10 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
         drop(state);
         let mut sessions = self.upload_sessions.write().await;
         if sessions
-            .get(session_id)
+            .get(&session_id)
             .is_some_and(|current| Arc::ptr_eq(current, &session))
         {
-            sessions.remove(session_id);
+            sessions.remove(&session_id);
             Ok(output)
         } else {
             Err(AppError::NotFound("upload session not found".into()))
@@ -394,11 +399,13 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
         ctx: &AuthorizationContext,
         session_id: &str,
     ) -> Result<(), AppError> {
+        let session_id = Uuid::parse_str(session_id)
+            .map_err(|_| AppError::NotFound("upload session not found".into()))?;
         let session = self
             .upload_sessions
             .read()
             .await
-            .get(session_id)
+            .get(&session_id)
             .cloned()
             .ok_or_else(|| AppError::NotFound("upload session not found".into()))?;
         let mut state = session.lock().await;
@@ -411,24 +418,24 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
         drop(state);
         let mut sessions = self.upload_sessions.write().await;
         if !sessions
-            .get(session_id)
+            .get(&session_id)
             .is_some_and(|current| Arc::ptr_eq(current, &session))
         {
             return Err(AppError::NotFound("upload session not found".into()));
         }
-        sessions.remove(session_id);
+        sessions.remove(&session_id);
         drop(sessions);
         self.storage
-            .delete_upload_session_sources(session_id, count);
+            .delete_upload_session_sources(&session_id, count);
         Ok(())
     }
 
-    async fn remove_upload_session(&self, session_id: &str) {
-        let session = self.upload_sessions.write().await.remove(session_id);
+    async fn remove_upload_session(&self, session_id: Uuid) {
+        let session = self.upload_sessions.write().await.remove(&session_id);
         if let Some(session) = session {
             let count = session.lock().await.sources.len();
             self.storage
-                .delete_upload_session_sources(session_id, count);
+                .delete_upload_session_sources(&session_id, count);
         }
     }
 
@@ -592,7 +599,7 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
         Ok(asset)
     }
 
-    pub fn final_file_path(&self, asset_id: &str) -> std::path::PathBuf {
+    pub fn final_file_path(&self, asset_id: &str) -> Result<std::path::PathBuf, AppError> {
         self.storage.final_path(asset_id)
     }
 
@@ -1028,7 +1035,7 @@ mod tests {
 
         let promoted = asset_svc.promote_staging(&operation_id).await.unwrap();
         assert_eq!(promoted.status, MediaAssetStatus::Final);
-        assert!(asset_svc.final_file_path(&staging.id).exists());
+        assert!(asset_svc.final_file_path(&staging.id).unwrap().exists());
 
         asset_svc.delete_final_file(&staging.id);
         asset_svc.delete_asset_record(&staging.id).await.unwrap();
@@ -1068,7 +1075,7 @@ mod tests {
             )
             .await
             .unwrap();
-        assert!(asset_svc.final_file_path(&asset.id).exists());
+        assert!(asset_svc.final_file_path(&asset.id).unwrap().exists());
 
         db.db
             .query("DELETE type::record('media', $id)")
@@ -1078,7 +1085,7 @@ mod tests {
             .check()
             .unwrap();
         assert_eq!(asset_svc.reconcile_orphan_assets().await.unwrap(), 1);
-        assert!(!asset_svc.final_file_path(&asset.id).exists());
+        assert!(!asset_svc.final_file_path(&asset.id).unwrap().exists());
         assert!(
             asset_svc
                 .repo

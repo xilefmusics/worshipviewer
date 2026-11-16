@@ -61,7 +61,7 @@ pub fn upload_scope(limits: MediaAssetUploadLimits) -> Scope {
 
 struct UploadSessionCleanup {
     storage: Arc<super::storage::FsMediaAssetStorage>,
-    session_id: String,
+    session_id: uuid::Uuid,
     source_count: usize,
 }
 
@@ -69,7 +69,7 @@ impl UploadSessionCleanup {
     fn new(svc: &MediaAssetServiceHandle, state: &UploadSessionState) -> Self {
         Self {
             storage: svc.storage.clone(),
-            session_id: state.id.clone(),
+            session_id: state.id,
             source_count: state.sources.len(),
         }
     }
@@ -311,7 +311,7 @@ pub async fn get_media_asset_data(
         .etag
         .as_deref()
         .ok_or_else(|| AppError::Internal("asset missing etag".into()))?;
-    let file_path = svc.final_file_path(&asset_id);
+    let file_path = svc.final_file_path(&asset_id)?;
     file_data_response(&req, &file_path, &asset.content_type, etag, false).await
 }
 
@@ -347,7 +347,7 @@ pub async fn head_media_asset_data(
         .etag
         .as_deref()
         .ok_or_else(|| AppError::Internal("asset missing etag".into()))?;
-    let file_path = svc.final_file_path(&asset_id);
+    let file_path = svc.final_file_path(&asset_id)?;
     file_data_response(&req, &file_path, &asset.content_type, etag, true).await
 }
 
