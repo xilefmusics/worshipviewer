@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { useEffect, type RefObject } from 'react'
+import { useEffect, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { mediaAssetDataUrl } from '@/api/media-upload'
@@ -12,6 +12,7 @@ import type {
 } from '@/lib/player/av-preferences'
 import type { AvLyricLine } from '@/lib/player/av-lyric-slides'
 import { effectiveAvTransition } from '@/lib/player/av-preferences'
+import { formatAvTimerRemaining } from '@/lib/player/av-timer'
 import { AvBackgroundLayer } from '@/components/player/av/AvBackgroundLayer'
 import { AvSlideContent } from '@/components/player/av/AvSlideContent'
 import { AvSlideScaledStage } from '@/components/player/av/AvSlideScaledStage'
@@ -38,6 +39,8 @@ type AvSlideViewProps = {
     currentTimeMs: number
     durationMs: number
   }) => void
+  countdownEndsAtMs?: number
+  countdownRemainingMs?: number
   contentLayer: AvContentLayer
   backgroundLayer: AvBackgroundLayerPrefs
   geometryOverlay?: AvGeometryOverlay
@@ -66,6 +69,8 @@ function AvSlideCanvas({
   videoPreviewRef,
   videoPreviewPlaying = false,
   onVideoPreviewProgress,
+  countdownEndsAtMs,
+  countdownRemainingMs,
   contentLayer,
   backgroundLayer,
   geometryOverlay,
@@ -88,6 +93,8 @@ function AvSlideCanvas({
   | 'videoPreviewRef'
   | 'videoPreviewPlaying'
   | 'onVideoPreviewProgress'
+  | 'countdownEndsAtMs'
+  | 'countdownRemainingMs'
   | 'contentLayer'
   | 'backgroundLayer'
   | 'geometryOverlay'
@@ -102,6 +109,17 @@ function AvSlideCanvas({
   | 'preview'
 >) {
   const videoPreview = timedPreview?.kind === 'video' ? timedPreview.video : undefined
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (countdownEndsAtMs == null) return
+    const refresh = window.setTimeout(() => setNow(Date.now()), 0)
+    const interval = window.setInterval(() => setNow(Date.now()), 250)
+    return () => {
+      window.clearTimeout(refresh)
+      window.clearInterval(interval)
+    }
+  }, [countdownEndsAtMs])
 
   useEffect(() => {
     const video = videoPreviewRef?.current
@@ -130,7 +148,29 @@ function AvSlideCanvas({
         />
       ) : null}
       <div className="av-slide-view__content">
-        {deckPage ? (
+        {countdownEndsAtMs != null || countdownRemainingMs != null ? (
+          <div
+            className="av-slide-view__countdown"
+            role="timer"
+            aria-label={formatAvTimerRemaining(
+              countdownEndsAtMs != null
+                ? Math.max(0, countdownEndsAtMs - now)
+                : countdownRemainingMs ?? 0,
+            )}
+            data-testid="av-countdown"
+          >
+            <AvSlideContent
+              text={formatAvTimerRemaining(
+                countdownEndsAtMs != null
+                  ? Math.max(0, countdownEndsAtMs - now)
+                  : countdownRemainingMs ?? 0,
+              )}
+              contentLayer={{ ...contentLayer, fontSize: contentLayer.fontSize * 3 }}
+              geometryOverlaySize={geometryOverlaySize}
+              className="av-slide-view__countdown-text"
+            />
+          </div>
+        ) : deckPage ? (
           <div className="av-slide-view__deck-page">
             <MediaDeckPageView
               mediaId={deckPage.mediaId}
@@ -213,6 +253,8 @@ export function AvSlideView({
   videoPreviewRef,
   videoPreviewPlaying,
   onVideoPreviewProgress,
+  countdownEndsAtMs,
+  countdownRemainingMs,
   contentLayer,
   backgroundLayer,
   geometryOverlay,
@@ -289,6 +331,8 @@ export function AvSlideView({
       videoPreviewRef={videoPreviewRef}
       videoPreviewPlaying={videoPreviewPlaying}
       onVideoPreviewProgress={onVideoPreviewProgress}
+      countdownEndsAtMs={countdownEndsAtMs}
+      countdownRemainingMs={countdownRemainingMs}
       contentLayer={contentLayer}
       backgroundLayer={backgroundLayer}
       geometryOverlay={geometryOverlay}

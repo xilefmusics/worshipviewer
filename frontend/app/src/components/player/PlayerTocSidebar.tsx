@@ -27,6 +27,7 @@ type PlayerTocSidebarProps = {
   onSelect: (sourceIdx: number, languageIndex: number | null) => void
   primaryTitleOnly?: boolean
   className?: string
+  topRows?: ReactNode
   renderRowSuffix?: (entry: TocDisplayEntry) => ReactNode
   queueOrder?: readonly number[]
   members?: readonly { visit_id: string; display_name: string; joined_at?: string }[]
@@ -66,6 +67,7 @@ export function PlayerTocSidebar({
   onSelect,
   primaryTitleOnly = false,
   className,
+  topRows,
   renderRowSuffix,
   queueOrder,
   members,
@@ -156,6 +158,7 @@ export function PlayerTocSidebar({
         for (const id of activeTagIds) if (!next.has(id)) toggleTagId(id)
         for (const id of next) if (!activeTagIds.has(id)) toggleTagId(id)
       }}
+      topRows={topRows}
       renderRowSuffix={renderRowSuffix}
       className={tocClassName}
       ariaLabel={t('player.toc.title')}

@@ -141,6 +141,14 @@ vi.mock('@/components/player/av/AvSectionShortcuts', () => ({
   AvSectionShortcuts: () => null,
 }))
 
+vi.mock('@/components/player/av/AvTimerPanel', () => ({
+  AvTimerPanel: ({ onDelete }: { onDelete: () => void }) => (
+    <section data-testid="timer-panel">
+      <button type="button" onClick={onDelete}>player.av.timerDelete</button>
+    </section>
+  ),
+}))
+
 vi.mock('@/components/player/av/AvBackgroundSelector', () => ({
   AvBackgroundSelector: () => <div data-testid="background-selector" />,
 }))
@@ -235,11 +243,14 @@ vi.mock('@/components/player/PlayerTocSidebar', () => ({
   PlayerTocSidebar: ({
     currentLanguageIndex,
     onSelect,
+    topRows,
   }: {
     currentLanguageIndex: number | null
     onSelect: (sourceIdx: number, languageIndex: number | null) => void
+    topRows?: ReactNode
   }) => (
     <div>
+      {topRows}
       <div data-testid="toc-current-language">{String(currentLanguageIndex)}</div>
       <button type="button" onClick={() => onSelect(0, 1)}>
         German row
@@ -389,6 +400,30 @@ beforeEach(() => {
 })
 
 describe('PlayerAv', () => {
+  it('allows one timer and deletes it from the player', async () => {
+    const user = userEvent.setup()
+    render(
+      <PlayerAv
+        type="setlist"
+        id="setlist-1"
+        player={player}
+        allowNetworkFetch={false}
+      />,
+    )
+
+    const addTimerButton = screen.getByRole('button', { name: 'player.av.addTimer' })
+    await user.click(addTimerButton)
+    await user.click(addTimerButton)
+
+    expect(screen.getAllByRole('option', { name: 'player.av.timerTitle' })).toHaveLength(1)
+    expect(screen.getByTestId('timer-panel')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'player.av.timerDelete' }))
+
+    expect(screen.queryByRole('option', { name: 'player.av.timerTitle' })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('timer-panel')).not.toBeInTheDocument()
+  })
+
   it('retries a shared background change after the room reconnects', async () => {
     const user = userEvent.setup()
     const onSharedBackgroundChange = vi.fn()
