@@ -42,10 +42,9 @@ import {
 import {
   AV_OPEN_OUTPUT_SHORTCUT_KEY,
   avKeyboardAction,
-  avSectionJumpTitle,
+  avSectionJumpShortcutForEvent,
 } from '@/lib/player/av-keyboard'
 import {
-  avPresentationIndexForSectionTitle,
   avSlideDeckEntrySlideIndex,
   buildAvOutlineRows,
   buildAvSlideDeckEntries,
@@ -1228,15 +1227,6 @@ export function PlayerAv({
     }
   }, [goToItem, session.itemIndex, itemsLen])
 
-  const jumpToSection = useCallback(
-    (sectionTitle: string) => {
-      const slideIndex = avPresentationIndexForSectionTitle(currentItem.outline, sectionTitle)
-      if (slideIndex == null) return
-      goToSlide(slideIndex)
-    },
-    [currentItem.outline, goToSlide],
-  )
-
   useEffect(() => {
     if (slideOnly) return
     function onKeyDown(e: KeyboardEvent) {
@@ -1264,12 +1254,12 @@ export function PlayerAv({
         return
       }
 
-      const action = avKeyboardAction(e.key, e.target, {
+      const action = avKeyboardAction(e, e.target, {
         tocOpen: tocVisible,
         languageShortcuts: showLanguageSelector,
       })
       if (!action && (e.key === 'n' || e.key === 'N')) {
-        if (isEditableTarget(e.target)) return
+        if (isEditableTarget(e.target) || e.altKey || e.ctrlKey || e.metaKey) return
         e.preventDefault()
         if (e.key === 'n') goNextItem()
         else goPrevItem()
@@ -1337,10 +1327,14 @@ export function PlayerAv({
         return
       }
       if (action === 'jumpSection') {
-        const sectionTitle = avSectionJumpTitle(e.key, showLanguageSelector)
-        if (sectionTitle) {
+        const sectionShortcut = avSectionJumpShortcutForEvent(
+          e,
+          currentItem.outline,
+          showLanguageSelector,
+        )
+        if (sectionShortcut) {
           e.preventDefault()
-          jumpToSection(sectionTitle)
+          goToSlide(sectionShortcut.slideIndex)
         }
       }
     }
@@ -1354,7 +1348,6 @@ export function PlayerAv({
     goPrev,
     goPrevItem,
     goToSlide,
-    jumpToSection,
     navigate,
     openOutputWindow,
     slideCount,
@@ -1365,6 +1358,7 @@ export function PlayerAv({
     languagePopoverOpen,
     bilingualEnabled,
     currentItem.kind,
+    currentItem.outline,
     currentLanguageIndex,
     rawItem,
     selectNextLanguage,
@@ -1572,7 +1566,7 @@ export function PlayerAv({
           <AvSectionShortcuts
             outline={currentItem.outline}
             screenState={session.screenState}
-            onJump={jumpToSection}
+            onJump={goToSlide}
             onToggleBlank={toggleBlank}
             onToggleBlackout={toggleBlackout}
             nextLanguageLabel={nextLanguageOption?.label}

@@ -17,7 +17,7 @@ import './player-av.css'
 type AvSectionShortcutsProps = {
   outline: AvSectionOutline[]
   screenState: AvScreenState
-  onJump: (sectionTitle: string) => void
+  onJump: (slideIndex: number) => void
   onToggleBlank: () => void
   onToggleBlackout: () => void
   nextLanguageLabel?: string
@@ -44,7 +44,11 @@ export function AvSectionShortcuts({
   return (
     <div className="player-av__section-shortcuts" role="toolbar" aria-label={t('player.av.sectionShortcutsAria')}>
       {sectionShortcuts.map((shortcut) => (
-        <SectionShortcutButton key={shortcut.key} shortcut={shortcut} onJump={onJump} />
+        <SectionShortcutButton
+          key={`${shortcut.key}-${shortcut.occurrence}-${shortcut.sectionTitle}`}
+          shortcut={shortcut}
+          onJump={onJump}
+        />
       ))}
       {onNextLanguage && nextLanguageLabel ? (
         <button
@@ -108,7 +112,7 @@ function SectionShortcutButton({
   onJump,
 }: {
   shortcut: AvSectionJumpShortcut
-  onJump: (sectionTitle: string) => void
+  onJump: (slideIndex: number) => void
 }) {
   const { t } = useTranslation()
 
@@ -116,14 +120,18 @@ function SectionShortcutButton({
     <button
       type="button"
       className="player-av__section-shortcut"
-      aria-keyshortcuts={shortcut.key}
-      aria-label={t('player.av.sectionJump', {
-        section: shortcut.sectionTitle,
-        key: shortcut.key.toUpperCase(),
-      })}
-      onClick={() => onJump(shortcut.sectionTitle)}
+      aria-keyshortcuts={shortcut.keyLabel ?? undefined}
+      aria-label={shortcut.keyLabel
+        ? t('player.av.sectionJump', {
+            section: shortcut.sectionTitle,
+            key: shortcut.keyLabel,
+          })
+        : t('player.av.sectionJumpNoShortcut', { section: shortcut.sectionTitle })}
+      onClick={() => onJump(shortcut.slideIndex)}
     >
-      <kbd className="player-av__section-shortcut-key">{shortcut.key.toUpperCase()}</kbd>
+      {shortcut.keyLabel ? (
+        <kbd className="player-av__section-shortcut-key">{shortcut.keyLabel}</kbd>
+      ) : null}
       <span className="player-av__section-shortcut-label">{shortcut.sectionTitle}</span>
     </button>
   )

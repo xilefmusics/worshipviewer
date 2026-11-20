@@ -671,13 +671,16 @@ flowchart TD
     av(["/player AV"]) --> state{Control}
     state -->|"r / 'Blank' button"| blank["Toggle Blank (background only, no text)"]
     state -->|"Shift+R / 'Blackout' button"| black["Toggle Blackout (solid black)"]
-    state -->|Section shortcut key c/v/p/1-9/b/t/e| sect["Jump to that section's first slide"]
+    state -->|Section shortcut key c/v/p/1-9/b/t/e| sect["Jump to the first matching section"]
+    state -->|Shift / Alt variants| repeated["Jump to a later section occurrence"]
     state -->|Background selector| bg["Expand → pick a preset or readable flagged image background"]
     blank --> sync["Broadcast to output window"]
     black --> sync
     bg --> sync
     jump["Slide navigation"] --> sync
 ```
+
+Section shortcuts target occurrences in presentation order: the base key selects the first, `Shift+key` the second, `Alt+key` the third, and `Shift+Alt+key` the fourth. The toolbar keeps later occurrences available as buttons without shortcuts. Number keys `1`–`9` continue to target Verse 1–9.
 
 ### I3. Open & drive the projection output window
 

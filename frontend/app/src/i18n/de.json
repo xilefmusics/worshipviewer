@@ -413,6 +413,7 @@
       "backgroundsEmpty": "Noch keine eigenen Hintergründe.",
       "sectionShortcutsAria": "Zu Abschnitt springen",
       "sectionJump": "Zu {{section}} springen ({{key}})",
+      "sectionJumpNoShortcut": "Zu {{section}} springen",
       "nextLanguage": "Zu {{language}} wechseln",
       "toggleTranslation": "Übersetzung umschalten",
       "translation": "Übersetzung",
