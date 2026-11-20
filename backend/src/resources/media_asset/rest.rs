@@ -185,9 +185,11 @@ async fn complete_upload_session(
             ));
         }
         let work_path = work.path().join(format!("source-{source_index}"));
-        tokio::fs::rename(&stored_path, &work_path)
+        // Staging can live on a mounted volume while the work directory uses local temp storage.
+        // Copying works across filesystem boundaries, unlike rename.
+        tokio::fs::copy(&stored_path, &work_path)
             .await
-            .map_err(|e| AppError::internal_from_err("media.upload_session.move", e))?;
+            .map_err(|e| AppError::internal_from_err("media.upload_session.copy", e))?;
         source_paths.push(work_path);
     }
 
