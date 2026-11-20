@@ -6,6 +6,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Added
 
+- AV section shortcuts now jump to repeated or numbered occurrences with Shift and Alt variants.
 - Ctrl+C copies the current player song as Worship Pro, and Ctrl+P opens its single-song PDF print preview.
 - Import songs from searchable CCLI PDFs directly in song creation.
 - Upload image backgrounds to the media library and use them in AV projection.

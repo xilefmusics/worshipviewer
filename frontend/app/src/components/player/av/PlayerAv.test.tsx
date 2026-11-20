@@ -488,6 +488,58 @@ describe('PlayerAv', () => {
     expect(screen.getByText('Second Song')).toBeInTheDocument()
   })
 
+  it('jumps directly to numbered chorus occurrences with modifier shortcuts', async () => {
+    const user = userEvent.setup()
+    viewState = { transposeByItem: {}, languageByItem: { 0: 0 } }
+    readViewState.mockReturnValue(viewState)
+
+    const sourceItem = player.items[0] as Extract<Player['items'][number], { type: 'chords' }>
+    const repeatedItem = {
+      ...sourceItem,
+      language: 'en',
+      song: {
+        ...sourceItem.song,
+        data: {
+          ...sourceItem.song.data,
+          languages: ['en'],
+          sections: [
+            {
+              title: 'Verse 1',
+              repeat_count: 1,
+              lines: [{ parts: [{ comment: false, languages: ['Verse line'] }] }],
+            },
+            {
+              title: 'Chorus 1',
+              repeat_count: 1,
+              lines: [{ parts: [{ comment: false, languages: ['First chorus'] }] }],
+            },
+            {
+              title: 'Chorus 2',
+              repeat_count: 1,
+              lines: [{ parts: [{ comment: false, languages: ['Second chorus'] }] }],
+            },
+          ],
+        },
+      },
+    } as Player['items'][number]
+    const repeatedChorusPlayer = { ...player, items: [repeatedItem] } as Player
+
+    render(
+      <PlayerAv
+        type="setlist"
+        id="setlist-1"
+        player={repeatedChorusPlayer}
+        allowNetworkFetch={false}
+      />,
+    )
+
+    await user.keyboard('c')
+    expect(screen.getByTestId('preview-text')).toHaveTextContent('First chorus')
+
+    await user.keyboard('{Shift>}c{/Shift}')
+    expect(screen.getByTestId('preview-text')).toHaveTextContent('Second chorus')
+  })
+
   it('shows the header language switcher and updates AV content from it', async () => {
     viewState = { transposeByItem: {}, languageByItem: { 0: 0 } }
     readViewState.mockReturnValue(viewState)

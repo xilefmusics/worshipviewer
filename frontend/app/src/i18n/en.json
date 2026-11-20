@@ -413,6 +413,7 @@
       "backgroundsEmpty": "No custom backgrounds yet.",
       "sectionShortcutsAria": "Jump to section",
       "sectionJump": "Jump to {{section}} ({{key}})",
+      "sectionJumpNoShortcut": "Jump to {{section}}",
       "nextLanguage": "Switch to {{language}}",
       "toggleTranslation": "Toggle translation",
       "translation": "Translation",
