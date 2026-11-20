@@ -10,7 +10,9 @@
     "divider": "oder",
     "oauth": {
       "google": "Mit Google anmelden",
-      "hint": "Du wirst zur Anmeldung weitergeleitet und danach hierher zurückgebracht."
+      "hint": "Du wirst zur Anmeldung weitergeleitet und danach hierher zurückgebracht.",
+      "nativeHint": "Google wird im Browser geöffnet. Nach der Anmeldung kehrst du zu Worship Viewer zurück.",
+      "pending": "Warte auf die Google-Anmeldung…"
     },
     "otp": {
       "emailLabel": "E-Mail",
@@ -27,7 +29,8 @@
       "terms": "AGB"
     },
     "errors": {
-      "otpGeneric": "Anmeldung fehlgeschlagen. Bitte erneut versuchen."
+      "otpGeneric": "Anmeldung fehlgeschlagen. Bitte erneut versuchen.",
+      "oauthGeneric": "Die Google-Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen."
     }
   },
   "home": {
@@ -461,7 +464,9 @@
     "upToDate": "Du verwendest die neueste Version.",
     "updateAvailable": "Eine neue Version ist verfügbar.",
     "unsupported": "Update-Prüfungen sind nur in der installierten App verfügbar.",
-    "reloadToUpdate": "Neu laden zum Aktualisieren"
+    "reloadToUpdate": "Neu laden zum Aktualisieren",
+    "desktopUpdate": "Updates der Desktop-App werden manuell installiert.",
+    "desktopReleases": "Neueste Desktop-Version herunterladen"
   },
   "adminDashboard": {
     "kicker": "Admin",

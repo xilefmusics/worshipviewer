@@ -36,6 +36,8 @@ pnpm -C frontend dev
 
 See [README.md](README.md) for production-like single-process runs, Playwright e2e (port **8788** for the bundled backend), and Docker.
 
+To run the native desktop shell against the Vite server and backend proxy, use `pnpm --filter app tauri:dev`. Tauri build prerequisites vary by operating system; see the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) and [desktop app guide](docs/desktop-app.md).
+
 ### One-shot CI parity (recommended before PR)
 
 ```bash
@@ -151,6 +153,7 @@ CI fails if the three copies diverge or if `openapi_snapshot_matches_committed_f
 | [Backend CI](.github/workflows/backend-ci.yml) — validation | PRs to `main`; pushes to non-`main` branches           | `cargo test`, clippy, fmt, Spectral, OpenAPI tri-copy, `cargo audit` (backend, cli, shared, `chordlib-wasm`)    |
 | [Frontend CI](.github/workflows/frontend-ci.yml)            | PRs to `main`; pushes to `main` that touch `frontend/` | Vitest, flow lint, typecheck, OpenAPI `schema.d.ts` drift, lint, build, `pnpm audit`                            |
 | [Backend CI](.github/workflows/backend-ci.yml) — publish    | Pushes to `main` or a tag matching build paths         | Builds and publishes `ghcr.io/xilefmusics/worshipviewer` |
+| [Desktop release](.github/workflows/desktop-release.yml)    | Plain semantic version tags such as `0.17.0`             | Publishes macOS DMGs, Windows NSIS, and Linux deb/AppImage installers |
 
 Validation jobs cancel superseded runs for the same PR/ref. Publishing is excluded
 from cancellation. Frontend CI caches Rust/WASM build artifacts and builds WASM

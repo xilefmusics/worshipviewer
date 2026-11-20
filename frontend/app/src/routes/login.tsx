@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { invoke, isTauri } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/api/client'
@@ -89,6 +91,20 @@ function LoginPage() {
   const [code, setCode] = useState('')
   const [otpStep, setOtpStep] = useState<'email' | 'code'>('email')
   const [otpError, setOtpError] = useState<string | null>(null)
+  const [oauthPending, setOauthPending] = useState(false)
+  const nativeApp = isTauri()
+
+  useEffect(() => {
+    if (!nativeApp) return
+    let unlisten: (() => void) | undefined
+    void listen('native-auth-error', () => {
+      setOauthPending(false)
+      setOtpError(t('login.errors.oauthGeneric'))
+    }).then((stop) => {
+      unlisten = stop
+    })
+    return () => unlisten?.()
+  }, [nativeApp, t])
 
   const requestOtp = useMutation({
     mutationFn: async (addr: string) => {
@@ -118,7 +134,18 @@ function LoginPage() {
     onError: (e: Error) => setOtpError(e.message),
   })
 
-  function startOAuth() {
+  async function startOAuth() {
+    setOtpError(null)
+    if (nativeApp) {
+      setOauthPending(true)
+      try {
+        await invoke('start_native_google_login')
+      } catch {
+        setOauthPending(false)
+        setOtpError(t('login.errors.oauthGeneric'))
+      }
+      return
+    }
     const redirectParam = buildAuthLoginRedirectParam(destination)
     const url = `/auth/login?redirect_to=${encodeURIComponent(redirectParam)}`
     globalThis.location.assign(url)
@@ -224,13 +251,14 @@ function LoginPage() {
               type="button"
               variant="outline"
               className="w-full"
-              onClick={startOAuth}
+              disabled={oauthPending}
+              onClick={() => void startOAuth()}
             >
               <GoogleIcon />
-              {t('login.oauth.google')}
+              {oauthPending ? t('login.oauth.pending') : t('login.oauth.google')}
             </Button>
             <p className="text-center text-xs text-[var(--color-muted-foreground)]">
-              {t('login.oauth.hint')}
+              {nativeApp ? t('login.oauth.nativeHint') : t('login.oauth.hint')}
             </p>
           </CardContent>
         </Card>

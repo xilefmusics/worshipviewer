@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePwaUpdate } from '@/pwa/pwa-update-context'
+import { isTauri } from '@tauri-apps/api/core'
 
 function formatBuildDate(iso: string, locale: string): string {
   const date = new Date(iso)
@@ -17,6 +18,7 @@ function formatBuildDate(iso: string, locale: string): string {
 export function AboutView() {
   const { t, i18n } = useTranslation()
   const { status, needRefresh, checkForUpdate, applyUpdate } = usePwaUpdate()
+  const nativeApp = isTauri()
 
   const buildDateLabel = useMemo(
     () => formatBuildDate(__APP_BUILD_DATE__, i18n.language),
@@ -58,6 +60,24 @@ export function AboutView() {
           </p>
         </CardContent>
       </Card>
+
+      {nativeApp ? (
+        <Card>
+          <CardHeader className="p-4 pb-3">
+            <CardTitle className="text-base">{t('about.desktopUpdate')}</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            <a
+              className="text-sm font-medium text-[var(--color-primary)] underline underline-offset-2"
+              href="https://github.com/xilefmusics/worshipviewer/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t('about.desktopReleases')}
+            </a>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="p-4 pb-3">

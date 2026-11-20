@@ -5,17 +5,24 @@ use actix_web::{
     cookie::{Cookie, SameSite},
     get,
     http::header,
+    post,
     web::{self, Data},
 };
 use chrono::{Duration as ChronoDuration, Utc};
 use openidconnect::core::CoreAuthenticationFlow;
-use openidconnect::{AuthorizationCode, CsrfToken, Nonce, PkceCodeChallenge, Scope, TokenResponse};
-use serde::Deserialize;
+use openidconnect::{
+    AuthorizationCode, CsrfToken, Nonce, PkceCodeChallenge, PkceCodeVerifier, Scope, TokenResponse,
+};
+use serde::{Deserialize, Serialize};
 use time::Duration as CookieDuration;
 use tracing::instrument;
-use utoipa::IntoParams;
+use utoipa::{IntoParams, ToSchema};
+use uuid::Uuid;
 
-use super::{Model as OidcModel, OidcClients, OidcProvider, PendingOidc};
+use super::{
+    Model as OidcModel, NativeLoginHandoff, OidcClients, OidcProvider, PendingNativeLogin,
+    PendingOidc,
+};
 use crate::auth::load_authorization_context_for_user;
 use crate::database::Database;
 #[allow(unused_imports)]
@@ -46,10 +53,60 @@ async fn login(
     oidc_clients: Data<Arc<OidcClients>>,
     query: web::Query<LoginQuery>,
 ) -> Result<HttpResponse, AppError> {
-    db.cleanup_expired_oidc_states().await?;
-    let redirect_hint = query.redirect_to.as_deref().and_then(sanitize_redirect);
+    begin_login(
+        db.get_ref(),
+        oidc_clients.get_ref(),
+        query.redirect_to.as_deref().and_then(sanitize_redirect),
+        None,
+    )
+    .await
+}
 
-    let oidc_clients = oidc_clients.get_ref();
+#[utoipa::path(
+    get,
+    path = "/auth/native/login",
+    params(NativeLoginQuery),
+    responses(
+        (status = 302, description = "Open the configured OIDC provider in the system browser"),
+        (status = 400, description = "Invalid native OAuth state or PKCE challenge", body = Problem, content_type = "application/problem+json"),
+        (status = 429, description = "Rate limit exceeded; slow down and retry", body = Problem, content_type = "application/problem+json"),
+        (status = 500, description = "Failed to prepare login flow", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Auth"
+)]
+#[instrument(level = "debug", err, skip_all, fields(provider = "google"))]
+#[get("/native/login")]
+pub async fn native_login_endpoint(
+    db: Data<Database>,
+    oidc_clients: Data<Arc<OidcClients>>,
+    query: web::Query<NativeLoginQuery>,
+) -> Result<HttpResponse, AppError> {
+    if !is_valid_native_state(&query.state) || !is_valid_pkce_challenge(&query.code_challenge) {
+        return Err(AppError::invalid_request(
+            "invalid native OAuth state or PKCE challenge",
+        ));
+    }
+
+    begin_login(
+        db.get_ref(),
+        oidc_clients.get_ref(),
+        None,
+        Some(PendingNativeLogin {
+            state: query.state.clone(),
+            code_challenge: query.code_challenge.clone(),
+        }),
+    )
+    .await
+}
+
+async fn begin_login(
+    db: &Database,
+    oidc_clients: &OidcClients,
+    redirect_hint: Option<String>,
+    native_login: Option<PendingNativeLogin>,
+) -> Result<HttpResponse, AppError> {
+    db.cleanup_expired_oidc_states().await?;
+
     let provider = OidcProvider::Google;
     let registration = oidc_clients
         .get(&provider)
@@ -76,6 +133,7 @@ async fn login(
             pkce_verifier: verifier,
             nonce,
             redirect_to: redirect_hint,
+            native_login,
             created_at: now,
             expires_at,
             provider,
@@ -93,7 +151,7 @@ async fn login(
     path = "/auth/callback",
     params(AuthCallbackQuery),
     responses(
-        (status = 302, description = "Successful callback exchange; redirects back to frontend"),
+        (status = 302, description = "Successful web login or native callback; redirects to the frontend or desktop app"),
         (status = 400, description = "Invalid OIDC state", body = Problem, content_type = "application/problem+json"),
         (status = 401, description = "OIDC user info missing required claims", body = Problem, content_type = "application/problem+json"),
         (status = 500, description = "OIDC provider or database error", body = Problem, content_type = "application/problem+json")
@@ -131,10 +189,32 @@ async fn callback(
         pkce_verifier,
         nonce,
         redirect_to,
+        native_login,
         created_at: _,
         expires_at: _,
         provider,
     } = pending;
+
+    if query.error.is_some() {
+        if let Some(native_login) = native_login {
+            return Ok(HttpResponse::Found()
+                .append_header((
+                    header::LOCATION,
+                    native_error_callback_url(&native_login.state),
+                ))
+                .append_header((header::CACHE_CONTROL, "no-store"))
+                .append_header((header::REFERRER_POLICY, "no-referrer"))
+                .finish());
+        }
+        return Err(AppError::invalid_request(
+            "Google did not authorize sign-in",
+        ));
+    }
+
+    let code = query
+        .code
+        .as_ref()
+        .ok_or_else(|| AppError::invalid_request("provider response missing code"))?;
 
     let oidc_clients = oidc_clients.get_ref();
     let registration = match oidc_clients.get(&provider) {
@@ -153,7 +233,7 @@ async fn callback(
     let http = registration.http();
 
     let mut token_request = oidc_client
-        .exchange_code(AuthorizationCode::new(query.code.clone()))
+        .exchange_code(AuthorizationCode::new(code.clone()))
         .map_err(|e| crate::log_and_convert!(AppError::oidc, "oidc.exchange_code", e))?;
     token_request = token_request.set_pkce_verifier(pkce_verifier);
 
@@ -287,11 +367,115 @@ async fn callback(
         ; "login succeeded"
     );
 
+    if let Some(native_login) = native_login {
+        let code = Uuid::new_v4().simple().to_string();
+        let created_at = Utc::now();
+        db.remember_native_handoff(
+            &code,
+            NativeLoginHandoff {
+                session_id: session.id,
+                state: native_login.state.clone(),
+                code_challenge: native_login.code_challenge,
+                created_at,
+                expires_at: created_at + ChronoDuration::seconds(NATIVE_HANDOFF_TTL_SECONDS),
+            },
+        )
+        .await?;
+
+        return Ok(HttpResponse::Found()
+            .append_header((
+                header::LOCATION,
+                native_callback_url(&code, &native_login.state),
+            ))
+            .append_header((header::CACHE_CONTROL, "no-store"))
+            .append_header((header::REFERRER_POLICY, "no-referrer"))
+            .finish());
+    }
+
     let redirect_target =
         resolve_frontend_redirect(&cookie_cfg.post_login_path, redirect_to.as_deref());
-
     Ok(HttpResponse::Found()
         .append_header((header::LOCATION, redirect_target))
+        .cookie(session_cookie(&session.id, &cookie_cfg))
+        .finish())
+}
+
+const NATIVE_HANDOFF_TTL_SECONDS: i64 = 120;
+
+fn native_callback_url(code: &str, state: &str) -> String {
+    format!("worshipviewer://auth/callback?code={code}&state={state}")
+}
+
+fn native_error_callback_url(state: &str) -> String {
+    format!("worshipviewer://auth/callback?error=auth_failed&state={state}")
+}
+
+fn is_valid_native_state(value: &str) -> bool {
+    (22..=128).contains(&value.len())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+}
+
+fn is_valid_pkce_challenge(value: &str) -> bool {
+    value.len() == 43
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+}
+
+fn is_valid_pkce_verifier(value: &str) -> bool {
+    (43..=128).contains(&value.len())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~'))
+}
+
+#[utoipa::path(
+    post,
+    path = "/auth/native/exchange",
+    request_body = NativeExchangeRequest,
+    responses(
+        (status = 204, description = "Native handoff consumed; the session cookie is set for the requesting app webview"),
+        (status = 400, description = "Malformed handoff request", body = Problem, content_type = "application/problem+json"),
+        (status = 401, description = "Handoff is invalid, expired, or already used", body = Problem, content_type = "application/problem+json"),
+        (status = 500, description = "Failed to establish app session", body = Problem, content_type = "application/problem+json")
+    ),
+    tag = "Auth"
+)]
+#[instrument(level = "debug", err, skip_all, fields(provider = "native"))]
+#[post("/native/exchange")]
+pub async fn native_exchange(
+    db: Data<Database>,
+    session_svc: Data<SessionServiceHandle>,
+    cookie_cfg: Data<CookieConfig>,
+    payload: web::Json<NativeExchangeRequest>,
+) -> Result<HttpResponse, AppError> {
+    if !is_valid_native_state(&payload.state)
+        || !is_valid_pkce_verifier(&payload.code_verifier)
+        || payload.code.is_empty()
+        || payload.code.len() > 128
+    {
+        return Err(AppError::invalid_request("invalid native login handoff"));
+    }
+
+    let verifier = PkceCodeVerifier::new(payload.code_verifier.clone());
+    let challenge = PkceCodeChallenge::from_code_verifier_sha256(&verifier);
+    let handoff = db
+        .take_native_handoff(&payload.code, &payload.state, challenge.as_str())
+        .await?
+        .ok_or(AppError::Unauthorized)?;
+
+    let session = session_svc
+        .get_session(&handoff.session_id)
+        .await
+        .map_err(|_| AppError::Unauthorized)?;
+    if session.expires_at <= Utc::now() {
+        return Err(AppError::Unauthorized);
+    }
+
+    Ok(HttpResponse::NoContent()
+        .append_header((header::CACHE_CONTROL, "no-store"))
         .cookie(session_cookie(&session.id, &cookie_cfg))
         .finish())
 }
@@ -334,11 +518,38 @@ struct LoginQuery {
 
 #[derive(Debug, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
-struct AuthCallbackQuery {
-    #[param(required = true)]
-    code: String,
+struct NativeLoginQuery {
+    /// Random app-generated state returned through the registered desktop deep link.
     #[param(required = true)]
     state: String,
+    /// Base64url SHA-256 challenge for the app-generated PKCE verifier.
+    #[param(required = true)]
+    code_challenge: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct NativeExchangeRequest {
+    /// Short-lived, single-use code delivered through `worshipviewer://auth/callback`.
+    pub code: String,
+    /// State originally supplied to `GET /auth/native/login`.
+    pub state: String,
+    /// Original app-generated PKCE verifier.
+    pub code_verifier: String,
+}
+
+#[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+struct AuthCallbackQuery {
+    /// Authorization code returned by Google on success.
+    #[serde(default)]
+    #[param(required = false)]
+    code: Option<String>,
+    #[param(required = true)]
+    state: String,
+    /// Present when the user denies or the provider cannot complete authorization.
+    #[serde(default)]
+    #[param(required = false)]
+    error: Option<String>,
 }
 
 fn resolve_frontend_redirect(post_login_path: &str, requested: Option<&str>) -> String {
@@ -353,5 +564,184 @@ fn default_frontend_path(path: &str) -> String {
         "/".to_string()
     } else {
         format!("/{}", trimmed.trim_start_matches('/'))
+    }
+}
+
+#[cfg(test)]
+mod native_handoff_http_tests {
+    use actix_web::{App, http::StatusCode, test, web};
+    use chrono::{Duration as ChronoDuration, Utc};
+    use openidconnect::{PkceCodeChallenge, PkceCodeVerifier};
+
+    use super::{NativeExchangeRequest, native_exchange};
+    use crate::auth::oidc::{Model as OidcModel, NativeLoginHandoff};
+    use crate::settings::CookieConfig;
+    use crate::test_helpers::{create_user, session_service, test_db};
+
+    const VALID_STATE: &str = "1234567890abcdefghijklmnopqrstuv";
+    const VALID_VERIFIER: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    #[actix_web::test]
+    async fn native_exchange_sets_cookie_and_consumes_code_only_after_pkce_match() {
+        let db = test_db().await.expect("test database");
+        let user = create_user(&db, "native-login@test.local")
+            .await
+            .expect("create user");
+        let session_svc = session_service(&db);
+        let session = session_svc
+            .create_session_for_user_by_id(&user.id, 3600)
+            .await
+            .expect("create session");
+        let code = "e6d3f4be480a4dcbbaf93c74246127f1";
+        let verifier = PkceCodeVerifier::new(VALID_VERIFIER.to_owned());
+        let challenge = PkceCodeChallenge::from_code_verifier_sha256(&verifier);
+        let now = Utc::now();
+        OidcModel::remember_native_handoff(
+            db.as_ref(),
+            code,
+            NativeLoginHandoff {
+                session_id: session.id.clone(),
+                state: VALID_STATE.into(),
+                code_challenge: challenge.as_str().to_owned(),
+                created_at: now,
+                expires_at: now + ChronoDuration::seconds(120),
+            },
+        )
+        .await
+        .expect("remember handoff");
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::from(db.clone()))
+                .app_data(web::Data::new(session_svc))
+                .app_data(web::Data::new(CookieConfig {
+                    name: "sso_session".into(),
+                    secure: true,
+                    session_ttl_seconds: 3600,
+                    post_login_path: "/".into(),
+                }))
+                .service(native_exchange),
+        )
+        .await;
+
+        let wrong_verifier = format!("{}", "z".repeat(64));
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/native/exchange")
+                .set_json(NativeExchangeRequest {
+                    code: code.into(),
+                    state: VALID_STATE.into(),
+                    code_verifier: wrong_verifier,
+                })
+                .to_request(),
+        )
+        .await;
+        let status = response.status();
+        let body = test::read_body(response).await;
+        assert_eq!(
+            status,
+            StatusCode::UNAUTHORIZED,
+            "exchange error: {}",
+            String::from_utf8_lossy(&body)
+        );
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/native/exchange")
+                .set_json(NativeExchangeRequest {
+                    code: code.into(),
+                    state: VALID_STATE.into(),
+                    code_verifier: VALID_VERIFIER.into(),
+                })
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::NO_CONTENT);
+        let set_cookie = response
+            .headers()
+            .get(actix_web::http::header::SET_COOKIE)
+            .expect("set-cookie")
+            .to_str()
+            .expect("cookie header");
+        assert!(set_cookie.starts_with("sso_session="));
+        assert!(set_cookie.contains("HttpOnly"));
+        assert!(set_cookie.contains("Secure"));
+        assert!(set_cookie.contains("SameSite=Lax"));
+
+        let body = test::read_body(response).await;
+        assert!(body.is_empty(), "handoff response must not contain a token");
+
+        let replay = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/native/exchange")
+                .set_json(NativeExchangeRequest {
+                    code: code.into(),
+                    state: VALID_STATE.into(),
+                    code_verifier: VALID_VERIFIER.into(),
+                })
+                .to_request(),
+        )
+        .await;
+        assert_eq!(replay.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[actix_web::test]
+    async fn native_exchange_rejects_expired_handoff() {
+        let db = test_db().await.expect("test database");
+        let user = create_user(&db, "native-expired@test.local")
+            .await
+            .expect("create user");
+        let session_svc = session_service(&db);
+        let session = session_svc
+            .create_session_for_user_by_id(&user.id, 3600)
+            .await
+            .expect("create session");
+        let code = "expired-native-code";
+        let verifier = PkceCodeVerifier::new(VALID_VERIFIER.to_owned());
+        let challenge = PkceCodeChallenge::from_code_verifier_sha256(&verifier);
+        let now = Utc::now();
+        OidcModel::remember_native_handoff(
+            db.as_ref(),
+            code,
+            NativeLoginHandoff {
+                session_id: session.id,
+                state: VALID_STATE.into(),
+                code_challenge: challenge.as_str().to_owned(),
+                created_at: now - ChronoDuration::seconds(121),
+                expires_at: now - ChronoDuration::seconds(1),
+            },
+        )
+        .await
+        .expect("remember expired handoff");
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::from(db.clone()))
+                .app_data(web::Data::new(session_svc))
+                .app_data(web::Data::new(CookieConfig {
+                    name: "sso_session".into(),
+                    secure: true,
+                    session_ttl_seconds: 3600,
+                    post_login_path: "/".into(),
+                }))
+                .service(native_exchange),
+        )
+        .await;
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/native/exchange")
+                .set_json(NativeExchangeRequest {
+                    code: code.into(),
+                    state: VALID_STATE.into(),
+                    code_verifier: VALID_VERIFIER.into(),
+                })
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
 }

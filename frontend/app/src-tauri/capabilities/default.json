@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Worship Viewer web app access to the limited native sign-in bridge.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["https://app.worshipviewer.com/**"]
+  },
+  "permissions": ["core:default"]
+}

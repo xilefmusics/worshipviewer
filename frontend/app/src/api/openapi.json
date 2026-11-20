@@ -1511,6 +1511,28 @@
         ],
         "type": "object"
       },
+      "NativeExchangeRequest": {
+        "properties": {
+          "code": {
+            "description": "Short-lived, single-use code delivered through `worshipviewer://auth/callback`.",
+            "type": "string"
+          },
+          "code_verifier": {
+            "description": "Original app-generated PKCE verifier.",
+            "type": "string"
+          },
+          "state": {
+            "description": "State originally supplied to `GET /auth/native/login`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "state",
+          "code_verifier"
+        ],
+        "type": "object"
+      },
       "Orientation": {
         "enum": [
           "portrait",
@@ -13011,9 +13033,10 @@
         "operationId": "callback",
         "parameters": [
           {
+            "description": "Authorization code returned by Google on success.",
             "in": "query",
             "name": "code",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -13025,11 +13048,20 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Present when the user denies or the provider cannot complete authorization.",
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "302": {
-            "description": "Successful callback exchange; redirects back to frontend"
+            "description": "Successful web login or native callback; redirects to the frontend or desktop app"
           },
           "400": {
             "content": {
@@ -13170,6 +13202,122 @@
             "SessionToken": []
           }
         ],
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/native/exchange": {
+      "post": {
+        "operationId": "native_exchange",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeExchangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Native handoff consumed; the session cookie is set for the requesting app webview"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Malformed handoff request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Handoff is invalid, expired, or already used"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Failed to establish app session"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/native/login": {
+      "get": {
+        "operationId": "native_login_endpoint",
+        "parameters": [
+          {
+            "description": "Random app-generated state returned through the registered desktop deep link.",
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Base64url SHA-256 challenge for the app-generated PKCE verifier.",
+            "in": "query",
+            "name": "code_challenge",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Open the configured OIDC provider in the system browser"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid native OAuth state or PKCE challenge"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Rate limit exceeded; slow down and retry"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Failed to prepare login flow"
+          }
+        },
         "tags": [
           "Auth"
         ]

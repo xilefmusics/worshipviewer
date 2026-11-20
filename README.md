@@ -8,6 +8,7 @@ Its main job is to manage and display digital sheet music; planned work and idea
 - [Repository layout](#repository-layout)
 - [Main principles](#main-principles)
 - [Try it out](#try-it-out)
+- [Desktop app](#desktop-app)
 - [Local development](#local-development)
 - [Frontend tests](#frontend-tests)
 - [Backend configuration](#backend-configuration)
@@ -50,6 +51,10 @@ docker run --rm -p 8080:8080 ghcr.io/xilefmusics/worshipviewer:latest
 ```bash
 docker run --rm -p 8080:8080 --platform linux/amd64 ghcr.io/xilefmusics/worshipviewer:latest
 ```
+
+## Desktop app
+
+Install the native desktop app for macOS, Windows, or Linux from the [latest release](https://github.com/xilefmusics/worshipviewer/releases/latest). See the [desktop app guide](docs/desktop-app.md) for platform packages, sign-in, and update details. The desktop app requires an internet connection.
 
 ## Local development
 

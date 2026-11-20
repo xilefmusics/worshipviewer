@@ -14,6 +14,7 @@ import {
 } from './src/lib/player/av-output-csp'
 
 function gitVersion(): string {
+  if (process.env.VITE_APP_VERSION) return process.env.VITE_APP_VERSION
   try {
     return execSync('git describe --tags --always --dirty', {
       stdio: ['ignore', 'pipe', 'ignore'],

@@ -1061,6 +1061,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/native/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["native_exchange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/native/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["native_login_endpoint"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/otp/request": {
         parameters: {
             query?: never;
@@ -1613,6 +1645,14 @@ export interface components {
          */
         MoveOwner: {
             owner: string;
+        };
+        NativeExchangeRequest: {
+            /** @description Short-lived, single-use code delivered through `worshipviewer://auth/callback`. */
+            code: string;
+            /** @description Original app-generated PKCE verifier. */
+            code_verifier: string;
+            /** @description State originally supplied to `GET /auth/native/login`. */
+            state: string;
         };
         /** @enum {string} */
         Orientation: "portrait" | "landscape";
@@ -8963,8 +9003,11 @@ export interface operations {
     callback: {
         parameters: {
             query: {
-                code: string;
+                /** @description Authorization code returned by Google on success. */
+                code?: string;
                 state: string;
+                /** @description Present when the user denies or the provider cannot complete authorization. */
+                error?: string;
             };
             header?: never;
             path?: never;
@@ -8972,7 +9015,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful callback exchange; redirects back to frontend */
+            /** @description Successful web login or native callback; redirects to the frontend or desktop app */
             302: {
                 headers: {
                     [name: string]: unknown;
@@ -9109,6 +9152,105 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    native_exchange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NativeExchangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Native handoff consumed; the session cookie is set for the requesting app webview */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed handoff request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Handoff is invalid, expired, or already used */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Failed to establish app session */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    native_login_endpoint: {
+        parameters: {
+            query: {
+                /** @description Random app-generated state returned through the registered desktop deep link. */
+                state: string;
+                /** @description Base64url SHA-256 challenge for the app-generated PKCE verifier. */
+                code_challenge: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Open the configured OIDC provider in the system browser */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid native OAuth state or PKCE challenge */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limit exceeded; slow down and retry */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Failed to prepare login flow */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
             };
         };
     };

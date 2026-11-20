@@ -6,6 +6,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Added
 
+- Native Tauri desktop apps for macOS, Windows, and Linux, with system-browser Google sign-in and release installers.
 - AV section shortcuts now jump to repeated or numbered occurrences with Shift and Alt variants.
 - Ctrl+C copies the current player song as Worship Pro, and Ctrl+P opens its single-song PDF print preview.
 - Import songs from searchable CCLI PDFs directly in song creation.
@@ -60,7 +61,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 ## Release process
 
 1. Move `[Unreleased]` items into a dated version section (`## [x.y.z] - YYYY-MM-DD`).
-2. Tag the release in Git (`git tag vX.Y.Z`).
-3. Docker images for `main` and tags are published by [Backend CI](.github/workflows/backend-ci.yml).
+2. Tag the release in Git with a plain semantic version (`git tag X.Y.Z`).
+3. Docker images for `main` and tags are published by [Backend CI](.github/workflows/backend-ci.yml); the [Desktop release workflow](.github/workflows/desktop-release.yml) builds platform installers for version tags.
 
 Until automated releases exist, version numbers track the backend crate (`backend/Cargo.toml`) and OpenAPI `info.version`.
