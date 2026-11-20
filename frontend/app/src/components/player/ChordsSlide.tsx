@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { useHideChordsPreference } from '@/hooks/useHideChordsPreference'
 import { observeElementResize } from '@/lib/browser-apis'
 import { scopeChordlibPageCss } from '@/lib/chord-page-css'
+import { layoutChordSpacing } from '@/lib/player/chord-html-spacing'
 import { getChordEngine } from '@/lib/chord-engine'
 import {
   A4_REFERENCE_HEIGHT_PX,
@@ -53,6 +54,7 @@ function replaceGeneratedKeyMeta(html: string, keyLine: string): string {
   }
   return document.body.innerHTML
 }
+
 
 type RenderState =
   | { status: 'loading' }
@@ -214,6 +216,36 @@ ${
       cancelled = true
     }
   }, [renderKey, songData, displayKey, soundingKey, selectedKey, capoFret, showTransposeControls, transposeOffset, languageIndex, representation, hideChords, t])
+
+
+  useLayoutEffect(() => {
+    if (renderState.status !== 'ready') return
+    const root = pageRef.current
+    if (!root) return
+
+    let active = true
+    let scheduled = false
+    const layout = () => {
+      if (active) layoutChordSpacing(root)
+    }
+    const scheduleLayout = () => {
+      if (scheduled) return
+      scheduled = true
+      requestAnimationFrame(() => {
+        scheduled = false
+        layout()
+      })
+    }
+
+    layout()
+    window.addEventListener('resize', scheduleLayout)
+    if (document.fonts?.ready) void document.fonts.ready.then(scheduleLayout)
+
+    return () => {
+      active = false
+      window.removeEventListener('resize', scheduleLayout)
+    }
+  }, [effectiveFontScale, orientation, renderKey, renderState])
 
   useLayoutEffect(() => {
     if (renderState.status !== 'ready') return
