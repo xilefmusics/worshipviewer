@@ -17,6 +17,7 @@ import {
   type PwaInstallHelpKind,
 } from '@/pwa/pwa-install-action'
 import { PwaInstallContext } from '@/pwa/pwa-install-context'
+import { isTauri } from '@tauri-apps/api/core'
 
 function getIsStandalone(): boolean {
   if (typeof globalThis.matchMedia === 'function') {
@@ -135,7 +136,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
   }, [])
 
   const canShowInstall = Boolean(
-    storageOk === true && !isStandalone && !hasRelatedInstalled,
+    !isTauri() && storageOk === true && !isStandalone && !hasRelatedInstalled,
   )
 
   const openInstall = useCallback(async () => {

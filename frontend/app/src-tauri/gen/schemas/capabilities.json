@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Worship Viewer web app access to the limited native sign-in bridge.","remote":{"urls":["https://app.worshipviewer.com/**"]},"local":true,"windows":["main"],"permissions":["core:default"]}}

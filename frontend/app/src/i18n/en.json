@@ -10,7 +10,9 @@
     "divider": "or",
     "oauth": {
       "google": "Login with Google",
-      "hint": "You'll be redirected to complete sign-in and returned here."
+      "hint": "You'll be redirected to complete sign-in and returned here.",
+      "nativeHint": "Google opens in your browser. Worship Viewer returns here after sign-in.",
+      "pending": "Waiting for Google sign-in…"
     },
     "otp": {
       "emailLabel": "Email",
@@ -27,7 +29,8 @@
       "terms": "Terms"
     },
     "errors": {
-      "otpGeneric": "Sign-in failed. Please try again."
+      "otpGeneric": "Sign-in failed. Please try again.",
+      "oauthGeneric": "Google sign-in could not be completed. Please try again."
     }
   },
   "home": {
@@ -461,7 +464,9 @@
     "upToDate": "You're on the latest version.",
     "updateAvailable": "A new version is available.",
     "unsupported": "Update checks are only available in the installed app.",
-    "reloadToUpdate": "Reload to update"
+    "reloadToUpdate": "Reload to update",
+    "desktopUpdate": "Desktop app updates are installed manually.",
+    "desktopReleases": "Download the latest desktop version"
   },
   "adminDashboard": {
     "kicker": "Admin",

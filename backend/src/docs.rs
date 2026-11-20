@@ -188,6 +188,8 @@ fn populate_operation_response_descriptions(operation: &mut Operation) {
     paths(
         crate::about::get_about,
         crate::auth::oidc::rest::login,
+        crate::auth::oidc::rest::native_login_endpoint,
+        crate::auth::oidc::rest::native_exchange,
         crate::auth::oidc::rest::callback,
         crate::auth::otp::rest::otp_request,
         crate::auth::otp::rest::otp_verify,

@@ -42,6 +42,8 @@ pub fn scope(auth_rate_limit_rps: u64, auth_rate_limit_burst: u32) -> actix_web:
                 .wrap(Governor::new(&governor_conf))
                 .wrap(AuditRateLimit429)
                 .service(oidc::rest::login)
+                .service(oidc::rest::native_login_endpoint)
+                .service(oidc::rest::native_exchange)
                 .service(otp::rest::otp_request)
                 .service(otp::rest::otp_verify)
                 .service(logout),

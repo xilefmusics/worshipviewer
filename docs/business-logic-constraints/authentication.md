@@ -18,6 +18,10 @@ Session lifecycle (including **BLC-SESS-010** expired rows that stay in the DB u
 - **BLC-AUTH-OIDC-002:** **`state`** is single-use and bound to the browser session; **`GET /auth/callback`** MUST receive a **`state`** that matches the pending login; mismatch or reuse yields **401** / error response per implementation.
 - **BLC-AUTH-OIDC-003:** Redirect URI used in the authorize request MUST be on the server allowlist; **`nonce`** is validated against the ID token where applicable.
 - **BLC-AUTH-OIDC-004:** Successful OIDC login issues the same session cookie semantics as OTP login (**`Set-Cookie`**, flags, path) unless deployment configuration differs.
+- **BLC-AUTH-OIDC-005:** **`GET /auth/native/login`** accepts an app-generated state and S256 PKCE challenge, then starts the existing OIDC flow for the system browser. It MUST NOT accept a caller-controlled redirect URI.
+- **BLC-AUTH-OIDC-006:** A successful native OIDC callback returns a random, short-lived, single-use handoff code to the fixed **`worshipviewer://auth/callback`** URI. The server stores only a hash of the code, bound to the app state and PKCE challenge; code values MUST NOT be logged or returned in a response body.
+- **BLC-AUTH-OIDC-007:** **`POST /auth/native/exchange`** requires the handoff code, original state, and PKCE verifier. It MUST atomically consume the code only when state, challenge, and expiry match, then set the normal `HttpOnly` session cookie without returning a session token in JSON. Invalid, expired, replayed, or mismatched codes yield **401**.
+- **BLC-AUTH-OIDC-008:** When the identity provider returns an authorization error for a native login, **`GET /auth/callback`** redirects to the fixed desktop callback with a generic failure marker and the app state. It MUST NOT create a session or include provider error details in the deep link.
 
 ## Email OTP
 
