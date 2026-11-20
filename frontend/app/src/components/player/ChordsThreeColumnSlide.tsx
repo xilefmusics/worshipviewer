@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { useHideChordsPreference } from '@/hooks/useHideChordsPreference'
 import { observeElementResize } from '@/lib/browser-apis'
+import { layoutChordSpacing } from '@/lib/player/chord-html-spacing'
 import {
   chordSectionRenderKey,
   getCachedChordSections,
@@ -590,6 +591,38 @@ export function ChordsThreeColumnSlide({
     overflowStyle,
     effectiveFontScale,
   ])
+
+  useLayoutEffect(() => {
+    if (!columnLayout || !columnSections) return
+
+    const roots = [measureRef.current, rowRef.current].filter(
+      (root): root is HTMLDivElement => root != null,
+    )
+    if (roots.length === 0) return
+
+    let active = true
+    let scheduled = false
+    const layout = () => {
+      if (active) roots.forEach(layoutChordSpacing)
+    }
+    const scheduleLayout = () => {
+      if (scheduled) return
+      scheduled = true
+      requestAnimationFrame(() => {
+        scheduled = false
+        layout()
+      })
+    }
+
+    layout()
+    window.addEventListener('resize', scheduleLayout)
+    if (document.fonts?.ready) void document.fonts.ready.then(scheduleLayout)
+
+    return () => {
+      active = false
+      window.removeEventListener('resize', scheduleLayout)
+    }
+  }, [columnLayout, columnSections, combinedColumnCss, effectiveFontScale, packedColumns])
 
   useLayoutEffect(() => {
     if (!packingContextKey || !columnLayout || !columnSections) return
