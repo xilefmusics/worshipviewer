@@ -15,5 +15,5 @@
 ## Notes
 
 - Additional monitoring endpoints (for example monthly active users) SHOULD live under the **`/api/v1/monitoring/`** prefix and follow the same admin-only pattern unless explicitly documented otherwise.
-- Public deployment metadata (version, git commit, production flag) is available unauthenticated at **`GET /api/v1/about`** — see [`backend-resource.md`](../architecture/backend-resource.md).
+- Public deployment metadata (build version, git commit, production flag) is available unauthenticated at **`GET /api/v1/about`**. The build version uses the same `APP_VERSION` or `VITE_APP_VERSION` override or Git description as the frontend, so both report the same version when built together — see [`backend-resource.md`](../architecture/backend-resource.md).
 - Public native installer metadata and downloads are documented in [installers.md](installers.md).

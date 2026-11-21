@@ -1185,7 +1185,7 @@ export interface components {
             production: boolean;
             /** @description Identifies this server binary. */
             service: string;
-            /** @description Semver from `Cargo.toml` at compile time (`CARGO_PKG_VERSION`). */
+            /** @description Build version from `VITE_APP_VERSION` or `APP_VERSION`, falling back to Git description. */
             version: string;
         };
         /**

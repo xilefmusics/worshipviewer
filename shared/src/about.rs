@@ -11,7 +11,7 @@ use utoipa::ToSchema;
 pub struct AboutResponse {
     /// Identifies this server binary.
     pub service: String,
-    /// Semver from `Cargo.toml` at compile time (`CARGO_PKG_VERSION`).
+    /// Build version from `VITE_APP_VERSION` or `APP_VERSION`, falling back to Git description.
     pub version: String,
     /// Git revision if `GIT_COMMIT_SHA` was set during `cargo build`.
     pub git_commit: Option<String>,

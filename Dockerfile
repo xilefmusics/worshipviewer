@@ -14,6 +14,7 @@ WORKDIR /wrk
 COPY ./shared ./shared
 # Copy build inputs explicitly: local runtime data must not invalidate compilation.
 COPY ./backend/Cargo.toml ./backend/Cargo.lock ./backend/openapi.json ./backend/
+COPY ./backend/build.rs ./backend/
 COPY ./backend/.cargo ./backend/.cargo
 COPY ./backend/src ./backend/src
 COPY ./backend/db-migrations ./backend/db-migrations
@@ -23,9 +24,11 @@ COPY ./backend/tests ./backend/tests
 WORKDIR /wrk/backend
 ARG GIT_COMMIT_SHA
 ARG APP_VERSION=0.0.0-dev
+ARG VITE_APP_VERSION
+# Keep the backend's public version in sync with the frontend build version.
 # Omit `GIT_COMMIT_SHA` from the environment when unset so `option_env!("GIT_COMMIT_SHA")` stays absent (CI passes `--build-arg`).
 RUN if [ -n "${GIT_COMMIT_SHA:-}" ]; then export GIT_COMMIT_SHA; else unset GIT_COMMIT_SHA; fi && \
-    APP_VERSION="${APP_VERSION}" cargo build --release
+    APP_VERSION="${APP_VERSION}" VITE_APP_VERSION="${VITE_APP_VERSION}" cargo build --release
 
 # Compile WASM independently so app and backend edits reuse this layer.
 FROM toolchain AS wasm-builder
