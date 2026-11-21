@@ -201,6 +201,7 @@ async fn exchange_native_code(app: &AppHandle, code: &str, state: &str) -> Resul
     exchange_url.set_path("/auth/native/exchange");
     exchange_url.set_query(None);
     let secure_origin = exchange_url.scheme() == "https";
+    let app_host = exchange_url.host_str().ok_or(())?.to_owned();
 
     let client = Client::builder()
         .redirect(Policy::none())
@@ -225,7 +226,7 @@ async fn exchange_native_code(app: &AppHandle, code: &str, state: &str) -> Resul
         .get(reqwest::header::SET_COOKIE)
         .and_then(|value| value.to_str().ok())
         .ok_or(())?;
-    let cookie = Cookie::parse(cookie_header.to_owned())
+    let mut cookie = Cookie::parse(cookie_header.to_owned())
         .map_err(|_| ())?
         .into_owned();
     if !cookie.http_only().unwrap_or(false)
@@ -235,6 +236,18 @@ async fn exchange_native_code(app: &AppHandle, code: &str, state: &str) -> Resul
     {
         return Err(());
     }
+
+    // WKHTTPCookieStore requires a domain when constructing a cookie. The server
+    // intentionally returns a host-only session cookie, so attach the exact app
+    // host for the native webview handoff.
+    if cookie.domain().is_some_and(|cookie_domain| {
+        !cookie_domain
+            .trim_start_matches('.')
+            .eq_ignore_ascii_case(&app_host)
+    }) {
+        return Err(());
+    }
+    cookie.set_domain(app_host);
 
     window.set_cookie(cookie).map_err(|_| ())?;
     if let Ok(entry) = credential_entry() {
