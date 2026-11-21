@@ -237,6 +237,7 @@ function AvSlideCanvas({
             contentLayer={contentLayer}
             geometryOverlaySize={geometryOverlaySize}
             compact={compact}
+            adaptiveWidth
           />
         )}
       </div>

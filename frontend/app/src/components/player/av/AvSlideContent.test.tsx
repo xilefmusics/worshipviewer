@@ -36,6 +36,34 @@ describe('AvSlideContent', () => {
     expect(screen.getByText('Line two')).toBeInTheDocument()
   })
 
+  it('uses adaptive width only for non-compact content when enabled', () => {
+    const { container, unmount } = render(
+      <AvSlideContent
+        text="A longer lyric line"
+        contentLayer={DEFAULT_AV_PREFERENCES.contentLayer}
+        adaptiveWidth
+      />,
+    )
+
+    expect(container.querySelector('.av-slide-content__inner')).toHaveClass(
+      'av-slide-content__inner--adaptive',
+    )
+    unmount()
+
+    const compact = render(
+      <AvSlideContent
+        text="A longer lyric line"
+        contentLayer={DEFAULT_AV_PREFERENCES.contentLayer}
+        compact
+        adaptiveWidth
+      />,
+    )
+
+    expect(compact.container.querySelector('.av-slide-content__inner')).not.toHaveClass(
+      'av-slide-content__inner--adaptive',
+    )
+  })
+
   it('shows only the first structured line group in compact mode', () => {
     render(
       <AvSlideContent

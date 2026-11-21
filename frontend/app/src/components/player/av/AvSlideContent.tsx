@@ -24,6 +24,7 @@ type AvSlideContentProps = {
   geometryOverlaySize?: number
   className?: string
   compact?: boolean
+  adaptiveWidth?: boolean
 }
 
 type AvLineKind = 'primary' | 'secondary'
@@ -86,6 +87,7 @@ export function AvSlideContent({
   geometryOverlaySize,
   className,
   compact = false,
+  adaptiveWidth = false,
 }: AvSlideContentProps) {
   const designFontSizePx = contentLayer.fontSize
   const crossCenterOffset =
@@ -117,7 +119,10 @@ export function AvSlideContent({
       style={contentStyle}
     >
       <div
-        className="av-slide-content__inner"
+        className={cn(
+          'av-slide-content__inner',
+          adaptiveWidth && !compact && 'av-slide-content__inner--adaptive',
+        )}
         style={
           compact
             ? undefined
