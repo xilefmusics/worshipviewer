@@ -298,6 +298,11 @@
   width: 100%;
 }
 
+.av-slide-content__inner--adaptive {
+  max-width: 100%;
+  width: fit-content;
+}
+
 .av-slide-content__line {
   --av-slide-shadow-rgb: 0 0 0;
 
