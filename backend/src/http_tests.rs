@@ -159,6 +159,7 @@ fn build_app_with_api_limits(
         .app_data(cookie_cfg)
         .app_data(Data::new(test_settings.impersonation_config()))
         .app_data(crate::error::json_config())
+        .configure(|cfg| crate::mcp::configure_oauth(cfg, 1000, 1000, 1000, 1000))
         .service(docs::rest::scope(Settings::default()))
         .service(
             actix_web::web::scope("/auth")
@@ -916,7 +917,7 @@ mod user_admin_gates {
         (admin, token)
     }
 
-    /// BLC-USER-005: authenticated GET /users/me returns 200 matching the user.
+    /// BLC-USER-005, BLC-MCP-AUTH-008: GET /users/me remains reachable with MCP enabled.
     #[actix_web::test]
     async fn blc_user_005_get_me_returns_own_user() {
         let db = test_db().await.unwrap();

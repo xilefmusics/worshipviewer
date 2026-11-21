@@ -4,18 +4,20 @@ pub(crate) mod server;
 pub use oauth::McpOauthConfig;
 pub use server::{McpGateway, McpIdentity};
 
-pub fn oauth_scope(
+pub fn configure_oauth(
+    cfg: &mut actix_web::web::ServiceConfig,
     auth_rate_limit_rps: u64,
     auth_rate_limit_burst: u32,
     api_rate_limit_rps: u64,
     api_rate_limit_burst: u32,
-) -> actix_web::Scope {
-    oauth::scope(
+) {
+    oauth::configure(
+        cfg,
         auth_rate_limit_rps,
         auth_rate_limit_burst,
         api_rate_limit_rps,
         api_rate_limit_burst,
-    )
+    );
 }
 
 pub fn endpoint_scope(rate_limit_rps: u64, rate_limit_burst: u32) -> actix_web::Scope {

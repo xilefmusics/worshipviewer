@@ -38,3 +38,4 @@ Session lifecycle (including **BLC-SESS-010** expired rows that stay in the DB u
 - **BLC-MCP-AUTH-005:** Every MCP request must present a valid bearer access token for the exact `/mcp` resource and `music:read` scope. The server rebuilds the current user/team authorization context before each call; revoked grants and current Worship Viewer ACLs take effect on the next request.
 - **BLC-MCP-AUTH-006:** The MCP server exposes only read tools for searching and getting songs, setlists, and collections. Resource reads MUST go through the existing per-user resource services so public/team visibility rules remain the same as the REST API.
 - **BLC-MCP-AUTH-007:** The connected-app settings API lists a user's active MCP grants. Revoking a grant deletes its access and refresh tokens so every token in that grant family stops working immediately.
+- **BLC-MCP-AUTH-008:** Enabling MCP OAuth MUST leave unrelated authentication and REST API routes reachable.
