@@ -45,7 +45,8 @@ RUN cp package.json /tmp/frontend-package.json && \
     pnpm install --frozen-lockfile && \
     mv /tmp/frontend-package.json package.json
 COPY ./frontend ./
-RUN pnpm --filter app build
+ARG VITE_APP_VERSION
+RUN VITE_APP_VERSION="${VITE_APP_VERSION}" pnpm --filter app build
 
 # scratch has no /tmp; runtime libraries and amd64 emulation need a writable one.
 FROM toolchain AS runtime-dirs
