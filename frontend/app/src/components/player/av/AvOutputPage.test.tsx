@@ -8,6 +8,8 @@ import { buildAvProjectionCommand } from '@/lib/player/av-projection-protocol'
 let slideViewProps: Record<string, unknown> | null = null
 let onMessage: ((message: unknown) => void) | null = null
 const send = vi.fn()
+const native = vi.hoisted(() => ({ isTauri: vi.fn(() => false), invoke: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('@tauri-apps/api/core', () => native)
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -50,9 +52,32 @@ beforeEach(() => {
   slideViewProps = null
   onMessage = null
   send.mockReset()
+  native.isTauri.mockReturnValue(false)
+  native.invoke.mockClear()
+  window.history.replaceState(null, '', '/')
 })
 
 describe('AvOutputPage', () => {
+  it('waits for the background before showing a native display', async () => {
+    native.isTauri.mockReturnValue(true)
+    const animationFrame = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1)
+    window.history.replaceState(null, '', '/?nativeDisplay=1')
+    const pending = document.createElement('span')
+    pending.setAttribute('data-av-background-pending', '')
+    document.body.appendChild(pending)
+    render(<AvOutputPage sessionId="shared" />)
+    act(() => {
+      onMessage?.(buildAvProjectionCommand({
+        sessionId: 'shared', commandId: 1, ...layers, screenState: 'live',
+        itemTitle: 'Song', nextPreview: null, content: { type: 'lyrics', contentText: 'Hello' },
+      }))
+    })
+    expect(native.invoke).not.toHaveBeenCalled()
+    pending.remove()
+    await waitFor(() => expect(native.invoke).toHaveBeenCalledWith('presentation_ready'))
+    animationFrame.mockRestore()
+  })
+
   it('renders structured content lines when the command includes them', async () => {
     render(<AvOutputPage sessionId="shared" />)
     act(() => {

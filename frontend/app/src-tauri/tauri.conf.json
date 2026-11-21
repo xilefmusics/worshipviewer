@@ -21,7 +21,7 @@
       }
     ],
     "security": {
-      "capabilities": ["default"]
+      "capabilities": ["default", "presentation"]
     }
   },
   "bundle": {

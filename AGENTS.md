@@ -118,3 +118,16 @@ This is the authoritative local gate: fmt, audit, backend test/clippy, OpenAPI t
 - Tool versions: Rust **1.98.1**, Node **26**, pnpm **12.6.0**, wasm-pack **0.15.0** — see [CONTRIBUTING.md](CONTRIBUTING.md#prerequisites).
 
 For architecture, migrations, release notes, and CI job details, read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/README.md](docs/README.md).
+
+## Local desktop development
+
+From the repository root, with the backend running on `127.0.0.1:17771` and `INITIAL_ADMIN_USER_TEST_SESSION=true`, start Tauri with the local admin session:
+
+```bash
+WORSHIPVIEWER_LOCAL_ADMIN=1 \
+VITE_DEV_PROXY_TARGET=http://127.0.0.1:17771 \
+PORT=5173 HOST=127.0.0.1 \
+pnpm --filter app tauri:dev --config '{"identifier":"com.worshipviewer.desktop.preview"}'
+```
+
+Adjust the proxy target to match the backend port. See the [desktop app guide](docs/desktop-app.md#develop) for prerequisites and details.

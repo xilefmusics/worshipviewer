@@ -148,6 +148,7 @@ function BackgroundImage({
   onUnavailable: () => void
 }) {
   const [src, setSrc] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -173,6 +174,7 @@ function BackgroundImage({
       .catch(() => {
         if (!cancelled) {
           setSrc(null)
+          setFailed(true)
           onUnavailable()
         }
       })
@@ -190,5 +192,5 @@ function BackgroundImage({
       alt=""
       onError={onUnavailable}
     />
-  ) : null
+  ) : failed ? null : <span data-av-background-pending />
 }

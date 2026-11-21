@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "presentation",
+  "description": "Allow presentation windows to signal when their content is ready.",
+  "windows": ["presentation-*"],
+  "remote": { "urls": ["https://app.worshipviewer.com/**"] },
+  "permissions": ["core:default"]
+}

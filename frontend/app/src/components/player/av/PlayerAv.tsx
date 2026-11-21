@@ -1,4 +1,6 @@
 import type { components } from '@/api/schema'
+import { isTauri } from '@tauri-apps/api/core'
+import { AvDesktopOutputs } from '@/components/player/av/AvDesktopOutputs'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -916,6 +918,9 @@ export function PlayerAv({
   useEffect(() => {
     if (slideOnly) return
     const channel = createAvProjectionChannel(sessionId, (message) => {
+      if (message.type === 'hello' && controllerRef.current.latestCommand) {
+        channel.send(controllerRef.current.latestCommand)
+      }
       const next = reduceControllerProjection(
         controllerRef.current,
         { type: 'message', message },
@@ -1690,6 +1695,7 @@ export function PlayerAv({
               <TimerIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
             </Button>
           ) : null}
+          {isTauri() ? <AvDesktopOutputs sessionId={sessionId} summary={outputSummaryLabel} /> : (
           <Button
             type="button"
             variant="outline"
@@ -1702,6 +1708,7 @@ export function PlayerAv({
           >
             <OutputIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
           </Button>
+          )}
           <span className="sr-only" data-testid="output-summary">
             {outputSummaryLabel}
           </span>
