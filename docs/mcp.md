@@ -1,10 +1,10 @@
 # Remote MCP integration
 
-Worship Viewer exposes a read-only remote MCP server at `POST /mcp`. It uses the Rust MCP SDK's stateless Streamable HTTP transport and supports protocol revision `2026-07-28`.
+Worship Viewer exposes a read-only remote MCP server at `POST /mcp`. It uses the Rust MCP SDK's stateless Streamable HTTP transport and supports protocol revisions `2025-03-26`, `2025-06-18`, `2025-11-25`, and `2026-07-28`.
 
 ## OAuth setup
 
-Set `PUBLIC_BASE_URL` to the public app origin. For production, use the HTTPS app origin. For the local Vite setup, use `http://127.0.0.1:5173`; Vite proxies OAuth discovery, token, revocation, and MCP requests to the backend while serving the consent screen itself. The resource identifier is exactly `{PUBLIC_BASE_URL}/mcp`.
+Set `PUBLIC_BASE_URL` to the public app origin. In production MCP is disabled when the default local origin is left unchanged; setting an HTTPS app origin enables it. For the local Vite setup, use `http://127.0.0.1:5173`; Vite proxies OAuth discovery, token, revocation, and MCP requests to the backend while serving the consent screen itself. The resource identifier is exactly `{PUBLIC_BASE_URL}/mcp`.
 
 The server publishes:
 
@@ -13,7 +13,7 @@ The server publishes:
 - Authorization code, token, and revocation endpoints under `/oauth`.
 - Consent and connected-grant endpoints under `/api/v1/mcp/oauth`.
 
-The OAuth server supports public CIMD clients, the authorization-code grant, PKCE with `S256`, resource indicators, the `music:read` scope, and refresh-token rotation. CIMD documents must be hosted over HTTPS by `chatgpt.com` or `openai.com`. Their redirect URI must exactly match the authorization request and use HTTPS. No OpenID Connect identity claims are issued.
+The OAuth server supports public CIMD clients, the authorization-code grant, PKCE with `S256`, resource indicators, the `music:read` scope, and refresh-token rotation. Reuse of a rotated refresh token revokes its grant family. CIMD documents must be hosted over HTTPS by `chatgpt.com` or `openai.com`. Their redirect URI must exactly match the authorization request and use HTTPS. No OpenID Connect identity claims are issued.
 
 Users sign in through Worship Viewer's existing Google OIDC or email OTP login and approve the requested read access on the consent screen. Access tokens last 15 minutes. Rotating refresh tokens have a 30-day absolute lifetime. Connected apps can be disconnected from **Settings → Connections**.
 

@@ -257,6 +257,7 @@ struct RefreshTokenRecord {
     scope: String,
     resource: String,
     expires_at: Datetime,
+    used: bool,
 }
 
 #[utoipa::path(
@@ -679,13 +680,11 @@ pub(crate) async fn token(
                     "Refresh token validation failed",
                 ));
             }
-            let Some(refresh_record) = take_record::<RefreshTokenRecord>(
-                db.get_ref(),
-                "mcp_oauth_refresh",
-                &hash(&refresh),
-            )
-            .await?
-            .filter(|record| not_expired(record.expires_at)) else {
+            let Some(refresh_record) = consume_refresh_token(db.get_ref(), &hash(&refresh)).await?
+            else {
+                // Keep used token hashes until expiry so reuse can invalidate the
+                // successor even when the attacker refreshed first.
+                delete_grant_family(db.get_ref(), &observed_record.grant_id).await?;
                 return Ok(oauth_error(
                     "invalid_grant",
                     "Refresh token is invalid or already used",
@@ -751,6 +750,7 @@ async fn issue_tokens(
             scope: scope.clone(),
             resource,
             expires_at: Datetime::from(refresh_expires_at),
+            used: false,
         },
     )
     .await?;
@@ -1018,6 +1018,24 @@ async fn take_record<T: SurrealValue>(
     })
 }
 
+async fn consume_refresh_token(
+    db: &Database,
+    id: &str,
+) -> Result<Option<RefreshTokenRecord>, AppError> {
+    let mut response = db.db
+        .query("UPDATE type::record('mcp_oauth_refresh', $id) SET used = true WHERE used = false AND expires_at > time::now() RETURN BEFORE")
+        .bind(("id", id.to_owned()))
+        .await
+        .map_err(|error| crate::log_and_convert!(AppError::database, "mcp_oauth.refresh.consume", error))?;
+    response.take(0).map_err(|error| {
+        crate::log_and_convert!(
+            AppError::database,
+            "mcp_oauth.refresh.consume_decode",
+            error
+        )
+    })
+}
+
 fn not_expired(expires_at: Datetime) -> bool {
     DateTime::<Utc>::from(expires_at) > Utc::now()
 }
@@ -1178,5 +1196,262 @@ mod tests {
         assert!(McpOauthConfig::new("https://app.example.test/nested".to_owned()).is_err());
         assert!(McpOauthConfig::new("file:///tmp".to_owned()).is_err());
         assert!(McpOauthConfig::new("https://user@app.example.test".to_owned()).is_err());
+    }
+    #[actix_web::test]
+    async fn refresh_replay_revokes_tokens_and_grant() {
+        use super::*;
+        use crate::test_helpers::{
+            collection_service, create_song_with_title, create_user, setlist_service, song_service,
+            test_db,
+        };
+        use actix_web::web;
+        let db = test_db().await.unwrap();
+        let user = create_user(&db, "mcp-replay@test.local").await.unwrap();
+        let other = create_user(&db, "mcp-other@test.local").await.unwrap();
+        let own_song = create_song_with_title(&db, &user, "Own song")
+            .await
+            .unwrap();
+        let other_song = create_song_with_title(&db, &other, "Other song")
+            .await
+            .unwrap();
+        let config = McpOauthConfig::new("https://app.example.test".into()).unwrap();
+        let grant_id = random_token().unwrap();
+        create_record(
+            &db,
+            "mcp_oauth_grant",
+            &grant_id,
+            GrantRecord {
+                user_id: user.id.clone(),
+                client_id: "client".into(),
+                client_name: "client".into(),
+                scope: SCOPE.into(),
+                created_at: Datetime::from(Utc::now()),
+            },
+        )
+        .await
+        .unwrap();
+        let initial = issue_tokens(
+            &db,
+            user.id,
+            "client".into(),
+            grant_id,
+            SCOPE.into(),
+            config.resource(),
+            Utc::now() + TimeDelta::days(1),
+        )
+        .await
+        .unwrap();
+        let gateway = crate::mcp::McpGateway::new(
+            song_service(&db),
+            setlist_service(&db),
+            collection_service(&db),
+            config.issuer(),
+        );
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(db.clone()))
+                .app_data(Data::new(config.clone()))
+                .app_data(Data::new(gateway))
+                .service(web::scope("/oauth").service(token))
+                .service(crate::mcp::endpoint_scope(100, 100)),
+        )
+        .await;
+        let call = |payload: Value| {
+            test::TestRequest::post()
+                .peer_addr("127.0.0.1:12345".parse().unwrap())
+                .uri("/mcp")
+                .insert_header(("host", "app.example.test"))
+                .insert_header(("authorization", format!("Bearer {}", initial.access_token)))
+                .insert_header(("accept", "application/json, text/event-stream"))
+                .insert_header(("mcp-protocol-version", "2025-11-25"))
+                .set_json(payload)
+                .to_request()
+        };
+        let response = test::call_service(
+            &app,
+            call(json!({"jsonrpc":"2.0","id":1,"method":"tools/list"})),
+        )
+        .await;
+        assert_eq!(response.status(), 200);
+        let result: Value = test::read_body_json(response).await;
+        let tools = result["result"]["tools"].as_array().unwrap();
+        assert_eq!(tools.len(), 6);
+        for tool in tools {
+            assert_eq!(tool["annotations"]["readOnlyHint"], true);
+            assert_eq!(tool["annotations"]["destructiveHint"], false);
+            assert_eq!(tool["annotations"]["openWorldHint"], false);
+        }
+        for (id, allowed) in [(&own_song.id, true), (&other_song.id, false)] {
+            let response = test::call_service(&app, call(json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_song","arguments":{"id":id}}}))).await;
+            let result: Value = test::read_body_json(response).await;
+            assert_eq!(result.get("result").is_some(), allowed, "{result}");
+        }
+        let refresh = |value: &str| {
+            test::TestRequest::post()
+                .uri("/oauth/token")
+                .set_form([
+                    ("grant_type", "refresh_token"),
+                    ("client_id", "client"),
+                    ("resource", "https://app.example.test/mcp"),
+                    ("refresh_token", value),
+                ])
+                .to_request()
+        };
+        let response = test::call_service(&app, refresh(&initial.refresh_token)).await;
+        assert_eq!(response.status(), 200);
+        let rotated: Value = test::read_body_json(response).await;
+        let successor = rotated["refresh_token"].as_str().unwrap();
+        let access = rotated["access_token"].as_str().unwrap();
+        assert!(
+            authenticate_access_token(&db, access, config.resource())
+                .await
+                .is_some()
+        );
+        assert_eq!(
+            test::call_service(&app, refresh(&initial.refresh_token))
+                .await
+                .status(),
+            400
+        );
+        assert_eq!(
+            test::call_service(&app, refresh(successor)).await.status(),
+            400
+        );
+        assert!(
+            authenticate_access_token(&db, access, config.resource())
+                .await
+                .is_none()
+        );
+    }
+
+    #[actix_web::test]
+    async fn authorization_code_requires_pkce_and_is_single_use() {
+        use super::*;
+        use crate::test_helpers::{create_user, test_db};
+        use actix_web::web;
+        let db = test_db().await.unwrap();
+        let user = create_user(&db, "mcp-code@test.local").await.unwrap();
+        let config = McpOauthConfig::new("https://app.example.test".into()).unwrap();
+        let verifier = "a".repeat(64);
+        let challenge = base64_url(digest(&SHA256, verifier.as_bytes()).as_ref());
+        let code = random_token().unwrap();
+        create_record(
+            &db,
+            "mcp_oauth_code",
+            &hash(&code),
+            AuthorizationCodeRecord {
+                user_id: user.id,
+                client_id: "client".into(),
+                client_name: "client".into(),
+                redirect_uri: "https://chatgpt.com/callback".into(),
+                code_challenge: challenge,
+                scope: SCOPE.into(),
+                resource: config.resource(),
+                grant_id: "grant".into(),
+                expires_at: Datetime::from(Utc::now() + TimeDelta::minutes(10)),
+            },
+        )
+        .await
+        .unwrap();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(db))
+                .app_data(Data::new(config))
+                .service(web::scope("/oauth").service(token)),
+        )
+        .await;
+        let exchange = || {
+            test::TestRequest::post()
+                .uri("/oauth/token")
+                .set_form([
+                    ("grant_type", "authorization_code"),
+                    ("client_id", "client"),
+                    ("redirect_uri", "https://chatgpt.com/callback"),
+                    ("resource", "https://app.example.test/mcp"),
+                    ("code", code.as_str()),
+                    ("code_verifier", verifier.as_str()),
+                ])
+                .to_request()
+        };
+        assert_eq!(test::call_service(&app, exchange()).await.status(), 200);
+        assert_eq!(test::call_service(&app, exchange()).await.status(), 400);
+    }
+    #[actix_web::test]
+    async fn consent_requires_session_and_same_origin() {
+        use super::*;
+        use crate::test_helpers::{create_user, session_service, test_db};
+        use actix_web::{cookie::Cookie, web};
+        let db = test_db().await.unwrap();
+        let user = create_user(&db, "mcp-consent@test.local").await.unwrap();
+        let session = session_service(&db)
+            .create_session_for_user_by_id(&user.id, 3600)
+            .await
+            .unwrap();
+        let config = McpOauthConfig::new("https://app.example.test".into()).unwrap();
+        let id = random_token().unwrap();
+        create_record(
+            &db,
+            "mcp_oauth_request",
+            &id,
+            AuthorizationRequestRecord {
+                client_id: "https://chatgpt.com/oauth/client.json".into(),
+                client_name: "ChatGPT".into(),
+                redirect_uri: "https://chatgpt.com/callback".into(),
+                code_challenge: "a".repeat(43),
+                state: "state".into(),
+                scope: SCOPE.into(),
+                resource: config.resource(),
+                expires_at: Datetime::from(Utc::now() + TimeDelta::minutes(10)),
+            },
+        )
+        .await
+        .unwrap();
+        let cookies = crate::settings::CookieConfig {
+            name: "sso_session".into(),
+            secure: false,
+            session_ttl_seconds: 3600,
+            post_login_path: "/".into(),
+        };
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::from(db))
+                .app_data(Data::new(config))
+                .app_data(Data::new(cookies))
+                .service(web::scope("/api/v1/mcp/oauth").service(decide_consent)),
+        )
+        .await;
+        let uri = format!("/api/v1/mcp/oauth/requests/{id}");
+        let request = |origin: &str, logged_in: bool| {
+            let mut req = test::TestRequest::post()
+                .uri(&uri)
+                .insert_header(("origin", origin))
+                .set_json(json!({"allow": true}));
+            if logged_in {
+                req = req.cookie(Cookie::new("sso_session", session.id.clone()));
+            }
+            req.to_request()
+        };
+        assert_eq!(
+            test::call_service(&app, request("https://app.example.test", false))
+                .await
+                .status(),
+            401
+        );
+        assert_eq!(
+            test::call_service(&app, request("https://evil.test", true))
+                .await
+                .status(),
+            403
+        );
+        let response = test::call_service(&app, request("https://app.example.test", true)).await;
+        assert_eq!(response.status(), 200);
+        let value: Value = test::read_body_json(response).await;
+        assert!(value["redirect_to"].as_str().unwrap().contains("code="));
+        assert_eq!(
+            test::call_service(&app, request("https://app.example.test", true))
+                .await
+                .status(),
+            404
+        );
     }
 }

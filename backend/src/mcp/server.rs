@@ -63,7 +63,12 @@ struct IdArgs {
 impl McpServer {
     #[tool(
         name = "search_songs",
-        description = "Search songs the signed-in user can read. Supports q, team, page, and page_size."
+        description = "Search songs the signed-in user can read. Supports q, team, page, and page_size.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
     async fn search_songs(
         &self,
@@ -94,7 +99,12 @@ impl McpServer {
 
     #[tool(
         name = "get_song",
-        description = "Get one song by id if the signed-in user can read it."
+        description = "Get one song by id if the signed-in user can read it.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
     async fn get_song(
         &self,
@@ -112,7 +122,12 @@ impl McpServer {
 
     #[tool(
         name = "search_setlists",
-        description = "Search setlists the signed-in user can read. Supports q, team, page, and page_size."
+        description = "Search setlists the signed-in user can read. Supports q, team, page, and page_size.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
     async fn search_setlists(
         &self,
@@ -136,7 +151,12 @@ impl McpServer {
 
     #[tool(
         name = "get_setlist",
-        description = "Get one setlist by id if the signed-in user can read it."
+        description = "Get one setlist by id if the signed-in user can read it.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
     async fn get_setlist(
         &self,
@@ -154,7 +174,12 @@ impl McpServer {
 
     #[tool(
         name = "search_collections",
-        description = "Search collections the signed-in user can read. Supports q, team, page, and page_size."
+        description = "Search collections the signed-in user can read. Supports q, team, page, and page_size.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
     async fn search_collections(
         &self,
@@ -178,7 +203,12 @@ impl McpServer {
 
     #[tool(
         name = "get_collection",
-        description = "Get one collection by id if the signed-in user can read it."
+        description = "Get one collection by id if the signed-in user can read it.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            open_world_hint = false
+        )
     )]
     async fn get_collection(
         &self,
@@ -205,7 +235,12 @@ impl ServerHandler for McpServer {
     }
 
     fn supported_protocol_versions(&self) -> std::borrow::Cow<'static, [ProtocolVersion]> {
-        std::borrow::Cow::Borrowed(&[ProtocolVersion::V_2026_07_28])
+        std::borrow::Cow::Borrowed(&[
+            ProtocolVersion::V_2026_07_28,
+            ProtocolVersion::V_2025_11_25,
+            ProtocolVersion::V_2025_06_18,
+            ProtocolVersion::V_2025_03_26,
+        ])
     }
 }
 
@@ -293,7 +328,7 @@ impl McpGateway {
         let config = StreamableHttpServerConfig::default()
             .with_legacy_session_mode(false)
             .with_json_response(true)
-            .with_stateless_protocol_metadata_required(true)
+            .with_stateless_protocol_metadata_required(false)
             .with_allowed_hosts([authority, "localhost".to_owned(), "127.0.0.1".to_owned()]);
         let server = McpServer {
             songs,

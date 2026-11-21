@@ -242,7 +242,7 @@ Configuration is driven by environment variables (uppercase names matching the `
 - **Cookies / session:** `POST_LOGIN_PATH`, `COOKIE_NAME`, `COOKIE_SECURE`, `SESSION_TTL_SECONDS`, `IMPERSONATION_ENABLED` (opt-in; defaults to `false`). When enabled, the admin users page can start audited browser support sessions; disabling it at startup invalidates existing records.
 - **OTP email:** `OTP_TTL_SECONDS`, `OTP_PEPPER`, `OTP_MAX_ATTEMPTS`, `OTP_ALLOW_SELF_SIGNUP` (optional override: `WORSHIP_OTP_ALLOW_SELF_SIGNUP`). Outbound mail uses **Gmail SMTP** via `GMAIL_APP_PASSWORD` and `GMAIL_FROM` (see [`backend/src/mail.rs`](backend/src/mail.rs)); empty values are only workable if you never send mail.
 - **OIDC (e.g. Google):** `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URL`, `OIDC_SCOPES`.
-- **MCP OAuth:** `PUBLIC_BASE_URL` must be the public app origin. It determines the OAuth issuer and the protected resource URL at `{PUBLIC_BASE_URL}/mcp`; the local Vite setup uses `http://127.0.0.1:5173`, and production requires the HTTPS app origin.
+- **MCP OAuth:** `PUBLIC_BASE_URL` determines the OAuth issuer and protected resource URL at `{PUBLIC_BASE_URL}/mcp`. The local Vite setup uses `http://127.0.0.1:5173`. MCP is disabled in production until the HTTPS app origin is configured.
 - **Database:** `DB_ADDRESS`, `DB_USERNAME`, `DB_PASSWORD`, `DB_MIGRATION_PATH`.
 - **Demodata:** Set `DEMODATA=generic` for a deterministic local fixture with synthetic users, teams, 100 songs, collections, setlists, media, and likes. The fixture is applied on every backend startup while enabled, so changes to its deterministic records may be overwritten; it is rejected in production.
 

@@ -240,8 +240,12 @@ async fn main() -> AnyResult<()> {
     ));
     let mcp_oauth = McpOauthConfig::new(settings.public_base_url.clone())
         .context("invalid MCP OAuth public origin")?;
-    if production && !mcp_oauth.issuer().starts_with("https://") {
+    let mcp_enabled = !production || mcp_oauth.issuer() != "http://127.0.0.1:5173";
+    if production && mcp_enabled && !mcp_oauth.issuer().starts_with("https://") {
         anyhow::bail!("PUBLIC_BASE_URL must use HTTPS in production");
+    }
+    if !mcp_enabled {
+        tracing::warn!("MCP disabled: configure PUBLIC_BASE_URL to enable it");
     }
     let mcp_oauth_config = Data::new(mcp_oauth);
     let db_data = Data::from(db);
@@ -286,16 +290,20 @@ async fn main() -> AnyResult<()> {
                 settings.auth_rate_limit_rps,
                 settings.auth_rate_limit_burst,
             ))
-            .service(backend::mcp::oauth_scope(
-                settings.auth_rate_limit_rps,
-                settings.auth_rate_limit_burst,
-                settings.api_rate_limit_rps,
-                settings.api_rate_limit_burst,
-            ))
-            .service(backend::mcp::endpoint_scope(
-                settings.api_rate_limit_rps,
-                settings.api_rate_limit_burst,
-            ))
+            .configure(|cfg| {
+                if mcp_enabled {
+                    cfg.service(backend::mcp::oauth_scope(
+                        settings.auth_rate_limit_rps,
+                        settings.auth_rate_limit_burst,
+                        settings.api_rate_limit_rps,
+                        settings.api_rate_limit_burst,
+                    ));
+                    cfg.service(backend::mcp::endpoint_scope(
+                        settings.api_rate_limit_rps,
+                        settings.api_rate_limit_burst,
+                    ));
+                }
+            })
             .service(docs::rest::scope(docs_settings.clone()))
             .service(resources::rest::scope(
                 settings.blob_upload_max_bytes,
