@@ -292,6 +292,7 @@ Helper functions and DB record types reused across multiple resources.
 | Surface | Module | Auth | Purpose |
 |---------|--------|------|---------|
 | `GET /api/v1/about` | [`about.rs`](../../backend/src/about.rs) | Public | Build version, optional `git_commit`, production flag |
+| `GET /api/v1/installers*` | [`installers.rs`](../../backend/src/installers.rs) | Public | Persistent exact-version installer cache, release catalog, and downloads |
 | `GET /api/v1/monitoring/*` | [`monitoring/`](../../backend/src/resources/monitoring/) | Platform admin | HTTP audit log export and aggregated metrics |
 | `GET /api/docs/*` | [`docs.rs`](../../backend/src/docs.rs) | Public | Swagger UI + OpenAPI JSON |
 | `/auth/*` | [`auth/`](../../backend/src/auth/) | Mixed | OTP, OIDC, logout |

@@ -4,7 +4,3 @@ interface BeforeInstallPromptEvent extends Event {
   readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
   prompt(): Promise<void>
 }
-
-interface NavigatorWithStandalone extends Navigator {
-  readonly standalone?: boolean
-}

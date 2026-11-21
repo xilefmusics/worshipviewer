@@ -1,7 +1,6 @@
 import { createContext, useContext } from 'react'
 
 export type PwaInstallContextValue = {
-  canShowInstall: boolean
   openInstall: () => void
 }
 

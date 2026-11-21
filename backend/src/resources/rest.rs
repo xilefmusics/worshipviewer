@@ -25,6 +25,9 @@ pub fn scope(
         .wrap(Governor::new(&api_governor))
         .wrap(AuditRateLimit429)
         .service(about::get_about)
+        .service(crate::installers::list_installers)
+        .service(crate::installers::list_installer_releases)
+        .service(crate::installers::download_installer)
         .service(room::message_rest::scope())
         .service(
             web::scope("")

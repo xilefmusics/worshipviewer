@@ -1,5 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { useNavigate } from '@tanstack/react-router'
+import { isTauri } from '@tauri-apps/api/core'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -24,7 +25,6 @@ import { useSongEditorNavigationBridge } from '@/context/SongEditorNavigationBri
 import { useUserAvatarDisplay } from '@/hooks/useUserAvatarDisplay'
 import { cn } from '@/lib/utils'
 import { performLogout } from '@/lib/logout-queue'
-import { usePwaInstall } from '@/pwa/pwa-install-context'
 import { Route as RootRoute } from '@/routes/__root'
 
 const TUTORIALS_URL = 'https://www.worshipviewer.com/tutorials'
@@ -39,7 +39,6 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { queryClient } = RootRoute.useRouteContext()
-  const { canShowInstall, openInstall } = usePwaInstall()
   const songEditorNavigationBridge = useSongEditorNavigationBridge()
   const { imageSrc, onImageError, initials } = useUserAvatarDisplay(user)
   const [hoveredRow, setHoveredRow] = useState<
@@ -166,10 +165,10 @@ export function ProfileMenu({ user, offline = false }: ProfileMenuProps) {
           {t('hub.profile.tutorials')}
         </a>
       </Dialog.Close>
-      {canShowInstall ? (
+      {!isTauri() ? (
         <HubActionItem
           onSelect={() => {
-            openInstall()
+            void navigate({ to: '/install' })
           }}
           onHoverChange={(hot) => setHoveredRow(hot ? 'install' : null)}
         >

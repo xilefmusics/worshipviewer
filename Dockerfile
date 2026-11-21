@@ -22,8 +22,10 @@ COPY ./backend/static ./backend/static
 COPY ./backend/tests ./backend/tests
 WORKDIR /wrk/backend
 ARG GIT_COMMIT_SHA
+ARG APP_VERSION=0.0.0-dev
 # Omit `GIT_COMMIT_SHA` from the environment when unset so `option_env!("GIT_COMMIT_SHA")` stays absent (CI passes `--build-arg`).
-RUN if [ -n "${GIT_COMMIT_SHA:-}" ]; then export GIT_COMMIT_SHA; else unset GIT_COMMIT_SHA; fi && cargo build --release
+RUN if [ -n "${GIT_COMMIT_SHA:-}" ]; then export GIT_COMMIT_SHA; else unset GIT_COMMIT_SHA; fi && \
+    APP_VERSION="${APP_VERSION}" cargo build --release
 
 # Compile WASM independently so app and backend edits reuse this layer.
 FROM toolchain AS wasm-builder
@@ -32,6 +34,8 @@ COPY ./frontend/crates/chordlib-wasm ./crates/chordlib-wasm
 RUN wasm-pack build crates/chordlib-wasm --target web --out-dir ../../packages/chordlib-wasm/pkg --release
 
 FROM toolchain AS frontend-builder
+ARG APP_VERSION=0.0.0-dev
+ENV VITE_APP_VERSION=${APP_VERSION}
 # Install from manifests before copying app source so source edits reuse dependencies.
 WORKDIR /wrk/frontend
 COPY ./frontend/package.json ./frontend/pnpm-lock.yaml ./frontend/pnpm-workspace.yaml ./
@@ -77,5 +81,6 @@ EXPOSE 8080
 # Cloud Run (and other platforms) set PORT; the process must accept traffic on 0.0.0.0, not
 # loopback only, or the platform health check will never see an open port.
 ENV HOST=0.0.0.0
+ENV INSTALLER_CACHE_DIR=/app/installer-cache
 WORKDIR /app
 ENTRYPOINT ["/app/worshipviewer"]

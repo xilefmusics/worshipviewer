@@ -4,6 +4,10 @@ The desktop app is a native Tauri shell around the hosted Worship Viewer service
 
 ## Install
 
+The web app's **Install app** page offers the PWA and, when available for your platform, the native installer matching the running web app version. Expand **Other versions and platforms** to download installers for other supported platforms or earlier releases.
+
+The backend stores its current release installers in `INSTALLER_CACHE_DIR` (defaults to `/app/installer-cache` in Docker and `installer-cache` in the server working directory otherwise). Mount persistent storage at that path if you want cache files to survive container replacement. Earlier release downloads go directly to GitHub.
+
 Download the latest installer from the [Worship Viewer GitHub releases](https://github.com/xilefmusics/worshipviewer/releases/latest):
 
 - macOS: open the `.dmg` and move Worship Viewer to Applications.

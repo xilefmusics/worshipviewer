@@ -33,13 +33,11 @@ async function renderMenu({
   language = 'en',
   role = 'default',
   offline = false,
-  canShowInstall = true,
   flushBeforeLeave = vi.fn(async () => true),
 }: {
   language?: 'en' | 'de'
   role?: User['role']
   offline?: boolean
-  canShowInstall?: boolean
   flushBeforeLeave?: () => Promise<boolean>
 } = {}) {
   const i18n = i18next.createInstance()
@@ -53,7 +51,7 @@ async function renderMenu({
   const setBridge = vi.fn()
   render(
     <I18nextProvider i18n={i18n}>
-      <PwaInstallContext.Provider value={{ canShowInstall, openInstall: vi.fn() }}>
+      <PwaInstallContext.Provider value={{ openInstall: vi.fn() }}>
         <SongEditorNavigationBridgeProvider
           bridge={{ flushBeforeLeave }}
           setBridge={setBridge}
@@ -107,7 +105,7 @@ describe('ProfileMenu tutorials link', () => {
     ['en' as const, 'Tutorials'],
     ['de' as const, 'Tutorials'],
   ])('uses the localized label in %s', async (language, label) => {
-    await renderMenu({ language, canShowInstall: false })
+    await renderMenu({ language })
     expect(screen.getByRole('menuitem', { name: label })).toBeEnabled()
   })
 
@@ -145,9 +143,17 @@ describe('ProfileMenu tutorials link', () => {
   })
 })
 
+describe('ProfileMenu install destination', () => {
+  it('opens the install page', async () => {
+    const { interaction } = await renderMenu()
+    await interaction.click(screen.getByRole('menuitem', { name: 'Install app' }))
+    expect(navigate).toHaveBeenCalledWith({ to: '/install' })
+  })
+})
+
 describe('ProfileMenu Teams destination', () => {
   it('places Teams in the former Rooms slot without duplicating Rooms', async () => {
-    await renderMenu({ canShowInstall: false })
+    await renderMenu()
 
     const menu = screen.getByRole('menu')
     const items = within(menu).getAllByRole('menuitem')
@@ -156,7 +162,7 @@ describe('ProfileMenu Teams destination', () => {
   })
 
   it('navigates to Teams with pointer activation', async () => {
-    const { interaction } = await renderMenu({ canShowInstall: false })
+    const { interaction } = await renderMenu()
     const teams = screen.getByRole('menuitem', { name: 'Teams' })
 
     await interaction.click(teams)
@@ -164,7 +170,7 @@ describe('ProfileMenu Teams destination', () => {
   })
 
   it('navigates to Teams with keyboard activation', async () => {
-    const { interaction } = await renderMenu({ canShowInstall: false })
+    const { interaction } = await renderMenu()
     const teams = screen.getByRole('menuitem', { name: 'Teams' })
 
     teams.focus()
