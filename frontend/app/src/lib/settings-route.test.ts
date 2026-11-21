@@ -4,10 +4,16 @@ import {
   buildRoomSettingsReturnNavigation,
   buildSettingsSearch,
   parseRoomSettingsReturnSearch,
+  parseSettingsTab,
   resolveSettingsBackDestination,
 } from '@/lib/settings-route'
 
 describe('settings-route', () => {
+  it('recognizes the audio and MIDI settings tabs', () => {
+    expect(parseSettingsTab(buildSettingsSearch('audio').tab)).toBe('audio')
+    expect(parseSettingsTab(buildSettingsSearch('midi').tab)).toBe('midi')
+  })
+
   it('resolves the same room, player, or Collections destination used by Settings back navigation', () => {
     const roomReturn = { roomId: 'room-42', mode: 'slide' as const }
     const playerReturn = {

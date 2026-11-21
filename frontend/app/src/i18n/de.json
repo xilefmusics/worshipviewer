@@ -681,10 +681,13 @@
     "tabs": {
       "aria": "Einstellungsbereiche",
       "general": "Allgemein",
-      "player": "Player Noten",
-      "playerRoles": "Player AV",
+      "player": "Noten",
+      "playerRoles": "AV",
+      "audio": "Audio",
+      "midi": "MIDI",
       "connections": "Verbindungen"
     },
+    "emptySection": "Noch keine Einstellungen verfügbar.",
     "mcpConnections": {
       "title": "Verbundene Apps",
       "description": "Apps, die auf Songs, Setlisten und Sammlungen deines Worship-Viewer-Kontos zugreifen dürfen.",
@@ -826,6 +829,26 @@
       "overflowScrollDescription": "Scrollen erlauben, um nicht sichtbaren Inhalt zu erreichen."
     },
     "playerRoles": {
+      "output": {
+        "browserDisplaysUnavailable": "Bildschirmauswahl im Browser nicht verfügbar",
+        "displaySelectionTitle": "Externer Bildschirm",
+        "displaySelectionDescription": "Wähle den Bildschirm für die AV-Ausgabe im Vollbild.",
+        "displaysError": "Bildschirme konnten nicht geladen werden.",
+        "displaysLoading": "Bildschirme werden gesucht…",
+        "noDisplays": "Keine externen Bildschirme angeschlossen.",
+        "browserOnly": "Diese Einstellungen sind aufgrund von Browser-Einschränkungen nur in der nativen App verfügbar. Im Browser wird die Ausgabe in einem zweiten Tab geöffnet.",
+        "autoOpenTitle": "Automatische Ausgabe",
+        "autoOpenDescription": "Die Ausgabe beim Start des AV-Players öffnen und die Ausgabe-Schaltfläche ausblenden.",
+        "autoOpenLabel": "Ausgabe automatisch öffnen",
+        "externalTitle": "Externer Bildschirm verfügbar",
+        "externalDescription": "Wähle, wie die Desktop-App die AV-Ausgabe bei angeschlossenem externem Bildschirm öffnet.",
+        "display": "Auf externem Bildschirm anzeigen",
+        "displayDescription": "Die Ausgabe auf dem externen Bildschirm im Vollbild öffnen.",
+        "window": "Zweites Fenster öffnen",
+        "windowDescription": "Die Ausgabe in einem separaten Fenster öffnen.",
+        "noExternalTitle": "Kein externer Bildschirm verfügbar",
+        "noExternalDescription": "Ohne angeschlossenen externen Bildschirm wird die Ausgabe in einem Fenster geöffnet."
+      },
       "content": {
         "title": "Inhaltsebene",
         "description": "Typografie und Layout für projizierte Lyrics.",

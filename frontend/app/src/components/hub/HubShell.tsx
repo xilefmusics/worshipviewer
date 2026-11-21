@@ -36,6 +36,7 @@ import {
 import { HUB_TAB_LABEL_CLASS } from '@/components/hub/hub-list-styles'
 import { HUB_SEARCH_INPUT_CLASS, HUB_SEARCH_PILL_TEXT_CLASS } from '@/components/hub/hub-search-styles'
 import { HubTabBar } from '@/components/hub/HubTabBar'
+import { SettingsTabBar } from '@/components/settings/SettingsTabBar'
 import { HubTeamFilterSelect } from '@/components/hub/HubTeamFilterSelect'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
 import { FilterIcon } from '@/components/icons/filter-icon'
@@ -447,7 +448,6 @@ function HubChrome({
     !isCollectionDetail &&
     !isSongDetail &&
     !isMediaDetail &&
-    !isSettings &&
     !isSessions &&
     !isAbout &&
     !isInstall
@@ -951,7 +951,7 @@ function HubChrome({
                 HUB_FOOTER_CHROME_MB_CLASS,
               )}
             >
-              {isAdminArea ? <AdminTabBar /> : <HubTabBar />}
+              {isSettings ? <SettingsTabBar /> : isAdminArea ? <AdminTabBar /> : <HubTabBar />}
               {!hideHubPlus ? (
                 <Button
                   type="button"
