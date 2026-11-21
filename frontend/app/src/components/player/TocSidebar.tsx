@@ -32,6 +32,7 @@ export type TocSidebarProps = {
   isEntryActive?: (entry: TocDisplayEntry) => boolean
   renderRowSuffix?: (entry: TocDisplayEntry) => ReactNode
   renderSeparatorBefore?: (entry: TocDisplayEntry, previousEntry: TocDisplayEntry | undefined, visibleEntries: readonly TocDisplayEntry[]) => ReactNode
+  topRows?: ReactNode
   getRowAriaLabel?: (entry: TocDisplayEntry) => string
   emptyMessage?: string
   footer?: ReactNode
@@ -62,6 +63,7 @@ export function TocSidebar({
   isEntryActive,
   renderRowSuffix,
   renderSeparatorBefore,
+  topRows,
   getRowAriaLabel,
   emptyMessage: emptyMessageOverride,
   footer,
@@ -191,7 +193,8 @@ export function TocSidebar({
         ) : null}
       </div>
       <ul className="player-outline-list player-outline-list--fill" role={renderRowSuffix ? 'list' : 'listbox'} aria-label={ariaLabel ?? t('player.toc.title')}>
-        {entries.length === 0 ? (
+        {topRows}
+        {entries.length === 0 && topRows == null ? (
           <li className="px-2 py-4 text-center text-xs text-[var(--color-muted-foreground)]">{emptyMessageOverride ?? emptyMessage}</li>
         ) : entries.map((row, index) => {
           const active = isEntryActive ? isEntryActive(row) : row.sourceIdx === currentSourceIdx && row.languageIndex === currentLanguageIndex

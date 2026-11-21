@@ -112,6 +112,7 @@ export function AvOutputPage({
         contentText={view.contentText}
         contentLines={view.contentLines}
         deckPage={view.deckPage}
+        countdownEndsAtMs={view.countdownEndsAtMs}
         onDeckPageStatus={(status) => {
           if (stateRef.current.command?.content.type !== 'deck_page') return
           if (stateRef.current.command.screenState !== 'live') return

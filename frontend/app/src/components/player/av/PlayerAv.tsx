@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { AvMediaTransportPanel } from '@/components/player/av/AvMediaTransportPanel'
+import { AvTimerPanel, type AvTimerAudio } from '@/components/player/av/AvTimerPanel'
 import { AvSpotifyPanel } from '@/components/player/av/AvSpotifyPanel'
 import { AvOutlinePanel } from '@/components/player/av/AvOutlinePanel'
 import { AvSectionShortcuts } from '@/components/player/av/AvSectionShortcuts'
@@ -15,6 +16,7 @@ import { PlayerEditMenu } from '@/components/player/PlayerEditMenu'
 import { PlayerTocSidebar } from '@/components/player/PlayerTocSidebar'
 import { ChevronLeftIcon } from '@/components/icons/lucide-animated/chevron-left-icon'
 import { OutputIcon } from '@/components/icons/lucide-animated/output-icon'
+import { TimerIcon } from '@/components/icons/timer-icon'
 import { SettingsIcon } from '@/components/icons/lucide-animated/settings-icon'
 import { Button } from '@/components/ui/button'
 import { PopoverContent, PopoverRoot, PopoverTrigger } from '@/components/ui/popover'
@@ -76,6 +78,7 @@ import {
   isWebPageAvKind,
   timedProjectionContentFromItem,
 } from '@/lib/player/av-projection-playback'
+import { formatAvTimerRemaining } from '@/lib/player/av-timer'
 import {
   buildAvProjectionCommand,
   slideViewPropsFromCommand,
@@ -131,6 +134,12 @@ import type { ChordSongData } from '@/ports/chord-engine'
 import './player-av.css'
 
 type Player = components['schemas']['Player']
+type AvTimerItem = {
+  id: string
+  audio: AvTimerAudio | null
+  durationSeconds: number
+  endsAtMs: number | null
+}
 
 type PlayerAvProps = {
   type: PlayerEntityType
@@ -309,6 +318,24 @@ export function PlayerAv({
     const startSlide = initialIndex != null ? 0 : saved.slideIndex
     return { ...saved, itemIndex: startItem, slideIndex: startSlide }
   })
+  const [timerItems, setTimerItems] = useState<AvTimerItem[]>([])
+  const [selectedTimerId, setSelectedTimerId] = useState<string | null>(null)
+  const [timerNow, setTimerNow] = useState(() => Date.now())
+  const timerIdRef = useRef<string | null>(null)
+  const selectedTimer = timerItems.find((timer) => timer.id === selectedTimerId) ?? null
+  const runningTimer = timerItems.find((timer) => timer.endsAtMs != null && timer.endsAtMs > timerNow) ?? null
+  const timerForPanel = selectedTimer ?? runningTimer
+  const selectedTimerTitle = selectedTimer
+    ? t('player.av.timerTitle')
+    : null
+  const selectedTimerRemainingMs = selectedTimer
+    ? selectedTimer.endsAtMs == null
+      ? selectedTimer.durationSeconds * 1000
+      : Math.max(0, selectedTimer.endsAtMs - timerNow)
+    : null
+  const selectedTimerFormattedRemaining = selectedTimerRemainingMs == null
+    ? ''
+    : formatAvTimerRemaining(selectedTimerRemainingMs)
   /** What the output window shows — lags behind `session` until the user navigates slides. */
   const [projected, setProjected] = useState<AvSessionState>(() => {
     const saved = readAvSessionState(type, id)
@@ -331,6 +358,7 @@ export function PlayerAv({
   const syncRef = useRef<AvProjectionChannel | null>(null)
   const skipProjectionBroadcastRef = useRef(true)
   const lastProjectionBroadcastRef = useRef<string | null>(null)
+  const timerProjectionWasActiveRef = useRef(false)
   const controllerRef = useRef<AvControllerProjectionState>(INITIAL_CONTROLLER_PROJECTION_STATE)
   const [outputRegistry, setOutputRegistry] = useState<AvControllerProjectionState>(
     INITIAL_CONTROLLER_PROJECTION_STATE,
@@ -357,8 +385,77 @@ export function PlayerAv({
     resourceTitle || tocRow?.title,
     resolveLanguageIndexForItem,
   )
-  const showToc = tocVisible && (tocSidebar != null || player.toc.length > 0)
+  const headerTitle = selectedTimerTitle ?? title
+  const showToc = tocVisible && (tocSidebar != null || player.toc.length > 0 || timerItems.length > 0)
   const backTo = backToOverride ?? hubPathForPlayerType(type)
+
+  useEffect(() => {
+    const endsAtMs = runningTimer?.endsAtMs
+    if (endsAtMs == null) return
+    const interval = window.setInterval(() => {
+      const now = Date.now()
+      setTimerNow(now)
+      if (now >= endsAtMs) window.clearInterval(interval)
+    }, 1000)
+    return () => window.clearInterval(interval)
+  }, [runningTimer?.endsAtMs])
+
+  const addTimerItem = useCallback(() => {
+    const now = Date.now()
+    if (timerIdRef.current != null) {
+      setSelectedTimerId(timerIdRef.current)
+      setTimerNow(now)
+      return
+    }
+    const timer: AvTimerItem = {
+      id: `timer-${now}`,
+      audio: null,
+      durationSeconds: 5 * 60,
+      endsAtMs: null,
+    }
+    timerIdRef.current = timer.id
+    setTimerItems([timer])
+    setSelectedTimerId(timer.id)
+    setTimerNow(now)
+  }, [])
+
+  const selectTimerItem = useCallback((timerId: string) => {
+    const now = Date.now()
+    setTimerItems((items) => items.map((item) => item.id !== timerId && item.endsAtMs != null && item.endsAtMs > now
+      ? { ...item, endsAtMs: null }
+      : item))
+    setSelectedTimerId(timerId)
+    setTimerNow(now)
+  }, [])
+
+  const updateSelectedTimer = useCallback((updates: Partial<Pick<AvTimerItem, 'audio' | 'durationSeconds' | 'endsAtMs'>>) => {
+    if (selectedTimerId == null) return
+    setTimerItems((items) => items.map((item) => item.id === selectedTimerId ? { ...item, ...updates } : item))
+  }, [selectedTimerId])
+
+  const startSelectedTimer = useCallback(() => {
+    if (!selectedTimer) return
+    const now = Date.now()
+    setTimerNow(now)
+    updateSelectedTimer({ endsAtMs: now + selectedTimer.durationSeconds * 1000 })
+    setLivePlayback(null)
+    setSession((state) => ({ ...state, screenState: 'live' }))
+    setProjected((state) => ({ ...state, screenState: 'live' }))
+  }, [selectedTimer, setLivePlayback, updateSelectedTimer])
+
+  const stopSelectedTimer = useCallback(() => {
+    updateSelectedTimer({ endsAtMs: null })
+    setLivePlayback(null)
+  }, [setLivePlayback, updateSelectedTimer])
+
+  const deleteSelectedTimer = useCallback(() => {
+    if (selectedTimerId == null) return
+    setTimerItems((items) => items.filter((item) => item.id !== selectedTimerId))
+    setSelectedTimerId(null)
+    timerIdRef.current = null
+    setTimerNow(Date.now())
+    setLivePlayback(null)
+  }, [selectedTimerId, setLivePlayback])
 
   usePlayerIndexSearchSync(type, id, session.itemIndex, 'av')
 
@@ -507,14 +604,28 @@ export function PlayerAv({
   const projectedTocRow = tocEntryForIndex(player.toc, projected.itemIndex)
   const currentBackgroundOverride = tocSlotEntryForIndex(player.toc, session.itemIndex)?.background
   const projectedBackgroundOverride = tocSlotEntryForIndex(player.toc, projected.itemIndex)?.background
-  const backgroundLayer = currentBackgroundOverride
+  const projectedTimer = selectedTimer?.endsAtMs != null ? selectedTimer : runningTimer
+  const projectedTimerTitle = projectedTimer
+    ? t('player.av.timerTitle')
+    : null
+  const timerProjection = useMemo(
+    () => projectedTimer?.endsAtMs != null
+      ? { type: 'timer' as const, endsAtMs: projectedTimer.endsAtMs }
+      : null,
+    [projectedTimer],
+  )
+  const backgroundLayer = selectedTimer
+    ? playerBackgroundLayer
+    : currentBackgroundOverride
     ? setlistBackgroundToAvBackground(currentBackgroundOverride)
     : playerBackgroundLayer
-  const fallbackBackgroundLayer = currentBackgroundOverride ? playerBackgroundLayer : undefined
-  const projectedBackgroundLayer = projectedBackgroundOverride
+  const fallbackBackgroundLayer = !selectedTimer && currentBackgroundOverride ? playerBackgroundLayer : undefined
+  const projectedBackgroundLayer = timerProjection
+    ? playerBackgroundLayer
+    : projectedBackgroundOverride
     ? setlistBackgroundToAvBackground(projectedBackgroundOverride)
     : playerBackgroundLayer
-  const projectedFallbackBackgroundLayer = projectedBackgroundOverride
+  const projectedFallbackBackgroundLayer = !timerProjection && projectedBackgroundOverride
     ? playerBackgroundLayer
     : undefined
   const projectedTitle = avItemTitle(
@@ -717,7 +828,7 @@ export function PlayerAv({
         : setLanguageForItem(state, session.itemIndex, languageIndex),
     )
     setLanguagePopoverOpen(false)
-  }, [session.itemIndex])
+  }, [session.itemIndex, setLanguagePopoverOpen])
   const selectNextLanguage = useCallback(() => {
     if (nextLanguageOption) selectLanguageForCurrentItem(nextLanguageOption.index)
   }, [nextLanguageOption, selectLanguageForCurrentItem])
@@ -798,6 +909,7 @@ export function PlayerAv({
   }, [sessionId])
 
   const projectedContent = useMemo((): AvProjectionContent => {
+    if (timerProjection) return timerProjection
     if (projectedItem.kind === 'deck' && projectedItem.mediaId && projectedItem.pages?.length) {
       const page = projectedItem.pages[projected.slideIndex] ?? projectedItem.pages[0]
       if (page) return { type: 'deck_page', mediaId: projectedItem.mediaId, assetId: page.blobId }
@@ -820,6 +932,7 @@ export function PlayerAv({
     projectedItem,
     projectedLines,
     projectedText,
+    timerProjection,
   ])
 
   const projectedCommand = useMemo(
@@ -839,13 +952,15 @@ export function PlayerAv({
         fallbackBackgroundLayer: projectedFallbackBackgroundLayer,
         transition: effectiveTransition,
         screenState: projected.screenState,
-        itemTitle: projectedTitle || t('player.untitled'),
+        itemTitle: timerProjection ? projectedTimerTitle ?? t('player.av.timer') : projectedTitle || t('player.untitled'),
         nextPreview: projectedNextText,
         prefersReducedMotion: reduceMotion ?? false,
-        playback: livePlayback && isTimedAvKind(projectedItem.kind) ? livePlayback : undefined,
+        playback: !timerProjection && livePlayback && isTimedAvKind(projectedItem.kind) ? livePlayback : undefined,
       }),
     [
       livePlayback,
+      projectedTimerTitle,
+      timerProjection,
       projectedBackgroundLayer,
       projectedFallbackBackgroundLayer,
       effectiveContentLayer,
@@ -882,7 +997,9 @@ export function PlayerAv({
       skipProjectionBroadcastRef.current = false
       return
     }
-    if (isTimedAvKind(projectedItem.kind) && !livePlayback) return
+    const timerWasProjected = timerProjectionWasActiveRef.current
+    timerProjectionWasActiveRef.current = timerProjection != null
+    if (!timerProjection && !timerWasProjected && isTimedAvKind(projectedItem.kind) && !livePlayback) return
     const commandId = nextAvProjectionCommandId(controllerRef.current)
     const command: AvProjectionCommand = { ...projectedCommand, commandId }
     const serializedPayload = JSON.stringify({
@@ -919,6 +1036,7 @@ export function PlayerAv({
     projectedCommand,
     projectedItem.kind,
     slideOnly,
+    timerProjection,
   ])
 
   const setBackgroundPreset = useCallback((preset: AvBackgroundPreset) => {
@@ -1024,6 +1142,7 @@ export function PlayerAv({
 
   const goToSlide = useCallback(
     (slideIndex: number, clearScreenState = true) => {
+      if (selectedTimerId != null) return
       const clampedSlide = Math.max(0, Math.min(slideIndex, Math.max(slideCount - 1, 0)))
       let sectionOffset = 0
       let renderedSectionIndex: number | null = null
@@ -1064,10 +1183,13 @@ export function PlayerAv({
         return next
       })
     },
-    [currentItem.kind, currentItem.outline, currentPlayerItem, onSharedSelectionChange, session.itemIndex, slideCount],
+    [currentItem.kind, currentItem.outline, currentPlayerItem, onSharedSelectionChange, selectedTimerId, session.itemIndex, setLivePlayback, slideCount],
   )
 
   const goToItem = useCallback((itemIndex: number) => {
+    const now = Date.now()
+    setSelectedTimerId(null)
+    setTimerNow(now)
     if (player.items[itemIndex]?.type === 'chords') onSharedSelectionChange?.(itemIndex, 0, 0, true)
     setSession((state) => ({
       ...state,
@@ -1089,7 +1211,7 @@ export function PlayerAv({
           })
         : prev,
     )
-  }, [])
+  }, [setLivePlayback])
 
   const toggleBlank = useCallback(() => {
     setSession((state) => {
@@ -1144,6 +1266,7 @@ export function PlayerAv({
     controllerMuted,
     controllerVolume,
     currentItem,
+    setLivePlayback,
     session.itemIndex,
   ])
 
@@ -1171,7 +1294,7 @@ export function PlayerAv({
         }),
       )
     },
-    [controllerLoop, controllerMuted, controllerVolume, livePlayback, startPlay],
+    [controllerLoop, controllerMuted, controllerVolume, livePlayback, setControllerLoop, setControllerMuted, setControllerVolume, setLivePlayback, startPlay],
   )
 
   const toggleAvTransport = useCallback(() => {
@@ -1403,13 +1526,40 @@ export function PlayerAv({
     )
   }
 
-  if (itemsLen === 0 || slideCount === 0) {
+  if ((itemsLen === 0 || slideCount === 0) && !selectedTimer) {
     return (
-      <div className="mx-auto flex min-h-dvh max-w-lg flex-col gap-4 bg-[var(--color-bg)] p-6">
-        <p className="text-sm text-[var(--color-muted-foreground)]">{t('player.empty')}</p>
-        <Button type="button" variant="outline" asChild>
-          <Link to={backTo}>{t('player.backToList')}</Link>
-        </Button>
+      <div className="player-av relative flex h-dvh flex-col overflow-hidden bg-[var(--color-bg)] text-[var(--color-foreground)]">
+        <header className="player-av__header flex shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-2 sm:px-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            asChild
+            className={playerHeaderIconButtonClass}
+          >
+            <Link to={backTo} aria-label={t(backAriaKeyOverride ?? backAriaKeyForPlayerType(type))}>
+              <ChevronLeftIcon className={playerHeaderIconClass} size={PLAYER_HEADER_ICON_SIZE} />
+            </Link>
+          </Button>
+          <p className="min-w-0 flex-1 truncate text-center text-sm font-medium">{t('player.untitled')}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className={playerHeaderIconButtonClass}
+            aria-label={t('player.av.addTimer')}
+            title={t('player.av.addTimer')}
+            onClick={addTimerItem}
+          >
+            <TimerIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
+          </Button>
+        </header>
+        <div className="mx-auto flex max-w-lg flex-1 flex-col justify-center gap-4 p-6">
+          <p className="text-sm text-[var(--color-muted-foreground)]">{t('player.empty')}</p>
+          <Button type="button" variant="outline" asChild>
+            <Link to={backTo}>{t('player.backToList')}</Link>
+          </Button>
+        </div>
       </div>
     )
   }
@@ -1443,14 +1593,18 @@ export function PlayerAv({
           </Link>
         </Button>
         <div className="min-w-0 flex-1 text-center">
-          <p className="truncate text-sm font-medium">{title || t('player.untitled')}</p>
+          <p className="truncate text-sm font-medium">{headerTitle || t('player.untitled')}</p>
           <p className="text-xs text-[var(--color-muted-foreground)]">
-            {t('player.av.position', {
-              slide: session.slideIndex + 1,
-              slides: slideCount,
-              item: session.itemIndex + 1,
-              items: itemsLen,
-            })}
+            {selectedTimer
+              ? selectedTimerFormattedRemaining
+                ? t('player.av.timerPosition', { time: selectedTimerFormattedRemaining })
+                : ''
+              : t('player.av.position', {
+                  slide: session.slideIndex + 1,
+                  slides: slideCount,
+                  item: session.itemIndex + 1,
+                  items: itemsLen,
+                })}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -1489,6 +1643,19 @@ export function PlayerAv({
                 </div>
               </PopoverContent>
             </PopoverRoot>
+          ) : null}
+          {tocVisible ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className={playerHeaderIconButtonClass}
+              aria-label={t('player.av.addTimer')}
+              title={t('player.av.addTimer')}
+              onClick={addTimerItem}
+            >
+              <TimerIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
+            </Button>
           ) : null}
           <Button
             type="button"
@@ -1537,12 +1704,17 @@ export function PlayerAv({
 
       <div className="player-av__body flex min-h-0 flex-1">
         {tocVisible && showToc ? (
-          <div className={cn('player-av__toc shrink-0', tocSidebar ? PLAYER_TOC_WIDTH_CLASS : undefined)}>
-            {tocSidebar ?? (
+          <div className={cn(
+            'player-av__toc shrink-0',
+            (tocSidebar || timerItems.length > 0) ? PLAYER_TOC_WIDTH_CLASS : undefined,
+          )}>
+            {tocSidebar ? (
+              <div className="min-h-0 flex-1">{tocSidebar}</div>
+            ) : (
               <PlayerTocSidebar
                 toc={player.toc}
                 items={player.items}
-                currentSourceIdx={session.itemIndex}
+                currentSourceIdx={selectedTimerId == null ? session.itemIndex : -1}
                 currentLanguageIndex={currentLanguageIndex}
                 primaryTitleOnly={type === 'library'}
                 onSelect={(idx, languageIndex) => {
@@ -1551,35 +1723,95 @@ export function PlayerAv({
                   }
                   goToItem(idx)
                 }}
+                topRows={timerItems.length > 0 ? timerItems.map((timer) => {
+                  const timerTitle = t('player.av.timerTitle')
+                  const isSelected = selectedTimerId === timer.id
+                  return (
+                    <li key={timer.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        className={cn('player-outline-list__item', isSelected && 'player-outline-list__item--selected')}
+                        aria-current={isSelected ? 'true' : undefined}
+                        aria-label={timerTitle}
+                        onClick={() => selectTimerItem(timer.id)}
+                      >
+                        {timerTitle}
+                      </button>
+                    </li>
+                  )
+                }) : undefined}
                 renderRowSuffix={renderTocRowSuffix}
                 queueOrder={roomQueueOrder}
                 members={roomMembers}
                 roomOpenedAt={roomOpenedAt}
                 currentVisitId={roomVisitId}
                 protocolLog={roomDebugLog}
+                className={timerItems.length > 0 ? 'min-h-0 flex-1 w-full' : undefined}
               />
             )}
           </div>
         ) : null}
 
         <div className="player-av__center min-h-0 min-w-0 flex flex-1 flex-col">
-          <AvSectionShortcuts
-            outline={currentItem.outline}
-            screenState={session.screenState}
-            onJump={goToSlide}
-            onToggleBlank={toggleBlank}
-            onToggleBlackout={toggleBlackout}
-            nextLanguageLabel={nextLanguageOption?.label}
-            onNextLanguage={showLanguageSelector ? selectNextLanguage : undefined}
-            translationEnabled={bilingualEnabled}
-            onToggleTranslation={showLanguageSelector
-              ? () => setBilingualPreference(!bilingualEnabled)
-              : undefined}
-          />
+          {selectedTimer ? null : (
+            <AvSectionShortcuts
+              outline={currentItem.outline}
+              screenState={session.screenState}
+              onJump={goToSlide}
+              onToggleBlank={toggleBlank}
+              onToggleBlackout={toggleBlackout}
+              nextLanguageLabel={nextLanguageOption?.label}
+              onNextLanguage={showLanguageSelector ? selectNextLanguage : undefined}
+              translationEnabled={bilingualEnabled}
+              onToggleTranslation={showLanguageSelector
+                ? () => setBilingualPreference(!bilingualEnabled)
+                : undefined}
+            />
+          )}
 
           {/* Flow: I4, I5 */}
           <div className="player-av__slides min-h-0 flex-1 overflow-hidden">
-            {currentItem.kind === 'spotify' &&
+            {timerForPanel ? (
+              <div className={selectedTimer ? 'contents' : 'hidden'}>
+                <AvTimerPanel
+                  title={t('player.av.timerTitle')}
+                  audio={timerForPanel.audio}
+                  durationSeconds={timerForPanel.durationSeconds}
+                  endsAtMs={timerForPanel.endsAtMs}
+                  now={timerNow}
+                  backgroundLayer={playerBackgroundLayer}
+                  contentLayer={prefs.contentLayer}
+                  foregroundSettings={foregroundSettings}
+                  geometryOverlay={prefs.geometryOverlay}
+                  geometryOverlayOpacity={prefs.geometryOverlayOpacity}
+                  geometryOverlayColor={prefs.geometryOverlayColor}
+                  geometryOverlaySize={prefs.geometryOverlaySize}
+                  geometryOverlayThickness={prefs.geometryOverlayThickness}
+                  geometryOverlayRotatedBackground={prefs.geometryOverlayRotatedBackground}
+                  onAudioChange={(audio) => {
+                    updateSelectedTimer({ audio, endsAtMs: null })
+                    setLivePlayback(null)
+                  }}
+                  onDurationChange={(durationSeconds) => {
+                    updateSelectedTimer({ durationSeconds, endsAtMs: null })
+                    setLivePlayback(null)
+                  }}
+                  onStart={startSelectedTimer}
+                  onStop={stopSelectedTimer}
+                  onDelete={deleteSelectedTimer}
+                  onSelectBackgroundPreset={setBackgroundPreset}
+                  onSelectBackgroundAsset={setBackgroundAsset}
+                  onSelectGeometryOverlay={setGeometryOverlay}
+                  onSelectGeometryOverlayOpacity={setGeometryOverlayOpacity}
+                  onSelectGeometryOverlayColor={setGeometryOverlayColor}
+                  onSelectGeometryOverlaySize={setGeometryOverlaySize}
+                  onSelectGeometryOverlayThickness={setGeometryOverlayThickness}
+                  onSelectGeometryOverlayRotatedBackground={setGeometryOverlayRotatedBackground}
+                />
+              </div>
+            ) : null}
+            {selectedTimer ? null : currentItem.kind === 'spotify' &&
             currentItem.spotifyResourceType &&
             currentItem.canonicalUrl ? (
               <AvSpotifyPanel
@@ -1707,7 +1939,7 @@ export function PlayerAv({
           </div>
         </div>
 
-        {!embedded || showEmbeddedRightPanel ? (
+        {(!embedded || showEmbeddedRightPanel) ? (
           <aside className={cn('player-av__right shrink-0', PLAYER_TOC_WIDTH_CLASS)}>
             <>
               <div className="player-av__preview">
@@ -1716,6 +1948,7 @@ export function PlayerAv({
                   contentText={projectedSlideView.contentText}
                   contentLines={projectedSlideView.contentLines}
                   deckPage={projectedSlideView.deckPage}
+                  countdownEndsAtMs={projectedSlideView.countdownEndsAtMs}
                   timedPreview={
                     isTimedAvKind(projectedItem.kind)
                       ? {
