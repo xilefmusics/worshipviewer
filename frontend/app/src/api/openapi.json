@@ -322,6 +322,45 @@
         },
         "type": "object"
       },
+      "ConnectedGrant": {
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "client_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "client_id",
+          "client_name",
+          "scope",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "ConsentDecision": {
+        "properties": {
+          "allow": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "allow"
+        ],
+        "type": "object"
+      },
       "CreateBlob": {
         "additionalProperties": false,
         "example": {
@@ -2592,6 +2631,23 @@
         "title": "ProblemDetails",
         "type": "object"
       },
+      "RevocationRequest": {
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "token_type_hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
+      },
       "Role": {
         "enum": [
           "default",
@@ -4009,6 +4065,59 @@
         ],
         "type": "object"
       },
+      "TokenRequest": {
+        "properties": {
+          "client_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code_verifier": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "grant_type": {
+            "type": "string"
+          },
+          "redirect_uri": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "refresh_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resource": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "grant_type"
+        ],
+        "type": "object"
+      },
       "TransferCollectionSong": {
         "additionalProperties": false,
         "description": "Move a song link from this collection into another (`POST …/collections/{id}/songs/{song_id}/transfer`).",
@@ -4417,6 +4526,10 @@
       }
     },
     "securitySchemes": {
+      "McpAccessToken": {
+        "scheme": "bearer",
+        "type": "http"
+      },
       "SessionCookie": {
         "description": "Session cookie returned after a successful authentication flow",
         "in": "cookie",
@@ -4442,6 +4555,45 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/.well-known/oauth-authorization-server": {
+      "get": {
+        "operationId": "authorization_server_metadata",
+        "responses": {
+          "200": {
+            "description": "OAuth authorization server metadata including authorization code with PKCE endpoints"
+          }
+        },
+        "tags": [
+          "MCP OAuth"
+        ]
+      }
+    },
+    "/.well-known/oauth-protected-resource": {
+      "get": {
+        "operationId": "protected_resource_root",
+        "responses": {
+          "200": {
+            "description": "Protected resource metadata for the remote MCP endpoint"
+          }
+        },
+        "tags": [
+          "MCP OAuth"
+        ]
+      }
+    },
+    "/.well-known/oauth-protected-resource/mcp": {
+      "get": {
+        "operationId": "protected_resource_mcp",
+        "responses": {
+          "200": {
+            "description": "Protected resource metadata for /mcp"
+          }
+        },
+        "tags": [
+          "MCP OAuth"
+        ]
+      }
+    },
     "/api/v1/about": {
       "get": {
         "operationId": "get_about",
@@ -6718,6 +6870,209 @@
         ],
         "tags": [
           "Teams"
+        ]
+      }
+    },
+    "/api/v1/mcp/oauth/grants": {
+      "get": {
+        "operationId": "get_grants",
+        "responses": {
+          "200": {
+            "description": "Connected MCP apps for the current user"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "App session required"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "tags": [
+          "MCP OAuth"
+        ]
+      }
+    },
+    "/api/v1/mcp/oauth/grants/{grant_id}": {
+      "delete": {
+        "operationId": "revoke_grant",
+        "parameters": [
+          {
+            "description": "OAuth grant to disconnect",
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Grant and its tokens revoked"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "App session required"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Cross-origin request rejected"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Grant not found"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "tags": [
+          "MCP OAuth"
+        ]
+      }
+    },
+    "/api/v1/mcp/oauth/requests/{request_id}": {
+      "get": {
+        "operationId": "get_consent_request",
+        "parameters": [
+          {
+            "description": "Short-lived OAuth consent request",
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Consent details for the connected client"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "App session required"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request expired or not found"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "tags": [
+          "MCP OAuth"
+        ]
+      },
+      "post": {
+        "operationId": "decide_consent",
+        "parameters": [
+          {
+            "description": "Short-lived OAuth consent request",
+            "in": "path",
+            "name": "request_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Redirect URI with the issued code or access_denied result"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "App session required"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Cross-origin consent rejected"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request expired or not found"
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "tags": [
+          "MCP OAuth"
         ]
       }
     },
@@ -13918,6 +14273,169 @@
           "Auth"
         ]
       }
+    },
+    "/mcp": {
+      "post": {
+        "operationId": "handle",
+        "responses": {
+          "200": {
+            "description": "MCP Streamable HTTP response"
+          },
+          "401": {
+            "description": "A valid OAuth bearer token is required",
+            "headers": {
+              "WWW-Authenticate": {
+                "description": "Protected resource metadata URL",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "MCP request exceeds the 4 MiB body limit"
+          }
+        },
+        "security": [
+          {
+            "McpAccessToken": []
+          }
+        ],
+        "tags": [
+          "MCP"
+        ]
+      }
+    },
+    "/oauth/authorize": {
+      "get": {
+        "operationId": "authorize",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "response_type",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "client_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "redirect_uri",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code_challenge",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code_challenge_method",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "resource",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirects to app login or the OAuth client's registered callback after consent"
+          },
+          "400": {
+            "description": "Invalid OAuth request or client metadata document"
+          }
+        },
+        "tags": [
+          "MCP OAuth"
+        ]
+      }
+    },
+    "/oauth/revoke": {
+      "post": {
+        "operationId": "revoke",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/RevocationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Token revocation result; unknown tokens are treated as revoked"
+          }
+        },
+        "tags": [
+          "MCP OAuth"
+        ]
+      }
+    },
+    "/oauth/token": {
+      "post": {
+        "operationId": "token",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Opaque bearer access token and rotated refresh token"
+          },
+          "400": {
+            "description": "OAuth token request rejected"
+          }
+        },
+        "tags": [
+          "MCP OAuth"
+        ]
+      }
     }
   },
   "servers": [
@@ -13950,6 +14468,14 @@
         "url": "https://github.com/xilefmusics/worshipviewer/blob/main/docs/business-logic-constraints/authentication.md"
       },
       "name": "Auth"
+    },
+    {
+      "description": "OAuth authorization, consent, token, and connected-grant routes for the remote read-only MCP server.",
+      "name": "MCP OAuth"
+    },
+    {
+      "description": "Read-only Model Context Protocol tools at `/mcp`, protected by OAuth bearer tokens.",
+      "name": "MCP"
     },
     {
       "description": "Admin-only operational metrics and request audit listings under `/monitoring/`.",

@@ -145,6 +145,11 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/api': { target: proxyTarget, changeOrigin: true, ws: true },
         '/auth': { target: proxyTarget, changeOrigin: true },
+        '^/oauth/(authorize|token|revoke)$': { target: proxyTarget },
+        '^/\\.well-known/oauth-(authorization-server|protected-resource)(/mcp)?$': {
+          target: proxyTarget,
+        },
+        '/mcp': { target: proxyTarget },
       },
     },
     build: {

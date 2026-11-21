@@ -30,6 +30,7 @@ import { Route as HubSongsRouteImport } from './routes/_hub/songs'
 import { Route as HubTeamsRouteImport } from './routes/_hub/teams'
 import { Route as HubTermsRouteImport } from './routes/_hub/terms'
 import { Route as HubUgcRouteImport } from './routes/_hub/ugc'
+import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
 import { Route as PlayerIndexRouteImport } from './routes/player/index'
 import { Route as PlayerOutputRouteImport } from './routes/player/output'
 import { Route as RoomsRoomIdRouteImport } from './routes/rooms.$roomId'
@@ -150,6 +151,11 @@ const HubUgcRoute = HubUgcRouteImport.update({
   path: '/ugc',
   getParentRoute: () => HubRoute,
 } as any)
+const OauthConsentRoute = OauthConsentRouteImport.update({
+  id: '/oauth/consent',
+  path: '/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlayerIndexRoute = PlayerIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -248,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/teams': typeof HubTeamsRouteWithChildren
   '/terms': typeof HubTermsRoute
   '/ugc': typeof HubUgcRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/player/output': typeof PlayerOutputRoute
   '/rooms/$roomId': typeof RoomsRoomIdRoute
   '/rooms/invite': typeof RoomsInviteRouteWithChildren
@@ -283,6 +290,7 @@ export interface FileRoutesByTo {
   '/teams': typeof HubTeamsRouteWithChildren
   '/terms': typeof HubTermsRoute
   '/ugc': typeof HubUgcRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/player/output': typeof PlayerOutputRoute
   '/rooms/$roomId': typeof RoomsRoomIdRoute
   '/player': typeof PlayerIndexRoute
@@ -321,6 +329,7 @@ export interface FileRoutesById {
   '/_hub/teams': typeof HubTeamsRouteWithChildren
   '/_hub/terms': typeof HubTermsRoute
   '/_hub/ugc': typeof HubUgcRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/player/output': typeof PlayerOutputRoute
   '/rooms/$roomId': typeof RoomsRoomIdRoute
   '/rooms/invite': typeof RoomsInviteRouteWithChildren
@@ -360,6 +369,7 @@ export interface FileRouteTypes {
     | '/teams'
     | '/terms'
     | '/ugc'
+    | '/oauth/consent'
     | '/player/output'
     | '/rooms/$roomId'
     | '/rooms/invite'
@@ -395,6 +405,7 @@ export interface FileRouteTypes {
     | '/teams'
     | '/terms'
     | '/ugc'
+    | '/oauth/consent'
     | '/player/output'
     | '/rooms/$roomId'
     | '/player'
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/_hub/teams'
     | '/_hub/terms'
     | '/_hub/ugc'
+    | '/oauth/consent'
     | '/player/output'
     | '/rooms/$roomId'
     | '/rooms/invite'
@@ -457,6 +469,7 @@ export interface RootRouteChildren {
   JoinRoute: typeof JoinRoute
   LoginRoute: typeof LoginRoute
   LogoutRoute: typeof LogoutRoute
+  OauthConsentRoute: typeof OauthConsentRoute
   RoomsRoomIdRoute: typeof RoomsRoomIdRoute
   RoomsInviteRoute: typeof RoomsInviteRouteWithChildren
 }
@@ -609,6 +622,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/ugc'
       preLoaderRoute: typeof HubUgcRouteImport
       parentRoute: typeof HubRoute
+    }
+    '/oauth/consent': {
+      id: '/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof OauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/player/': {
       id: '/player/'
@@ -868,6 +888,7 @@ const rootRouteChildren: RootRouteChildren = {
   JoinRoute: JoinRoute,
   LoginRoute: LoginRoute,
   LogoutRoute: LogoutRoute,
+  OauthConsentRoute: OauthConsentRoute,
   RoomsRoomIdRoute: RoomsRoomIdRoute,
   RoomsInviteRoute: RoomsInviteRouteWithChildren,
 }

@@ -51,6 +51,10 @@ pub struct Settings {
     pub db_password: Option<String>,
     pub db_migration_path: String,
 
+    /// Public origin used by OAuth discovery and resource binding for the MCP endpoint.
+    #[serde(default = "default_public_base_url")]
+    pub public_base_url: String,
+
     pub oidc_issuer_url: String,
     pub oidc_client_id: String,
     pub oidc_client_secret: Option<String>,
@@ -148,6 +152,7 @@ impl fmt::Debug for Settings {
                 &self.db_password.as_ref().map(|_| "<redacted>"),
             )
             .field("db_migration_path", &self.db_migration_path)
+            .field("public_base_url", &self.public_base_url)
             .field("oidc_issuer_url", &self.oidc_issuer_url)
             .field("oidc_client_id", &self.oidc_client_id)
             .field(
@@ -229,6 +234,7 @@ impl Default for Settings {
             db_username: None,
             db_password: None,
             db_migration_path: "db-migrations".into(),
+            public_base_url: "http://127.0.0.1:5173".into(),
             oidc_issuer_url: "https://accounts.google.com".into(),
             oidc_client_id: String::new(),
             oidc_client_secret: None,
@@ -261,6 +267,10 @@ impl Default for Settings {
             openapi_imprint_url: None,
         }
     }
+}
+
+fn default_public_base_url() -> String {
+    "http://127.0.0.1:5173".into()
 }
 
 fn default_otp_allow_self_signup() -> bool {

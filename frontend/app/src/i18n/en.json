@@ -33,6 +33,16 @@
       "oauthGeneric": "Google sign-in could not be completed. Please try again."
     }
   },
+  "oauthConsent": {
+    "title": "Connect an app?",
+    "description": "Review what this app will be able to access before you continue.",
+    "loadFailed": "This authorization request expired or could not be loaded.",
+    "access": "Requested access: {{scope}}",
+    "readOnly": "This connection can read songs, setlists, and collections that your Worship Viewer account can access. It cannot change your library.",
+    "deny": "Cancel",
+    "allow": "Allow access",
+    "actionFailed": "Could not complete this request. Reload the page and try again."
+  },
   "home": {
     "stubTitle": "Welcome",
     "stubBody": "You are signed in. Library lists are coming in the next milestone.",
@@ -672,7 +682,18 @@
       "aria": "Settings sections",
       "general": "General",
       "player": "Player Sheet",
-      "playerRoles": "Player AV"
+      "playerRoles": "Player AV",
+      "connections": "Connections"
+    },
+    "mcpConnections": {
+      "title": "Connected apps",
+      "description": "Apps authorized to read songs, setlists, and collections from your Worship Viewer account.",
+      "empty": "No connected apps.",
+      "scope": "Access: {{scope}}",
+      "connected": "Connected {{date}}",
+      "revoke": "Disconnect",
+      "revokeFailed": "Could not disconnect this app.",
+      "loadFailed": "Could not load connected apps."
     },
     "language": {
       "title": "Language",
