@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { listenToMediaQuery } from '@/lib/browser-apis'
 import {
   isAndroidChrome,
   isAndroidFirefox,
@@ -17,61 +16,6 @@ import {
   type PwaInstallHelpKind,
 } from '@/pwa/pwa-install-action'
 import { PwaInstallContext } from '@/pwa/pwa-install-context'
-import { isTauri } from '@tauri-apps/api/core'
-
-function getIsStandalone(): boolean {
-  if (typeof globalThis.matchMedia === 'function') {
-    if (globalThis.matchMedia('(display-mode: standalone)').matches) {
-      return true
-    }
-  }
-  const nav = globalThis.navigator as NavigatorWithStandalone
-  return nav.standalone === true
-}
-
-async function probeIndexedDbDurable(): Promise<boolean> {
-  if (typeof globalThis.indexedDB === 'undefined') {
-    return false
-  }
-  return new Promise((resolve) => {
-    const req = globalThis.indexedDB.open('__wv_pwa_idb__', 1)
-    const timeout = globalThis.setTimeout(() => {
-      try {
-        req.onerror = null
-        req.onsuccess = null
-        req.onupgradeneeded = null
-        req.onblocked = null
-      } catch {
-        /* ignore */
-      }
-      resolve(false)
-    }, 2000)
-    req.onupgradeneeded = (ev) => {
-      const db = (ev.target as IDBOpenDBRequest).result
-      try {
-        if (!db.objectStoreNames.contains('k')) {
-          db.createObjectStore('k')
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-    req.onsuccess = () => {
-      globalThis.clearTimeout(timeout)
-      try {
-        req.result.close()
-        void globalThis.indexedDB.deleteDatabase('__wv_pwa_idb__')
-      } catch {
-        /* ignore */
-      }
-      resolve(true)
-    }
-    req.onerror = () => {
-      globalThis.clearTimeout(timeout)
-      resolve(false)
-    }
-  })
-}
 
 export function PwaInstallProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation()
@@ -82,9 +26,6 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
   const [sheetDragging, setSheetDragging] = useState(false)
   const pointerStartY = useRef<number | null>(null)
   const dragSessionActive = useRef(false)
-  const [isStandalone, setIsStandalone] = useState(getIsStandalone)
-  const [storageOk, setStorageOk] = useState<boolean | null>(null)
-  const [hasRelatedInstalled, setHasRelatedInstalled] = useState(false)
   const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null)
 
   const isIos = useMemo(() => isIosOrIpadosDevice(), [])
@@ -100,44 +41,6 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
     globalThis.window.addEventListener('beforeinstallprompt', onBip)
     return () => globalThis.window.removeEventListener('beforeinstallprompt', onBip)
   }, [])
-
-  useEffect(() => {
-    if (typeof globalThis.matchMedia !== 'function') return
-    const mq = globalThis.matchMedia('(display-mode: standalone)')
-    const sync = () => {
-      setIsStandalone(getIsStandalone())
-    }
-    return listenToMediaQuery(mq, sync)
-  }, [])
-
-  useEffect(() => {
-    void probeIndexedDbDurable().then((ok) => {
-      setStorageOk(ok)
-    })
-  }, [])
-
-  useEffect(() => {
-    if (!('getInstalledRelatedApps' in globalThis.navigator)) {
-      return
-    }
-    const n = globalThis.navigator as Navigator & {
-      getInstalledRelatedApps: () => Promise<{ id?: string }[]>
-    }
-    void n
-      .getInstalledRelatedApps()
-      .then((apps) => {
-        if (apps.length > 0) {
-          setHasRelatedInstalled(true)
-        }
-      })
-      .catch(() => {
-        /* ignore */
-      })
-  }, [])
-
-  const canShowInstall = Boolean(
-    !isTauri() && storageOk === true && !isStandalone && !hasRelatedInstalled,
-  )
 
   const openInstall = useCallback(async () => {
     const action = resolvePwaInstallAction({
@@ -164,10 +67,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
     setHelpOpen(true)
   }, [androidChrome, androidFirefox, isIos, isMacSafari])
 
-  const value = useMemo(
-    () => ({ canShowInstall, openInstall }),
-    [canShowInstall, openInstall],
-  )
+  const value = useMemo(() => ({ openInstall }), [openInstall])
 
   const onHelpOpenChange = useCallback((open: boolean) => {
     setHelpOpen(open)

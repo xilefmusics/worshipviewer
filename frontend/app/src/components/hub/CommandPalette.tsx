@@ -4,6 +4,7 @@ import { Command } from 'cmdk'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
+import { isTauri } from '@tauri-apps/api/core'
 import { motion, useReducedMotion } from 'motion/react'
 
 import { SearchIcon } from '@/components/icons/lucide-animated/search-icon'
@@ -18,7 +19,6 @@ import type { SetlistPaletteBridge } from '@/lib/setlist-palette-bridge'
 import { defaultSongLinkLanguage, resolveSongDataKey } from '@/lib/setlist-song-links'
 import { useHubSearch } from '@/hooks/useHubSearch'
 import { useSongPickerQuery, type Song } from '@/hooks/useSongPickerQuery'
-import { usePwaInstall } from '@/pwa/pwa-install-context'
 
 const HUB_CMDK_TOP = '--hub-cmdk-top'
 const HUB_CMDK_LEFT = '--hub-cmdk-left'
@@ -53,7 +53,6 @@ export function CommandPalette({
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { setQInput } = useHubSearch()
-  const { canShowInstall, openInstall } = usePwaInstall()
   const reduceMotion = useReducedMotion()
   const [paletteQuery, setPaletteQuery] = useState('')
   const [isClosing, setIsClosing] = useState(false)
@@ -280,15 +279,12 @@ export function CommandPalette({
                       {t(cmd.labelKey)}
                     </Command.Item>
                   ))}
-                  {canShowInstall ? (
+                  {!isTauri() ? (
                     <Command.Item
                       value={hubInstallCommand.value}
                       keywords={[...hubInstallCommand.keywords, t(hubInstallCommand.labelKey)]}
                       className="cursor-pointer rounded-md px-2 py-2 text-sm text-[var(--color-foreground)] aria-selected:bg-[var(--color-muted)]"
-                      onSelect={() => {
-                        openInstall()
-                        beginClose()
-                      }}
+                      onSelect={() => go(hubInstallCommand.to)}
                     >
                       {t(hubInstallCommand.labelKey)}
                     </Command.Item>

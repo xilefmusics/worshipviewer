@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { hubNavigateCommands } from '@/commands/hub-commands'
+import { hubInstallCommand, hubNavigateCommands } from '@/commands/hub-commands'
 
 describe('hub navigation commands', () => {
+  it('routes the Install app command to the install page', () => {
+    expect(hubInstallCommand.to).toBe('/install')
+  })
+
   it('keeps Teams and Rooms as unique searchable destinations', () => {
     const relevant = hubNavigateCommands.filter((command) =>
       command.id === 'teams' || command.id === 'rooms',

@@ -146,5 +146,6 @@ jobs:
           build-args: |
             GIT_COMMIT_SHA=${{ github.sha }}
             VITE_APP_VERSION=${{ steps.frontend-version.outputs.value }}
+            APP_VERSION=${{ steps.frontend-version.outputs.value }}
           cache-from: type=gha,scope=worshipviewer-amd64
           cache-to: type=gha,mode=max,scope=worshipviewer-amd64

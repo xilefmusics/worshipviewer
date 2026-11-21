@@ -197,6 +197,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/installers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_installers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/installers/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_installer_releases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/installers/{installer_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["download_installer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invitations/{invitation_id}/accept": {
         parameters: {
             query?: never;
@@ -1352,6 +1400,50 @@ export interface components {
             email: string;
             role?: components["schemas"]["Role"];
         };
+        /** @description One installer that the running server has downloaded and can serve. */
+        DesktopInstaller: {
+            /** @description Tauri architecture suffix, such as `aarch64`, `x64`, or `amd64`. */
+            architecture: string;
+            /** @description Download URL for this installer, either same-origin or a GitHub release asset. */
+            download_url: string;
+            /** @description Original GitHub release asset filename. */
+            filename: string;
+            format: components["schemas"]["DesktopInstallerFormat"];
+            /** @description Stable identifier used by the installer download endpoint. */
+            id: string;
+            platform: components["schemas"]["DesktopInstallerPlatform"];
+        };
+        /** @description Installer releases available for manual selection on the install page. */
+        DesktopInstallerCatalog: {
+            current_version: string;
+            releases: components["schemas"]["DesktopInstallerRelease"][];
+        };
+        /**
+         * @description Installer package format published by the desktop release workflow.
+         * @enum {string}
+         */
+        DesktopInstallerFormat: "dmg" | "nsis" | "deb" | "appimage";
+        /** @description Installers successfully cached for the frontend's exact release version. */
+        DesktopInstallerManifest: {
+            installers: components["schemas"]["DesktopInstaller"][];
+            status: components["schemas"]["DesktopInstallerStatus"];
+            version: string;
+        };
+        /**
+         * @description Operating system for a published Tauri installer.
+         * @enum {string}
+         */
+        DesktopInstallerPlatform: "macos" | "windows" | "linux";
+        /** @description A GitHub release and its supported Tauri installer assets. */
+        DesktopInstallerRelease: {
+            installers: components["schemas"]["DesktopInstaller"][];
+            version: string;
+        };
+        /**
+         * @description Startup check state for the server's installer cache.
+         * @enum {string}
+         */
+        DesktopInstallerStatus: "checking" | "ready" | "unavailable";
         DuplicateMedia: {
             /** @description Destination team. Omit to keep the source owner. */
             owner?: string | null;
@@ -4060,6 +4152,78 @@ export interface operations {
             };
             /** @description Failed to transfer song between collections */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_installers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Installers cached for the running app version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DesktopInstallerManifest"];
+                };
+            };
+        };
+    };
+    list_installer_releases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published desktop releases and their available installer assets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DesktopInstallerCatalog"];
+                };
+            };
+        };
+    };
+    download_installer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Installer id from the manifest */
+                installer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Installer file download */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Installer is not available */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -561,6 +561,131 @@
         ],
         "type": "object"
       },
+      "DesktopInstaller": {
+        "description": "One installer that the running server has downloaded and can serve.",
+        "properties": {
+          "architecture": {
+            "description": "Tauri architecture suffix, such as `aarch64`, `x64`, or `amd64`.",
+            "type": "string"
+          },
+          "download_url": {
+            "description": "Download URL for this installer, either same-origin or a GitHub release asset.",
+            "type": "string"
+          },
+          "filename": {
+            "description": "Original GitHub release asset filename.",
+            "type": "string"
+          },
+          "format": {
+            "$ref": "#/components/schemas/DesktopInstallerFormat"
+          },
+          "id": {
+            "description": "Stable identifier used by the installer download endpoint.",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/DesktopInstallerPlatform"
+          }
+        },
+        "required": [
+          "id",
+          "platform",
+          "architecture",
+          "format",
+          "filename",
+          "download_url"
+        ],
+        "type": "object"
+      },
+      "DesktopInstallerCatalog": {
+        "description": "Installer releases available for manual selection on the install page.",
+        "properties": {
+          "current_version": {
+            "type": "string"
+          },
+          "releases": {
+            "items": {
+              "$ref": "#/components/schemas/DesktopInstallerRelease"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "current_version",
+          "releases"
+        ],
+        "type": "object"
+      },
+      "DesktopInstallerFormat": {
+        "description": "Installer package format published by the desktop release workflow.",
+        "enum": [
+          "dmg",
+          "nsis",
+          "deb",
+          "appimage"
+        ],
+        "type": "string"
+      },
+      "DesktopInstallerManifest": {
+        "description": "Installers successfully cached for the frontend's exact release version.",
+        "properties": {
+          "installers": {
+            "items": {
+              "$ref": "#/components/schemas/DesktopInstaller"
+            },
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DesktopInstallerStatus"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "status",
+          "installers"
+        ],
+        "type": "object"
+      },
+      "DesktopInstallerPlatform": {
+        "description": "Operating system for a published Tauri installer.",
+        "enum": [
+          "macos",
+          "windows",
+          "linux"
+        ],
+        "type": "string"
+      },
+      "DesktopInstallerRelease": {
+        "description": "A GitHub release and its supported Tauri installer assets.",
+        "properties": {
+          "installers": {
+            "items": {
+              "$ref": "#/components/schemas/DesktopInstaller"
+            },
+            "type": "array"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "installers"
+        ],
+        "type": "object"
+      },
+      "DesktopInstallerStatus": {
+        "description": "Startup check state for the server's installer cache.",
+        "enum": [
+          "checking",
+          "ready",
+          "unavailable"
+        ],
+        "type": "string"
+      },
       "DuplicateMedia": {
         "additionalProperties": false,
         "properties": {
@@ -6156,6 +6281,83 @@
         ],
         "tags": [
           "Collections"
+        ]
+      }
+    },
+    "/api/v1/installers": {
+      "get": {
+        "operationId": "list_installers",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopInstallerManifest"
+                }
+              }
+            },
+            "description": "Installers cached for the running app version"
+          }
+        },
+        "tags": [
+          "Installers"
+        ]
+      }
+    },
+    "/api/v1/installers/releases": {
+      "get": {
+        "operationId": "list_installer_releases",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesktopInstallerCatalog"
+                }
+              }
+            },
+            "description": "Published desktop releases and their available installer assets"
+          }
+        },
+        "tags": [
+          "Installers"
+        ]
+      }
+    },
+    "/api/v1/installers/{installer_id}/download": {
+      "get": {
+        "operationId": "download_installer",
+        "parameters": [
+          {
+            "description": "Installer id from the manifest",
+            "in": "path",
+            "name": "installer_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "Installer file download"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Installer is not available"
+          }
+        },
+        "tags": [
+          "Installers"
         ]
       }
     },
@@ -13451,6 +13653,14 @@
     {
       "description": "Public server build and environment metadata (`GET /api/v1/about`).",
       "name": "About"
+    },
+    {
+      "description": "Persistent native installers and published desktop release catalog.",
+      "externalDocs": {
+        "description": "Business logic constraints (markdown in repository).",
+        "url": "https://github.com/xilefmusics/worshipviewer/blob/main/docs/business-logic-constraints/installers.md"
+      },
+      "name": "Installers"
     },
     {
       "description": "OAuth/OIDC login, OTP email codes, and logout. Session cookies are set on successful auth (see authentication BLC).",

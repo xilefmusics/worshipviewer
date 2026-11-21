@@ -133,6 +133,9 @@ fn build_app_with_api_limits(
             crate::request_id::WorshipRootSpan,
         >::new()))
         .app_data(Data::from(db.clone()))
+        .app_data(Data::new(crate::installers::InstallerService::unavailable(
+            "test-version",
+        )))
         .app_data(Data::new(blob_service(&db, blob_dir)))
         .app_data(Data::new(collection_service(&db)))
         .app_data(Data::new(media_svc))
@@ -600,6 +603,44 @@ mod about_endpoint {
         assert!(body["version"].as_str().is_some());
         assert!(body.get("git_commit").is_some());
         assert!(body["production"].is_boolean());
+    }
+}
+
+#[cfg(test)]
+mod installers_endpoint {
+    use super::*;
+    use actix_web::http::StatusCode;
+
+    #[actix_web::test]
+    async fn get_installers_without_auth_returns_unavailable_manifest_for_empty_cache() {
+        let db = test_db().await.unwrap();
+        let app = test::init_service(build_app(db.clone())).await;
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri("/api/v1/installers")
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value = test::read_body_json(response).await;
+        assert_eq!(body["version"], "test-version");
+        assert_eq!(body["status"], "unavailable");
+        assert_eq!(body["installers"], serde_json::json!([]));
+    }
+
+    #[actix_web::test]
+    async fn unavailable_installer_download_returns_not_found_without_auth() {
+        let db = test_db().await.unwrap();
+        let app = test::init_service(build_app(db.clone())).await;
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri("/api/v1/installers/windows-x64-nsis/download")
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 }
 

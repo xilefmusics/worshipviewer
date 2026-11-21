@@ -19,6 +19,7 @@ import { Route as PlayerRouteRouteImport } from './routes/player/route'
 import { Route as HubAboutRouteImport } from './routes/_hub/about'
 import { Route as HubAdminRouteImport } from './routes/_hub/admin'
 import { Route as HubCollectionsRouteImport } from './routes/_hub/collections'
+import { Route as HubInstallRouteImport } from './routes/_hub/install'
 import { Route as HubMediaRouteImport } from './routes/_hub/media'
 import { Route as HubPrivacyRouteImport } from './routes/_hub/privacy'
 import { Route as HubRoomsRouteImport } from './routes/_hub/rooms'
@@ -92,6 +93,11 @@ const HubAdminRoute = HubAdminRouteImport.update({
 const HubCollectionsRoute = HubCollectionsRouteImport.update({
   id: '/collections',
   path: '/collections',
+  getParentRoute: () => HubRoute,
+} as any)
+const HubInstallRoute = HubInstallRouteImport.update({
+  id: '/install',
+  path: '/install',
   getParentRoute: () => HubRoute,
 } as any)
 const HubMediaRoute = HubMediaRouteImport.update({
@@ -231,6 +237,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof HubAboutRoute
   '/admin': typeof HubAdminRouteWithChildren
   '/collections': typeof HubCollectionsRouteWithChildren
+  '/install': typeof HubInstallRoute
   '/media': typeof HubMediaRouteWithChildren
   '/privacy': typeof HubPrivacyRoute
   '/rooms': typeof HubRoomsRoute
@@ -265,6 +272,7 @@ export interface FileRoutesByTo {
   '/logout': typeof LogoutRoute
   '/about': typeof HubAboutRoute
   '/collections': typeof HubCollectionsRouteWithChildren
+  '/install': typeof HubInstallRoute
   '/media': typeof HubMediaRouteWithChildren
   '/privacy': typeof HubPrivacyRoute
   '/rooms': typeof HubRoomsRoute
@@ -302,6 +310,7 @@ export interface FileRoutesById {
   '/_hub/about': typeof HubAboutRoute
   '/_hub/admin': typeof HubAdminRouteWithChildren
   '/_hub/collections': typeof HubCollectionsRouteWithChildren
+  '/_hub/install': typeof HubInstallRoute
   '/_hub/media': typeof HubMediaRouteWithChildren
   '/_hub/privacy': typeof HubPrivacyRoute
   '/_hub/rooms': typeof HubRoomsRoute
@@ -340,6 +349,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/admin'
     | '/collections'
+    | '/install'
     | '/media'
     | '/privacy'
     | '/rooms'
@@ -374,6 +384,7 @@ export interface FileRouteTypes {
     | '/logout'
     | '/about'
     | '/collections'
+    | '/install'
     | '/media'
     | '/privacy'
     | '/rooms'
@@ -410,6 +421,7 @@ export interface FileRouteTypes {
     | '/_hub/about'
     | '/_hub/admin'
     | '/_hub/collections'
+    | '/_hub/install'
     | '/_hub/media'
     | '/_hub/privacy'
     | '/_hub/rooms'
@@ -519,6 +531,13 @@ declare module '@tanstack/react-router' {
       path: '/collections'
       fullPath: '/collections'
       preLoaderRoute: typeof HubCollectionsRouteImport
+      parentRoute: typeof HubRoute
+    }
+    '/_hub/install': {
+      id: '/_hub/install'
+      path: '/install'
+      fullPath: '/install'
+      preLoaderRoute: typeof HubInstallRouteImport
       parentRoute: typeof HubRoute
     }
     '/_hub/media': {
@@ -795,6 +814,7 @@ interface HubRouteChildren {
   HubAboutRoute: typeof HubAboutRoute
   HubAdminRoute: typeof HubAdminRouteWithChildren
   HubCollectionsRoute: typeof HubCollectionsRouteWithChildren
+  HubInstallRoute: typeof HubInstallRoute
   HubMediaRoute: typeof HubMediaRouteWithChildren
   HubPrivacyRoute: typeof HubPrivacyRoute
   HubRoomsRoute: typeof HubRoomsRoute
@@ -811,6 +831,7 @@ const HubRouteChildren: HubRouteChildren = {
   HubAboutRoute: HubAboutRoute,
   HubAdminRoute: HubAdminRouteWithChildren,
   HubCollectionsRoute: HubCollectionsRouteWithChildren,
+  HubInstallRoute: HubInstallRoute,
   HubMediaRoute: HubMediaRouteWithChildren,
   HubPrivacyRoute: HubPrivacyRoute,
   HubRoomsRoute: HubRoomsRoute,

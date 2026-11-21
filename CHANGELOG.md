@@ -7,6 +7,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 ### Added
 
 - Native Tauri desktop apps for macOS, Windows, and Linux, with system-browser Google sign-in and release installers.
+- A version-aware Install page with persistent server-cached installers, PWA installation, and links to older releases and other platforms.
 - AV section shortcuts now jump to repeated or numbered occurrences with Shift and Alt variants.
 - Ctrl+C copies the current player song as Worship Pro, and Ctrl+P opens its single-song PDF print preview.
 - Import songs from searchable CCLI PDFs directly in song creation.

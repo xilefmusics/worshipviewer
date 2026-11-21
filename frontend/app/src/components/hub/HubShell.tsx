@@ -393,6 +393,7 @@ function HubChrome({
   const isAdminArea = pathname === '/admin' || pathname.startsWith('/admin/')
   const isSessions = pathname === '/sessions'
   const isAbout = pathname === '/about'
+  const isInstall = pathname === '/install'
   const adminSearch = locationSearch as Record<string, unknown>
   const adminStartDate = typeof adminSearch.start === 'string' ? adminSearch.start : ''
   const adminEndDate = typeof adminSearch.end === 'string' ? adminSearch.end : ''
@@ -432,6 +433,7 @@ function HubChrome({
     pathname === '/settings' ||
     isAdminArea ||
     pathname === '/about' ||
+    pathname === '/install' ||
     isTeamDetail ||
     isSetlistDetail ||
     isCollectionDetail ||
@@ -447,7 +449,8 @@ function HubChrome({
     !isMediaDetail &&
     !isSettings &&
     !isSessions &&
-    !isAbout
+    !isAbout &&
+    !isInstall
   const reduceMotion = useReducedMotion()
   const [createHovered, setCreateHovered] = useState(false)
   const [searchFieldHovered, setSearchFieldHovered] = useState(false)
@@ -829,7 +832,7 @@ function HubChrome({
                 </div>
               </div>
             </>
-          ) : isAbout ? (
+          ) : isAbout || isInstall ? (
             <>
               <Button
                 type="button"
@@ -839,7 +842,7 @@ function HubChrome({
                   void navigate({ to: '/collections' })
                 }}
                 className={hubDetailBackButtonClass}
-                aria-label={t('about.back')}
+                aria-label={isInstall ? t('install.back') : t('about.back')}
               >
                 <ChevronLeftIcon className="text-[var(--color-foreground)]" size={20} />
               </Button>
@@ -851,7 +854,7 @@ function HubChrome({
                       HUB_SEARCH_PILL_TEXT_CLASS,
                     )}
                   >
-                    {t('about.title')}
+                    {isInstall ? t('install.title') : t('about.title')}
                   </p>
                 </div>
               </div>

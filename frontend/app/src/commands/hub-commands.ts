@@ -6,6 +6,7 @@ export type HubNavigateTarget =
   | '/teams'
   | '/sessions'
   | '/settings'
+  | '/install'
 
 export type HubNavigateCommand = {
   id: string
@@ -91,6 +92,7 @@ export type HubInstallCommand = {
   value: 'nav-install'
   labelKey: 'hub.profile.install'
   keywords: string[]
+  to: '/install'
 }
 
 export const hubInstallCommand: HubInstallCommand = {
@@ -98,4 +100,5 @@ export const hubInstallCommand: HubInstallCommand = {
   value: 'nav-install',
   labelKey: 'hub.profile.install',
   keywords: ['install', 'app', 'pwa'],
+  to: '/install',
 }

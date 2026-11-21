@@ -7,7 +7,11 @@ use utoipa::{Modify, OpenApi};
 
 use crate::auth::impersonation::ImpersonationStatus;
 use crate::settings::Settings;
-use shared::AboutResponse;
+use shared::{
+    AboutResponse, DesktopInstaller, DesktopInstallerCatalog, DesktopInstallerFormat,
+    DesktopInstallerManifest, DesktopInstallerPlatform, DesktopInstallerRelease,
+    DesktopInstallerStatus,
+};
 
 use crate::resources::blob::PatchBlob;
 use crate::resources::collection::PatchCollection;
@@ -90,6 +94,7 @@ fn apply_openapi_runtime_metadata(doc: &mut utoipa::openapi::OpenApi, settings: 
         ("Media", "media.md"),
         ("Media assets", "media-asset.md"),
         ("Blobs", "blob.md"),
+        ("Installers", "installers.md"),
         ("Setlists", "setlist.md"),
         ("Teams", "team.md"),
         ("Rooms", "room.md"),
@@ -187,6 +192,9 @@ fn populate_operation_response_descriptions(operation: &mut Operation) {
     ),
     paths(
         crate::about::get_about,
+        crate::installers::list_installers,
+        crate::installers::list_installer_releases,
+        crate::installers::download_installer,
         crate::auth::oidc::rest::login,
         crate::auth::oidc::rest::native_login_endpoint,
         crate::auth::oidc::rest::native_exchange,
@@ -296,6 +304,13 @@ fn populate_operation_response_descriptions(operation: &mut Operation) {
     components(
         schemas(
             AboutResponse,
+            DesktopInstaller,
+            DesktopInstallerCatalog,
+            DesktopInstallerFormat,
+            DesktopInstallerManifest,
+            DesktopInstallerPlatform,
+            DesktopInstallerRelease,
+            DesktopInstallerStatus,
             HttpAuditMetrics,
             User,
             ImpersonationStatus,
@@ -408,6 +423,7 @@ fn populate_operation_response_descriptions(operation: &mut Operation) {
     ),
     tags(
         (name = "About", description = "Public server build and environment metadata (`GET /api/v1/about`)."),
+        (name = "Installers", description = "Persistent native installers and published desktop release catalog."),
         (name = "Auth", description = "OAuth/OIDC login, OTP email codes, and logout. Session cookies are set on successful auth (see authentication BLC)."),
         (name = "Monitoring", description = "Admin-only operational metrics and request audit listings under `/monitoring/`."),
         (name = "Users", description = "Current user (`/users/me`), directory listing, sessions (own and admin), and admin user lifecycle."),

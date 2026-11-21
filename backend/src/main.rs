@@ -55,6 +55,7 @@ async fn main() -> AnyResult<()> {
         .with_context(|| format!("static_dir {:?} could not be resolved", settings.static_dir))?
         .to_string_lossy()
         .into_owned();
+    let installer_service = Data::new(backend::installers::InstallerService::start_download());
 
     let cookie_config = Data::new(settings.cookie_config());
     let impersonation_config = Data::new(settings.impersonation_config());
@@ -259,6 +260,7 @@ async fn main() -> AnyResult<()> {
             .app_data(Data::new(team_service.clone()))
             .app_data(Data::new(invitation_service.clone()))
             .app_data(Data::new(message_room_service.clone()))
+            .app_data(installer_service.clone())
             .app_data(Data::new(user_service.clone()))
             .app_data(Data::new(session_service.clone()))
             .app_data(oidc_clients.clone())

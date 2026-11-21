@@ -15,6 +15,7 @@ pub mod governor_peer;
 pub mod http_audit;
 pub mod http_cache;
 pub mod http_range;
+pub mod installers;
 pub mod mail;
 pub mod observability;
 pub mod request_id;

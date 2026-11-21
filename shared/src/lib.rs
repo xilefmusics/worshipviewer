@@ -6,6 +6,7 @@ pub mod validation_limits;
 pub use patch::Patch;
 pub mod collection;
 pub mod error;
+pub mod installer;
 pub mod like;
 pub mod media;
 pub mod media_asset;
@@ -23,4 +24,8 @@ pub mod team;
 pub mod user;
 pub use about::AboutResponse;
 pub use chordlib::Error as ChordlibError;
+pub use installer::{
+    DesktopInstaller, DesktopInstallerCatalog, DesktopInstallerFormat, DesktopInstallerManifest,
+    DesktopInstallerPlatform, DesktopInstallerRelease, DesktopInstallerStatus,
+};
 pub use media_asset::{MediaAsset, MediaAssetKind, MediaAssetStatus};
