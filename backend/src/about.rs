@@ -20,7 +20,7 @@ const SERVICE_NAME: &str = "worshipviewer-backend";
 pub async fn get_about() -> HttpResponse {
     HttpResponse::Ok().json(AboutResponse {
         service: SERVICE_NAME.into(),
-        version: env!("CARGO_PKG_VERSION").into(),
+        version: env!("WV_APP_VERSION").into(),
         git_commit: option_env!("GIT_COMMIT_SHA").map(String::from),
         production: observability::is_production(),
     })
