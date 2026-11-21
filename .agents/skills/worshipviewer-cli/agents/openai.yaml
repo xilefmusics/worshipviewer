@@ -1,0 +1,3 @@
+interface:
+  display_name: "Worship Viewer CLI"
+  short_description: "Operate the Worship Viewer API from its CLI"
