@@ -292,12 +292,13 @@ async fn main() -> AnyResult<()> {
             ))
             .configure(|cfg| {
                 if mcp_enabled {
-                    cfg.service(backend::mcp::oauth_scope(
+                    backend::mcp::configure_oauth(
+                        cfg,
                         settings.auth_rate_limit_rps,
                         settings.auth_rate_limit_burst,
                         settings.api_rate_limit_rps,
                         settings.api_rate_limit_burst,
-                    ));
+                    );
                     cfg.service(backend::mcp::endpoint_scope(
                         settings.api_rate_limit_rps,
                         settings.api_rate_limit_burst,

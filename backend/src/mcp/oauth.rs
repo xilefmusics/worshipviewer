@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use actix_web::{
-    HttpRequest, HttpResponse, Scope, delete, get, post,
+    HttpRequest, HttpResponse, delete, get, post,
     web::{self, Data, Json, Path, Query},
 };
 use chrono::{DateTime, TimeDelta, Utc};
@@ -68,12 +68,13 @@ impl McpOauthConfig {
     }
 }
 
-pub fn scope(
+pub fn configure(
+    cfg: &mut web::ServiceConfig,
     auth_rate_limit_rps: u64,
     auth_rate_limit_burst: u32,
     api_rate_limit_rps: u64,
     api_rate_limit_burst: u32,
-) -> Scope {
+) {
     let auth_governor = actix_governor::GovernorConfigBuilder::default()
         .requests_per_second(auth_rate_limit_rps)
         .burst_size(auth_rate_limit_burst)
@@ -86,8 +87,7 @@ pub fn scope(
         .key_extractor(crate::governor_peer::ProblemJsonPeerIpKeyExtractor)
         .finish()
         .expect("valid OAuth API rate limit configuration");
-    web::scope("")
-        .service(authorization_server_metadata)
+    cfg.service(authorization_server_metadata)
         .service(protected_resource_root)
         .service(protected_resource_mcp)
         .service(
@@ -106,7 +106,7 @@ pub fn scope(
                 .service(decide_consent)
                 .service(get_grants)
                 .service(revoke_grant),
-        )
+        );
 }
 
 #[derive(Debug, Serialize)]
@@ -1123,10 +1123,7 @@ mod tests {
     use actix_web::{App, test, web::Data};
     use serde_json::Value;
 
-    use super::{
-        McpOauthConfig, authorization_server_metadata, protected_resource_mcp,
-        protected_resource_root,
-    };
+    use super::McpOauthConfig;
 
     #[actix_web::test]
     async fn discovery_metadata_publishes_one_issuer_and_resource() {
@@ -1137,9 +1134,7 @@ mod tests {
         let app = test::init_service(
             App::new()
                 .app_data(config)
-                .service(authorization_server_metadata)
-                .service(protected_resource_root)
-                .service(protected_resource_mcp),
+                .configure(|cfg| super::configure(cfg, 1000, 1000, 1000, 1000)),
         )
         .await;
 
