@@ -1,8 +1,12 @@
+import { useQuery } from '@tanstack/react-query'
+import { getVersion } from '@tauri-apps/api/app'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { api } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { detectOperatingSystem } from '@/lib/platform'
 import { usePwaUpdate } from '@/pwa/pwa-update-context'
 import { isTauri } from '@tauri-apps/api/core'
 
@@ -19,11 +23,40 @@ export function AboutView() {
   const { t, i18n } = useTranslation()
   const { status, needRefresh, checkForUpdate, applyUpdate } = usePwaUpdate()
   const nativeApp = isTauri()
+  const operatingSystem = detectOperatingSystem()
 
-  const buildDateLabel = useMemo(
+  const clientVersionQuery = useQuery({
+    queryKey: ['about', 'client-version'],
+    queryFn: getVersion,
+    enabled: nativeApp,
+    retry: false,
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+  const serverVersionQuery = useQuery({
+    queryKey: ['about', 'server-version'],
+    queryFn: async ({ signal }) => {
+      const { data, response, error } = await api.GET('/api/v1/about', { signal })
+      if (!response.ok || !data) {
+        throw new Error(error ? JSON.stringify(error) : response.statusText)
+      }
+      return data.version
+    },
+    networkMode: 'always',
+    refetchOnMount: 'always',
+    retry: false,
+    staleTime: 60_000,
+  })
+
+  const frontendBuildDate = useMemo(
     () => formatBuildDate(__APP_BUILD_DATE__, i18n.language),
     [i18n.language],
   )
+  const clientVersion = nativeApp
+    ? (clientVersionQuery.data ??
+      (clientVersionQuery.isError ? t('about.unavailable') : t('about.loading')))
+    : __APP_VERSION__
+  const serverVersion = serverVersionQuery.data ??
+    (serverVersionQuery.isError ? t('about.unavailable') : t('about.loading'))
 
   const statusMessage =
     status === 'checking'
@@ -53,11 +86,24 @@ export function AboutView() {
           <CardTitle className="text-base">{t('about.versionLabel')}</CardTitle>
           <CardDescription>{t('about.tagline')}</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-2 p-4 pt-0">
-          <p className="font-mono text-sm text-[var(--color-foreground)]">{__APP_VERSION__}</p>
-          <p className="text-xs text-[var(--color-muted-foreground)]">
-            {t('about.buildDateLabel')}: {buildDateLabel}
-          </p>
+        <CardContent className="p-4 pt-0">
+          <dl className="flex flex-col gap-2">
+            <MetadataRow
+              label={t('about.clientVersionLabel')}
+              value={clientVersion}
+              mono
+            />
+            <MetadataRow label={t('about.serverVersionLabel')} value={serverVersion} mono />
+            <MetadataRow
+              label={t('about.platformLabel')}
+              value={t(nativeApp ? 'about.nativePlatform' : 'about.webPlatform')}
+            />
+            <MetadataRow
+              label={t('about.operatingSystemLabel')}
+              value={t(`about.operatingSystems.${operatingSystem}`)}
+            />
+            <MetadataRow label={t('about.frontendBuildDateLabel')} value={frontendBuildDate} />
+          </dl>
         </CardContent>
       </Card>
 
@@ -112,6 +158,27 @@ export function AboutView() {
           ) : null}
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function MetadataRow({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string
+  value: string
+  mono?: boolean
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 text-xs">
+      <dt className="shrink-0 text-[var(--color-muted-foreground)]">{label}</dt>
+      <dd
+        className={`min-w-0 text-right text-[var(--color-foreground)] ${mono ? 'font-mono' : ''}`}
+      >
+        {value}
+      </dd>
     </div>
   )
 }

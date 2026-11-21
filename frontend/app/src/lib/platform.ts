@@ -1,10 +1,45 @@
 export type KeyboardShortcutPlatform = 'mac' | 'windows-linux' | 'mobile'
 
 type NavigatorPlatformInfo = Pick<Navigator, 'maxTouchPoints' | 'platform' | 'userAgent'> & {
+  standalone?: boolean
   userAgentData?: {
     mobile?: boolean
     platform?: string
   }
+}
+
+export type OperatingSystem =
+  | 'android'
+  | 'chromeos'
+  | 'ios'
+  | 'linux'
+  | 'macos'
+  | 'unknown'
+  | 'windows'
+
+/** Detect the operating system family from browser and WebView platform information. */
+export function detectOperatingSystem(
+  nav: NavigatorPlatformInfo | undefined = globalThis.navigator,
+): OperatingSystem {
+  if (!nav) return 'unknown'
+
+  const userAgent = nav.userAgent ?? ''
+  const platform = nav.userAgentData?.platform || nav.platform || ''
+  const combined = `${platform} ${userAgent}`
+
+  if (
+    /iPhone|iPad|iPod/i.test(userAgent) ||
+    (nav.platform === 'MacIntel' && nav.maxTouchPoints > 1) ||
+    nav.standalone === true
+  ) {
+    return 'ios'
+  }
+  if (/Android/i.test(combined)) return 'android'
+  if (/CrOS|Chrome OS/i.test(combined)) return 'chromeos'
+  if (/Windows|Win32|Win64/i.test(combined)) return 'windows'
+  if (/Macintosh|Mac OS X|MacIntel|macOS/i.test(combined)) return 'macos'
+  if (/Linux|X11/i.test(combined)) return 'linux'
+  return 'unknown'
 }
 
 /** Detect the shortcut family to present, including iPadOS desktop-mode user agents. */

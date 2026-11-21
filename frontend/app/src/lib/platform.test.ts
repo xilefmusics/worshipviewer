@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  detectOperatingSystem,
   detectKeyboardShortcutPlatform,
   isAndroidChrome,
   isAndroidDevice,
@@ -9,6 +10,88 @@ import {
   isMacDesktopSafari,
   needsSafariPdfPrintHint,
 } from '@/lib/platform'
+
+describe('operating system detection', () => {
+  it.each([
+    [
+      'macOS',
+      {
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+        platform: 'MacIntel',
+        maxTouchPoints: 0,
+      },
+      'macos',
+    ],
+    [
+      'Windows',
+      {
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        platform: 'Win32',
+        maxTouchPoints: 0,
+      },
+      'windows',
+    ],
+    [
+      'Linux',
+      {
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64)',
+        platform: 'Linux x86_64',
+        maxTouchPoints: 0,
+      },
+      'linux',
+    ],
+    [
+      'Android',
+      {
+        userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 9) Mobile',
+        platform: 'Linux armv8l',
+        maxTouchPoints: 5,
+        userAgentData: { mobile: true, platform: 'Android' },
+      },
+      'android',
+    ],
+    [
+      'iPhone',
+      {
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)',
+        platform: 'iPhone',
+        maxTouchPoints: 5,
+      },
+      'ios',
+    ],
+    [
+      'iPadOS desktop mode',
+      {
+        userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)',
+        platform: 'MacIntel',
+        maxTouchPoints: 5,
+      },
+      'ios',
+    ],
+    [
+      'ChromeOS',
+      {
+        userAgent: 'Mozilla/5.0 (X11; CrOS x86_64 16000.0.0)',
+        platform: 'Linux x86_64',
+        maxTouchPoints: 0,
+      },
+      'chromeos',
+    ],
+    [
+      'unknown',
+      { userAgent: 'ExampleBrowser/1.0', platform: 'ExampleOS', maxTouchPoints: 0 },
+      'unknown',
+    ],
+  ] as const)('detects %s', (_label, nav, expected) => {
+    expect(detectOperatingSystem(nav)).toBe(expected)
+  })
+
+  it('returns unknown when navigator information is unavailable', () => {
+    vi.stubGlobal('navigator', undefined)
+    expect(detectOperatingSystem()).toBe('unknown')
+    vi.unstubAllGlobals()
+  })
+})
 
 describe('platform detection', () => {
   it('selects macOS shortcuts on Mac desktops', () => {
