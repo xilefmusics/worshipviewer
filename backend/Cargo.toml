@@ -70,6 +70,18 @@ chordlib = { version = "0.18.3", features = ["html"] }
 imagesize = "0.15"
 async-stream = "0.3"
 lopdf = { version = "0.44", default-features = false }
+rmcp = { version = "3.7", default-features = false, features = [
+    "server",
+    "macros",
+    "transport-streamable-http-server",
+] }
+http = "1"
+http-body-util = "0.1"
+bytes = "1"
+url = "2"
+tower-service = "0.3"
+schemars = "1"
+subtle = "2.6"
 
 [dev-dependencies]
 anyhow = "1"

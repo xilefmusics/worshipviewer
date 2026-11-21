@@ -6,6 +6,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Added
 
+- Read-only remote MCP access to songs, setlists, and collections with OAuth consent, token rotation, and connected-app management.
 - Setlist songs can save AV foreground and geometry settings alongside background overrides, with previews and explicit Save and Cancel controls. Room snapshots retain these settings.
 - Native Tauri desktop apps for macOS, Windows, and Linux, with system-browser Google sign-in and release installers.
 - A version-aware Install page with persistent server-cached installers, PWA installation, and links to older releases and other platforms.

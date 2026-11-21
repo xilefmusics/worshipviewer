@@ -674,6 +674,11 @@ mod openapi_problem_schema {
         );
 
         for (path, path_item) in paths {
+            // OAuth and MCP protocol errors use their protocol-specific error formats
+            // (`error`/`error_description` or a WWW-Authenticate challenge), not Problem JSON.
+            if path == "/mcp" || path.starts_with("/oauth/") {
+                continue;
+            }
             let path_item = path_item.as_object().expect("path item");
             for method in ["get", "put", "post", "delete", "patch"] {
                 let Some(op) = path_item.get(method) else {

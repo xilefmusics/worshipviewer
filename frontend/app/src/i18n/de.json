@@ -33,6 +33,16 @@
       "oauthGeneric": "Die Google-Anmeldung konnte nicht abgeschlossen werden. Bitte erneut versuchen."
     }
   },
+  "oauthConsent": {
+    "title": "App verbinden?",
+    "description": "Prüfe vor dem Fortfahren, worauf diese App zugreifen darf.",
+    "loadFailed": "Diese Autorisierungsanfrage ist abgelaufen oder konnte nicht geladen werden.",
+    "access": "Angefragter Zugriff: {{scope}}",
+    "readOnly": "Diese Verbindung kann Songs, Setlisten und Sammlungen lesen, auf die dein Worship-Viewer-Konto Zugriff hat. Sie kann deine Bibliothek nicht ändern.",
+    "deny": "Abbrechen",
+    "allow": "Zugriff erlauben",
+    "actionFailed": "Die Anfrage konnte nicht abgeschlossen werden. Lade die Seite neu und versuche es erneut."
+  },
   "home": {
     "stubTitle": "Willkommen",
     "stubBody": "Du bist angemeldet. Die Bibliothekslisten kommen im nächsten Meilenstein.",
@@ -656,7 +666,18 @@
       "aria": "Einstellungsbereiche",
       "general": "Allgemein",
       "player": "Player Noten",
-      "playerRoles": "Player AV"
+      "playerRoles": "Player AV",
+      "connections": "Verbindungen"
+    },
+    "mcpConnections": {
+      "title": "Verbundene Apps",
+      "description": "Apps, die auf Songs, Setlisten und Sammlungen deines Worship-Viewer-Kontos zugreifen dürfen.",
+      "empty": "Keine verbundenen Apps.",
+      "scope": "Zugriff: {{scope}}",
+      "connected": "Verbunden {{date}}",
+      "revoke": "Trennen",
+      "revokeFailed": "Diese App konnte nicht getrennt werden.",
+      "loadFailed": "Verbundene Apps konnten nicht geladen werden."
     },
     "language": {
       "title": "Sprache",

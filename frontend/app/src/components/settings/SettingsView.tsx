@@ -99,6 +99,7 @@ import {
   writeTocMultilingualPreference,
 } from '@/lib/toc-multilingual-preference'
 import { PlayerLayoutSettingsCard } from '@/components/settings/PlayerLayoutSettingsCard'
+import { McpConnectionsSettings } from '@/components/settings/McpConnectionsSettings'
 import type { HubViewMode } from '@/lib/hub-view-mode'
 import { clearAllLocalData } from '@/lib/clear-local'
 import { formatApproxBytes } from '@/lib/format-bytes'
@@ -135,7 +136,7 @@ type SettingsOption<T extends string | number> = {
   description: string
 }
 
-const settingsTabs: SettingsTab[] = ['general', 'player', 'playerRoles']
+const settingsTabs: SettingsTab[] = ['general', 'player', 'playerRoles', 'connections']
 
 function getLocalePreference(): LocalePreference {
   return readLocalePreference()
@@ -1458,6 +1459,17 @@ export function SettingsView({
               setAvProjection({ outputFullscreenOnDblClick: value === 'on' })
             }
           />
+        </div>
+      ) : null}
+
+      {activeTab === 'connections' ? (
+        <div
+          id="settings-panel-connections"
+          role="tabpanel"
+          aria-labelledby="settings-tab-connections"
+          className="flex flex-col gap-4"
+        >
+          <McpConnectionsSettings />
         </div>
       ) : null}
     </div>

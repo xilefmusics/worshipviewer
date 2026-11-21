@@ -4,7 +4,7 @@ import {
 } from '@/lib/player/player-editor-return'
 import type { RoomDisplayMode } from '@/lib/room-message-api'
 
-export type SettingsTab = 'general' | 'player' | 'playerRoles'
+export type SettingsTab = 'general' | 'player' | 'playerRoles' | 'connections'
 
 export type RoomSettingsReturnContext = {
   roomId: string
@@ -28,6 +28,7 @@ export function resolveSettingsBackDestination(
 export function parseSettingsTab(raw: unknown): SettingsTab {
   if (raw === 'player') return 'player'
   if (raw === 'playerRoles') return 'playerRoles'
+  if (raw === 'connections') return 'connections'
   return 'general'
 }
 
