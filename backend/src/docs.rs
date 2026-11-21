@@ -2,7 +2,7 @@ use utoipa::openapi::RefOr;
 use utoipa::openapi::external_docs::ExternalDocs;
 use utoipa::openapi::info::ContactBuilder;
 use utoipa::openapi::path::Operation;
-use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
+use utoipa::openapi::security::{ApiKey, ApiKeyValue, Http, HttpAuthScheme, SecurityScheme};
 use utoipa::{Modify, OpenApi};
 
 use crate::auth::impersonation::ImpersonationStatus;
@@ -204,6 +204,17 @@ fn populate_operation_response_descriptions(operation: &mut Operation) {
         crate::auth::rest::logout,
         crate::auth::rest::current_impersonation,
         crate::auth::rest::stop_impersonation,
+        crate::mcp::oauth::authorization_server_metadata,
+        crate::mcp::oauth::protected_resource_root,
+        crate::mcp::oauth::protected_resource_mcp,
+        crate::mcp::oauth::authorize,
+        crate::mcp::oauth::token,
+        crate::mcp::oauth::revoke,
+        crate::mcp::oauth::get_consent_request,
+        crate::mcp::oauth::decide_consent,
+        crate::mcp::oauth::get_grants,
+        crate::mcp::oauth::revoke_grant,
+        crate::mcp::server::handle,
         crate::resources::user::rest::get_users_me_metrics,
         crate::resources::user::rest::get_user_metrics,
         crate::resources::user::rest::get_users_me,
@@ -320,6 +331,10 @@ fn populate_operation_response_descriptions(operation: &mut Operation) {
             CreateUser,
             OtpRequest,
             OtpVerify,
+            crate::mcp::oauth::TokenRequest,
+            crate::mcp::oauth::RevocationRequest,
+            crate::mcp::oauth::ConsentDecision,
+            crate::mcp::oauth::ConnectedGrant,
             SongListQuery,
             Problem,
             ErrorResponse,
@@ -425,6 +440,8 @@ fn populate_operation_response_descriptions(operation: &mut Operation) {
         (name = "About", description = "Public server build and environment metadata (`GET /api/v1/about`)."),
         (name = "Installers", description = "Persistent native installers and published desktop release catalog."),
         (name = "Auth", description = "OAuth/OIDC login, OTP email codes, and logout. Session cookies are set on successful auth (see authentication BLC)."),
+        (name = "MCP OAuth", description = "OAuth authorization, consent, token, and connected-grant routes for the remote read-only MCP server."),
+        (name = "MCP", description = "Read-only Model Context Protocol tools at `/mcp`, protected by OAuth bearer tokens."),
         (name = "Monitoring", description = "Admin-only operational metrics and request audit listings under `/monitoring/`."),
         (name = "Users", description = "Current user (`/users/me`), directory listing, sessions (own and admin), and admin user lifecycle."),
         (name = "Songs", description = "Song CRUD, player JSON, likes, search/sort listing."),
@@ -457,6 +474,10 @@ impl Modify for SessionSecurity {
                 "Authorization",
                 "Session override using `Authorization: Bearer <session>` header",
             ))),
+        );
+        components.add_security_scheme(
+            "McpAccessToken",
+            SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
         );
     }
 }

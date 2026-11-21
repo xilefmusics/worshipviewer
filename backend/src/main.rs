@@ -15,6 +15,7 @@ use backend::demodata;
 use backend::docs;
 use backend::frontend;
 use backend::mail::MailService;
+use backend::mcp::{McpGateway, McpOauthConfig};
 use backend::resources;
 use backend::resources::Session;
 use backend::resources::blob::service::BlobServiceHandle;
@@ -231,6 +232,18 @@ async fn main() -> AnyResult<()> {
     let team_service = TeamServiceHandle::build(db.clone());
     let invitation_service = InvitationServiceHandle::build(db.clone());
     let message_room_service = MessageRoomService::new(db.clone());
+    let mcp_gateway = Data::new(McpGateway::new(
+        song_service.clone(),
+        setlist_service.clone(),
+        collection_service.clone(),
+        &settings.public_base_url,
+    ));
+    let mcp_oauth = McpOauthConfig::new(settings.public_base_url.clone())
+        .context("invalid MCP OAuth public origin")?;
+    if production && !mcp_oauth.issuer().starts_with("https://") {
+        anyhow::bail!("PUBLIC_BASE_URL must use HTTPS in production");
+    }
+    let mcp_oauth_config = Data::new(mcp_oauth);
     let db_data = Data::from(db);
 
     let docs_settings = settings.clone();
@@ -267,9 +280,21 @@ async fn main() -> AnyResult<()> {
             .app_data(cookie_config.clone())
             .app_data(impersonation_config.clone())
             .app_data(otp_config.clone())
+            .app_data(mcp_gateway.clone())
+            .app_data(mcp_oauth_config.clone())
             .service(auth::rest::scope(
                 settings.auth_rate_limit_rps,
                 settings.auth_rate_limit_burst,
+            ))
+            .service(backend::mcp::oauth_scope(
+                settings.auth_rate_limit_rps,
+                settings.auth_rate_limit_burst,
+                settings.api_rate_limit_rps,
+                settings.api_rate_limit_burst,
+            ))
+            .service(backend::mcp::endpoint_scope(
+                settings.api_rate_limit_rps,
+                settings.api_rate_limit_burst,
             ))
             .service(docs::rest::scope(docs_settings.clone()))
             .service(resources::rest::scope(
