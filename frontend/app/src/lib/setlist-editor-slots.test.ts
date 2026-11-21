@@ -19,6 +19,22 @@ describe('mixed setlist editor slots', () => {
         language: 'de',
         flow: null,
         background: { preset: 2, image: { media_id: 'media:bg', asset_id: 'asset:bg' } },
+        foreground: {
+          bilingual_enabled: true,
+          content_layer: {
+            max_lines_per_slide: 3,
+            balance_slide_lines: false,
+            font_size: 72,
+            font_family: 'arial' as const,
+            text_align: 'left' as const,
+            vertical_align: 'bottom' as const,
+            horizontal_align: 'right' as const,
+            text_shadow: 'medium' as const,
+            text_transform: 'capitalize' as const,
+            primary_text_lightness: 92,
+            secondary_text_lightness: 58,
+          },
+        },
       },
       { type: 'media' as const, id: 'media:1' },
     ]

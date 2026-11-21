@@ -678,12 +678,12 @@ export function SetlistEditorScreen({ setlistId }: { setlistId: string }) {
                     })
                     queueMicrotask(() => notifyDraftEdited())
                   }}
-                  onPatchBackground={(background) => {
+                  onPatchAvSettings={(background, foreground) => {
                     setSlotRows((prev) => {
                       const next = [...prev]
                       const cur = next[idx]
                       if (!cur || cur.type !== 'song') return prev
-                      next[idx] = { ...cur, link: { ...cur.link, background } }
+                      next[idx] = { ...cur, link: { ...cur.link, background, foreground } }
                       return next
                     })
                     queueMicrotask(() => notifyDraftEdited())
@@ -840,7 +840,7 @@ type SortProps = {
   onPatchCapoShape: (shapeKey: CapoShapeKey | null) => void
   onPatchTempo: (tempo: number | null) => void
   onPatchLanguage: (language: string | null) => void
-  onPatchBackground: (background: import('@/lib/setlist-background').SetlistSongBackground | null) => void
+  onPatchAvSettings: (background: import('@/lib/setlist-background').SetlistSongBackground | null, foreground: import('@/lib/setlist-background').SetlistSongForeground | null) => void
   onEditFlow: () => void
   onRemove: () => void
 }
@@ -1068,10 +1068,14 @@ const SortableSongRow = memo(function SortableSongRow(props: SortProps) {
                   />
                   <SongBackgroundOverridePicker
                     background={row.link.background ?? null}
+                    foreground={row.link.foreground ?? null}
                     songTitle={titleLabel}
+                    previewSong={hydratedSong}
+                    previewLanguage={row.link.language}
+                    previewFlow={row.link.flow}
                     canEdit={canEditUi}
                     disabled={blockingAll}
-                    onChange={props.onPatchBackground}
+                    onSave={props.onPatchAvSettings}
                   />
                   <FlowOverrideChip
                     hasCustomFlow={hasCustomFlow}

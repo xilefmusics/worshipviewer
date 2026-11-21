@@ -409,6 +409,7 @@ mod tests {
                         nr: "1".into(),
                         liked: false,
                         background: None,
+                        foreground: None,
                     }],
                 },
             })
@@ -513,6 +514,7 @@ mod tests {
                         nr: "1".into(),
                         liked: false,
                         background: None,
+                        foreground: None,
                     }],
                 },
             })

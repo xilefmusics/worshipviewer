@@ -1,4 +1,4 @@
-use crate::player::PlayerBackground;
+use crate::player::{PlayerBackground, PlayerForegroundSettings};
 use chordlib::types::SongFlowItem;
 use serde::{Deserialize, Serialize};
 
@@ -126,9 +126,12 @@ pub struct SongLink {
     /// Custom section order and repeats for this setlist slot.
     #[cfg_attr(feature = "backend", schema(value_type = Option<Vec<SongFlowItemSchema>>))]
     pub flow: Option<Vec<SongFlowItem>>,
-    /// Optional AV background override for this setlist slot; absent means use the player's current background.
+    /// Optional AV background snapshot for this setlist slot; absent means inherit the active player's settings.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background: Option<Box<PlayerBackground>>,
+    /// Optional complete AV foreground snapshot for this setlist slot; absent means inherit the active player's settings.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub foreground: Option<Box<PlayerForegroundSettings>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone)]
@@ -230,6 +233,7 @@ mod tests {
                 repeats: 2,
             }]),
             background: None,
+            foreground: None,
         }
     }
 

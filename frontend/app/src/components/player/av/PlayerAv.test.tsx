@@ -77,6 +77,7 @@ vi.mock('@/lib/player/av-preferences', () => ({
       maxLinesPerSlide: 2,
       balanceSlideLines: true,
       fontSize: 60,
+      fontFamily: 'rubik',
       textAlign: 'center',
       verticalAlign: 'center',
       horizontalAlign: 'center',
@@ -87,6 +88,11 @@ vi.mock('@/lib/player/av-preferences', () => ({
     },
     backgroundLayer: { preset: 2 },
     geometryOverlay: 'none',
+    geometryOverlayRotatedBackground: false,
+    geometryOverlayOpacity: 77,
+    geometryOverlayColor: 77,
+    geometryOverlaySize: 77,
+    geometryOverlayThickness: 77,
     transition: { style: 'none', durationMs: 0 },
     projection: { outputFullscreenOnDblClick: true },
   },
@@ -94,6 +100,7 @@ vi.mock('@/lib/player/av-preferences', () => ({
     typeof value === 'number' && Number.isFinite(value)
       ? Math.min(100, Math.max(0, Math.trunc(value)))
       : fallback,
+  normalizeAvBackgroundPreset: () => 2,
   normalizeAvGeometryOverlay: (value: unknown) =>
     ['none', 'cross', 'inverted_cross', 'sliced_square', 'sliced_rectangle', 'circle', 'square', 'rectangle', 'triangle', 'inverted_triangle', 'diamond', 'heart'].includes(value as string)
       ? value
@@ -159,13 +166,24 @@ vi.mock('@/components/player/av/AvSlideView', () => ({
     contentLines,
     deckPage,
     timedPreview,
+    contentLayer,
+    geometryOverlay,
+    geometryOverlayOpacity,
   }: {
     contentText?: string
     contentLines?: Array<{ primary: string; secondary?: string }>
     deckPage?: { mediaId: string; assetId: string }
     timedPreview?: { kind: string; title: string }
+    contentLayer?: { fontSize: number }
+    geometryOverlay?: string
+    geometryOverlayOpacity?: number
   }) => (
-    <div data-testid="preview-text">
+    <div
+      data-testid="preview-text"
+      data-font-size={contentLayer?.fontSize}
+      data-geometry-overlay={geometryOverlay}
+      data-geometry-overlay-opacity={geometryOverlayOpacity}
+    >
       {timedPreview
         ? `media:${timedPreview.kind}:${timedPreview.title}`
         : deckPage
@@ -378,6 +396,7 @@ beforeEach(() => {
       maxLinesPerSlide: 2,
       balanceSlideLines: true,
       fontSize: 60,
+      fontFamily: 'rubik',
       textAlign: 'center',
       verticalAlign: 'center',
       horizontalAlign: 'center',
@@ -388,6 +407,11 @@ beforeEach(() => {
     },
     backgroundLayer: { preset: 2 },
     geometryOverlay: 'none',
+    geometryOverlayRotatedBackground: false,
+    geometryOverlayOpacity: 77,
+    geometryOverlayColor: 77,
+    geometryOverlaySize: 77,
+    geometryOverlayThickness: 77,
     transition: { style: 'none', durationMs: 0 },
     projection: { outputFullscreenOnDblClick: true },
   })
@@ -658,6 +682,122 @@ describe('PlayerAv', () => {
     )
 
     expect(screen.getByTestId('preview-text')).toHaveTextContent('Hallo|Hello')
+  })
+
+  it('applies a song foreground and background snapshot over player defaults', async () => {
+    const slotOverridePlayer = {
+      ...player,
+      toc: [
+        {
+          ...player.toc[0]!,
+          background: {
+            preset: 2,
+            geometry_overlay: 'circle',
+            geometry_overlay_rotated_background: true,
+            geometry_overlay_opacity: 42,
+            geometry_overlay_color: 66,
+            geometry_overlay_size: 71,
+            geometry_overlay_thickness: 83,
+          },
+          foreground: {
+            bilingual_enabled: true,
+            content_layer: {
+              max_lines_per_slide: 3,
+              balance_slide_lines: false,
+              font_size: 72,
+              font_family: 'arial',
+              text_align: 'left',
+              vertical_align: 'bottom',
+              horizontal_align: 'right',
+              text_shadow: 'medium',
+              text_transform: 'capitalize',
+              primary_text_lightness: 92,
+              secondary_text_lightness: 58,
+            },
+          },
+        },
+      ],
+    } as Player
+    const user = userEvent.setup()
+
+    render(
+      <PlayerAv
+        type="setlist"
+        id="setlist-1"
+        player={slotOverridePlayer}
+        allowNetworkFetch={false}
+      />,
+    )
+
+    expect(screen.getByTestId('preview-text')).toHaveTextContent('Hallo|Hello')
+    expect(screen.getByTestId('preview-text')).toHaveAttribute('data-font-size', '72')
+    expect(screen.getByTestId('preview-text')).toHaveAttribute('data-geometry-overlay', 'circle')
+    expect(screen.getByTestId('preview-text')).toHaveAttribute('data-geometry-overlay-opacity', '42')
+    await user.click(screen.getByRole('button', { name: 'Select slide 1' }))
+    await waitFor(() => expect(broadcast).toHaveBeenCalled())
+    const payload = broadcast.mock.calls.at(-1)?.[0] as {
+      contentLayer?: { fontSize: number; textTransform: string; horizontalAlign: string }
+      geometryOverlay?: string
+    }
+    expect(payload.contentLayer).toMatchObject({
+      fontSize: 72,
+      textTransform: 'capitalize',
+      horizontalAlign: 'right',
+    })
+    expect(payload.geometryOverlay).toBe('circle')
+  })
+
+  it('uses the projected song slot snapshots when the output catches up', async () => {
+    const user = userEvent.setup()
+    const projectedOverridePlayer = {
+      ...twoItemPlayer,
+      toc: [
+        twoItemPlayer.toc[0]!,
+        {
+          ...twoItemPlayer.toc[1]!,
+          background: {
+            preset: 2,
+            geometry_overlay: 'triangle',
+            geometry_overlay_opacity: 49,
+          },
+          foreground: {
+            bilingual_enabled: false,
+            content_layer: {
+              max_lines_per_slide: 4,
+              balance_slide_lines: false,
+              font_size: 84,
+              font_family: 'verdana',
+              text_align: 'right',
+              vertical_align: 'top',
+              horizontal_align: 'left',
+              text_shadow: 'strong',
+              text_transform: 'lowercase',
+              primary_text_lightness: 88,
+              secondary_text_lightness: 54,
+            },
+          },
+        },
+      ],
+    } as Player
+
+    render(
+      <PlayerAv
+        type="setlist"
+        id="setlist-1"
+        player={projectedOverridePlayer}
+        allowNetworkFetch={false}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Select slide 1' }))
+    await user.keyboard('n')
+    expect(screen.getByTestId('preview-text')).toHaveAttribute('data-font-size', '60')
+    await user.click(screen.getByRole('button', { name: 'Select slide 0' }))
+
+    expect(screen.getByTestId('preview-text')).toHaveTextContent('Second song line')
+    expect(screen.getByTestId('preview-text')).toHaveAttribute('data-font-size', '84')
+    expect(screen.getByTestId('preview-text')).toHaveAttribute('data-geometry-overlay', 'triangle')
+    expect(screen.getByTestId('preview-text')).toHaveAttribute('data-geometry-overlay-opacity', '49')
   })
 
   it('broadcasts structured contentLines when bilingual AV is enabled', async () => {

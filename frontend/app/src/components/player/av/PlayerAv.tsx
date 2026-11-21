@@ -123,7 +123,11 @@ import {
 } from '@/lib/player/player-chrome'
 import { buildSongEditorReturnSearch } from '@/lib/player/player-editor-return'
 import { tocEntryForIndex, tocSlotEntryForIndex } from '@/lib/player/player-helpers'
-import { setlistBackgroundToAvBackground } from '@/lib/setlist-background'
+import {
+  setlistBackgroundGeometryToAvSettings,
+  setlistBackgroundToAvBackground,
+  setlistForegroundToAvSettings,
+} from '@/lib/setlist-background'
 import type { RoomAvConfiguration } from '@/lib/room-message-api'
 import type { RoomDebugLog } from '@/lib/room-message-debug'
 import type { PlayerEntityType } from '@/lib/player-route'
@@ -467,16 +471,16 @@ export function PlayerAv({
   }, [id, slideOnly, type, viewState])
 
   const collapseLyricWhitespace = readLyricCollapseWhitespacePreference()
-  const effectiveContentLayer = slideOnly
+  const playerContentLayer = slideOnly
     ? sharedAvConfiguration ? contentLayerFromRoom(sharedAvConfiguration) : DEFAULT_AV_PREFERENCES.contentLayer
     : prefs.contentLayer
   const effectiveTransition = slideOnly
     ? sharedAvConfiguration ? transitionFromRoom(sharedAvConfiguration) : DEFAULT_AV_PREFERENCES.transition
     : prefs.transition
-  const effectiveGeometryOverlay = slideOnly
+  const playerGeometryOverlay = slideOnly
     ? sharedAvConfiguration?.geometry_overlay ?? DEFAULT_AV_PREFERENCES.geometryOverlay
     : prefs.geometryOverlay
-  const effectiveGeometryOverlayRotatedBackground = slideOnly
+  const playerGeometryOverlayRotatedBackground = slideOnly
     ? sharedAvConfiguration?.geometry_overlay_rotated_background ??
       sharedAvConfiguration?.geometry_overlay_rotated_video ?? false
     : prefs.geometryOverlayRotatedBackground
@@ -494,19 +498,19 @@ export function PlayerAv({
     DEFAULT_AV_PREFERENCES.geometryOverlaySize
   const sharedGeometryOverlayThickness = sharedAvConfiguration?.geometry_overlay_thickness ??
     DEFAULT_AV_PREFERENCES.geometryOverlayThickness
-  const effectiveGeometryOverlayOpacity = slideOnly
+  const playerGeometryOverlayOpacity = slideOnly
     ? sharedGeometryOverlayOpacity
     : prefs.geometryOverlayOpacity
-  const effectiveGeometryOverlayColor = slideOnly
+  const playerGeometryOverlayColor = slideOnly
     ? sharedGeometryOverlayColor
     : prefs.geometryOverlayColor
-  const effectiveGeometryOverlaySize = slideOnly
+  const playerGeometryOverlaySize = slideOnly
     ? sharedGeometryOverlaySize
     : prefs.geometryOverlaySize
-  const effectiveGeometryOverlayThickness = slideOnly
+  const playerGeometryOverlayThickness = slideOnly
     ? sharedGeometryOverlayThickness
     : prefs.geometryOverlayThickness
-  const effectiveBilingualEnabled = slideOnly
+  const playerBilingualEnabled = slideOnly
     ? sharedAvConfiguration?.bilingual_enabled ?? false
     : bilingualEnabled
   const effectiveCollapseWhitespace = slideOnly
@@ -604,8 +608,10 @@ export function PlayerAv({
   const currentPlayerItem = player.items[session.itemIndex]
   const projectedPlayerItem = player.items[projected.itemIndex]
   const projectedTocRow = tocEntryForIndex(player.toc, projected.itemIndex)
-  const currentBackgroundOverride = tocSlotEntryForIndex(player.toc, session.itemIndex)?.background
-  const projectedBackgroundOverride = tocSlotEntryForIndex(player.toc, projected.itemIndex)?.background
+  const currentTocSlot = tocSlotEntryForIndex(player.toc, session.itemIndex)
+  const projectedTocSlot = tocSlotEntryForIndex(player.toc, projected.itemIndex)
+  const currentBackgroundOverride = currentTocSlot?.background
+  const projectedBackgroundOverride = projectedTocSlot?.background
   const projectedTimer = selectedTimer?.endsAtMs != null ? selectedTimer : runningTimer
   const projectedTimerTitle = projectedTimer
     ? t('player.av.timerTitle')
@@ -616,6 +622,35 @@ export function PlayerAv({
       : null,
     [projectedTimer],
   )
+  const currentForegroundOverride = currentTocSlot?.foreground
+    ? setlistForegroundToAvSettings(currentTocSlot.foreground)
+    : null
+  const projectedForegroundOverride = projectedTocSlot?.foreground
+    ? setlistForegroundToAvSettings(projectedTocSlot.foreground)
+    : null
+  const playerGeometrySettings = {
+    geometryOverlay: playerGeometryOverlay,
+    geometryOverlayRotatedBackground: playerGeometryOverlayRotatedBackground,
+    geometryOverlayOpacity: playerGeometryOverlayOpacity,
+    geometryOverlayColor: playerGeometryOverlayColor,
+    geometryOverlaySize: playerGeometryOverlaySize,
+    geometryOverlayThickness: playerGeometryOverlayThickness,
+  }
+  const effectiveContentLayer = !selectedTimer && currentForegroundOverride
+    ? currentForegroundOverride.contentLayer
+    : playerContentLayer
+  const effectiveBilingualEnabled = !selectedTimer && currentForegroundOverride
+    ? currentForegroundOverride.bilingualEnabled
+    : playerBilingualEnabled
+  const projectedContentLayer = !timerProjection && projectedForegroundOverride
+    ? projectedForegroundOverride.contentLayer
+    : playerContentLayer
+  const projectedBilingualEnabled = !timerProjection && projectedForegroundOverride
+    ? projectedForegroundOverride.bilingualEnabled
+    : playerBilingualEnabled
+  const projectedGeometrySettings = timerProjection
+    ? playerGeometrySettings
+    : setlistBackgroundGeometryToAvSettings(projectedBackgroundOverride, playerGeometrySettings)
   const backgroundLayer = selectedTimer
     ? playerBackgroundLayer
     : currentBackgroundOverride
@@ -662,18 +697,18 @@ export function PlayerAv({
   const projectedItem = useMemo(
     () =>
       avSlidesForPlayerItem(player.items, projected.itemIndex, {
-        maxLinesPerSlide: effectiveContentLayer.maxLinesPerSlide,
-        balanceSlideLines: effectiveContentLayer.balanceSlideLines,
+        maxLinesPerSlide: projectedContentLayer.maxLinesPerSlide,
+        balanceSlideLines: projectedContentLayer.balanceSlideLines,
         collapseLyricWhitespace: effectiveCollapseWhitespace,
-      }, resolveLanguageIndexForItem, effectiveBilingualEnabled, resolvedProjectedSongData, projectedTitle),
+      }, resolveLanguageIndexForItem, projectedBilingualEnabled, resolvedProjectedSongData, projectedTitle),
     [
       player.items,
-      effectiveContentLayer.maxLinesPerSlide,
-      effectiveContentLayer.balanceSlideLines,
+      projectedContentLayer.maxLinesPerSlide,
+      projectedContentLayer.balanceSlideLines,
       effectiveCollapseWhitespace,
       resolveLanguageIndexForItem,
       projected.itemIndex,
-      effectiveBilingualEnabled,
+      projectedBilingualEnabled,
       resolvedProjectedSongData,
       projectedTitle,
     ],
@@ -943,14 +978,14 @@ export function PlayerAv({
         sessionId,
         commandId: 0,
         content: projectedContent,
-        contentLayer: effectiveContentLayer,
+        contentLayer: projectedContentLayer,
         backgroundLayer: projectedBackgroundLayer,
-        geometryOverlay: effectiveGeometryOverlay,
-        geometryOverlayRotatedBackground: effectiveGeometryOverlayRotatedBackground,
-        geometryOverlayOpacity: effectiveGeometryOverlayOpacity,
-        geometryOverlayColor: effectiveGeometryOverlayColor,
-        geometryOverlaySize: effectiveGeometryOverlaySize,
-        geometryOverlayThickness: effectiveGeometryOverlayThickness,
+        geometryOverlay: projectedGeometrySettings.geometryOverlay,
+        geometryOverlayRotatedBackground: projectedGeometrySettings.geometryOverlayRotatedBackground,
+        geometryOverlayOpacity: projectedGeometrySettings.geometryOverlayOpacity,
+        geometryOverlayColor: projectedGeometrySettings.geometryOverlayColor,
+        geometryOverlaySize: projectedGeometrySettings.geometryOverlaySize,
+        geometryOverlayThickness: projectedGeometrySettings.geometryOverlayThickness,
         fallbackBackgroundLayer: projectedFallbackBackgroundLayer,
         transition: effectiveTransition,
         screenState: projected.screenState,
@@ -965,13 +1000,8 @@ export function PlayerAv({
       timerProjection,
       projectedBackgroundLayer,
       projectedFallbackBackgroundLayer,
-      effectiveContentLayer,
-      effectiveGeometryOverlay,
-      effectiveGeometryOverlayRotatedBackground,
-      effectiveGeometryOverlayOpacity,
-      effectiveGeometryOverlayColor,
-      effectiveGeometryOverlaySize,
-      effectiveGeometryOverlayThickness,
+      projectedContentLayer,
+      projectedGeometrySettings,
       effectiveTransition,
       projected.screenState,
       projectedContent,
@@ -1512,14 +1542,14 @@ export function PlayerAv({
       >
         <AvSlideView
           {...projectedSlideView}
-          contentLayer={effectiveContentLayer}
+          contentLayer={projectedContentLayer}
           backgroundLayer={projectedBackgroundLayer}
-          geometryOverlay={effectiveGeometryOverlay}
-          geometryOverlayRotatedBackground={effectiveGeometryOverlayRotatedBackground}
-          geometryOverlayOpacity={effectiveGeometryOverlayOpacity}
-          geometryOverlayColor={effectiveGeometryOverlayColor}
-          geometryOverlaySize={effectiveGeometryOverlaySize}
-          geometryOverlayThickness={effectiveGeometryOverlayThickness}
+          geometryOverlay={projectedGeometrySettings.geometryOverlay}
+          geometryOverlayRotatedBackground={projectedGeometrySettings.geometryOverlayRotatedBackground}
+          geometryOverlayOpacity={projectedGeometrySettings.geometryOverlayOpacity}
+          geometryOverlayColor={projectedGeometrySettings.geometryOverlayColor}
+          geometryOverlaySize={projectedGeometrySettings.geometryOverlaySize}
+          geometryOverlayThickness={projectedGeometrySettings.geometryOverlayThickness}
           fallbackBackgroundLayer={projectedFallbackBackgroundLayer}
           transition={effectiveTransition}
           screenState={effectiveScreenState}
@@ -1765,8 +1795,8 @@ export function PlayerAv({
               onToggleBlackout={toggleBlackout}
               nextLanguageLabel={nextLanguageOption?.label}
               onNextLanguage={showLanguageSelector ? selectNextLanguage : undefined}
-              translationEnabled={bilingualEnabled}
-              onToggleTranslation={showLanguageSelector
+              translationEnabled={effectiveBilingualEnabled}
+              onToggleTranslation={showLanguageSelector && !currentForegroundOverride
                 ? () => setBilingualPreference(!bilingualEnabled)
                 : undefined}
             />
@@ -1973,14 +2003,14 @@ export function PlayerAv({
                   videoPreviewRef={videoPreviewRef}
                   videoPreviewPlaying={videoPreviewPlaying}
                   onVideoPreviewProgress={setVideoPreviewProgress}
-                  contentLayer={prefs.contentLayer}
+                  contentLayer={projectedContentLayer}
                   backgroundLayer={projectedBackgroundLayer}
-                  geometryOverlay={prefs.geometryOverlay}
-                  geometryOverlayRotatedBackground={prefs.geometryOverlayRotatedBackground}
-                  geometryOverlayOpacity={prefs.geometryOverlayOpacity}
-                  geometryOverlayColor={prefs.geometryOverlayColor}
-                  geometryOverlaySize={prefs.geometryOverlaySize}
-                  geometryOverlayThickness={prefs.geometryOverlayThickness}
+                  geometryOverlay={projectedGeometrySettings.geometryOverlay}
+                  geometryOverlayRotatedBackground={projectedGeometrySettings.geometryOverlayRotatedBackground}
+                  geometryOverlayOpacity={projectedGeometrySettings.geometryOverlayOpacity}
+                  geometryOverlayColor={projectedGeometrySettings.geometryOverlayColor}
+                  geometryOverlaySize={projectedGeometrySettings.geometryOverlaySize}
+                  geometryOverlayThickness={projectedGeometrySettings.geometryOverlayThickness}
                   fallbackBackgroundLayer={projectedFallbackBackgroundLayer}
                   transition={prefs.transition}
                   screenState={projected.screenState}

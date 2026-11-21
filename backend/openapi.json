@@ -31,6 +31,82 @@
         ],
         "type": "object"
       },
+      "AvFontFamily": {
+        "enum": [
+          "rubik",
+          "arial",
+          "verdana",
+          "trebuchet_ms",
+          "tahoma",
+          "georgia",
+          "palatino",
+          "garamond"
+        ],
+        "type": "string"
+      },
+      "AvGeometryOverlay": {
+        "description": "Geometry mask drawn over an AV background.",
+        "enum": [
+          "none",
+          "cross",
+          "inverted_cross",
+          "sliced_square",
+          "sliced_rectangle",
+          "sliced_rectangle_three",
+          "circle",
+          "square",
+          "rectangle",
+          "triangle",
+          "inverted_triangle",
+          "diamond",
+          "heart",
+          "gospel"
+        ],
+        "type": "string"
+      },
+      "AvHorizontalAlign": {
+        "enum": [
+          "left",
+          "center",
+          "right"
+        ],
+        "type": "string"
+      },
+      "AvTextAlign": {
+        "enum": [
+          "left",
+          "center",
+          "right"
+        ],
+        "type": "string"
+      },
+      "AvTextShadow": {
+        "enum": [
+          "none",
+          "subtle",
+          "medium",
+          "strong"
+        ],
+        "type": "string"
+      },
+      "AvTextTransform": {
+        "enum": [
+          "none",
+          "uppercase",
+          "lowercase",
+          "capitalize"
+        ],
+        "type": "string"
+      },
+      "AvVerticalAlign": {
+        "enum": [
+          "top",
+          "geometry_center",
+          "center",
+          "bottom"
+        ],
+        "type": "string"
+      },
       "Blob": {
         "example": {
           "file_type": "image/png",
@@ -2037,8 +2113,57 @@
       },
       "PlayerBackground": {
         "additionalProperties": false,
-        "description": "Background selected for a setlist song slot or AV player TOC entry.",
+        "description": "Background settings selected for a setlist song slot or AV player TOC entry.",
         "properties": {
+          "geometry_overlay": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AvGeometryOverlay",
+                "description": "Optional geometry overlay; omitted by legacy source-only overrides, which inherit the player value."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geometry_overlay_color": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "geometry_overlay_opacity": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "geometry_overlay_rotated_background": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "geometry_overlay_size": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "geometry_overlay_thickness": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "image": {
             "oneOf": [
               {
@@ -2157,6 +2282,84 @@
         },
         "required": [
           "song"
+        ],
+        "type": "object"
+      },
+      "PlayerContentLayer": {
+        "additionalProperties": false,
+        "description": "Complete AV text styling snapshot for a setlist song slot.",
+        "properties": {
+          "balance_slide_lines": {
+            "type": "boolean"
+          },
+          "font_family": {
+            "$ref": "#/components/schemas/AvFontFamily"
+          },
+          "font_size": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "horizontal_align": {
+            "$ref": "#/components/schemas/AvHorizontalAlign"
+          },
+          "max_lines_per_slide": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "primary_text_lightness": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "secondary_text_lightness": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "text_align": {
+            "$ref": "#/components/schemas/AvTextAlign"
+          },
+          "text_shadow": {
+            "$ref": "#/components/schemas/AvTextShadow"
+          },
+          "text_transform": {
+            "$ref": "#/components/schemas/AvTextTransform"
+          },
+          "vertical_align": {
+            "$ref": "#/components/schemas/AvVerticalAlign"
+          }
+        },
+        "required": [
+          "max_lines_per_slide",
+          "balance_slide_lines",
+          "font_size",
+          "font_family",
+          "text_align",
+          "vertical_align",
+          "horizontal_align",
+          "text_shadow",
+          "text_transform",
+          "primary_text_lightness",
+          "secondary_text_lightness"
+        ],
+        "type": "object"
+      },
+      "PlayerForegroundSettings": {
+        "additionalProperties": false,
+        "description": "Complete AV foreground snapshot for a setlist song slot.",
+        "properties": {
+          "bilingual_enabled": {
+            "type": "boolean"
+          },
+          "content_layer": {
+            "$ref": "#/components/schemas/PlayerContentLayer"
+          }
+        },
+        "required": [
+          "content_layer",
+          "bilingual_enabled"
         ],
         "type": "object"
       },
@@ -3103,7 +3306,7 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/PlayerBackground",
-                "description": "Optional AV background override for this setlist slot; absent means use the player's current background."
+                "description": "Optional AV background snapshot for this setlist slot; absent means inherit the active player's settings."
               },
               {
                 "type": "null"
@@ -3129,6 +3332,17 @@
             "type": [
               "array",
               "null"
+            ]
+          },
+          "foreground": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlayerForegroundSettings",
+                "description": "Optional complete AV foreground snapshot for this setlist slot; absent means inherit the active player's settings."
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "id": {
@@ -3691,7 +3905,18 @@
             "oneOf": [
               {
                 "$ref": "#/components/schemas/PlayerBackground",
-                "description": "Optional per-slot AV background override."
+                "description": "Optional per-slot AV background settings snapshot."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "foreground": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PlayerForegroundSettings",
+                "description": "Optional per-slot AV foreground settings snapshot."
               },
               {
                 "type": "null"

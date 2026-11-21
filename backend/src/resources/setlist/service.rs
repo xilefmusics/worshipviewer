@@ -500,6 +500,7 @@ mod tests {
             language: None,
             flow: Some(vec![]),
             background: None,
+            foreground: None,
         })];
 
         let err = super::validate_setlist_items(&items).unwrap_err();
@@ -517,6 +518,7 @@ mod tests {
             language: None,
             flow: Some(vec![flow_item("Verse", 0, 1)]),
             background: None,
+            foreground: None,
         })];
 
         assert!(super::validate_setlist_items(&items).is_ok());
@@ -1251,6 +1253,7 @@ mod tests {
                             language: None,
                             flow: None,
                             background: None,
+                            foreground: None,
                         })]),
                         owner: None,
                     },

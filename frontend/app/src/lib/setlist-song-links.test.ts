@@ -50,6 +50,22 @@ describe('setlist song links', () => {
         language: 'de',
         flow: [flow('Verse', 0, 1), flow('Chorus', 0, 2)],
         background: { preset: 2, image: { media_id: 'media-bg', asset_id: 'asset-bg' } },
+        foreground: {
+          bilingual_enabled: true,
+          content_layer: {
+            max_lines_per_slide: 2,
+            balance_slide_lines: true,
+            font_size: 72,
+            font_family: 'arial',
+            text_align: 'left',
+            vertical_align: 'bottom',
+            horizontal_align: 'right',
+            text_shadow: 'medium',
+            text_transform: 'capitalize',
+            primary_text_lightness: 92,
+            secondary_text_lightness: 58,
+          },
+        },
       },
     ]
 
@@ -63,6 +79,22 @@ describe('setlist song links', () => {
         language: 'de',
         flow: [flow('Verse', 0, 1), flow('Chorus', 0, 2)],
         background: { preset: 2, image: { media_id: 'media-bg', asset_id: 'asset-bg' } },
+        foreground: {
+          bilingual_enabled: true,
+          content_layer: {
+            max_lines_per_slide: 2,
+            balance_slide_lines: true,
+            font_size: 72,
+            font_family: 'arial',
+            text_align: 'left',
+            vertical_align: 'bottom',
+            horizontal_align: 'right',
+            text_shadow: 'medium',
+            text_transform: 'capitalize',
+            primary_text_lightness: 92,
+            secondary_text_lightness: 58,
+          },
+        },
       },
     ])
   })
@@ -77,6 +109,22 @@ describe('setlist song links', () => {
       flow: [flow('Verse', 0, 1)],
       capoShapeKey: 'G',
       background: { preset: 2, video: { media_id: 'media-video', asset_id: 'asset-video' } },
+      foreground: {
+        bilingual_enabled: true,
+        content_layer: {
+          max_lines_per_slide: 2,
+          balance_slide_lines: true,
+          font_size: 60,
+          font_family: 'rubik',
+          text_align: 'center',
+          vertical_align: 'geometry_center',
+          horizontal_align: 'center',
+          text_shadow: 'none',
+          text_transform: 'uppercase',
+          primary_text_lightness: 100,
+          secondary_text_lightness: 65,
+        },
+      },
     })
 
     expect(link.nr).toBe('7')
@@ -85,6 +133,22 @@ describe('setlist song links', () => {
     expect(link.background).toEqual({
       preset: 2,
       video: { media_id: 'media-video', asset_id: 'asset-video' },
+    })
+    expect(link.foreground).toEqual({
+      bilingual_enabled: true,
+      content_layer: {
+        max_lines_per_slide: 2,
+        balance_slide_lines: true,
+        font_size: 60,
+        font_family: 'rubik',
+        text_align: 'center',
+        vertical_align: 'geometry_center',
+        horizontal_align: 'center',
+        text_shadow: 'none',
+        text_transform: 'uppercase',
+        primary_text_lightness: 100,
+        secondary_text_lightness: 65,
+      },
     })
   })
 

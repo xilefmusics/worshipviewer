@@ -4780,11 +4780,34 @@ mod setlist_items_http {
     use actix_web::http::StatusCode;
     use chordlib::types::SimpleChord;
     use shared::media::{CreateMedia, CreateMediaContent, Media};
-    use shared::player::{Player, PlayerBackground, PlayerBackgroundImage, PlayerBackgroundVideo};
+    use shared::player::{
+        AvFontFamily, AvGeometryOverlay, AvHorizontalAlign, AvTextAlign, AvTextShadow,
+        AvTextTransform, AvVerticalAlign, Player, PlayerBackground, PlayerBackgroundImage,
+        PlayerBackgroundVideo, PlayerContentLayer, PlayerForegroundSettings,
+    };
     use shared::setlist::{CreateSetlist, Setlist, SetlistItem, SongLink};
     use shared::song::Song;
 
     use crate::test_helpers::create_song_with_title;
+
+    fn foreground_settings() -> PlayerForegroundSettings {
+        PlayerForegroundSettings {
+            content_layer: PlayerContentLayer {
+                max_lines_per_slide: 3,
+                balance_slide_lines: false,
+                font_size: 72,
+                font_family: AvFontFamily::Arial,
+                text_align: AvTextAlign::Left,
+                vertical_align: AvVerticalAlign::Bottom,
+                horizontal_align: AvHorizontalAlign::Right,
+                text_shadow: AvTextShadow::Medium,
+                text_transform: AvTextTransform::Capitalize,
+                primary_text_lightness: 92,
+                secondary_text_lightness: 58,
+            },
+            bilingual_enabled: true,
+        }
+    }
 
     #[actix_web::test]
     async fn mixed_items_roundtrip_player_views_stale_links_and_old_field_rejection() {
@@ -4856,7 +4879,14 @@ mod setlist_items_http {
                         asset_id: "missing-background-asset".into(),
                     }),
                     video: None,
+                    geometry_overlay: Some(AvGeometryOverlay::Circle),
+                    geometry_overlay_rotated_background: Some(false),
+                    geometry_overlay_opacity: Some(82),
+                    geometry_overlay_color: Some(64),
+                    geometry_overlay_size: Some(73),
+                    geometry_overlay_thickness: Some(71),
                 })),
+                foreground: Some(Box::new(foreground_settings())),
             }),
             SetlistItem::media(&second.id),
             SetlistItem::Song(SongLink {
@@ -4868,6 +4898,7 @@ mod setlist_items_http {
                 language: None,
                 flow: None,
                 background: None,
+                foreground: None,
             }),
             SetlistItem::media(&ready.id),
             SetlistItem::Song(SongLink {
@@ -4886,7 +4917,14 @@ mod setlist_items_http {
                         asset_id: "missing-video-asset".into(),
                         thumbnail_asset_id: Some("missing-video-thumb".into()),
                     }),
+                    geometry_overlay: None,
+                    geometry_overlay_rotated_background: None,
+                    geometry_overlay_opacity: None,
+                    geometry_overlay_color: None,
+                    geometry_overlay_size: None,
+                    geometry_overlay_thickness: None,
                 })),
+                foreground: None,
             }),
         ];
         let request = test::TestRequest::post()
@@ -4922,6 +4960,10 @@ mod setlist_items_http {
         assert_eq!(
             fetched.items[1].as_song().unwrap().background,
             items[1].as_song().unwrap().background
+        );
+        assert_eq!(
+            fetched.items[1].as_song().unwrap().foreground,
+            items[1].as_song().unwrap().foreground
         );
         assert_eq!(
             fetched.items[1].as_song().unwrap().language.as_deref(),
@@ -4960,6 +5002,10 @@ mod setlist_items_http {
         assert_eq!(
             book.toc()[0].background,
             items[1].as_song().unwrap().background.as_deref().cloned()
+        );
+        assert_eq!(
+            book.toc()[0].foreground,
+            items[1].as_song().unwrap().foreground.as_deref().cloned()
         );
         assert_eq!(
             book.toc()[2].background,
@@ -5009,6 +5055,10 @@ mod setlist_items_http {
             items[1].as_song().unwrap().background.as_deref().cloned()
         );
         assert_eq!(
+            av.toc()[1].foreground,
+            items[1].as_song().unwrap().foreground.as_deref().cloned()
+        );
+        assert_eq!(
             av.toc()[5].background,
             items[5].as_song().unwrap().background.as_deref().cloned()
         );
@@ -5023,12 +5073,19 @@ mod setlist_items_http {
         let mut updated_items = items.clone();
         if let SetlistItem::Song(link) = &mut updated_items[1] {
             link.background = None;
+            link.foreground = None;
         }
         if let SetlistItem::Song(link) = &mut updated_items[3] {
             link.background = Some(Box::new(PlayerBackground {
                 preset: 2,
                 image: None,
                 video: None,
+                geometry_overlay: None,
+                geometry_overlay_rotated_background: None,
+                geometry_overlay_opacity: None,
+                geometry_overlay_color: None,
+                geometry_overlay_size: None,
+                geometry_overlay_thickness: None,
             }));
         }
         let request = test::TestRequest::patch()
@@ -5047,6 +5104,12 @@ mod setlist_items_http {
                 preset: 2,
                 image: None,
                 video: None,
+                geometry_overlay: None,
+                geometry_overlay_rotated_background: None,
+                geometry_overlay_opacity: None,
+                geometry_overlay_color: None,
+                geometry_overlay_size: None,
+                geometry_overlay_thickness: None,
             }))
         );
 
