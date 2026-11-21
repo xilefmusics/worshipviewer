@@ -166,6 +166,7 @@ function AvSlideCanvas({
                   : countdownRemainingMs ?? 0,
               )}
               contentLayer={{ ...contentLayer, fontSize: contentLayer.fontSize * 3 }}
+              geometryOverlay={geometryOverlay}
               geometryOverlaySize={geometryOverlaySize}
               className="av-slide-view__countdown-text"
             />
@@ -235,6 +236,7 @@ function AvSlideCanvas({
             text={contentLines ? undefined : contentText}
             lines={contentLines}
             contentLayer={contentLayer}
+            geometryOverlay={geometryOverlay}
             geometryOverlaySize={geometryOverlaySize}
             compact={compact}
           />

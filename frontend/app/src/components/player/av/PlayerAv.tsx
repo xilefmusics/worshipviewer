@@ -68,6 +68,7 @@ import {
   type AvPreferences,
   type AvScreenState,
   type AvTransition,
+  type AvVerticalAlign,
 } from '@/lib/player/av-preferences'
 import {
   buildAvPlaybackIntent,
@@ -217,13 +218,14 @@ function toRoomAvConfiguration(
 
 function contentLayerFromRoom(configuration: RoomAvConfiguration): AvContentLayer {
   const content = configuration.content_layer
+  const verticalAlign = content.vertical_align as string
   return {
     maxLinesPerSlide: content.max_lines_per_slide,
     balanceSlideLines: content.balance_slide_lines,
     fontSize: content.font_size,
     fontFamily: content.font_family ?? 'rubik',
     textAlign: content.text_align,
-    verticalAlign: content.vertical_align,
+    verticalAlign: (verticalAlign === 'cross_center' ? 'geometry_center' : verticalAlign) as AvVerticalAlign,
     horizontalAlign: content.horizontal_align,
     textShadow: content.text_shadow,
     textTransform: content.text_transform,

@@ -77,12 +77,12 @@ describe('room message replay', () => {
 
   it('replays the shared AV configuration and validates its screen state and layout', () => {
     const configuration = avConfiguration()
-    configuration.content_layer.vertical_align = 'cross_center'
+    configuration.content_layer.vertical_align = 'geometry_center'
     const first = message(1, 'host', { type: 'set_av_configuration', configuration })
     const state = applyRoomMessage(createRoomReplay('room', [1]), first)
 
     expect(state.avConfiguration).toEqual(configuration)
-    expect(state.avConfiguration?.content_layer.vertical_align).toBe('cross_center')
+    expect(state.avConfiguration?.content_layer.vertical_align).toBe('geometry_center')
     expect(applyRoomMessage(state, first)).toBe(state)
     expect(() => applyRoomMessage(state, message(2, 'host', {
       type: 'set_av_configuration',

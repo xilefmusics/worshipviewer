@@ -6,6 +6,7 @@ import {
   DEFAULT_AV_PREFERENCES,
   resolveAvTextLightness,
   type AvContentLayer,
+  type AvGeometryOverlay,
 } from '@/lib/player/av-preferences'
 import type { AvLyricLine } from '@/lib/player/av-lyric-slides'
 import {
@@ -21,6 +22,7 @@ type AvSlideContentProps = {
   text?: string
   lines?: AvLyricLine[]
   contentLayer: AvContentLayer
+  geometryOverlay?: AvGeometryOverlay
   geometryOverlaySize?: number
   className?: string
   compact?: boolean
@@ -28,7 +30,7 @@ type AvSlideContentProps = {
 
 type AvLineKind = 'primary' | 'secondary'
 type AvLineStyle = CSSProperties & { '--av-text-lightness': string }
-type AvContentStyle = CSSProperties & { '--av-cross-center-offset': string }
+type AvContentStyle = CSSProperties & { '--av-geometry-center-offset': string }
 
 function renderLine(
   line: string,
@@ -83,15 +85,18 @@ export function AvSlideContent({
   text,
   lines,
   contentLayer,
+  geometryOverlay,
   geometryOverlaySize,
   className,
   compact = false,
 }: AvSlideContentProps) {
   const designFontSizePx = contentLayer.fontSize
   const crossCenterOffset =
-    13.3 * ((geometryOverlaySize ?? DEFAULT_AV_PREFERENCES.geometryOverlaySize) / 64)
+    geometryOverlay === 'cross' || geometryOverlay === 'inverted_cross'
+      ? 13.3 * ((geometryOverlaySize ?? DEFAULT_AV_PREFERENCES.geometryOverlaySize) / 64)
+      : 0
   const contentStyle: AvContentStyle = {
-    '--av-cross-center-offset': `${crossCenterOffset}%`,
+    '--av-geometry-center-offset': `${crossCenterOffset}%`,
     ...(compact ? {} : { padding: `${AV_SLIDE_EDGE_PADDING_PX}px` }),
   }
   const structuredLines = lines

@@ -664,7 +664,7 @@ export function SettingsView({
   const avVerticalAlignOptions = useMemo<SettingsOption<AvVerticalAlign>[]>(
     () => [
       { value: 'top', label: t('settings.playerRoles.content.verticalTop'), description: t('settings.playerRoles.content.verticalTopDescription') },
-      { value: 'cross_center', label: t('settings.playerRoles.content.verticalCrossCenter'), description: t('settings.playerRoles.content.verticalCrossCenterDescription') },
+      { value: 'geometry_center', label: t('settings.playerRoles.content.verticalGeometryCenter'), description: t('settings.playerRoles.content.verticalGeometryCenterDescription') },
       { value: 'center', label: t('settings.playerRoles.content.verticalCenter'), description: t('settings.playerRoles.content.verticalCenterDescription') },
       { value: 'bottom', label: t('settings.playerRoles.content.verticalBottom'), description: t('settings.playerRoles.content.verticalBottomDescription') },
     ],
