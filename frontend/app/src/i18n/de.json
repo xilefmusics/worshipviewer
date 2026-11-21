@@ -466,7 +466,23 @@
       "mediaUnsupportedSource": "Diese Quelle kann in diesem Browser nicht wiedergegeben werden. Der Hintergrund bleibt sichtbar.",
       "outputFailed": "Ausgabe {{id}}: {{detail}}",
       "missingOutputPlay": "Keine Projektionsausgabe ist geöffnet. Die Wiedergabe wurde nicht gestartet.",
-      "missingOutputShow": "Keine Projektionsausgabe ist geöffnet. Die Seite wurde nicht angezeigt."
+      "missingOutputShow": "Keine Projektionsausgabe ist geöffnet. Die Seite wurde nicht angezeigt.",
+      "desktopOutputs": "Präsentationsausgaben",
+      "desktopUnavailable": "Desktop-Ausgaben sind nicht verfügbar. Aktualisiere die Desktop-App.",
+      "displaySelection": "Bevorzugter Bildschirm",
+      "automaticDisplay": "Externer Bildschirm automatisch",
+      "preferredDisplayMissing": "Bevorzugter Bildschirm ist nicht verbunden",
+      "presentOnDisplay": "Auf Bildschirm präsentieren",
+      "shareResolution": "Auflösung des Freigabefensters",
+      "sharePresentation": "Präsentation teilen",
+      "wirelessHelp": "Verbinde AirPlay oder Miracast in den Systemeinstellungen als erweiterten Bildschirm. Google Cast wird noch nicht unterstützt.",
+      "stopOutput": "Stoppen",
+      "outputStatus": {
+        "open": "Geöffnet",
+        "disconnected": "Bildschirm getrennt; warte auf Verbindung",
+        "failed": "Fehlgeschlagen"
+      },
+      "browserOutput": "Browserausgabe öffnen"
     }
   },
   "install": {

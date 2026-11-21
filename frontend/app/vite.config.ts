@@ -48,6 +48,27 @@ function avOutputCspPlugin(): Plugin {
   }
 }
 
+/** Opt-in bootstrap for the backend's local-only test session. */
+function localAdminSessionPlugin(): Plugin {
+  return {
+    name: 'local-admin-session',
+    configureServer(server) {
+      if (process.env.WORSHIPVIEWER_LOCAL_ADMIN !== '1') return
+      const host = server.config.server.host
+      const target = new URL(process.env.VITE_DEV_PROXY_TARGET || 'http://127.0.0.1:8080')
+      if (host !== '127.0.0.1' || target.hostname !== '127.0.0.1' || target.protocol !== 'http:') {
+        throw new Error('Local admin session requires a loopback-only server and backend')
+      }
+      server.middlewares.use((req, res, next) => {
+        if (req.url === '/' && req.method === 'GET' && req.socket.remoteAddress === '127.0.0.1' && req.headers.host === `127.0.0.1:${server.config.server.port}`) {
+          res.setHeader('Set-Cookie', 'sso_session=admin; Path=/; HttpOnly; SameSite=Lax')
+        }
+        next()
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   // frontend/.env then app/.env; process.env wins via loadEnv.
@@ -62,6 +83,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       avOutputCspPlugin(),
+      localAdminSessionPlugin(),
       tanstackRouter({ target: 'react', autoCodeSplitting: true }),
       react(),
       tailwindcss(),

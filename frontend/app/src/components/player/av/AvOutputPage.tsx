@@ -1,3 +1,4 @@
+import { invoke, isTauri } from '@tauri-apps/api/core'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -92,6 +93,27 @@ export function AvOutputPage({
   }, [outputId, sessionId])
 
   const command: AvProjectionCommand | null = state.command
+  const shownRef = useRef(false)
+  useEffect(() => {
+    if (!command || shownRef.current || !isTauri() || new URLSearchParams(window.location.search).get('nativeDisplay') !== '1') return
+    let cancelled = false
+    let checking = false
+    const check = async () => {
+      if (cancelled || checking || document.querySelector('[data-av-background-pending]')) return
+      checking = true
+      const images = Array.from(document.querySelectorAll<HTMLImageElement>('.av-output-page img'))
+      await Promise.all(images.map((image) => image.decode().catch(() => {})))
+      if (!cancelled && !document.querySelector('[data-av-background-pending]')) {
+        shownRef.current = true
+        void invoke('presentation_ready').catch(() => { shownRef.current = false })
+      }
+      checking = false
+    }
+    const observer = new MutationObserver(() => void check())
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true })
+    void check()
+    return () => { cancelled = true; observer.disconnect() }
+  }, [command])
   const view = command
     ? slideViewPropsFromCommand(command)
     : { contentText: '' }

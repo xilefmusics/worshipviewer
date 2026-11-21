@@ -466,7 +466,23 @@
       "mediaUnsupportedSource": "This source cannot be played in this browser. The background is still showing.",
       "outputFailed": "Output {{id}}: {{detail}}",
       "missingOutputPlay": "No projection output is open. Playback was not started.",
-      "missingOutputShow": "No projection output is open. The page was not shown."
+      "missingOutputShow": "No projection output is open. The page was not shown.",
+      "desktopOutputs": "Presentation outputs",
+      "desktopUnavailable": "Desktop output controls are unavailable. Update the desktop app.",
+      "displaySelection": "Preferred display",
+      "automaticDisplay": "Automatic external display",
+      "preferredDisplayMissing": "Preferred display is disconnected",
+      "presentOnDisplay": "Present on display",
+      "shareResolution": "Share window resolution",
+      "sharePresentation": "Share presentation",
+      "wirelessHelp": "Connect AirPlay or Miracast as an extended display in your system settings. Google Cast is not yet supported.",
+      "stopOutput": "Stop",
+      "outputStatus": {
+        "open": "Open",
+        "disconnected": "Display disconnected; waiting to reconnect",
+        "failed": "Failed"
+      },
+      "browserOutput": "Open browser output"
     }
   },
   "install": {

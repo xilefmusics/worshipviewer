@@ -4,6 +4,8 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ## [Unreleased]
 
+- Add desktop presentation controls for external displays and shareable windows, including OS-managed wireless extended displays.
+
 ### Added
 
 - Setlist songs can save AV foreground and geometry settings alongside background overrides, with previews and explicit Save and Cancel controls. Room snapshots retain these settings.

@@ -1,3 +1,5 @@
+mod presentation;
+
 use std::sync::{Mutex, OnceLock};
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
@@ -276,7 +278,15 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![start_native_google_login]);
+        .manage(presentation::Outputs::default())
+        .invoke_handler(tauri::generate_handler![
+            start_native_google_login,
+            presentation::presentation_displays,
+            presentation::presentation_start,
+            presentation::presentation_ready,
+            presentation::presentation_stop,
+            presentation::presentation_outputs
+        ]);
 
     builder
         .setup(|app| {

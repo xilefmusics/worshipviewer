@@ -1040,6 +1040,17 @@ describe('PlayerAv', () => {
     })
   }
 
+  it('sends the current projection when an output connects', async () => {
+    const user = userEvent.setup()
+    render(<PlayerAv type="setlist" id="setlist-1" player={mixedVideoPlayer} allowNetworkFetch={false} />)
+    await user.click(screen.getByRole('button', { name: 'Select slide 1' }))
+    await waitFor(() => expect(broadcast).toHaveBeenCalled())
+    const command = broadcast.mock.lastCall?.[0]
+    broadcast.mockClear()
+    await helloOutput()
+    expect(broadcast).toHaveBeenCalledWith(command)
+  })
+
   it('I4: keeps the projected lyric when selecting a mixed-setlist video TOC row', async () => {
     const user = userEvent.setup()
     render(
