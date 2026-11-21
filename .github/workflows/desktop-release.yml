@@ -61,6 +61,7 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev libdbus-1-dev libssl-dev librsvg2-dev patchelf xdg-utils
 
       - name: Install wasm-pack
+        shell: bash
         run: curl -fsSL https://rustwasm.github.io/wasm-pack/installer/init.sh | VERSION=0.15.0 sh
 
       - name: Install frontend dependencies
@@ -72,6 +73,7 @@ jobs:
           echo "VITE_APP_VERSION=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
 
       - name: Import Apple Developer certificate
+        id: apple-signing
         if: matrix.platform == 'macos-latest'
         working-directory: .
         env:
@@ -82,6 +84,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
             echo "Apple signing is not configured; building an unsigned app."
             exit 0
           fi
@@ -104,6 +107,7 @@ jobs:
             exit 1
           fi
           echo "APPLE_SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
 
       - name: Import Windows signing certificate
         if: matrix.platform == 'windows-latest'
@@ -132,6 +136,21 @@ jobs:
           $config | ConvertTo-Json -Depth 100 | Set-Content $configPath
 
       - uses: tauri-apps/tauri-action@v1
+        if: matrix.platform != 'macos-latest' || steps.apple-signing.outputs.configured != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_APP_VERSION: ${{ github.ref_name }}
+        with:
+          projectPath: frontend/app
+          tagName: ${{ github.ref_name }}
+          releaseName: Worship Viewer ${{ github.ref_name }}
+          releaseBody: Installers for macOS, Windows, and Linux. See the desktop installation guide for setup details.
+          releaseDraft: false
+          prerelease: false
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      - uses: tauri-apps/tauri-action@v1
+        if: matrix.platform == 'macos-latest' && steps.apple-signing.outputs.configured == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
