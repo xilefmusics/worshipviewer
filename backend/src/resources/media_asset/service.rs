@@ -872,6 +872,10 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
                 let sources = self.repo.list_assets_for_media(source_media_id).await?;
                 let mut copied = Vec::with_capacity(pages.len());
                 for page in pages {
+                    if page.markdown.is_some() {
+                        copied.push(page.clone());
+                        continue;
+                    }
                     let new_id = uuid::Uuid::new_v4().to_string();
                     let (byte_length, etag) = self
                         .storage
@@ -899,6 +903,7 @@ impl<R: MediaAssetRepository, M: MediaRepository> MediaAssetService<R, M> {
                     cleanup.disarm();
                     copied.push(shared::media::MediaDeckPage {
                         blob_id: new_id,
+                        markdown: None,
                         section_title: page.section_title.clone(),
                     });
                 }

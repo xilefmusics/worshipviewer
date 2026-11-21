@@ -1253,10 +1253,18 @@ export interface components {
         };
         /** @description Finalize a staged slide-deck revision in the operator-selected order. */
         CommitDeck: {
-            page_ids: string[];
+            page_ids?: string[];
+            /** @description Ordered mixed pages. When supplied, page_ids must be empty. */
+            pages?: components["schemas"]["CommitDeckPage"][] | null;
             revision_id: string;
             /** @description Optional section titles in the same order as `page_ids`. */
             section_titles?: (string | null)[] | null;
+        };
+        /** @description A Markdown page or a reference to a staged uploaded page. */
+        CommitDeckPage: {
+            markdown?: string | null;
+            page_id?: string | null;
+            section_title?: string | null;
         };
         /**
          * @example {
@@ -1308,10 +1316,13 @@ export interface components {
             title: string;
         };
         /**
-         * @description URL content accepted by E5.1. Uploaded/deck and legacy URL tags on
-         *     [`MediaContent`] cannot be fabricated through this request.
+         * @description Creatable URL content and a blank Markdown slide deck. Uploaded assets and
+         *     legacy URL tags on [`MediaContent`] cannot be fabricated through this request.
          */
         CreateMediaContent: {
+            /** @enum {string} */
+            type: "slide_deck";
+        } | {
             /** @enum {string} */
             type: "youtube";
             url: string;
@@ -1603,7 +1614,8 @@ export interface components {
             url: string;
         };
         MediaDeckPage: {
-            blob_id: string;
+            blob_id?: string;
+            markdown?: string | null;
             section_title?: string | null;
         };
         /** @description A staged slide-deck revision that has not replaced active content yet. */
@@ -1613,8 +1625,9 @@ export interface components {
         };
         /** @description A page in a staged (not yet committed) slide-deck revision. */
         MediaStagedDeckPage: {
-            blob_id: string;
+            blob_id?: string;
             id: string;
+            markdown?: string | null;
             section_title?: string | null;
         };
         MessageRoomCredentials: {

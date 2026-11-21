@@ -30,6 +30,7 @@ import {
   urlContent,
 } from '@/lib/media-display'
 import { canEditTeamLibrary } from '@/lib/team-permissions'
+import { playerQueriesRootKey } from '@/lib/setlist-detail-key'
 
 // Flow: M2, M4, M5 — preview/edit draft pages, commit, empty-guard
 
@@ -37,14 +38,16 @@ function deckPagesFromMedia(media: Media): DeckEditorPage[] {
   if (media.pending_revision) {
     return media.pending_revision.pages.map((page) => ({
       id: page.id,
-      blob_id: page.blob_id,
+      blob_id: page.blob_id ?? '',
+      markdown: page.markdown ?? undefined,
       section_title: page.section_title ?? null,
     }))
   }
   if (media.content.type === 'slide_deck') {
-    return media.content.pages.map((page) => ({
-      id: page.blob_id,
-      blob_id: page.blob_id,
+    return media.content.pages.map((page, index) => ({
+      id: page.blob_id || `markdown:${index}`,
+      blob_id: page.blob_id ?? '',
+      markdown: page.markdown ?? undefined,
       section_title: page.section_title ?? null,
     }))
   }
@@ -87,6 +90,7 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [deckPages, setDeckPages] = useState<DeckEditorPage[]>([])
   const loadedDraftRef = useRef<string | null>(null)
+  const [loadedDraft, setLoadedDraft] = useState<string | null>(null)
   const queuedAutosaveRef = useRef<string | null>(null)
   const [urlBaseline, setUrlBaseline] = useState<{
     mediaId: string
@@ -99,14 +103,21 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
     [deckPages, isBackground, owner, title],
   )
 
+  const latestDraftRef = useRef(draftSignature)
+  const loadedMediaIdRef = useRef<string | null>(null)
+  useEffect(() => { latestDraftRef.current = draftSignature }, [draftSignature])
+
   useEffect(() => {
     if (!media) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the editor draft from the fetched canonical resource
+    if (media.content.type === 'slide_deck' && loadedMediaIdRef.current === mediaId && loadedDraftRef.current !== null && latestDraftRef.current !== loadedDraftRef.current) return
+    loadedMediaIdRef.current = mediaId
+
     setTitle(media.title)
     setOwner(media.owner)
     setIsBackground(media.is_background ?? false)
     setDeckPages(deckPagesFromMedia(media))
     loadedDraftRef.current = draftSignatureForMedia(media)
+    setLoadedDraft(loadedDraftRef.current)
     const displayKind = mediaDisplayKind(media)
     if (isUrlMediaKind(displayKind)) {
       const canonicalUrl = mediaCanonicalUrl(media) ?? ''
@@ -121,7 +132,7 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
       setUrlBaseline(null)
       queuedUrlRef.current = null
     }
-  }, [media])
+  }, [media, mediaId])
 
   const displayKind = media ? mediaDisplayKind(media) : 'unknown'
   const uploaded = media ? isUploadedDisplayKind(displayKind) : false
@@ -140,15 +151,20 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
         }
         const pending = current.pending_revision
         if (!pending) throw new Error(t('media.deck.emptyGuard'))
-        const byBlob = new Map((pending.pages ?? []).map((page) => [page.blob_id, page.id]))
-        const pageIds = deckPages.map((page) => byBlob.get(page.blob_id) ?? page.id)
+        const byBlob = new Map((pending.pages ?? []).filter((page) => page.blob_id).map((page) => [page.blob_id, page.id]))
+        if (deckPages.every((page) => page.markdown === undefined) && pending.pages.every((page) => page.markdown == null)) {
+          return commitDeck(queryClient, mediaId, {
+            revision_id: pending.revision_id,
+            page_ids: deckPages.map((page) => byBlob.get(page.blob_id) ?? page.id),
+            section_titles: deckPages.map((page) => page.section_title?.trim() || null),
+          })
+        }
         return commitDeck(queryClient, mediaId, {
           revision_id: pending.revision_id,
-          page_ids: pageIds,
-          section_titles: deckPages.map((page) => {
-            const sectionTitle = page.section_title?.trim() ?? ''
-            return sectionTitle.length > 0 ? sectionTitle : null
-          }),
+          pages: deckPages.map((page) => ({
+            ...(page.markdown !== undefined ? { markdown: page.markdown } : { page_id: byBlob.get(page.blob_id) ?? page.id }),
+            section_title: page.section_title?.trim() || null,
+          })),
         })
       }
       if (uploaded) {
@@ -169,9 +185,17 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
         content: urlContent(kind, url.trim()),
       })
     },
-    onSuccess: (saved) => {
-      queryClient.setQueryData(mediaDetailKey(mediaId), saved)
-      void queryClient.invalidateQueries({ queryKey: mediaListRootKey })
+    onMutate: () => draftSignature,
+    onSuccess: (saved, _variables, savedSignature) => {
+      if (isDeck && savedSignature !== latestDraftRef.current) {
+        loadedDraftRef.current = savedSignature
+        setLoadedDraft(savedSignature)
+      } else {
+        if (isDeck) loadedDraftRef.current = savedSignature
+        queryClient.setQueryData(mediaDetailKey(mediaId), saved)
+      }
+      void queryClient.invalidateQueries({ queryKey: [...mediaListRootKey, 'list'] })
+      void queryClient.invalidateQueries({ queryKey: playerQueriesRootKey() })
     },
     onError: (cause: Error) => setError(cause.message),
   })
@@ -226,7 +250,8 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
     onSuccess: (saved) => {
       setUploadProgress(null)
       queryClient.setQueryData(mediaDetailKey(mediaId), saved)
-      void queryClient.invalidateQueries({ queryKey: mediaListRootKey })
+      void queryClient.invalidateQueries({ queryKey: [...mediaListRootKey, 'list'] })
+      void queryClient.invalidateQueries({ queryKey: playerQueriesRootKey() })
     },
     onError: (cause: Error) => {
       setUploadProgress(null)
@@ -253,7 +278,8 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
     onSuccess: (saved) => {
       setUploadProgress(null)
       queryClient.setQueryData(mediaDetailKey(mediaId), saved)
-      void queryClient.invalidateQueries({ queryKey: mediaListRootKey })
+      void queryClient.invalidateQueries({ queryKey: [...mediaListRootKey, 'list'] })
+      void queryClient.invalidateQueries({ queryKey: playerQueriesRootKey() })
     },
     onError: (cause: Error) => {
       setUploadProgress(null)
@@ -272,6 +298,16 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
       insertionIndex?: number
     }) => {
       setUploadProgress(0)
+      const replacedIndex = replacePage ? deckPages.findIndex((page) => page.id === replacePage) : -1
+      let stagedReplaceId: string | undefined
+      if (replacePage) {
+        const original = deckPages[replacedIndex]
+        if (!original || original.markdown !== undefined) throw new Error(t('media.validation.notEditable'))
+        let current = await fetchMedia(queryClient, mediaId)
+        if (!current.pending_revision) current = await beginDeckRevision(queryClient, mediaId)
+        stagedReplaceId = current.pending_revision?.pages.find((page) => page.blob_id === original.blob_id)?.id
+        if (!stagedReplaceId) throw new Error(t('media.validation.notEditable'))
+      }
       let saved: Media | null = null
       for (let index = 0; index < files.length; index += 1) {
         const file = files[index]
@@ -283,50 +319,44 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
           mediaId,
           kind: sniff,
           file,
-          replacePage,
+          replacePage: stagedReplaceId,
           onProgress: (ratio) => setUploadProgress((index + ratio) / files.length),
         })
       }
       if (!saved) throw new Error(t('media.validation.fileRequired'))
-      if (insertionIndex == null || replacePage) return saved
+      if (insertionIndex == null && !replacePage) return saved
 
       const pending = saved.pending_revision
       if (!pending) throw new Error(t('media.deck.emptyGuard'))
-      const existingBlobIds = new Set(deckPages.map((page) => page.blob_id))
-      const pendingByBlobId = new Map(pending.pages.map((page) => [page.blob_id, page]))
-      const localByBlobId = new Map(deckPages.map((page) => [page.blob_id, page]))
-      const existingPages = deckPages.flatMap((page) => {
-        const pendingPage = pendingByBlobId.get(page.blob_id)
-        return pendingPage ? [pendingPage] : []
-      })
-      const matchedExistingIds = new Set(existingPages.map((page) => page.id))
-      existingPages.push(
-        ...pending.pages.filter(
-          (page) => existingBlobIds.has(page.blob_id) && !matchedExistingIds.has(page.id),
-        ),
-      )
-      const addedPages = pending.pages.filter((page) => !existingBlobIds.has(page.blob_id))
-      const insertAt = Math.max(0, Math.min(insertionIndex, existingPages.length))
-      const orderedPages = [
-        ...existingPages.slice(0, insertAt),
-        ...addedPages,
-        ...existingPages.slice(insertAt),
+      const existingBlobIds = new Set(deckPages.filter((page) => page.markdown === undefined).map((page) => page.blob_id))
+      const pendingByBlobId = new Map(pending.pages.filter((page) => page.blob_id).map((page) => [page.blob_id, page.id]))
+      const addedPages = pending.pages.filter((page) => page.blob_id && !existingBlobIds.has(page.blob_id))
+      const insertAt = Math.max(0, Math.min(replacePage ? replacedIndex : insertionIndex ?? deckPages.length, deckPages.length))
+      const orderedPages: DeckEditorPage[] = [
+        ...deckPages.slice(0, insertAt),
+        ...addedPages.map((page, index) => ({ id: page.id, blob_id: page.blob_id ?? '', section_title: index === 0 && replacePage ? deckPages[replacedIndex]?.section_title : page.section_title })),
+        ...deckPages.slice(insertAt + (replacePage ? 1 : 0)),
       ]
-
+      if (orderedPages.every((page) => page.markdown === undefined) && pending.pages.every((page) => page.markdown == null)) {
+        return commitDeck(queryClient, mediaId, {
+          revision_id: pending.revision_id,
+          page_ids: orderedPages.map((page) => pendingByBlobId.get(page.blob_id) ?? page.id),
+          section_titles: orderedPages.map((page) => page.section_title?.trim() || null),
+        })
+      }
       return commitDeck(queryClient, mediaId, {
         revision_id: pending.revision_id,
-        page_ids: orderedPages.map((page) => page.id),
-        section_titles: orderedPages.map((page) => {
-          const sectionTitle = localByBlobId.get(page.blob_id)?.section_title ?? page.section_title
-          const trimmed = sectionTitle?.trim() ?? ''
-          return trimmed.length > 0 ? trimmed : null
-        }),
+        pages: orderedPages.map((page) => ({
+          ...(page.markdown !== undefined ? { markdown: page.markdown } : { page_id: pendingByBlobId.get(page.blob_id) ?? page.id }),
+          section_title: page.section_title?.trim() || null,
+        })),
       })
     },
     onSuccess: (saved) => {
       setUploadProgress(null)
       queryClient.setQueryData(mediaDetailKey(mediaId), saved)
-      void queryClient.invalidateQueries({ queryKey: mediaListRootKey })
+      void queryClient.invalidateQueries({ queryKey: [...mediaListRootKey, 'list'] })
+      void queryClient.invalidateQueries({ queryKey: playerQueriesRootKey() })
     },
     // Flow: M6
     onError: (cause: Error) => {
@@ -481,7 +511,10 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
               mediaId={mediaId}
               pages={deckPages}
               disabled={!canEdit || !online || deckUploadMutation.isPending}
+              uploadsDisabled={draftSignature !== loadedDraft || saveMutation.isPending}
               onReorder={setDeckPages}
+              onAddMarkdown={() => setDeckPages((current) => [...current, { id: crypto.randomUUID(), blob_id: '', markdown: '' }])}
+              onMarkdownChange={(id, markdown) => setDeckPages((current) => current.map((page) => page.id === id ? { ...page, markdown } : page))}
               onRemove={(id) => setDeckPages((current) => current.filter((page) => page.id !== id))}
               onReplace={(id, file) => deckUploadMutation.mutate({ files: [file], replacePage: id })}
               onAdd={(files, insertionIndex) => deckUploadMutation.mutate({ files, insertionIndex })}
@@ -560,7 +593,7 @@ export function MediaEditorScreen({ mediaId }: { mediaId: string }) {
       )}
 
       {!canEdit ? <p role="status" className="text-sm text-[var(--color-muted-foreground)]">{t('media.editor.readOnly')}</p> : null}
-      {error ? <p role="alert" className="text-sm text-[var(--color-destructive)]">{error}</p> : null}
+      {error ? <div role="alert" className="text-sm text-[var(--color-destructive)]">{error}{isDeck && canEdit && online ? <Button type="button" variant="outline" disabled={saveMutation.isPending} onClick={() => { queuedAutosaveRef.current = null; setError(''); saveMutation.mutate() }}>{t('hub.error.retry')}</Button> : null}</div> : null}
     </section>
   )
 }

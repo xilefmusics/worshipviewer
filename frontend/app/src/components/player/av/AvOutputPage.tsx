@@ -111,6 +111,7 @@ export function AvOutputPage({
       <AvSlideView
         contentText={view.contentText}
         contentLines={view.contentLines}
+        markdown={view.markdown}
         deckPage={view.deckPage}
         countdownEndsAtMs={view.countdownEndsAtMs}
         onDeckPageStatus={(status) => {

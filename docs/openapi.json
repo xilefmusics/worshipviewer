@@ -189,6 +189,16 @@
             },
             "type": "array"
           },
+          "pages": {
+            "description": "Ordered mixed pages. When supplied, page_ids must be empty.",
+            "items": {
+              "$ref": "#/components/schemas/CommitDeckPage"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "revision_id": {
             "type": "string"
           },
@@ -207,9 +217,33 @@
           }
         },
         "required": [
-          "revision_id",
-          "page_ids"
+          "revision_id"
         ],
+        "type": "object"
+      },
+      "CommitDeckPage": {
+        "additionalProperties": false,
+        "description": "A Markdown page or a reference to a staged uploaded page.",
+        "properties": {
+          "markdown": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "page_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "section_title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
         "type": "object"
       },
       "CreateBlob": {
@@ -325,8 +359,22 @@
         "type": "object"
       },
       "CreateMediaContent": {
-        "description": "URL content accepted by E5.1. Uploaded/deck and legacy URL tags on\n[`MediaContent`] cannot be fabricated through this request.",
+        "description": "Creatable URL content and a blank Markdown slide deck. Uploaded assets and\nlegacy URL tags on [`MediaContent`] cannot be fabricated through this request.",
         "oneOf": [
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "slide_deck"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "type": "object"
+          },
           {
             "properties": {
               "type": {
@@ -1229,6 +1277,12 @@
           "blob_id": {
             "type": "string"
           },
+          "markdown": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "section_title": {
             "type": [
               "string",
@@ -1236,9 +1290,6 @@
             ]
           }
         },
-        "required": [
-          "blob_id"
-        ],
         "type": "object"
       },
       "MediaPendingRevision": {
@@ -1271,6 +1322,12 @@
           "id": {
             "type": "string"
           },
+          "markdown": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "section_title": {
             "type": [
               "string",
@@ -1279,8 +1336,7 @@
           }
         },
         "required": [
-          "id",
-          "blob_id"
+          "id"
         ],
         "type": "object"
       },

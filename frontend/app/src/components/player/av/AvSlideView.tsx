@@ -24,6 +24,7 @@ import './player-av.css'
 type AvSlideViewProps = {
   contentText?: string
   contentLines?: AvLyricLine[]
+  markdown?: string
   deckPage?: { mediaId: string; assetId: string }
   onDeckPageStatus?: (status: 'ready' | 'error') => void
   timedPreview?: {
@@ -63,6 +64,7 @@ type AvSlideViewProps = {
 function AvSlideCanvas({
   contentText,
   contentLines,
+  markdown,
   deckPage,
   onDeckPageStatus,
   timedPreview,
@@ -87,6 +89,7 @@ function AvSlideCanvas({
   AvSlideViewProps,
   | 'contentText'
   | 'contentLines'
+  | 'markdown'
   | 'deckPage'
   | 'onDeckPageStatus'
   | 'timedPreview'
@@ -234,6 +237,7 @@ function AvSlideCanvas({
         ) : (
           <AvSlideContent
             text={contentLines ? undefined : contentText}
+            markdown={markdown}
             lines={contentLines}
             contentLayer={contentLayer}
             geometryOverlay={geometryOverlay}
@@ -250,6 +254,7 @@ function AvSlideCanvas({
 export function AvSlideView({
   contentText,
   contentLines,
+  markdown,
   deckPage,
   onDeckPageStatus,
   timedPreview,
@@ -328,6 +333,7 @@ export function AvSlideView({
     <AvSlideCanvas
       contentText={contentText}
       contentLines={contentLines}
+      markdown={markdown}
       deckPage={deckPage}
       onDeckPageStatus={onDeckPageStatus}
       timedPreview={timedPreview}
@@ -398,7 +404,7 @@ export function AvSlideView({
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={
-                  contentText ?? contentLines?.map((line) => line.primary).join('\n') ?? ''
+                  markdown ?? contentText ?? contentLines?.map((line) => line.primary).join('\n') ?? ''
                 }
                 initial={
                   effectiveTransition.style === 'none'

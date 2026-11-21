@@ -20,7 +20,10 @@ pub struct MediaPendingRevision {
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct MediaStagedDeckPage {
     pub id: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub blob_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markdown: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub section_title: Option<String>,
 }
@@ -86,7 +89,10 @@ pub enum MediaContent {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct MediaDeckPage {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub blob_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markdown: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub section_title: Option<String>,
 }
@@ -202,12 +208,13 @@ pub struct CreateMedia {
     pub is_background: bool,
 }
 
-/// URL content accepted by E5.1. Uploaded/deck and legacy URL tags on
-/// [`MediaContent`] cannot be fabricated through this request.
+/// Creatable URL content and a blank Markdown slide deck. Uploaded assets and
+/// legacy URL tags on [`MediaContent`] cannot be fabricated through this request.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub enum CreateMediaContent {
+    SlideDeck {},
     #[serde(rename = "youtube")]
     YouTube {
         url: String,
@@ -310,10 +317,27 @@ pub struct DuplicateMedia {
 #[cfg_attr(feature = "backend", derive(ToSchema))]
 pub struct CommitDeck {
     pub revision_id: String,
+    #[serde(default)]
     pub page_ids: Vec<String>,
+    /// Ordered mixed pages. When supplied, page_ids must be empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pages: Option<Vec<CommitDeckPage>>,
     /// Optional section titles in the same order as `page_ids`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub section_titles: Option<Vec<Option<String>>>,
+}
+
+/// A Markdown page or a reference to a staged uploaded page.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "backend", derive(ToSchema))]
+pub struct CommitDeckPage {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markdown: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section_title: Option<String>,
 }
 
 #[cfg(test)]

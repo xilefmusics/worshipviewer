@@ -87,7 +87,8 @@ export async function commitDeck(
   id: string,
   body: {
     revision_id: string
-    page_ids: string[]
+    page_ids?: string[]
+    pages?: Array<{ page_id?: string; markdown?: string; section_title?: string | null }>
     section_titles?: Array<string | null>
   },
 ) {

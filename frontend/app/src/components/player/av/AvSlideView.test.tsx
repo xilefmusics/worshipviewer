@@ -29,6 +29,12 @@ vi.mock('@/components/media/MediaDeckPageView', () => ({
 }))
 
 describe('AvSlideView', () => {
+  it('renders Markdown as a styled content layer', () => {
+    render(<AvSlideView markdown="# Welcome" contentLayer={DEFAULT_AV_PREFERENCES.contentLayer} backgroundLayer={DEFAULT_AV_PREFERENCES.backgroundLayer} transition={DEFAULT_AV_PREFERENCES.transition} screenState="live" preview />)
+    expect(screen.getByRole('heading', { name: 'Welcome' })).toBeInTheDocument()
+    expect(screen.queryByTestId('deck-page')).not.toBeInTheDocument()
+  })
+
   it('adds opposite-contrast treatment only when the background is omitted', () => {
     const contentLayer = {
       ...DEFAULT_AV_PREFERENCES.contentLayer,

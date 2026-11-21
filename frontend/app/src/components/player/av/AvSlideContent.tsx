@@ -1,5 +1,7 @@
 import type { CSSProperties } from 'react'
 
+import { MarkdownSlide } from '@/components/media/MarkdownSlide'
+
 import {
   AV_FONT_FAMILY_CHOICES,
   AV_TEXT_SHADOW_LIGHT_THRESHOLD,
@@ -20,6 +22,7 @@ import './player-av.css'
 
 type AvSlideContentProps = {
   text?: string
+  markdown?: string
   lines?: AvLyricLine[]
   contentLayer: AvContentLayer
   geometryOverlay?: AvGeometryOverlay
@@ -84,6 +87,7 @@ function renderLine(
 
 export function AvSlideContent({
   text,
+  markdown,
   lines,
   contentLayer,
   geometryOverlay,
@@ -93,6 +97,13 @@ export function AvSlideContent({
   adaptiveWidth = false,
 }: AvSlideContentProps) {
   const designFontSizePx = contentLayer.fontSize
+  const markdownLightness = resolveAvTextLightness(
+    contentLayer.primaryTextLightness,
+    DEFAULT_AV_PREFERENCES.contentLayer.primaryTextLightness,
+  )
+  const markdownFont = AV_FONT_FAMILY_CHOICES.find(
+    (choice) => choice.value === (contentLayer.fontFamily ?? 'rubik'),
+  )?.css ?? AV_FONT_FAMILY_CHOICES[0].css
   const crossCenterOffset =
     geometryOverlay === 'cross' || geometryOverlay === 'inverted_cross'
       ? 13.3 * ((geometryOverlaySize ?? DEFAULT_AV_PREFERENCES.geometryOverlaySize) / 64)
@@ -129,12 +140,28 @@ export function AvSlideContent({
           adaptiveWidth && !compact && 'av-slide-content__inner--adaptive',
         )}
         style={
-          compact
-            ? undefined
-            : { padding: `${avSlideInnerPaddingPx(designFontSizePx)}px` }
+          compact ? undefined : {
+            padding: `${avSlideInnerPaddingPx(designFontSizePx)}px`,
+            ...(markdown !== undefined ? {
+              fontSize: `${designFontSizePx}px`,
+              lineHeight: `${avSlideLineHeightPx(designFontSizePx)}px`,
+              fontFamily: markdownFont,
+              '--av-text-lightness': `${markdownLightness}%`,
+            } as AvLineStyle : {}),
+          }
         }
       >
-        {structuredLines
+        {markdown !== undefined ? (
+          <MarkdownSlide
+            source={markdown}
+            className={cn(
+              'av-slide-content__line',
+              `av-slide-content__line--align-${contentLayer.textAlign}`,
+              `av-slide-content__line--shadow-${contentLayer.textShadow}`,
+              `av-slide-content__line--shadow-${markdownLightness <= AV_TEXT_SHADOW_LIGHT_THRESHOLD ? 'white' : 'black'}`,
+            )}
+          />
+        ) : structuredLines
           ? structuredLines.map((line, index) => (
               <div
                 key={`${index}-${line.primary.slice(0, 12)}`}

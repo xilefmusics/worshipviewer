@@ -7,6 +7,7 @@ import {
   parseAvProjectionCommandSnapshot,
   parseAvProjectionMessage,
   sameAvProjectionContent,
+  slideViewPropsFromCommand,
 } from '@/lib/player/av-projection-protocol'
 
 const layers = {
@@ -16,6 +17,12 @@ const layers = {
 }
 
 describe('av-projection-protocol', () => {
+  it('carries Markdown with a text fallback for older projection outputs', () => {
+    const command = buildAvProjectionCommand({ sessionId: 'shared', commandId: 1, ...layers, screenState: 'live', itemTitle: 'Deck', nextPreview: null, content: { type: 'lyrics', contentText: '# Welcome', markdown: '# Welcome' } })
+    expect(slideViewPropsFromCommand(command).markdown).toBe('# Welcome')
+    expect(lyricsPayloadFromCommand(command)?.contentText).toBe('# Welcome')
+  })
+
   it('builds a replace command wrapping lyrics or deck pages', () => {
     const lyrics = buildAvProjectionCommand({
       sessionId: 'shared',

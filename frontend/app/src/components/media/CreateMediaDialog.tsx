@@ -114,7 +114,7 @@ export function CreateMediaDialog({
           })
         }
         if (kind === 'slide_deck') {
-          if (files.length === 0) throw new Error(t('media.validation.fileRequired'))
+          if (files.length === 0) return createMedia(queryClient, { title: title.trim(), owner, content: { type: 'slide_deck' } })
           for (const next of files) {
             const sniff = sniffAssetUploadKind(next)
             if (sniff !== 'image' && sniff !== 'pdf' && sniff !== 'svg') {
@@ -290,6 +290,7 @@ export function CreateMediaDialog({
                       isBackground={isBackground}
                       onBackgroundChange={setIsBackground}
                     />
+                    {kind === 'slide_deck' ? <p className="text-sm text-[var(--color-muted-foreground)]">{t('media.deck.markdownCreateHint')}</p> : null}
                     {uploading ? (
                       <div role="status" className="grid gap-1">
                         <span className="text-sm">

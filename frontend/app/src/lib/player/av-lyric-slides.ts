@@ -477,6 +477,7 @@ export type AvSlideDeckEntry = {
   isSubSlide: boolean
   hasText: boolean
   deckPage?: { mediaId: string; assetId: string }
+  markdown?: string
 }
 
 /** Clickable slide cards for the current item (legacy presenter Slides panel). */

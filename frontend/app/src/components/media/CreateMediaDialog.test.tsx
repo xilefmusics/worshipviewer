@@ -58,12 +58,13 @@ describe('CreateMediaDialog', () => {
     })
   })
 
-  it('M1: requires files before creating a slide deck', async () => {
+  it('creates a Markdown deck without uploaded files', async () => {
+    mocks.createMedia.mockResolvedValue({ id: 'media:markdown', owner: 'team:1', title: 'Sunday slides', content: { type: 'slide_deck', pages: [{ markdown: '' }] } })
     const user = userEvent.setup()
     renderDialog()
     await user.type(screen.getByLabelText('media.fields.title'), 'Sunday slides')
     await user.click(screen.getByRole('button', { name: 'media.actions.create' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('media.validation.fileRequired')
+    await waitFor(() => expect(mocks.createMedia).toHaveBeenCalledWith(expect.anything(), { title: 'Sunday slides', owner: 'team:1', content: { type: 'slide_deck' } }))
   })
 
   it('creates an uploaded slide deck atomically before reporting it as created', async () => {

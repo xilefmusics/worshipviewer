@@ -15,6 +15,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { Fragment, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { AvSlideView } from '@/components/player/av/AvSlideView'
+import { readAvPreferences } from '@/lib/player/av-preferences'
 import { DeckPagePreview } from '@/components/media/DeckPagePreview'
 import { PencilIcon } from '@/components/icons/lucide-animated/pencil-icon'
 import { TrashIcon } from '@/components/icons/lucide-animated/trash-icon'
@@ -40,7 +42,7 @@ import {
 
 // Flow: M3 — pointer, touch, and keyboard reorder of draft pages
 
-export type DeckEditorPage = { id: string; blob_id: string; section_title?: string | null }
+export type DeckEditorPage = { id: string; blob_id: string; markdown?: string; section_title?: string | null }
 
 function normalizeSectionTitle(value: string): string | null {
   const trimmed = value.trim()
@@ -67,7 +69,10 @@ export function DeckPagesEditor({
   mediaId,
   pages,
   disabled,
+  uploadsDisabled,
   onReorder,
+  onAddMarkdown,
+  onMarkdownChange,
   onRemove,
   onReplace,
   onAdd,
@@ -77,7 +82,10 @@ export function DeckPagesEditor({
   mediaId: string
   pages: DeckEditorPage[]
   disabled?: boolean
+  uploadsDisabled?: boolean
   onReorder: (pages: DeckEditorPage[]) => void
+  onAddMarkdown: () => void
+  onMarkdownChange: (id: string, markdown: string) => void
   onRemove: (id: string) => void
   onReplace: (id: string, file: File) => void
   onAdd: (files: File[], insertionIndex: number) => void
@@ -142,6 +150,7 @@ export function DeckPagesEditor({
     <div className="grid gap-3 pb-4">
       <input
         ref={addRef}
+        disabled={disabled || uploadsDisabled}
         type="file"
         className="hidden"
         accept="image/png,image/jpeg,image/svg+xml,application/pdf,.png,.jpg,.jpeg,.svg,.pdf"
@@ -154,6 +163,7 @@ export function DeckPagesEditor({
       />
       <input
         ref={replaceRef}
+        disabled={disabled || uploadsDisabled}
         type="file"
         className="hidden"
         accept="image/png,image/jpeg,image/svg+xml,application/pdf,.png,.jpg,.jpeg,.svg,.pdf"
@@ -165,6 +175,22 @@ export function DeckPagesEditor({
           replaceId.current = null
         }}
       />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button type="button" variant="outline" disabled={disabled} onClick={onAddMarkdown}>
+          {t('media.deck.addMarkdown')}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={disabled || uploadsDisabled}
+          onClick={() => {
+            addAtIndex.current = pages.length
+            addRef.current?.click()
+          }}
+        >
+          {t('media.deck.uploadSlides')}
+        </Button>
+      </div>
       {pages.length === 0 ? (
         <p className="text-sm text-[var(--color-muted-foreground)]">{t('media.deck.empty')}</p>
       ) : (
@@ -216,6 +242,7 @@ export function DeckPagesEditor({
                         page={page}
                         index={index}
                         disabled={disabled}
+                        onMarkdownChange={(markdown) => onMarkdownChange(page.id, markdown)}
                         onRemove={() => onRemove(page.id)}
                         onReplace={() => {
                           replaceId.current = page.id
@@ -377,6 +404,7 @@ function DeckPageGroup({
   disabled,
   onRemove,
   onReplace,
+  onMarkdownChange,
   onSectionTitleChange,
   sectionBreakHovered,
   sectionBreakBeforeHovered,
@@ -399,6 +427,7 @@ function DeckPageGroup({
   disabled?: boolean
   onRemove: () => void
   onReplace: () => void
+  onMarkdownChange: (markdown: string) => void
   onSectionTitleChange: (id: string, sectionTitle: string | null) => void
   sectionBreakHovered: boolean
   sectionBreakBeforeHovered: boolean
@@ -416,6 +445,7 @@ function DeckPageGroup({
   onStartBeforeSection: () => void
 }) {
   const { t } = useTranslation()
+  const [preferences] = useState(readAvPreferences)
   const [clearSectionHot, setClearSectionHot] = useState(false)
   const [replaceHot, setReplaceHot] = useState(false)
   const [removeHot, setRemoveHot] = useState(false)
@@ -437,12 +467,16 @@ function DeckPageGroup({
           {...attributes}
           {...listeners}
         >
-          <DeckPagePreview
-            mediaId={mediaId}
-            blobId={page.blob_id}
-            label={label}
-            className={`transition-transform duration-200 ease-out ${sectionBreakHovered ? 'max-sm:-translate-y-2 sm:-translate-x-4' : ''} ${sectionBreakBeforeHovered ? 'max-sm:translate-y-2 sm:translate-x-4' : ''}`}
-          />
+          {page.markdown !== undefined ? (
+            <div onPointerDown={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} className="grid gap-2">
+              <div className="aspect-video overflow-hidden bg-black">
+                <AvSlideView preview markdown={page.markdown} contentLayer={preferences.contentLayer} backgroundLayer={preferences.backgroundLayer} geometryOverlay={preferences.geometryOverlay} geometryOverlayOpacity={preferences.geometryOverlayOpacity} geometryOverlayColor={preferences.geometryOverlayColor} geometryOverlaySize={preferences.geometryOverlaySize} geometryOverlayThickness={preferences.geometryOverlayThickness} geometryOverlayRotatedBackground={preferences.geometryOverlayRotatedBackground} transition={preferences.transition} screenState="live" />
+              </div>
+              <textarea aria-label={t('media.deck.markdownSource', { number: index + 1 })} value={page.markdown} disabled={disabled} onChange={(event) => onMarkdownChange(event.target.value)} className="min-h-28 w-full rounded border border-[var(--color-border)] bg-[var(--color-background)] p-2 text-sm" />
+            </div>
+          ) : (
+            <DeckPagePreview mediaId={mediaId} blobId={page.blob_id} label={label} className={`transition-transform duration-200 ease-out ${sectionBreakHovered ? 'max-sm:-translate-y-2 sm:-translate-x-4' : ''} ${sectionBreakBeforeHovered ? 'max-sm:translate-y-2 sm:translate-x-4' : ''}`} />
+          )}
           <AddBoundaryControl
             placement="before"
             menuOpen={beforeAddMenuOpen}
@@ -485,7 +519,7 @@ function DeckPageGroup({
         ) : null}
         <ContextMenuItem
           className="gap-2"
-          disabled={disabled}
+          disabled={disabled || page.markdown !== undefined}
           onSelect={onReplace}
           onMouseEnter={() => setReplaceHot(true)}
           onMouseLeave={() => setReplaceHot(false)}

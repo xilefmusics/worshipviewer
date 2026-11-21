@@ -3676,6 +3676,157 @@ mod media_asset_http {
     }
 
     #[actix_web::test]
+    async fn mixed_deck_commit_preserves_uploaded_assets() {
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let app = test::init_service(build_app_with_api_limits(
+            db.clone(),
+            50,
+            200,
+            Some(media_test_settings()),
+        ))
+        .await;
+        let mut png = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+        png.extend_from_slice(b"image data");
+        let response = chunked_upload!(
+            &app,
+            token,
+            UploadSessionTarget::Create {
+                kind: UploadedMediaKind::SlideDeck,
+                metadata: CreateUploadedMedia {
+                    title: "Mixed".into(),
+                    owner: Some(fixture.shared_team_id.clone()),
+                    is_background: false
+                },
+            },
+            vec![(png, "image/png".into())]
+        );
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let media: shared::media::Media = test::read_body_json(response).await;
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri(&format!("/api/v1/media/{}/deck/revisions", media.id))
+                .insert_header(("Authorization", format!("Bearer {token}")))
+                .to_request(),
+        )
+        .await;
+        let draft: shared::media::Media = test::read_body_json(response).await;
+        let pending = draft.pending_revision.unwrap();
+        let blob_id = pending.pages[0].blob_id.clone();
+        let request = serde_json::json!({"revision_id":pending.revision_id, "pages":[{"markdown":"# Intro"},{"page_id":pending.pages[0].id},{"markdown":"End"}]});
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri(&format!("/api/v1/media/{}/deck/commit", media.id))
+                .insert_header(("Authorization", format!("Bearer {token}")))
+                .set_json(request)
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let saved: shared::media::Media = test::read_body_json(response).await;
+        match saved.content {
+            shared::media::MediaContent::SlideDeck { pages } => {
+                assert_eq!(pages.len(), 3);
+                assert_eq!(pages[1].blob_id, blob_id);
+                assert_eq!(pages[2].markdown.as_deref(), Some("End"));
+            }
+            other => panic!("unexpected content {other:?}"),
+        }
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri(&format!(
+                    "/api/v1/media/{}/assets/{}/data",
+                    media.id, blob_id
+                ))
+                .insert_header(("Authorization", format!("Bearer {token}")))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[actix_web::test]
+    async fn markdown_deck_can_be_created_edited_and_duplicated() {
+        let db = test_db().await.unwrap();
+        let fixture = TeamFixture::build(&db).await.unwrap();
+        let token = create_session_token(&db, fixture.writer.clone())
+            .await
+            .unwrap();
+        let app = test::init_service(build_app_with_api_limits(
+            db.clone(),
+            50,
+            200,
+            Some(media_test_settings()),
+        ))
+        .await;
+        let response = test::call_service(&app, test::TestRequest::post().uri("/api/v1/media")
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .set_json(serde_json::json!({"title":"Markdown", "owner":fixture.shared_team_id, "content":{"type":"slide_deck"}})).to_request()).await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let media: shared::media::Media = test::read_body_json(response).await;
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri(&format!("/api/v1/media/{}/deck/revisions", media.id))
+                .insert_header(("Authorization", format!("Bearer {token}")))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let draft: shared::media::Media = test::read_body_json(response).await;
+        let pending = draft.pending_revision.unwrap();
+        let revision = pending.revision_id;
+        let legacy = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri(&format!("/api/v1/media/{}/deck/commit", media.id))
+                .insert_header(("Authorization", format!("Bearer {token}")))
+                .set_json(
+                    serde_json::json!({"revision_id":revision, "page_ids":[pending.pages[0].id]}),
+                )
+                .to_request(),
+        )
+        .await;
+        assert_eq!(legacy.status(), StatusCode::BAD_REQUEST);
+        let response = test::call_service(&app, test::TestRequest::post().uri(&format!("/api/v1/media/{}/deck/commit", media.id))
+            .insert_header(("Authorization", format!("Bearer {token}")))
+            .set_json(serde_json::json!({"revision_id":revision, "pages":[{"markdown":"# Welcome", "section_title":"Intro"},{"markdown":"**Next**"}]})).to_request()).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let saved: shared::media::Media = test::read_body_json(response).await;
+        match saved.content {
+            shared::media::MediaContent::SlideDeck { pages } => {
+                assert_eq!(pages.len(), 2);
+                assert_eq!(pages[0].markdown.as_deref(), Some("# Welcome"));
+                assert_eq!(pages[0].section_title.as_deref(), Some("Intro"));
+            }
+            other => panic!("unexpected content: {other:?}"),
+        }
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri(&format!("/api/v1/media/{}/duplicate", media.id))
+                .insert_header(("Authorization", format!("Bearer {token}")))
+                .set_json(serde_json::json!({}))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let copied: shared::media::Media = test::read_body_json(response).await;
+        match copied.content {
+            shared::media::MediaContent::SlideDeck { pages } => {
+                assert_eq!(pages[0].markdown.as_deref(), Some("# Welcome"))
+            }
+            other => panic!("unexpected content: {other:?}"),
+        }
+    }
+
+    #[actix_web::test]
     async fn chunked_deck_creation_is_synchronous_and_deliverable() {
         let db = test_db().await.unwrap();
         let fixture = TeamFixture::build(&db).await.unwrap();

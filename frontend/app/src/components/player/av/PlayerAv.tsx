@@ -914,6 +914,7 @@ export function PlayerAv({
     if (timerProjection) return timerProjection
     if (projectedItem.kind === 'deck' && projectedItem.mediaId && projectedItem.pages?.length) {
       const page = projectedItem.pages[projected.slideIndex] ?? projectedItem.pages[0]
+      if (page?.markdown !== undefined) return { type: 'lyrics', contentText: page.markdown, markdown: page.markdown }
       if (page) return { type: 'deck_page', mediaId: projectedItem.mediaId, assetId: page.blobId }
     }
     if (
@@ -1949,6 +1950,7 @@ export function PlayerAv({
                   preview
                   contentText={projectedSlideView.contentText}
                   contentLines={projectedSlideView.contentLines}
+                  markdown={projectedSlideView.markdown}
                   deckPage={projectedSlideView.deckPage}
                   countdownEndsAtMs={projectedSlideView.countdownEndsAtMs}
                   timedPreview={
