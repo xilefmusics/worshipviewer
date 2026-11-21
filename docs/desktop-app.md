@@ -48,7 +48,7 @@ The release workflow builds `.dmg` files for Apple Silicon and Intel Macs, an NS
 
 ## Presentation outputs
 
-In AV mode, press the output button in the player toolbar. If an external display is connected, the presentation opens fullscreen on it automatically. Otherwise, a separate borderless window opens for use with Teams, Zoom, OBS, and similar applications. Press the output button again to stop the presentation. The browser version retains its existing output window.
+In AV mode, press the output button in the player toolbar. If an external display is connected, the presentation opens fullscreen on it automatically. Otherwise, a separate window with standard window controls opens for use with Teams, Zoom, OBS, and similar applications. Press the output button again to stop the presentation. The browser version retains its existing output window.
 
 AirPlay on macOS and Miracast on Windows work when connected through the operating system as an **extended** display. Pairing is managed in system settings. The app does not implement Google Cast: a future integration needs a hosted and registered custom receiver, a compatible sender and a secure way to synchronize presentation state and assets. The existing projection command and slide renderer provide the foundation for that work.
 

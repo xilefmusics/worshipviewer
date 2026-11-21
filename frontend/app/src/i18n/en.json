@@ -681,10 +681,13 @@
     "tabs": {
       "aria": "Settings sections",
       "general": "General",
-      "player": "Player Sheet",
-      "playerRoles": "Player AV",
+      "player": "Sheet",
+      "playerRoles": "AV",
+      "audio": "Audio",
+      "midi": "MIDI",
       "connections": "Connections"
     },
+    "emptySection": "No settings available yet.",
     "mcpConnections": {
       "title": "Connected apps",
       "description": "Apps authorized to read songs, setlists, and collections from your Worship Viewer account.",
@@ -826,6 +829,26 @@
       "overflowScrollDescription": "Allow scrolling to reach content that does not fit."
     },
     "playerRoles": {
+      "output": {
+        "browserDisplaysUnavailable": "Display selection unavailable in browser",
+        "displaySelectionTitle": "External display",
+        "displaySelectionDescription": "Choose the display used for fullscreen AV output.",
+        "displaysError": "Could not load displays.",
+        "displaysLoading": "Checking for displays…",
+        "noDisplays": "No external displays are connected.",
+        "browserOnly": "These settings are available only in the native app due to browser limitations. In a browser, output opens in a second tab.",
+        "autoOpenTitle": "Automatic output",
+        "autoOpenDescription": "Open the output when the AV player starts and hide the output button.",
+        "autoOpenLabel": "Automatically open output",
+        "externalTitle": "External display available",
+        "externalDescription": "Choose how the desktop app opens AV output when an external display is connected.",
+        "display": "Show on external display",
+        "displayDescription": "Open the output fullscreen on the external display.",
+        "window": "Open a second window",
+        "windowDescription": "Open the output in a separate window.",
+        "noExternalTitle": "No external display available",
+        "noExternalDescription": "When no external display is connected, the output opens in a window."
+      },
       "content": {
         "title": "Content layer",
         "description": "Typography and layout for projected lyrics.",

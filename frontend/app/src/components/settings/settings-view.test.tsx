@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { SettingsView } from '@/components/settings/SettingsView'
 
+const isTauri = vi.hoisted(() => vi.fn(() => true))
+vi.mock('@tauri-apps/api/core', () => ({ isTauri, invoke: vi.fn().mockResolvedValue([]) }))
+
 const navigate = vi.fn()
 const setViewMode = vi.fn()
 const ensureQueryData = vi.fn().mockResolvedValue(undefined)
@@ -68,6 +71,7 @@ vi.mock('@/lib/logout-queue', () => ({
 }))
 
 beforeEach(() => {
+  isTauri.mockReturnValue(true)
   navigate.mockReset()
   setViewMode.mockReset()
   setQueryData.mockReset()
@@ -175,70 +179,73 @@ describe('SettingsView', () => {
     expect(screen.getByRole('radio', { name: 'settings.instrument.keyboard' })).toBeChecked()
   })
 
-  it('renders the AV bilingual control in Player AV and restores it from storage', async () => {
-    const user = userEvent.setup()
+  it('hides the removed AV controls while retaining the other settings', () => {
+    render(<SettingsView activeTab="playerRoles" />)
 
-    const { unmount } = render(<SettingsView activeTab="playerRoles" />)
-    const toggle = screen.getByRole('checkbox', {
-      name: 'settings.avBilingual.label',
-    })
+    for (const key of [
+      'settings.playerRoles.content.title',
+      'settings.playerRoles.content.textAlignTitle',
+      'settings.playerRoles.content.verticalAlignTitle',
+      'settings.playerRoles.content.textShadowTitle',
+      'settings.playerRoles.content.textTransformTitle',
+      'settings.playerRoles.background.title',
+      'settings.playerRoles.projection.fullscreenTitle',
+      'settings.avBilingual.label',
+    ]) {
+      expect(screen.queryByText(key)).not.toBeInTheDocument()
+    }
+    expect(screen.getByText('settings.lyricWhitespace.title')).toBeInTheDocument()
+    expect(screen.getByText('settings.playerRoles.transition.title')).toBeInTheDocument()
+  })
 
-    expect(toggle).not.toBeChecked()
-
-    await user.click(toggle)
-
+  it('saves the automatic output setting', async () => {
+    render(<SettingsView activeTab="playerRoles" />)
+    const toggle = screen.getByRole('checkbox', { name: 'settings.playerRoles.output.autoOpenLabel' })
     expect(toggle).toBeChecked()
-    expect(window.localStorage.getItem('wv_av_bilingual')).toBe('true')
-
-    unmount()
-
-    render(<SettingsView activeTab="playerRoles" />)
-    expect(
-      screen.getByRole('checkbox', { name: 'settings.avBilingual.label' }),
-    ).toBeChecked()
+    await userEvent.setup().click(toggle)
+    expect(window.localStorage.getItem('avOutputAutoOpen')).toBe('false')
+    expect(toggle).not.toBeChecked()
   })
 
-  it('offers only the Default AV background and stores the Ray preset', async () => {
+  it('disables display settings in a browser and explains the limitation', async () => {
+    isTauri.mockReturnValue(false)
     const user = userEvent.setup()
-
     render(<SettingsView activeTab="playerRoles" />)
-
-    const defaultBackground = screen.getByRole('radio', {
-      name: /settings\.playerRoles\.background\.default/,
-    })
-    expect(
-      screen.getAllByRole('radio', { name: /settings\.playerRoles\.background\.default/ }),
-    ).toHaveLength(1)
-    expect(screen.queryByRole('radio', { name: /zeltlager/i })).not.toBeInTheDocument()
-
-    await user.click(defaultBackground)
-
-    expect(JSON.parse(window.localStorage.getItem('avPreferences') ?? '{}')).toMatchObject({
-      backgroundLayer: { preset: 2 },
-    })
+    const groups = screen.getAllByRole('radiogroup')
+    const radios = [...groups[0].querySelectorAll('button'), ...groups[1].querySelectorAll('button')]
+    expect(screen.getByRole('combobox', { name: 'settings.playerRoles.output.displaySelectionTitle' })).toBeDisabled()
+    expect(radios).toHaveLength(3)
+    for (const radio of radios) expect(radio).toBeDisabled()
+    const explanations = screen.getAllByRole('button', { name: 'settings.playerRoles.output.browserOnly' })
+    expect(explanations).toHaveLength(3)
+    await user.click(explanations[0])
+    expect(explanations[0]).toHaveFocus()
+    expect(explanations[0]).toHaveAccessibleDescription('settings.playerRoles.output.browserOnly')
+    expect(screen.getByRole('checkbox', { name: 'settings.playerRoles.output.autoOpenLabel' })).toBeEnabled()
+    expect(window.localStorage.getItem('avExternalOutput')).toBeNull()
   })
 
-  it('renders and stores independent AV text grayscale controls', () => {
+  it('saves the external display output choice and shows the single-display fallback', async () => {
     render(<SettingsView activeTab="playerRoles" />)
+    expect(screen.getByRole('radio', { name: /settings\.playerRoles\.output\.display/ })).toBeChecked()
+    const groups = screen.getAllByRole('radiogroup')
+    expect(groups[1]).toHaveAccessibleName('settings.playerRoles.output.noExternalTitle')
+    expect(groups[1].querySelector('[role="radio"]')).toHaveAttribute('aria-checked', 'true')
+    await userEvent.setup().click(screen.getAllByRole('radio', { name: /settings\.playerRoles\.output\.window/ })[0])
+    expect(window.localStorage.getItem('avExternalOutput')).toBe('window')
+  })
 
-    const primarySlider = screen.getByRole('slider', {
-      name: 'settings.playerRoles.content.primaryTextColor',
-    })
-    const secondarySlider = screen.getByRole('slider', {
-      name: 'settings.playerRoles.content.secondaryTextColor',
-    })
-
-    expect(primarySlider).toHaveValue('100')
-    expect(secondarySlider).toHaveValue('65')
-
-    fireEvent.change(primarySlider, { target: { value: '20' } })
-    fireEvent.change(secondarySlider, { target: { value: '80' } })
-
+  it('preserves saved content and background preferences when changing a remaining AV setting', async () => {
+    window.localStorage.setItem('avPreferences', JSON.stringify({
+      contentLayer: { primaryTextLightness: 20, textAlign: 'left' },
+      backgroundLayer: { preset: 2 },
+    }))
+    render(<SettingsView activeTab="playerRoles" />)
+    await userEvent.setup().click(screen.getByRole('radio', { name: /settings\.playerRoles\.transition\.fade/ }))
     expect(JSON.parse(window.localStorage.getItem('avPreferences') ?? '{}')).toMatchObject({
-      contentLayer: {
-        primaryTextLightness: 20,
-        secondaryTextLightness: 80,
-      },
+      contentLayer: { primaryTextLightness: 20, textAlign: 'left' },
+      backgroundLayer: { preset: 2 },
+      transition: { style: 'fade' },
     })
   })
 })

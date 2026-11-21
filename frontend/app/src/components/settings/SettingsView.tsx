@@ -1,8 +1,10 @@
+import { AvDisplaySettings } from '@/components/settings/AvDisplaySettings'
+import { SettingsInfoTooltip } from '@/components/settings/SettingsInfoTooltip'
+import { isTauri } from '@tauri-apps/api/core'
 import { useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   type ChangeEvent,
-  type CSSProperties,
   useEffect,
   useMemo,
   useRef,
@@ -41,20 +43,12 @@ import {
   writePlayerLayoutUnified,
 } from '@/lib/player-scroll-preference'
 import {
-  AV_TEXT_LIGHTNESS_MAX,
-  AV_TEXT_LIGHTNESS_MIN,
-  DEFAULT_AV_PREFERENCES,
   readAvPreferences,
   writeAvPreferences,
-  type AvBackgroundPreset,
-  type AvContentLayer,
   type AvPreferences,
-  type AvTextAlign,
-  type AvTextShadow,
-  type AvTextTransform,
   type AvTransitionStyle,
-  type AvVerticalAlign,
 } from '@/lib/player/av-preferences'
+import { readAvExternalOutput, writeAvExternalOutput, readAvOutputAutoOpen, writeAvOutputAutoOpen } from '@/lib/player/av-output-preference'
 import { readPlayerDefaultMode, writePlayerDefaultMode } from '@/lib/player/player-mode-preference'
 import {
   readDeveloperOptionsPreference,
@@ -91,10 +85,6 @@ import {
   writeSheetImageInvertPreference,
 } from '@/lib/sheet-image-invert-preference'
 import {
-  readAvBilingualPreference,
-  writeAvBilingualPreference,
-} from '@/lib/av-bilingual-preference'
-import {
   readTocMultilingualPreference,
   writeTocMultilingualPreference,
 } from '@/lib/toc-multilingual-preference'
@@ -119,16 +109,12 @@ import {
   removePlayerMirror,
 } from '@/lib/offline/player-mirror-cache'
 import type { PlayerMirrorRow } from '@/lib/dexie-db'
-import type { PlayerEditorReturnContext } from '@/lib/player/player-editor-return'
 import {
-  buildSettingsSearch,
-  type RoomSettingsReturnContext,
   type SettingsTab,
 } from '@/lib/settings-route'
 import { cn } from '@/lib/utils'
 import { MUSICAL_KEYS } from '@/lib/setlist-editor-constants'
 
-import './settings-view.css'
 
 type SettingsOption<T extends string | number> = {
   value: T
@@ -136,7 +122,6 @@ type SettingsOption<T extends string | number> = {
   description: string
 }
 
-const settingsTabs: SettingsTab[] = ['general', 'player', 'playerRoles', 'connections']
 
 function getLocalePreference(): LocalePreference {
   return readLocalePreference()
@@ -146,19 +131,23 @@ function OptionButton<T extends string | number>({
   option,
   selected,
   onSelect,
+  disabled = false,
 }: {
   option: SettingsOption<T>
   selected: boolean
   onSelect: (value: T) => void
+  disabled?: boolean
 }) {
   return (
     <button
       type="button"
       role="radio"
       aria-checked={selected}
+      disabled={disabled}
       className={cn(
         'flex w-full items-start justify-between gap-3 border-b border-[var(--color-border)] px-3 py-3 text-left transition-colors last:border-b-0 hover:bg-[var(--color-muted)]/55',
         selected && 'bg-[var(--color-primary)]/8',
+        disabled && 'cursor-not-allowed opacity-55 hover:bg-transparent',
       )}
       onClick={() => onSelect(option.value)}
     >
@@ -191,17 +180,22 @@ function SettingsSection<T extends string | number>({
   options,
   value,
   onChange,
+  disabledExplanation,
 }: {
   title: string
   description: string
   options: SettingsOption<T>[]
   value: T
   onChange: (value: T) => void
+  disabledExplanation?: string
 }) {
   return (
     <Card>
       <CardHeader className="p-4 pb-3">
-        <CardTitle className="text-base">{title}</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-base">{title}</CardTitle>
+          {disabledExplanation ? <SettingsInfoTooltip text={disabledExplanation} /> : null}
+        </div>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="p-0">
@@ -211,6 +205,7 @@ function SettingsSection<T extends string | number>({
               key={option.value}
               option={option}
               selected={value === option.value}
+              disabled={Boolean(disabledExplanation)}
               onSelect={onChange}
             />
           ))}
@@ -318,58 +313,6 @@ function ComfortableKeysSection({
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-function GrayscaleSlider({
-  label,
-  description,
-  value,
-  blackLabel,
-  whiteLabel,
-  onChange,
-}: {
-  label: string
-  description: string
-  value: number
-  blackLabel: string
-  whiteLabel: string
-  onChange: (value: number) => void
-}) {
-  const sliderStyle = {
-    '--settings-grayscale-lightness': `${value}%`,
-  } as CSSProperties
-
-  return (
-    <label className="flex flex-col gap-1.5 text-sm">
-      <span className="flex items-center justify-between gap-3">
-        <span>{label}</span>
-        <output className="tabular-nums text-[var(--color-muted-foreground)]">
-          {value}%
-        </output>
-      </span>
-      <span className="text-xs text-[var(--color-muted-foreground)]">
-        {description}
-      </span>
-      <input
-        type="range"
-        min={AV_TEXT_LIGHTNESS_MIN}
-        max={AV_TEXT_LIGHTNESS_MAX}
-        step={1}
-        value={value}
-        aria-label={label}
-        onChange={(event) => onChange(Number.parseInt(event.target.value, 10))}
-        className="settings-grayscale-slider"
-        style={sliderStyle}
-      />
-      <span
-        className="flex justify-between text-xs text-[var(--color-muted-foreground)]"
-        aria-hidden
-      >
-        <span>{blackLabel}</span>
-        <span>{whiteLabel}</span>
-      </span>
-    </label>
   )
 }
 
@@ -498,12 +441,8 @@ function SettingsProfilePictureSection({ user }: { user: User }) {
 
 export function SettingsView({
   activeTab,
-  playerReturn = null,
-  roomReturn = null,
 }: {
   activeTab: SettingsTab
-  playerReturn?: PlayerEditorReturnContext | null
-  roomReturn?: RoomSettingsReturnContext | null
 }) {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -515,7 +454,6 @@ export function SettingsView({
   const [hideChords, setHideChordsState] = useState(readHideChordsPreference)
   const [chordSongFontScale, setChordSongFontScaleState] = useState(readChordSongFontScale)
   const [tocMultilingual, setTocMultilingualState] = useState(readTocMultilingualPreference)
-  const [avBilingual, setAvBilingualState] = useState(readAvBilingualPreference)
   const [sheetBackgroundPreference, setSheetBackgroundPreference] = useState(readSheetBackgroundPreference)
   const [invertSheetImages, setInvertSheetImagesState] = useState(readSheetImageInvertPreference)
   const [layoutPreferences, setLayoutPreferences] = useState(readPlayerLayoutPreferences)
@@ -526,6 +464,8 @@ export function SettingsView({
   const [collapseLyricWhitespace, setCollapseLyricWhitespaceState] = useState(
     readLyricCollapseWhitespacePreference,
   )
+  const [avOutputAutoOpen, setAvOutputAutoOpen] = useState(readAvOutputAutoOpen)
+  const [avExternalOutput, setAvExternalOutput] = useState(readAvExternalOutput)
   const [avPreferences, setAvPreferencesState] = useState<AvPreferences>(readAvPreferences)
   const { viewMode: collectionsViewMode, setViewMode: setCollectionsViewMode } =
     useHubViewMode('collections')
@@ -646,65 +586,11 @@ export function SettingsView({
     [t],
   )
 
-  const avBackgroundPresetOptions = useMemo<SettingsOption<AvBackgroundPreset>[]>(
-    () => [
-      { value: 2, label: t('settings.playerRoles.background.default'), description: t('settings.playerRoles.background.defaultDescription') },
-    ],
-    [t],
-  )
-
-  const avTextAlignOptions = useMemo<SettingsOption<AvTextAlign>[]>(
-    () => [
-      { value: 'left', label: t('settings.playerRoles.content.alignLeft'), description: t('settings.playerRoles.content.alignLeftDescription') },
-      { value: 'center', label: t('settings.playerRoles.content.alignCenter'), description: t('settings.playerRoles.content.alignCenterDescription') },
-      { value: 'right', label: t('settings.playerRoles.content.alignRight'), description: t('settings.playerRoles.content.alignRightDescription') },
-    ],
-    [t],
-  )
-
-  const avVerticalAlignOptions = useMemo<SettingsOption<AvVerticalAlign>[]>(
-    () => [
-      { value: 'top', label: t('settings.playerRoles.content.verticalTop'), description: t('settings.playerRoles.content.verticalTopDescription') },
-      { value: 'geometry_center', label: t('settings.playerRoles.content.verticalGeometryCenter'), description: t('settings.playerRoles.content.verticalGeometryCenterDescription') },
-      { value: 'center', label: t('settings.playerRoles.content.verticalCenter'), description: t('settings.playerRoles.content.verticalCenterDescription') },
-      { value: 'bottom', label: t('settings.playerRoles.content.verticalBottom'), description: t('settings.playerRoles.content.verticalBottomDescription') },
-    ],
-    [t],
-  )
-
-  const avTextShadowOptions = useMemo<SettingsOption<AvTextShadow>[]>(
-    () => [
-      { value: 'none', label: t('settings.playerRoles.content.shadowNone'), description: t('settings.playerRoles.content.shadowNoneDescription') },
-      { value: 'subtle', label: t('settings.playerRoles.content.shadowSubtle'), description: t('settings.playerRoles.content.shadowSubtleDescription') },
-      { value: 'medium', label: t('settings.playerRoles.content.shadowMedium'), description: t('settings.playerRoles.content.shadowMediumDescription') },
-      { value: 'strong', label: t('settings.playerRoles.content.shadowStrong'), description: t('settings.playerRoles.content.shadowStrongDescription') },
-    ],
-    [t],
-  )
-
-  const avTextTransformOptions = useMemo<SettingsOption<AvTextTransform>[]>(
-    () => [
-      { value: 'none', label: t('settings.playerRoles.content.transformNone'), description: t('settings.playerRoles.content.transformNoneDescription') },
-      { value: 'uppercase', label: t('settings.playerRoles.content.transformUppercase'), description: t('settings.playerRoles.content.transformUppercaseDescription') },
-      { value: 'lowercase', label: t('settings.playerRoles.content.transformLowercase'), description: t('settings.playerRoles.content.transformLowercaseDescription') },
-      { value: 'capitalize', label: t('settings.playerRoles.content.transformCapitalize'), description: t('settings.playerRoles.content.transformCapitalizeDescription') },
-    ],
-    [t],
-  )
-
   const avTransitionStyleOptions = useMemo<SettingsOption<AvTransitionStyle>[]>(
     () => [
       { value: 'none', label: t('settings.playerRoles.transition.none'), description: t('settings.playerRoles.transition.noneDescription') },
       { value: 'fade', label: t('settings.playerRoles.transition.fade'), description: t('settings.playerRoles.transition.fadeDescription') },
       { value: 'slide', label: t('settings.playerRoles.transition.slide'), description: t('settings.playerRoles.transition.slideDescription') },
-    ],
-    [t],
-  )
-
-  const avProjectionFullscreenOptions = useMemo<SettingsOption<'on' | 'off'>[]>(
-    () => [
-      { value: 'on', label: t('settings.playerRoles.projection.fullscreenOn'), description: t('settings.playerRoles.projection.fullscreenOnDescription') },
-      { value: 'off', label: t('settings.playerRoles.projection.fullscreenOff'), description: t('settings.playerRoles.projection.fullscreenOffDescription') },
     ],
     [t],
   )
@@ -768,11 +654,6 @@ export function SettingsView({
     writeTocMultilingualPreference(enabled)
   }
 
-  function setAvBilingual(enabled: boolean) {
-    setAvBilingualState(enabled)
-    writeAvBilingualPreference(enabled)
-  }
-
   function setSheetBackground(next: SheetBackgroundPreference) {
     setSheetBackgroundPreference(next)
     writeSheetBackgroundPreference(next)
@@ -807,31 +688,10 @@ export function SettingsView({
     setAvPreferencesState(next)
   }
 
-  function setAvContentLayer(partial: Partial<AvContentLayer>) {
-    updateAvPreferences({
-      ...avPreferences,
-      contentLayer: { ...avPreferences.contentLayer, ...partial },
-    })
-  }
-
-  function setAvBackgroundPreset(preset: AvBackgroundPreset) {
-    updateAvPreferences({
-      ...avPreferences,
-      backgroundLayer: { preset },
-    })
-  }
-
   function setAvTransition(partial: Partial<AvPreferences['transition']>) {
     updateAvPreferences({
       ...avPreferences,
       transition: { ...avPreferences.transition, ...partial },
-    })
-  }
-
-  function setAvProjection(partial: Partial<AvPreferences['projection']>) {
-    updateAvPreferences({
-      ...avPreferences,
-      projection: { ...avPreferences.projection, ...partial },
     })
   }
 
@@ -882,45 +742,6 @@ export function SettingsView({
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4">
-      <p className="text-sm text-[var(--color-muted-foreground)]">
-        {t('settings.description')}
-      </p>
-
-      <nav
-        role="tablist"
-        aria-label={t('settings.tabs.aria')}
-        className="flex items-stretch gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-[0.18rem] shadow-[var(--shadow-elevated)]"
-      >
-        {settingsTabs.map((tab) => {
-          const selected = activeTab === tab
-          return (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              id={`settings-tab-${tab}`}
-              aria-selected={selected}
-              aria-controls={`settings-panel-${tab}`}
-              tabIndex={selected ? 0 : -1}
-              onClick={() =>
-                void navigate({
-                  to: '/settings',
-                  search: buildSettingsSearch(tab, playerReturn, roomReturn),
-                })
-              }
-              className={cn(
-                'min-w-0 flex-1 rounded-full px-2 py-2.5 text-sm font-medium transition-colors',
-                selected
-                  ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
-                  : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',
-              )}
-            >
-              {t(`settings.tabs.${tab}`)}
-            </button>
-          )
-        })}
-      </nav>
-
       {activeTab === 'general' ? (
         <div
           id="settings-panel-general"
@@ -1271,124 +1092,43 @@ export function SettingsView({
         >
           <Card>
             <CardHeader className="p-4 pb-3">
-              <CardTitle className="text-base">{t('settings.playerRoles.content.title')}</CardTitle>
-              <CardDescription>{t('settings.playerRoles.content.description')}</CardDescription>
+              <CardTitle className="text-base">{t('settings.playerRoles.output.autoOpenTitle')}</CardTitle>
+              <CardDescription>{t('settings.playerRoles.output.autoOpenDescription')}</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-3 p-4 pt-0">
-              <label className="flex flex-col gap-1 text-sm">
-                <span>{t('settings.playerRoles.content.maxLines')}</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={avPreferences.contentLayer.maxLinesPerSlide}
-                  onChange={(e) =>
-                    setAvContentLayer({
-                      maxLinesPerSlide: Number.parseInt(e.target.value, 10) || DEFAULT_AV_PREFERENCES.contentLayer.maxLinesPerSlide,
-                    })
-                  }
-                  className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2"
-                />
-              </label>
+            <CardContent className="p-4 pt-0">
               <label className="flex items-start gap-3 text-sm">
                 <input
                   type="checkbox"
                   className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
-                  checked={avPreferences.contentLayer.balanceSlideLines}
-                  onChange={(e) =>
-                    setAvContentLayer({ balanceSlideLines: e.target.checked })
-                  }
+                  checked={avOutputAutoOpen}
+                  onChange={(event) => {
+                    writeAvOutputAutoOpen(event.target.checked)
+                    setAvOutputAutoOpen(event.target.checked)
+                  }}
                 />
-                <span className="flex flex-col gap-0.5">
-                  <span>{t('settings.playerRoles.content.balanceSlideLines')}</span>
-                  <span className="text-xs text-[var(--color-muted-foreground)]">
-                    {t('settings.playerRoles.content.balanceSlideLinesDescription')}
-                  </span>
-                </span>
+                <span>{t('settings.playerRoles.output.autoOpenLabel')}</span>
               </label>
-              <label className="flex items-start gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 size-4 shrink-0 accent-[var(--color-primary)]"
-                  aria-label={t('settings.avBilingual.label')}
-                  checked={avBilingual}
-                  onChange={(e) => setAvBilingual(e.target.checked)}
-                />
-                <span className="flex flex-col gap-0.5">
-                  <span>{t('settings.avBilingual.label')}</span>
-                  <span className="text-xs text-[var(--color-muted-foreground)]">
-                    {t('settings.avBilingual.description')}
-                  </span>
-                </span>
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span>{t('settings.playerRoles.content.fontSize')}</span>
-                <input
-                  type="number"
-                  min={20}
-                  max={120}
-                  value={avPreferences.contentLayer.fontSize}
-                  onChange={(e) =>
-                    setAvContentLayer({
-                      fontSize: Number.parseInt(e.target.value, 10) || DEFAULT_AV_PREFERENCES.contentLayer.fontSize,
-                    })
-                  }
-                  className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2"
-                />
-              </label>
-              <GrayscaleSlider
-                label={t('settings.playerRoles.content.primaryTextColor')}
-                description={t('settings.playerRoles.content.primaryTextColorDescription')}
-                value={avPreferences.contentLayer.primaryTextLightness}
-                blackLabel={t('settings.playerRoles.content.textColorBlack')}
-                whiteLabel={t('settings.playerRoles.content.textColorWhite')}
-                onChange={(primaryTextLightness) =>
-                  setAvContentLayer({ primaryTextLightness })
-                }
-              />
-              <GrayscaleSlider
-                label={t('settings.playerRoles.content.secondaryTextColor')}
-                description={t('settings.playerRoles.content.secondaryTextColorDescription')}
-                value={avPreferences.contentLayer.secondaryTextLightness}
-                blackLabel={t('settings.playerRoles.content.textColorBlack')}
-                whiteLabel={t('settings.playerRoles.content.textColorWhite')}
-                onChange={(secondaryTextLightness) =>
-                  setAvContentLayer({ secondaryTextLightness })
-                }
-              />
             </CardContent>
           </Card>
-
+          <AvDisplaySettings />
           <SettingsSection
-            title={t('settings.playerRoles.content.textAlignTitle')}
-            description={t('settings.playerRoles.content.textAlignDescription')}
-            options={avTextAlignOptions}
-            value={avPreferences.contentLayer.textAlign}
-            onChange={(value) => setAvContentLayer({ textAlign: value })}
+            title={t('settings.playerRoles.output.externalTitle')}
+            disabledExplanation={!isTauri() ? t('settings.playerRoles.output.browserOnly') : undefined}
+            description={t('settings.playerRoles.output.externalDescription')}
+            options={[
+              { value: 'display', label: t('settings.playerRoles.output.display'), description: t('settings.playerRoles.output.displayDescription') },
+              { value: 'window', label: t('settings.playerRoles.output.window'), description: t('settings.playerRoles.output.windowDescription') },
+            ]}
+            value={avExternalOutput}
+            onChange={(value) => { writeAvExternalOutput(value); setAvExternalOutput(value) }}
           />
-
           <SettingsSection
-            title={t('settings.playerRoles.content.verticalAlignTitle')}
-            description={t('settings.playerRoles.content.verticalAlignDescription')}
-            options={avVerticalAlignOptions}
-            value={avPreferences.contentLayer.verticalAlign}
-            onChange={(value) => setAvContentLayer({ verticalAlign: value })}
-          />
-
-          <SettingsSection
-            title={t('settings.playerRoles.content.textShadowTitle')}
-            description={t('settings.playerRoles.content.textShadowDescription')}
-            options={avTextShadowOptions}
-            value={avPreferences.contentLayer.textShadow}
-            onChange={(value) => setAvContentLayer({ textShadow: value })}
-          />
-
-          <SettingsSection
-            title={t('settings.playerRoles.content.textTransformTitle')}
-            description={t('settings.playerRoles.content.textTransformDescription')}
-            options={avTextTransformOptions}
-            value={avPreferences.contentLayer.textTransform}
-            onChange={(value) => setAvContentLayer({ textTransform: value })}
+            title={t('settings.playerRoles.output.noExternalTitle')}
+            disabledExplanation={!isTauri() ? t('settings.playerRoles.output.browserOnly') : undefined}
+            description={t('settings.playerRoles.output.noExternalDescription')}
+            options={[{ value: 'window', label: t('settings.playerRoles.output.window'), description: t('settings.playerRoles.output.windowDescription') }]}
+            value="window"
+            onChange={() => {}}
           />
 
           <Card>
@@ -1413,14 +1153,6 @@ export function SettingsView({
               </label>
             </CardContent>
           </Card>
-
-          <SettingsSection
-            title={t('settings.playerRoles.background.title')}
-            description={t('settings.playerRoles.background.description')}
-            options={avBackgroundPresetOptions}
-            value={avPreferences.backgroundLayer.preset}
-            onChange={setAvBackgroundPreset}
-          />
 
           <SettingsSection
             title={t('settings.playerRoles.transition.title')}
@@ -1450,15 +1182,21 @@ export function SettingsView({
             </CardContent>
           </Card>
 
-          <SettingsSection
-            title={t('settings.playerRoles.projection.fullscreenTitle')}
-            description={t('settings.playerRoles.projection.fullscreenDescription')}
-            options={avProjectionFullscreenOptions}
-            value={avPreferences.projection.outputFullscreenOnDblClick ? 'on' : 'off'}
-            onChange={(value) =>
-              setAvProjection({ outputFullscreenOnDblClick: value === 'on' })
-            }
-          />
+        </div>
+      ) : null}
+
+      {activeTab === 'audio' || activeTab === 'midi' ? (
+        <div
+          id={`settings-panel-${activeTab}`}
+          role="tabpanel"
+          aria-labelledby={`settings-tab-${activeTab}`}
+        >
+          <Card>
+            <CardHeader className="p-4">
+              <CardTitle className="text-base">{t(`settings.tabs.${activeTab}`)}</CardTitle>
+              <CardDescription>{t('settings.emptySection')}</CardDescription>
+            </CardHeader>
+          </Card>
         </div>
       ) : null}
 

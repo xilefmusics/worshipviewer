@@ -37,6 +37,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Changed
 
+- AV output opens automatically by default, with settings for the preferred desktop display or shareable window; settings navigation now includes Audio and MIDI tabs.
 - Team names and slide deck titles are now edited in their respective editor fields instead of the headbar.
 - Media library rows now show image previews, the first slide of decks, or a generic placeholder, and their actions use the shared hub drawer.
 - Right-clicking a song, setlist, collection, room, or Admin Users row/card now opens its actions drawer.

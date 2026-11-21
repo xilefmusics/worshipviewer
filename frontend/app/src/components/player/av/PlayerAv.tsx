@@ -1,3 +1,4 @@
+import { readAvOutputAutoOpen } from '@/lib/player/av-output-preference'
 import type { components } from '@/api/schema'
 import { isTauri } from '@tauri-apps/api/core'
 import { AvDesktopOutputs } from '@/components/player/av/AvDesktopOutputs'
@@ -313,6 +314,10 @@ export function PlayerAv({
   const navigate = useNavigate()
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const bilingualEnabled = useAvBilingualPreference()
+  const [autoOpenOutput] = useState(readAvOutputAutoOpen)
+  const autoOpenAttempted = useRef(false)
+  const automaticOutputWindow = useRef<Window | null>(null)
+  const autoOutputEffectGeneration = useRef(0)
   const [prefs, setPrefs] = useState<AvPreferences>(() => readAvPreferences())
   const pendingRoomBackgroundRef = useRef<{
     playerId: string
@@ -950,6 +955,34 @@ export function PlayerAv({
     window.open(url, newAvOutputWindowName(), 'noopener,noreferrer')
   }, [sessionId])
 
+  useEffect(() => {
+    if (!autoOpenOutput || slideOnly || isTauri()) return
+    const effectGeneration = autoOutputEffectGeneration
+    const generation = ++effectGeneration.current
+    if (!autoOpenAttempted.current) {
+      autoOpenAttempted.current = true
+      const url = `/player/output?s=${encodeURIComponent(sessionId)}`
+      const output = window.open(url, newAvOutputWindowName())
+      if (output) {
+        // Keep a handle for cleanup without exposing the controller to the output tab.
+        output.opener = null
+        automaticOutputWindow.current = output
+      }
+    }
+    const closeOutput = () => {
+      automaticOutputWindow.current?.close()
+      automaticOutputWindow.current = null
+    }
+    window.addEventListener('pagehide', closeOutput)
+    return () => {
+      window.removeEventListener('pagehide', closeOutput)
+      // React may immediately re-run effects in development; close only on a real departure.
+      queueMicrotask(() => {
+        if (effectGeneration.current === generation) closeOutput()
+      })
+    }
+  }, [autoOpenOutput, sessionId, slideOnly])
+
   const projectedContent = useMemo((): AvProjectionContent => {
     if (timerProjection) return timerProjection
     if (projectedItem.kind === 'deck' && projectedItem.mediaId && projectedItem.pages?.length) {
@@ -1484,7 +1517,7 @@ export function PlayerAv({
       }
       if (action === 'openOutput') {
         e.preventDefault()
-        openOutputWindow()
+        if (!autoOpenOutput) openOutputWindow()
         return
       }
       if (action === 'jumpSection') {
@@ -1503,6 +1536,7 @@ export function PlayerAv({
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [
+    autoOpenOutput,
     backTo,
     goNext,
     goNextItem,
@@ -1695,7 +1729,7 @@ export function PlayerAv({
               <TimerIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
             </Button>
           ) : null}
-          {isTauri() ? <AvDesktopOutputs sessionId={sessionId} summary={outputSummaryLabel} /> : (
+          {isTauri() ? <AvDesktopOutputs sessionId={sessionId} summary={outputSummaryLabel} autoOpen={autoOpenOutput} /> : !autoOpenOutput ? (
           <Button
             type="button"
             variant="outline"
@@ -1708,7 +1742,7 @@ export function PlayerAv({
           >
             <OutputIcon size={PLAYER_HEADER_ICON_SIZE} className={playerHeaderIconClass} />
           </Button>
-          )}
+          ) : null}
           <span className="sr-only" data-testid="output-summary">
             {outputSummaryLabel}
           </span>

@@ -159,8 +159,8 @@ fn open_window(app: &AppHandle, output: &Output, width: u32, height: u32) -> Res
         .title("Worship Viewer Presentation")
         .inner_size(width as f64, height as f64)
         .focused(false)
-        .decorations(false)
-        .shadow(false)
+        .decorations(output.display.is_none())
+        .shadow(output.display.is_none())
         .background_color(tauri::window::Color(0, 0, 0, 255))
         .background_throttling(tauri::utils::config::BackgroundThrottlingPolicy::Disabled);
     if output.display.is_some() {

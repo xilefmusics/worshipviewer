@@ -378,6 +378,7 @@ const twoItemPlayer = {
 } as Player
 
 beforeEach(() => {
+  window.localStorage.setItem('avOutputAutoOpen', 'false')
   bilingualEnabled = false
   projectionListener = null
   navigate.mockReset()
@@ -424,6 +425,32 @@ beforeEach(() => {
 })
 
 describe('PlayerAv', () => {
+  it('closes the automatically opened output when leaving the player', async () => {
+    window.localStorage.removeItem('avOutputAutoOpen')
+    const output = { close: vi.fn(), opener: window }
+    const open = vi.spyOn(window, 'open').mockReturnValue(output as unknown as Window)
+    const { unmount } = render(<PlayerAv type="setlist" id="setlist-1" player={player} allowNetworkFetch={false} />)
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(output.opener).toBeNull()
+    expect(screen.queryByRole('button', { name: /player\.av\.openOutput/ })).not.toBeInTheDocument()
+    unmount()
+    await waitFor(() => expect(output.close).toHaveBeenCalledOnce())
+    open.mockRestore()
+    window.localStorage.removeItem('avOutputAutoOpen')
+  })
+
+  it('closes the automatically opened output when the controller page is hidden', () => {
+    window.localStorage.setItem('avOutputAutoOpen', 'true')
+    const output = { close: vi.fn(), opener: window }
+    const open = vi.spyOn(window, 'open').mockReturnValue(output as unknown as Window)
+    const { unmount } = render(<PlayerAv type="setlist" id="setlist-1" player={player} allowNetworkFetch={false} />)
+    window.dispatchEvent(new Event('pagehide'))
+    expect(output.close).toHaveBeenCalledOnce()
+    unmount()
+    open.mockRestore()
+    window.localStorage.removeItem('avOutputAutoOpen')
+  })
+
   it('allows one timer and deletes it from the player', async () => {
     const user = userEvent.setup()
     render(
