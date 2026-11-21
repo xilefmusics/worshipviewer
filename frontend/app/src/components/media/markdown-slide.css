@@ -1,0 +1,15 @@
+.markdown-slide { white-space: normal; overflow-wrap: anywhere; text-transform: none; }
+.markdown-slide h1 { font-size: 1.6em; font-weight: 700; line-height: 1.15; }
+.markdown-slide h2 { font-size: 1.35em; font-weight: 700; line-height: 1.2; }
+.markdown-slide h3, .markdown-slide h4, .markdown-slide h5, .markdown-slide h6 { font-weight: 700; }
+.markdown-slide :where(p, ul, ol, blockquote, pre, table) { margin: 0; }
+.markdown-slide > * + * { margin-block-start: 0.8em; }
+.markdown-slide > * + :is(h1, h2, h3, h4, h5, h6) { margin-block-start: 1em; }
+.markdown-slide ul, .markdown-slide ol { padding-left: 1.5em; }
+.markdown-slide ul { list-style: disc; }
+.markdown-slide ol { list-style: decimal; }
+.markdown-slide blockquote { border-left: 0.1em solid currentColor; padding-left: 0.5em; }
+.markdown-slide pre { white-space: pre-wrap; font-size: 0.75em; }
+.markdown-slide table { border-collapse: collapse; font-size: 0.8em; }
+.markdown-slide th, .markdown-slide td { border: 1px solid currentColor; padding: 0.1em 0.3em; }
+.markdown-slide a { color: inherit; text-decoration: underline; }

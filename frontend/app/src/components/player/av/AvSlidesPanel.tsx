@@ -167,6 +167,7 @@ export function AvSlidesPanel({
       >
       {entries.map((entry) => {
         const selected = entry.slideIndex === currentSlideIndex
+        const isMarkdown = entry.markdown !== undefined
         const preview = previewContent(entry, multiColumn)
         return (
           <button
@@ -206,14 +207,22 @@ export function AvSlidesPanel({
                 <AvSlideView
                   contentText={preview.contentText}
                   contentLines={preview.contentLines}
+                  markdown={entry.markdown}
                   contentLayer={contentLayer}
                   backgroundLayer={backgroundLayer}
                   fallbackBackgroundLayer={fallbackBackgroundLayer}
+                  geometryOverlay={isMarkdown ? geometryOverlay : undefined}
+                  geometryOverlayOpacity={geometryOverlayOpacity}
+                  geometryOverlayColor={geometryOverlayColor}
+                  geometryOverlaySize={geometryOverlaySize}
+                  geometryOverlayThickness={geometryOverlayThickness}
+                  geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
                   transition={transition}
                   screenState="live"
-                  compact={!multiColumn}
-                  showBackground={false}
-                  className={multiColumn ? undefined : 'av-slide-view--compact'}
+                  preview={isMarkdown}
+                  compact={!multiColumn && !isMarkdown}
+                  showBackground={isMarkdown}
+                  className={multiColumn || isMarkdown ? undefined : 'av-slide-view--compact'}
                 />
               )}
             </div>

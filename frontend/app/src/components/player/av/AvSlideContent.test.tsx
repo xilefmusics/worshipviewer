@@ -5,6 +5,25 @@ import { AvSlideContent } from '@/components/player/av/AvSlideContent'
 import { DEFAULT_AV_PREFERENCES } from '@/lib/player/av-preferences'
 
 describe('AvSlideContent', () => {
+  it('applies slide alignment to Markdown while preserving its casing', () => {
+    const { container } = render(
+      <AvSlideContent
+        markdown={'# Mixed Case\n\n| Name | Value |\n| :--- | ---: |\n| One | 2 |'}
+        contentLayer={{ ...DEFAULT_AV_PREFERENCES.contentLayer, verticalAlign: 'geometry_center', horizontalAlign: 'right', textAlign: 'right', textTransform: 'uppercase' }}
+        adaptiveWidth
+      />,
+    )
+
+    const slide = container.querySelector('.av-slide-content')
+    const markdown = container.querySelector('.markdown-slide')
+    expect(slide).toHaveClass('av-slide-content--valign-geometry_center', 'av-slide-content--halign-right')
+    expect(markdown).toHaveClass('av-slide-content__line--align-right')
+    expect(markdown).not.toHaveClass('av-slide-content__line--transform-uppercase')
+    expect(container.querySelector('.av-slide-content__inner')).toHaveClass('av-slide-content__inner--adaptive')
+    expect(screen.getByRole('heading', { name: 'Mixed Case' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Value' })).toHaveStyle({ textAlign: 'right' })
+  })
+
   it('renders primary and secondary rows with secondary styling', () => {
     const { container } = render(
       <AvSlideContent

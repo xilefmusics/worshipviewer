@@ -279,6 +279,11 @@ fn update_write(
         })
     } else {
         let content = content.ok_or_else(|| AppError::invalid_request("content is required"))?;
+        if matches!(content, CreateMediaContent::SlideDeck {}) {
+            return Err(AppError::invalid_request(
+                "a slide deck cannot replace URL media",
+            ));
+        }
         let mut write = content_write(title, content)?;
         write.is_background = is_background.unwrap_or(existing.is_background);
         validate_background_flag(&write.content, write.is_background)?;
@@ -332,6 +337,13 @@ fn checked_title(title: String) -> Result<String, AppError> {
 
 pub(crate) fn normalize_content(value: CreateMediaContent) -> Result<MediaContent, AppError> {
     match value {
+        CreateMediaContent::SlideDeck {} => Ok(MediaContent::SlideDeck {
+            pages: vec![shared::media::MediaDeckPage {
+                blob_id: String::new(),
+                markdown: Some(String::new()),
+                section_title: None,
+            }],
+        }),
         CreateMediaContent::YouTube { url } => normalize_youtube(&url),
         CreateMediaContent::Spotify { url } => normalize_spotify(&url),
     }

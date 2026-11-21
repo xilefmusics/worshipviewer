@@ -25,6 +25,7 @@ export type AvLanguageIndexResolver = (itemIndex: number) => number | undefined
 
 export type AvDeckPage = {
   blobId: string
+  markdown?: string
   sectionTitle?: string | null
 }
 
@@ -120,11 +121,12 @@ export function avSlidesForItem(
   }
   if (item.type === 'media' && item.content?.type === 'slide_deck') {
     const pages = item.content.pages.map((page) => ({
-      blobId: page.blob_id,
+      blobId: page.blob_id ?? '',
+      markdown: page.markdown ?? undefined,
       sectionTitle: page.section_title,
     }))
     if (pages.length > 0) {
-      const slides = pages.map((_, index) => `Page ${index + 1}`)
+      const slides = pages.map((page, index) => page.markdown ?? `Page ${index + 1}`)
       return {
         slides,
         sourceSlides: slides,
@@ -307,10 +309,11 @@ export function buildAvDeckPageEntries(
   return pages.map((page, index) => ({
     slideIndex: index,
     label: sectionTitles.get(index) ?? labelForPage(index),
-    text: '',
+    text: page.markdown ?? '',
+    markdown: page.markdown,
     isSubSlide: false,
     hasText: true,
-    deckPage: { mediaId, assetId: page.blobId },
+    ...(page.markdown === undefined ? { deckPage: { mediaId, assetId: page.blobId } } : {}),
   }))
 }
 

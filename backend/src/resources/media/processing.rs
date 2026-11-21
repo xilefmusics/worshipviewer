@@ -284,6 +284,7 @@ impl MediaProcessingHandle {
                         cleanup.track(asset.id.clone());
                         pages.push(MediaDeckPage {
                             blob_id: asset.id,
+                            markdown: None,
                             section_title: None,
                         });
                     }
@@ -653,6 +654,7 @@ impl MediaProcessingHandle {
             ingested.push(MediaStagedDeckPage {
                 id: uuid::Uuid::new_v4().to_string(),
                 blob_id: asset.id,
+                markdown: None,
                 section_title: None,
             });
         }
@@ -682,6 +684,7 @@ impl MediaProcessingHandle {
             .await?;
         cleanup.disarm();
         if let Some(asset_id) = replaced_asset
+            && !asset_id.is_empty()
             && !content_blob_ids(&media.content).contains(&asset_id)
         {
             self.cleanup_final_assets(&[asset_id]).await;
@@ -742,50 +745,95 @@ impl MediaProcessingHandle {
         if pending.revision_id != payload.revision_id {
             return Err(AppError::invalid_request("stale deck revision"));
         }
-        if payload.page_ids.is_empty() {
-            return Err(AppError::invalid_request(
-                "a slide deck requires at least one page",
-            ));
-        }
-        if let Some(section_titles) = &payload.section_titles
-            && section_titles.len() != payload.page_ids.len()
+        if payload.pages.is_some()
+            && (!payload.page_ids.is_empty() || payload.section_titles.is_some())
         {
             return Err(AppError::invalid_request(
-                "section titles must match the number of deck pages",
+                "mixed and legacy deck orders cannot be combined",
             ));
         }
-        let mut ordered = Vec::new();
-        for (index, page_id) in payload.page_ids.iter().enumerate() {
-            let page = pending
-                .pages
-                .iter()
-                .find(|page| &page.id == page_id)
-                .ok_or_else(|| AppError::invalid_request("unknown deck page id"))?;
-            if ordered
-                .iter()
-                .any(|candidate: &MediaStagedDeckPage| candidate.id == page.id)
+        let mut committed = Vec::new();
+        let mut used_ids = HashSet::new();
+        if let Some(pages) = payload.pages {
+            for page in pages {
+                match (page.page_id, page.markdown) {
+                    (Some(id), None) => {
+                        let staged = pending
+                            .pages
+                            .iter()
+                            .find(|p| p.id == id && p.markdown.is_none())
+                            .ok_or_else(|| {
+                                AppError::invalid_request("unknown uploaded deck page id")
+                            })?;
+                        if !used_ids.insert(id) {
+                            return Err(AppError::invalid_request("duplicate deck page id"));
+                        }
+                        committed.push(MediaDeckPage {
+                            blob_id: staged.blob_id.clone(),
+                            markdown: None,
+                            section_title: page.section_title,
+                        });
+                    }
+                    (None, Some(markdown)) if markdown.len() <= 65_536 => {
+                        committed.push(MediaDeckPage {
+                            blob_id: String::new(),
+                            markdown: Some(markdown),
+                            section_title: page.section_title,
+                        })
+                    }
+                    _ => return Err(AppError::invalid_request("invalid deck page")),
+                }
+            }
+        } else {
+            if pending.pages.iter().any(|page| page.markdown.is_some()) {
+                return Err(AppError::invalid_request(
+                    "Markdown decks require a mixed-page commit",
+                ));
+            }
+            if payload
+                .section_titles
+                .as_ref()
+                .is_some_and(|titles| titles.len() != payload.page_ids.len())
             {
-                return Err(AppError::invalid_request("duplicate deck page id"));
+                return Err(AppError::invalid_request(
+                    "section titles must match the number of deck pages",
+                ));
             }
-            let mut page = page.clone();
-            if let Some(section_titles) = &payload.section_titles {
-                page.section_title = section_titles[index].clone();
+            for (index, id) in payload.page_ids.iter().enumerate() {
+                let page = pending
+                    .pages
+                    .iter()
+                    .find(|p| &p.id == id)
+                    .ok_or_else(|| AppError::invalid_request("unknown deck page id"))?;
+                if !used_ids.insert(id.clone()) {
+                    return Err(AppError::invalid_request("duplicate deck page id"));
+                }
+                committed.push(MediaDeckPage {
+                    blob_id: page.blob_id.clone(),
+                    markdown: page.markdown.clone(),
+                    section_title: payload.section_titles.as_ref().map_or_else(
+                        || page.section_title.clone(),
+                        |titles| titles[index].clone(),
+                    ),
+                });
             }
-            ordered.push(page);
         }
-        let committed = ordered
-            .iter()
-            .map(|page| MediaDeckPage {
-                blob_id: page.blob_id.clone(),
-                section_title: page.section_title.clone(),
-            })
-            .collect::<Vec<_>>();
+        if committed.is_empty() || committed.len() > self.deck_max_pages {
+            return Err(AppError::invalid_request("invalid number of deck pages"));
+        }
         let keep = committed
             .iter()
+            .filter(|page| !page.blob_id.is_empty())
             .map(|page| page.blob_id.clone())
             .collect::<HashSet<_>>();
         let mut drop_ids = content_blob_ids(&media.content);
-        drop_ids.extend(pending.pages.iter().map(|page| page.blob_id.clone()));
+        drop_ids.extend(
+            pending
+                .pages
+                .iter()
+                .filter(|page| !page.blob_id.is_empty())
+                .map(|page| page.blob_id.clone()),
+        );
         drop_ids.retain(|id| !keep.contains(id));
         let updated = self
             .media_repo
@@ -873,6 +921,7 @@ fn staged_pages_from_content(content: &MediaContent) -> Vec<MediaStagedDeckPage>
             .map(|page| MediaStagedDeckPage {
                 id: uuid::Uuid::new_v4().to_string(),
                 blob_id: page.blob_id.clone(),
+                markdown: page.markdown.clone(),
                 section_title: page.section_title.clone(),
             })
             .collect(),
@@ -883,9 +932,11 @@ fn staged_pages_from_content(content: &MediaContent) -> Vec<MediaStagedDeckPage>
 fn content_blob_ids(content: &MediaContent) -> HashSet<String> {
     match content {
         MediaContent::Image { blob_id } => HashSet::from([blob_id.clone()]),
-        MediaContent::SlideDeck { pages } => {
-            pages.iter().map(|page| page.blob_id.clone()).collect()
-        }
+        MediaContent::SlideDeck { pages } => pages
+            .iter()
+            .filter(|page| !page.blob_id.is_empty())
+            .map(|page| page.blob_id.clone())
+            .collect(),
         MediaContent::Video {
             blob_id,
             thumbnail_blob_id,

@@ -78,6 +78,13 @@ describe('resolveAvItemLanguageIndex', () => {
 })
 
 describe('avSlidesForItem', () => {
+  it('keeps Markdown and uploaded pages in order', () => {
+    const item: PlayerItem = { type: 'media', id: 'm', title: 'Deck', content: { type: 'slide_deck', pages: [{ markdown: '# First' }, { blob_id: 'asset' }, { markdown: '**Last**' }] } }
+    const result = avSlidesForItem(item, 0, split)
+    expect(result.pages).toEqual([{ blobId: '', markdown: '# First', sectionTitle: undefined }, { blobId: 'asset', markdown: undefined, sectionTitle: undefined }, { blobId: '', markdown: '**Last**', sectionTitle: undefined }])
+    expect(buildAvDeckPageEntries('m', result.pages!, (index) => `Page ${index + 1}`).map((entry) => [entry.markdown, entry.deckPage?.assetId])).toEqual([['# First', undefined], [undefined, 'asset'], ['**Last**', undefined]])
+  })
+
   it('uses the effective language for slide text and title', () => {
     const item = chordItem('de')
 

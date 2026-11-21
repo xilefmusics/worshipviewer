@@ -5,7 +5,7 @@ Applies to the team-owned Media library at `/api/v1/media`.
 ## Resource and lifecycle
 
 - **BLC-MEDIA-001:** Every stored Media has an opaque `id`, one team `owner`, a non-empty `title`, and required tagged `content`. There is no persisted lifecycle status or incomplete upload shell. Slide decks may additionally have a status-free `pending_revision` while being edited.
-- **BLC-MEDIA-002:** Creatable content tags are `image`, `slide_deck`, `video`, `audio`, `youtube`, and `spotify`. JSON create accepts `youtube` and `spotify`; uploaded content is created only by completing an authorized upload session. Legacy stored `livestream` and `web_page` records remain readable but cannot be created or changed through the API.
+- **BLC-MEDIA-002:** Creatable content tags are `image`, `slide_deck`, `video`, `audio`, `youtube`, and `spotify`. JSON create accepts `youtube`, `spotify`, and a slide deck containing one blank Markdown page; uploaded content is created only by completing an authorized upload session. Legacy stored `livestream` and `web_page` records remain readable but cannot be created or changed through the API.
 - **BLC-MEDIA-003:** Deletion is permitted without reference checks, is serialized against replacement/deck mutations, and removes every owned final or staging asset.
 
 ## URL safety and normalization
@@ -30,17 +30,19 @@ Applies to the team-owned Media library at `/api/v1/media`.
 
 - **BLC-MEDIA-020:** Multipart deck creation requires one or more files, expands every source synchronously in form order, and creates no Media if any source fails.
 - **BLC-MEDIA-021:** Synchronous deck additions/replacements return a draft as `pending_revision={revision_id,pages}`. Committed `content` remains playable and unchanged until commit.
-- **BLC-MEDIA-022:** `POST /api/v1/media/{id}/deck/commit` with `{ revision_id, page_ids }` atomically installs the selected non-empty order, rejects stale/unknown/duplicate ids, clears the revision, and deletes unreferenced assets.
+- **BLC-MEDIA-022:** `POST /api/v1/media/{id}/deck/commit` with `{ revision_id, page_ids }` or an ordered mixed-page `pages` list atomically installs the selected non-empty order, rejects stale/unknown/duplicate ids, clears the revision, and deletes unreferenced assets.
 - **BLC-MEDIA-023:** `POST /api/v1/media/{id}/deck/revisions` copies committed pages into a revision for reorder/removal without altering live content.
 - **BLC-MEDIA-024:** Sources are sniffed by bytes (PNG/JPEG/sanitized SVG/PDF). Invalid, encrypted, animated, unsafe, oversized, or over-500-page inputs fail synchronously. PDF pages remain single-page PDFs without stored rasterization.
-- **BLC-MEDIA-025:** Slide-deck pages may carry an optional `section_title` on the first page of a section. The title is preserved through draft revisions, commit, and duplicate, and it does not affect page identity or commit ordering.
+- **BLC-MEDIA-025:** Slide-deck pages contain either an uploaded asset reference or Markdown source (limited to 64 KiB per page), and may carry an optional `section_title` on the first page of a section. The title is preserved through draft revisions, commit, and duplicate, and it does not affect page identity or commit ordering.
+- **BLC-MEDIA-029:** Markdown deck creation starts with one blank slide. Mixed commits accept either a staged uploaded-page id or Markdown text per page, use the existing revision conflict check, and enforce the configured total page limit. Empty Markdown is valid; source is limited to 64 KiB per page. Older `page_ids` commits remain supported for uploaded-only revisions and are rejected for revisions containing Markdown, preventing older clients from discarding text pages.
+- **BLC-MEDIA-030:** Deploy the mixed-deck format only after all serving backend instances understand it; prevent deck editing during any overlap with older instances. Reload existing presenter and output windows after deployment. Once Markdown slides exist, the preceding backend cannot safely read them, so rollback requires a compatible backend or restoration of the prior data.
 
 ## Access and operations
 
 - **BLC-MEDIA-008:** Reads and list results use the caller's membership-derived readable teams. Unreadable or nonexistent ids return the same concealed `404`.
 - **BLC-MEDIA-009:** Create, update, duplicate, move, and delete require library write access (`admin` or `content_maintainer`) to the owning team. Guests/read-only members may read but not mutate; denied mutations use concealed `404` responses.
 - **BLC-MEDIA-010:** A move validates write access to both the current and destination teams before atomically changing `owner` and all owned `media_asset` rows. Moving to the current owner is idempotent.
-- **BLC-MEDIA-011:** Duplicate requires write access to the source and destination. URL duplicates copy normalized content only. Uploaded video/audio/slide-deck duplicates copy final asset bytes to new opaque ids and rewrite asset references, including a video's optional thumbnail; deck revisions and staging are not copied.
+- **BLC-MEDIA-011:** Duplicate requires write access to the source and destination. URL duplicates copy normalized content only. Uploaded video/audio/slide-deck duplicates copy final asset bytes to new opaque ids and rewrite asset references, including a video's optional thumbnail; Markdown slide source is copied directly; deck revisions and staging are not copied.
 - **BLC-MEDIA-012:** List filtering applies readable-team scope first, then optional `team`, `is_background`, and case-insensitive/full-text title search, then pagination. Every filter also applies to `X-Total-Count` and RFC 5988 pagination links. Ordering is stable by title and id (or search score, title, and id for searches).
 - **BLC-MEDIA-026:** Every Media has `is_background`, defaulting to `false`. Image and video content can set it to `true`; create/upload/update requests setting it on other kinds are rejected. The filtered library and AV background selector use the caller's normal Media read scope.
 - **BLC-MEDIA-027:** An upload session with `target.type=create` and `kind=image` stores one PNG, JPEG, or sanitized SVG as image content. Image replacement uses the authenticated Media asset upload/delivery path; duplication copies the asset and preserves its kind and background flag.

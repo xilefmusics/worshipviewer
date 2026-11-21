@@ -189,10 +189,10 @@ function MediaRowPreview({ media }: { media: Media }) {
           className="size-full object-cover"
           onError={() => setFailedImageUrl(imageUrl)}
         />
-      ) : firstDeckPage ? (
+      ) : firstDeckPage?.blob_id ? (
         <DeckPagePreview
           mediaId={media.id}
-          blobId={firstDeckPage.blob_id}
+          blobId={firstDeckPage.blob_id ?? ''}
           label={media.title}
           className="!aspect-auto !h-full !w-full"
         />

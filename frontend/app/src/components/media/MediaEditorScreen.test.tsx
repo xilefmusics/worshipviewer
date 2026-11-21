@@ -44,12 +44,20 @@ vi.mock('@/components/media/DeckPagesEditor', () => ({
   DeckPagesEditor: ({
     pages,
     onAdd,
+    onMarkdownChange,
+    onReplace,
   }: {
-    pages: { id: string }[]
+    pages: { id: string; markdown?: string }[]
+    onMarkdownChange: (id: string, value: string) => void
+    onReplace: (id: string, file: File) => void
     onAdd: (files: File[], insertionIndex: number) => void
   }) => (
     <div>
       <div data-testid="deck-pages">{pages.map((page) => page.id).join(',')}</div>
+      <div data-testid="markdown-values">{pages.map((page) => page.markdown).join(',')}</div>
+      {pages.filter((page) => page.markdown !== undefined).map((page) => <button key={page.id} type="button" onClick={() => onMarkdownChange(page.id, "# Changed")}>edit markdown</button>)}
+      {pages.filter((page) => page.markdown !== undefined).map((page) => <button key={`again-${page.id}`} type="button" onClick={() => onMarkdownChange(page.id, "# Again")}>edit markdown again</button>)}
+      <button type="button" onClick={() => onReplace(pages[1].id, new File(['replacement'], 'replacement.png', { type: 'image/png' }))}>replace second</button>
       <button type="button" onClick={() => onAdd([new File(['new'], 'new.png', { type: 'image/png' })], 1)}>
         add at boundary 1
       </button>
@@ -123,6 +131,40 @@ beforeEach(() => {
 })
 
 describe('MediaEditorScreen slide decks', () => {
+  it('replaces an uploaded page in a mixed deck while preserving Markdown', async () => {
+    const user = userEvent.setup()
+    fetchMedia.mockResolvedValue(deckMedia({ pending_revision: { revision_id: 'rev1', pages: [{ id: 'text', markdown: '# Intro' }, { id: 'old-id', blob_id: 'b1', section_title: 'Images' }] } }))
+    uploadMediaSource.mockResolvedValue(deckMedia({ pending_revision: { revision_id: 'rev1', pages: [{ id: 'text', markdown: '# Intro' }, { id: 'new-id', blob_id: 'new-blob' }] } }))
+    renderEditor()
+    await user.click(await screen.findByRole('button', { name: 'replace second' }))
+    await waitFor(() => expect(commitDeck).toHaveBeenCalledWith(expect.anything(), 'media:deck', { revision_id: 'rev1', pages: [{ markdown: '# Intro', section_title: null }, { page_id: 'new-id', section_title: 'Images' }] }))
+    expect(uploadMediaSource).toHaveBeenCalledWith(expect.objectContaining({ replacePage: 'old-id' }))
+  })
+
+  it('keeps edits made during an in-flight save and saves them afterward', async () => {
+    const user = userEvent.setup()
+    const initial = deckMedia({ pending_revision: { revision_id: 'rev1', pages: [{ id: 'text', markdown: '# Start' }, { id: 'image', blob_id: 'b1' }] } })
+    fetchMedia.mockResolvedValue(initial)
+    let resolveSave!: (value: Media) => void
+    commitDeck.mockImplementationOnce(() => new Promise<Media>((resolve) => { resolveSave = resolve }))
+    renderEditor()
+    await user.click(await screen.findByRole('button', { name: 'edit markdown' }))
+    await waitFor(() => expect(commitDeck).toHaveBeenCalledTimes(1), { timeout: 2000 })
+    await user.click(screen.getByRole('button', { name: 'edit markdown again' }))
+    resolveSave(deckMedia({ pending_revision: undefined, content: { type: 'slide_deck', pages: [{ markdown: '# Changed' }, { blob_id: 'b1' }] } }))
+    await waitFor(() => expect(screen.getByTestId('markdown-values')).toHaveTextContent('# Again'))
+    await waitFor(() => expect(commitDeck).toHaveBeenCalledTimes(2), { timeout: 2000 })
+    expect(commitDeck.mock.calls[1][2].pages[0].markdown).toBe('# Again')
+  })
+
+  it('autosaves Markdown alongside an uploaded page', async () => {
+    const user = userEvent.setup()
+    fetchMedia.mockResolvedValue(deckMedia({ pending_revision: { revision_id: 'rev1', pages: [{ id: 'text', markdown: '# Start' }, { id: 'image', blob_id: 'b1' }] } }))
+    renderEditor()
+    await user.click(await screen.findByRole('button', { name: 'edit markdown' }))
+    await waitFor(() => expect(commitDeck).toHaveBeenCalledWith(expect.anything(), 'media:deck', { revision_id: 'rev1', pages: [{ markdown: '# Changed', section_title: null }, { page_id: 'image', section_title: null }] }), { timeout: 2000 })
+  })
+
   it('M2: previews draft pages once expansion is idle', async () => {
     renderEditor()
     expect(await screen.findByTestId('deck-pages')).toHaveTextContent('p1,p2')

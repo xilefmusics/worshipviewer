@@ -57,7 +57,7 @@ export type AvProjectionTimedContent =
   | { type: 'web_page'; url: string }
 
 export type AvProjectionStaticContent =
-  | { type: 'lyrics'; contentText: string; contentLines?: AvLyricLine[] }
+  | { type: 'lyrics'; contentText: string; contentLines?: AvLyricLine[]; markdown?: string }
   | { type: 'timer'; endsAtMs: number }
   | { type: 'deck_page'; mediaId: string; assetId: string }
   | { type: 'empty' }
@@ -126,7 +126,7 @@ export type AvProjectionMessage = AvProjectionCommand | AvProjectionAck | AvProj
 export function avProjectionContentKey(content: AvProjectionContent): string {
   switch (content.type) {
     case 'lyrics':
-      return `lyrics:${content.contentText}:${JSON.stringify(content.contentLines ?? null)}`
+      return `lyrics:${content.contentText}:${JSON.stringify(content.contentLines ?? null)}:${content.markdown ?? ''}`
     case 'timer':
       return `timer:${content.endsAtMs}`
     case 'deck_page':
@@ -365,6 +365,7 @@ export function isUploadedProjectionContent(
 export function slideViewPropsFromCommand(command: AvProjectionCommand): {
   contentText?: string
   contentLines?: AvLyricLine[]
+  markdown?: string
   deckPage?: { mediaId: string; assetId: string }
   countdownEndsAtMs?: number
 } {
@@ -372,6 +373,7 @@ export function slideViewPropsFromCommand(command: AvProjectionCommand): {
     return {
       contentText: command.content.contentLines?.length ? undefined : command.content.contentText,
       contentLines: command.content.contentLines,
+      markdown: command.content.markdown,
     }
   }
   if (command.content.type === 'deck_page') {

@@ -10,6 +10,7 @@ vi.mock('react-i18next', () => ({
       options?.number != null ? `${key}:${options.number}` : key,
   }),
 }))
+vi.mock('@/components/player/av/AvSlideView', () => ({ AvSlideView: ({ markdown }: { markdown: string }) => <h1>{markdown.replace(/^# /, '')}</h1> }))
 vi.mock('@/components/media/DeckPagePreview', () => ({
   DeckPagePreview: ({ label, className }: { label: string; className?: string }) => (
     <div className={className}>{label}</div>
@@ -17,6 +18,28 @@ vi.mock('@/components/media/DeckPagePreview', () => ({
 }))
 
 describe('DeckPagesEditor', () => {
+  it('uploads slides at the end of the deck', async () => {
+    const user = userEvent.setup()
+    const onAdd = vi.fn()
+    const { container } = render(<DeckPagesEditor mediaId="m" pages={[{ id: 'one', blob_id: '', markdown: '# Welcome' }, { id: 'two', blob_id: 'b2' }]} onAddMarkdown={vi.fn()} onMarkdownChange={vi.fn()} onReorder={vi.fn()} onRemove={vi.fn()} onReplace={vi.fn()} onAdd={onAdd} onSectionTitleChange={vi.fn()} onRemoveSection={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: 'media.deck.uploadSlides' }))
+    const file = new File(['image'], 'slide.png', { type: 'image/png' })
+    await user.upload(container.querySelector<HTMLInputElement>('input[multiple]')!, file)
+    expect(onAdd).toHaveBeenCalledWith([file], 2)
+  })
+
+  it('edits a Markdown page and can add another', async () => {
+    const user = userEvent.setup()
+    const onMarkdownChange = vi.fn()
+    const onAddMarkdown = vi.fn()
+    render(<DeckPagesEditor mediaId="m" pages={[{ id: 'one', blob_id: '', markdown: '# Welcome' }]} onAddMarkdown={onAddMarkdown} onMarkdownChange={onMarkdownChange} onReorder={vi.fn()} onRemove={vi.fn()} onReplace={vi.fn()} onAdd={vi.fn()} onSectionTitleChange={vi.fn()} onRemoveSection={vi.fn()} />)
+    expect(screen.getByRole('heading', { name: 'Welcome' })).toBeInTheDocument()
+    await user.type(screen.getByLabelText('media.deck.markdownSource:1'), '!')
+    expect(onMarkdownChange).toHaveBeenCalledWith('one', '# Welcome!')
+    await user.click(screen.getByRole('button', { name: 'media.deck.addMarkdown' }))
+    expect(onAddMarkdown).toHaveBeenCalledOnce()
+  })
+
   it('M3: makes each page sortable and exposes page actions in its context menu', async () => {
     const user = userEvent.setup()
     const onReorder = vi.fn()
@@ -30,6 +53,8 @@ describe('DeckPagesEditor', () => {
           { id: 'p1', blob_id: 'b1', section_title: 'Section 1' },
           { id: 'p2', blob_id: 'b2' },
         ]}
+        onAddMarkdown={vi.fn()}
+        onMarkdownChange={vi.fn()}
         onReorder={onReorder}
         onRemove={onRemove}
         onReplace={vi.fn()}
@@ -62,6 +87,8 @@ describe('DeckPagesEditor', () => {
       <DeckPagesEditor
         mediaId="media:1"
         pages={[]}
+        onAddMarkdown={vi.fn()}
+        onMarkdownChange={vi.fn()}
         onReorder={vi.fn()}
         onRemove={vi.fn()}
         onReplace={vi.fn()}
@@ -84,6 +111,8 @@ describe('DeckPagesEditor', () => {
           { id: 'p2', blob_id: 'b2' },
           { id: 'p3', blob_id: 'b3' },
         ]}
+        onAddMarkdown={vi.fn()}
+        onMarkdownChange={vi.fn()}
         onReorder={vi.fn()}
         onRemove={vi.fn()}
         onReplace={vi.fn()}
@@ -120,6 +149,8 @@ describe('DeckPagesEditor', () => {
           { id: 'p2', blob_id: 'b2' },
           { id: 'p3', blob_id: 'b3', section_title: 'Section 2' },
         ]}
+        onAddMarkdown={vi.fn()}
+        onMarkdownChange={vi.fn()}
         onReorder={onReorder}
         onRemove={vi.fn()}
         onReplace={vi.fn()}
@@ -152,6 +183,8 @@ describe('DeckPagesEditor', () => {
           { id: 'p3', blob_id: 'b3', section_title: 'Section 2' },
           { id: 'p4', blob_id: 'b4' },
         ]}
+        onAddMarkdown={vi.fn()}
+        onMarkdownChange={vi.fn()}
         onReorder={vi.fn()}
         onRemove={vi.fn()}
         onReplace={vi.fn()}
@@ -183,6 +216,8 @@ describe('DeckPagesEditor', () => {
       <DeckPagesEditor
         mediaId="media:1"
         pages={[{ id: 'p1', blob_id: 'b1', section_title: 'New' }]}
+        onAddMarkdown={vi.fn()}
+        onMarkdownChange={vi.fn()}
         onReorder={vi.fn()}
         onRemove={vi.fn()}
         onReplace={vi.fn()}
@@ -207,6 +242,8 @@ describe('DeckPagesEditor', () => {
           { id: 'p2', blob_id: 'b2' },
           { id: 'p3', blob_id: 'b3', section_title: 'Section 2' },
         ]}
+        onAddMarkdown={vi.fn()}
+        onMarkdownChange={vi.fn()}
         onReorder={vi.fn()}
         onRemove={vi.fn()}
         onReplace={vi.fn()}
