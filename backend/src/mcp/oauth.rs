@@ -27,6 +27,7 @@ const ACCESS_TOKEN_TTL_SECONDS: i64 = 15 * 60;
 const REFRESH_TOKEN_TTL_SECONDS: i64 = 30 * 24 * 60 * 60;
 const AUTHORIZATION_CODE_TTL_SECONDS: i64 = 10 * 60;
 const CIMD_MAX_BYTES: usize = 64 * 1024;
+const CHATGPT_CLIENT_METADATA_URL: &str = "https://chatgpt.com/oauth/client.json";
 
 #[derive(Clone)]
 pub struct McpOauthConfig {
@@ -340,20 +341,9 @@ pub(crate) async fn authorize(
 }
 
 async fn fetch_cimd(client_id: &str) -> Option<ClientMetadataDocument> {
-    if client_id.len() > 2048 {
-        return None;
-    }
-    let url = Url::parse(client_id).ok()?;
-    let host = url.host_str()?.trim_end_matches('.').to_ascii_lowercase();
-    if url.scheme() != "https"
-        || !url.username().is_empty()
-        || url.password().is_some()
-        || url.port().is_some()
-        || !(host == "chatgpt.com"
-            || host.ends_with(".chatgpt.com")
-            || host == "openai.com"
-            || host.ends_with(".openai.com"))
-    {
+    // The issuer advertises RFC 9207 support, so ChatGPT uses its stable
+    // metadata URL. Do not fetch a URL supplied by an OAuth request.
+    if client_id != CHATGPT_CLIENT_METADATA_URL {
         return None;
     }
     let response = reqwest::Client::builder()
@@ -361,7 +351,7 @@ async fn fetch_cimd(client_id: &str) -> Option<ClientMetadataDocument> {
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .ok()?
-        .get(url)
+        .get(CHATGPT_CLIENT_METADATA_URL)
         .header(reqwest::header::ACCEPT, "application/json")
         .send()
         .await
@@ -1196,6 +1186,19 @@ mod tests {
         assert!(McpOauthConfig::new("https://app.example.test/nested".to_owned()).is_err());
         assert!(McpOauthConfig::new("file:///tmp".to_owned()).is_err());
         assert!(McpOauthConfig::new("https://user@app.example.test".to_owned()).is_err());
+    }
+
+    #[actix_web::test]
+    async fn cimd_rejects_untrusted_urls_without_fetching_them() {
+        for client_id in [
+            "http://127.0.0.1/oauth/client.json",
+            "https://chatgpt.com.evil.test/oauth/client.json",
+            "https://evil.test@chatgpt.com/oauth/client.json",
+            "https://chatgpt.com/oauth/client.json?other=1",
+            "https://openai.com/oauth/client.json",
+        ] {
+            assert!(super::fetch_cimd(client_id).await.is_none(), "{client_id}");
+        }
     }
     #[actix_web::test]
     async fn refresh_replay_revokes_tokens_and_grant() {

@@ -13,7 +13,7 @@ The server publishes:
 - Authorization code, token, and revocation endpoints under `/oauth`.
 - Consent and connected-grant endpoints under `/api/v1/mcp/oauth`.
 
-The OAuth server supports public CIMD clients, the authorization-code grant, PKCE with `S256`, resource indicators, the `music:read` scope, and refresh-token rotation. Reuse of a rotated refresh token revokes its grant family. CIMD documents must be hosted over HTTPS by `chatgpt.com` or `openai.com`. Their redirect URI must exactly match the authorization request and use HTTPS. No OpenID Connect identity claims are issued.
+The OAuth server supports ChatGPT's stable CIMD client ID (`https://chatgpt.com/oauth/client.json`), the authorization-code grant, PKCE with `S256`, resource indicators, the `music:read` scope, and refresh-token rotation. Reuse of a rotated refresh token revokes its grant family. The redirect URI must exactly match the metadata document and use HTTPS. Other CIMD clients are not supported. No OpenID Connect identity claims are issued.
 
 Users sign in through Worship Viewer's existing Google OIDC or email OTP login and approve the requested read access on the consent screen. Access tokens last 15 minutes. Rotating refresh tokens have a 30-day absolute lifetime. Connected apps can be disconnected from **Settings → Connections**.
 
