@@ -603,6 +603,7 @@ fn song_item(index: usize, overrides: bool) -> SetlistItem {
             }]
         }),
         background: None,
+        foreground: None,
     })
 }
 
@@ -616,6 +617,7 @@ fn bilingual_song_item(index: usize) -> SetlistItem {
         language: Some(if index.is_multiple_of(2) { "de" } else { "en" }.into()),
         flow: None,
         background: None,
+        foreground: None,
     })
 }
 

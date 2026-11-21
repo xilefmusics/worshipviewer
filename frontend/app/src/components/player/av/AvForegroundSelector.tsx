@@ -3,8 +3,10 @@ import { useTranslation } from 'react-i18next'
 import {
   AV_FONT_FAMILY_CHOICES,
   type AvContentLayer,
+  type AvHorizontalAlign,
   type AvTextAlign,
   type AvTextShadow,
+  type AvTextTransform,
   type AvVerticalAlign,
 } from '@/lib/player/av-preferences'
 import { cn } from '@/lib/utils'
@@ -55,6 +57,12 @@ const VERTICAL_ALIGN_CHOICES: Choice<AvVerticalAlign>[] = [
   },
 ]
 
+const HORIZONTAL_ALIGN_CHOICES: Choice<AvHorizontalAlign>[] = [
+  { value: 'left', label: 'settings.playerRoles.content.alignLeft' },
+  { value: 'center', label: 'settings.playerRoles.content.alignCenter' },
+  { value: 'right', label: 'settings.playerRoles.content.alignRight' },
+]
+
 const TEXT_SHADOW_CHOICES: Choice<AvTextShadow>[] = [
   {
     value: 'none',
@@ -72,6 +80,13 @@ const TEXT_SHADOW_CHOICES: Choice<AvTextShadow>[] = [
     value: 'strong',
     label: 'settings.playerRoles.content.shadowStrong',
   },
+]
+
+const TEXT_TRANSFORM_CHOICES: Choice<AvTextTransform>[] = [
+  { value: 'none', label: 'settings.playerRoles.content.transformNone' },
+  { value: 'uppercase', label: 'settings.playerRoles.content.transformUppercase' },
+  { value: 'lowercase', label: 'settings.playerRoles.content.transformLowercase' },
+  { value: 'capitalize', label: 'settings.playerRoles.content.transformCapitalize' },
 ]
 
 export function AvForegroundSelector({
@@ -117,17 +132,27 @@ export function AvForegroundSelector({
             />
           </label>
           <ToggleFieldCard
+            label={t('settings.playerRoles.content.balanceSlideLines')}
+            checked={contentLayer.balanceSlideLines}
+            onChange={(balanceSlideLines) => onContentLayerChange({ balanceSlideLines })}
+          />
+          <ToggleFieldCard
             label={t('player.av.foregroundShowTranslation')}
             checked={bilingualEnabled}
             onChange={onBilingualChange}
           />
-        </div>
-        <div className="av-foreground-selector__settings">
           <SteppedSlider
             title={t('settings.playerRoles.content.textAlignTitle')}
             choices={TEXT_ALIGN_CHOICES.map((choice) => ({ ...choice, label: t(choice.label) }))}
             value={contentLayer.textAlign}
             onChange={(textAlign) => onContentLayerChange({ textAlign })}
+            orientation="horizontal"
+          />
+          <SteppedSlider
+            title={t('settings.playerRoles.content.horizontalAlignTitle')}
+            choices={HORIZONTAL_ALIGN_CHOICES.map((choice) => ({ ...choice, label: t(choice.label) }))}
+            value={contentLayer.horizontalAlign}
+            onChange={(horizontalAlign) => onContentLayerChange({ horizontalAlign })}
             orientation="horizontal"
           />
           <SteppedSlider
@@ -189,6 +214,12 @@ export function AvForegroundSelector({
             choices={TEXT_SHADOW_CHOICES.map((choice) => ({ ...choice, label: t(choice.label) }))}
             value={contentLayer.textShadow}
             onChange={(textShadow) => onContentLayerChange({ textShadow })}
+          />
+          <SteppedSlider
+            title={t('settings.playerRoles.content.textTransformTitle')}
+            choices={TEXT_TRANSFORM_CHOICES.map((choice) => ({ ...choice, label: t(choice.label) }))}
+            value={contentLayer.textTransform}
+            onChange={(textTransform) => onContentLayerChange({ textTransform })}
           />
         </div>
       </section>

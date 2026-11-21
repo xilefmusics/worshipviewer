@@ -1188,6 +1188,23 @@ export interface components {
             /** @description Build version from `VITE_APP_VERSION` or `APP_VERSION`, falling back to Git description. */
             version: string;
         };
+        /** @enum {string} */
+        AvFontFamily: "rubik" | "arial" | "verdana" | "trebuchet_ms" | "tahoma" | "georgia" | "palatino" | "garamond";
+        /**
+         * @description Geometry mask drawn over an AV background.
+         * @enum {string}
+         */
+        AvGeometryOverlay: "none" | "cross" | "inverted_cross" | "sliced_square" | "sliced_rectangle" | "sliced_rectangle_three" | "circle" | "square" | "rectangle" | "triangle" | "inverted_triangle" | "diamond" | "heart" | "gospel";
+        /** @enum {string} */
+        AvHorizontalAlign: "left" | "center" | "right";
+        /** @enum {string} */
+        AvTextAlign: "left" | "center" | "right";
+        /** @enum {string} */
+        AvTextShadow: "none" | "subtle" | "medium" | "strong";
+        /** @enum {string} */
+        AvTextTransform: "none" | "uppercase" | "lowercase" | "capitalize";
+        /** @enum {string} */
+        AvVerticalAlign: "top" | "geometry_center" | "center" | "bottom";
         /**
          * @example {
          *       "file_type": "image/png",
@@ -1859,8 +1876,18 @@ export interface components {
             scroll_type_cache_other_orientation: components["schemas"]["ScrollType"];
             toc: components["schemas"]["TocItem"][];
         };
-        /** @description Background selected for a setlist song slot or AV player TOC entry. */
+        /** @description Background settings selected for a setlist song slot or AV player TOC entry. */
         PlayerBackground: {
+            geometry_overlay?: components["schemas"]["AvGeometryOverlay"] | null;
+            /** Format: int32 */
+            geometry_overlay_color?: number | null;
+            /** Format: int32 */
+            geometry_overlay_opacity?: number | null;
+            geometry_overlay_rotated_background?: boolean | null;
+            /** Format: int32 */
+            geometry_overlay_size?: number | null;
+            /** Format: int32 */
+            geometry_overlay_thickness?: number | null;
             image?: components["schemas"]["PlayerBackgroundImage"] | null;
             /** Format: int32 */
             preset: number;
@@ -1887,6 +1914,29 @@ export interface components {
             /** @description Language override for this player item; `None` uses the song's default language. */
             language?: string | null;
             song: components["schemas"]["Song"];
+        };
+        /** @description Complete AV text styling snapshot for a setlist song slot. */
+        PlayerContentLayer: {
+            balance_slide_lines: boolean;
+            font_family: components["schemas"]["AvFontFamily"];
+            /** Format: int32 */
+            font_size: number;
+            horizontal_align: components["schemas"]["AvHorizontalAlign"];
+            /** Format: int32 */
+            max_lines_per_slide: number;
+            /** Format: int32 */
+            primary_text_lightness: number;
+            /** Format: int32 */
+            secondary_text_lightness: number;
+            text_align: components["schemas"]["AvTextAlign"];
+            text_shadow: components["schemas"]["AvTextShadow"];
+            text_transform: components["schemas"]["AvTextTransform"];
+            vertical_align: components["schemas"]["AvVerticalAlign"];
+        };
+        /** @description Complete AV foreground snapshot for a setlist song slot. */
+        PlayerForegroundSettings: {
+            bilingual_enabled: boolean;
+            content_layer: components["schemas"]["PlayerContentLayer"];
         };
         PlayerItem: (components["schemas"]["PlayerBlobItem"] & {
             /** @enum {string} */
@@ -2188,6 +2238,7 @@ export interface components {
             capo_shape?: components["schemas"]["SimpleChord"] | null;
             /** @description Custom section order and repeats for this setlist slot. */
             flow?: components["schemas"]["SongFlowItem"][] | null;
+            foreground?: components["schemas"]["PlayerForegroundSettings"] | null;
             /** @description Song record id. */
             id: string;
             key?: components["schemas"]["SimpleChord"] | null;
@@ -2432,6 +2483,7 @@ export interface components {
         };
         TocItem: {
             background?: components["schemas"]["PlayerBackground"] | null;
+            foreground?: components["schemas"]["PlayerForegroundSettings"] | null;
             /** @description Optional stable id when this TOC row links to a concrete song. */
             id?: string | null;
             idx: number;

@@ -69,7 +69,7 @@ describe('runSetlistExport', () => {
     expect(runOrderedSongsZipExport).toHaveBeenCalledWith(
       queryClient,
       'Sunday',
-      [{ id: 'song-1', nr: '1', key: null, tempo: null, language: 'de', flow: null, background: null }],
+      [{ id: 'song-1', nr: '1', key: null, tempo: null, language: 'de', flow: null, background: null, foreground: null }],
       'chordpro',
       'letters',
       undefined,

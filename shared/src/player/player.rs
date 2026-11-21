@@ -293,10 +293,16 @@ impl Add for Player {
         }
         let self_len = self.items.len();
         let last_self_item = self.items.last().expect("non-empty").clone();
-        let same_background = self.toc.last().map(|item| &item.background)
-            == other.toc.first().map(|item| &item.background);
+        let same_background_and_foreground = self
+            .toc
+            .last()
+            .map(|item| (&item.background, &item.foreground))
+            == other
+                .toc
+                .first()
+                .map(|item| (&item.background, &item.foreground));
         let skip_leading_shared_blob = |item: &PlayerItem| {
-            same_background
+            same_background_and_foreground
                 && matches!((&last_self_item, item), (PlayerItem::Blob(a), PlayerItem::Blob(b)) if a == b)
         };
         Self {
@@ -314,6 +320,7 @@ impl Add for Player {
                     nr: item.nr.clone(),
                     liked: item.liked,
                     background: item.background.clone(),
+                    foreground: item.foreground.clone(),
                 }))
                 .collect::<Vec<TocItem>>(),
             items: self
@@ -372,6 +379,7 @@ impl From<SongLinkOwned> for Player {
                     nr: link.nr.clone().unwrap_or_default(),
                     liked: link.liked,
                     background: link.background.clone(),
+                    foreground: link.foreground.clone(),
                 }]
             },
             scroll_type: ScrollType::default(),
@@ -396,6 +404,7 @@ impl From<super::PlayerMediaItem> for Player {
                 nr: String::new(),
                 liked: false,
                 background: None,
+                foreground: None,
             }],
             scroll_type: ScrollType::default(),
             scroll_type_cache_other_orientation: ScrollType::Book,
@@ -434,6 +443,7 @@ mod tests {
             tempo: Some(88),
             flow: None,
             background: None,
+            foreground: None,
             liked: false,
             language: None,
         };
@@ -455,6 +465,7 @@ mod tests {
             tempo: None,
             flow: None,
             background: None,
+            foreground: None,
             language: None,
             liked: false,
         };
@@ -476,6 +487,7 @@ mod tests {
             tempo: None,
             flow: None,
             background: None,
+            foreground: None,
             language: Some("de".into()),
             liked: false,
         };
@@ -500,6 +512,7 @@ mod tests {
             tempo: None,
             flow: None,
             background: None,
+            foreground: None,
             language: Some("de".into()),
             liked: false,
         };
@@ -518,6 +531,7 @@ mod tests {
             tempo: None,
             flow: None,
             background: None,
+            foreground: None,
             language: None,
             liked: false,
         };
@@ -548,6 +562,7 @@ mod tests {
             tempo: None,
             flow: None,
             background: None,
+            foreground: None,
             language: None,
             liked: false,
         };
@@ -585,7 +600,14 @@ mod tests {
                     asset_id: asset_id.into(),
                 }),
                 video: None,
+                geometry_overlay: None,
+                geometry_overlay_rotated_background: None,
+                geometry_overlay_opacity: None,
+                geometry_overlay_color: None,
+                geometry_overlay_size: None,
+                geometry_overlay_thickness: None,
             }),
+            foreground: None,
             language: None,
             liked: false,
         };
@@ -619,6 +641,68 @@ mod tests {
     }
 
     #[test]
+    fn add_keeps_identical_blob_items_separate_when_foregrounds_differ() {
+        use crate::player::{
+            AvFontFamily, AvHorizontalAlign, AvTextAlign, AvTextShadow, AvTextTransform,
+            AvVerticalAlign, PlayerContentLayer, PlayerForegroundSettings,
+        };
+
+        let song = Song {
+            id: "blob-song".into(),
+            blobs: vec![crate::blob::BlobLink {
+                id: "blob-1".into(),
+            }],
+            ..Default::default()
+        };
+        let link = |song: Song, bilingual_enabled| SongLinkOwned {
+            song,
+            nr: None,
+            key: None,
+            capo_shape: None,
+            tempo: None,
+            language: None,
+            flow: None,
+            background: None,
+            foreground: Some(PlayerForegroundSettings {
+                content_layer: PlayerContentLayer {
+                    max_lines_per_slide: 2,
+                    balance_slide_lines: true,
+                    font_size: 60,
+                    font_family: AvFontFamily::Rubik,
+                    text_align: AvTextAlign::Center,
+                    vertical_align: AvVerticalAlign::GeometryCenter,
+                    horizontal_align: AvHorizontalAlign::Center,
+                    text_shadow: AvTextShadow::None,
+                    text_transform: AvTextTransform::Uppercase,
+                    primary_text_lightness: 100,
+                    secondary_text_lightness: 65,
+                },
+                bilingual_enabled,
+            }),
+            liked: false,
+        };
+        let player = Player::from(link(song.clone(), true)) + Player::from(link(song, false));
+
+        assert_eq!(player.items.len(), 2);
+        assert_eq!(player.toc[0].idx, 0);
+        assert_eq!(player.toc[1].idx, 1);
+        assert_eq!(
+            player.toc[0]
+                .foreground
+                .as_ref()
+                .map(|settings| settings.bilingual_enabled),
+            Some(true)
+        );
+        assert_eq!(
+            player.toc[1]
+                .foreground
+                .as_ref()
+                .map(|settings| settings.bilingual_enabled),
+            Some(false)
+        );
+    }
+
+    #[test]
     fn media_item_is_one_player_slot_with_resource_id() {
         let media = crate::player::PlayerMediaItem {
             id: "media-1".into(),
@@ -648,6 +732,7 @@ mod tests {
             tempo: None,
             flow: None,
             background: None,
+            foreground: None,
             language: None,
             liked: false,
         });

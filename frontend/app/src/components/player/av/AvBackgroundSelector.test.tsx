@@ -126,7 +126,10 @@ describe('AvBackgroundSelector', () => {
     const user = userEvent.setup()
     const onContentLayerChange = vi.fn()
     const onBilingualChange = vi.fn()
+    const onSelectForegroundInherited = vi.fn()
     renderSelector({
+      selectedForegroundInherited: true,
+      onSelectForegroundInherited,
       foregroundSettings: {
         contentLayer: {
           ...DEFAULT_AV_PREFERENCES.contentLayer,
@@ -169,11 +172,22 @@ describe('AvBackgroundSelector', () => {
     })
     expect(textAlign).toHaveValue('0')
     expect(textAlign).toHaveAttribute('aria-valuetext', 'settings.playerRoles.content.alignLeft')
+    expect(screen.getByRole('button', { name: 'player.av.usePlayerForegroundSettings' }))
+      .toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('checkbox', { name: 'player.av.foregroundShowTranslation' })).toBeChecked()
-    expect(screen.queryByRole('checkbox', { name: /settings\.playerRoles\.content\.balanceSlideLines/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /settings\.playerRoles\.content\.balanceSlideLines/ })).not.toBeChecked()
     expect(screen.queryByRole('checkbox', { name: /settings\.lyricWhitespace\.collapse/ })).not.toBeInTheDocument()
     expect(screen.queryByText('settings.playerRoles.content.balanceSlideLinesDescription')).not.toBeInTheDocument()
     expect(screen.queryByText('settings.playerRoles.content.primaryTextColorDescription')).not.toBeInTheDocument()
+
+    const horizontalAlign = screen.getByRole('slider', {
+      name: 'settings.playerRoles.content.horizontalAlignTitle',
+    })
+    expect(horizontalAlign).toHaveValue('1')
+    const textTransform = screen.getByRole('slider', {
+      name: 'settings.playerRoles.content.textTransformTitle',
+    })
+    expect(textTransform).toHaveValue('1')
 
     fireEvent.change(linesPerSlide, { target: { value: '5' } })
     expect(onContentLayerChange).toHaveBeenCalledWith({ maxLinesPerSlide: 5 })
@@ -181,8 +195,16 @@ describe('AvBackgroundSelector', () => {
     expect(onContentLayerChange).toHaveBeenCalledWith({ fontSize: 80 })
     fireEvent.change(textAlign, { target: { value: '1' } })
     expect(onContentLayerChange).toHaveBeenCalledWith({ textAlign: 'center' })
+    fireEvent.change(horizontalAlign, { target: { value: '2' } })
+    expect(onContentLayerChange).toHaveBeenCalledWith({ horizontalAlign: 'right' })
+    fireEvent.change(textTransform, { target: { value: '2' } })
+    expect(onContentLayerChange).toHaveBeenCalledWith({ textTransform: 'lowercase' })
+    await user.click(screen.getByRole('checkbox', { name: /settings\.playerRoles\.content\.balanceSlideLines/ }))
+    expect(onContentLayerChange).toHaveBeenCalledWith({ balanceSlideLines: true })
     await user.click(screen.getByRole('checkbox', { name: 'player.av.foregroundShowTranslation' }))
     expect(onBilingualChange).toHaveBeenCalledWith(false)
+    await user.click(screen.getByRole('button', { name: 'player.av.usePlayerForegroundSettings' }))
+    expect(onSelectForegroundInherited).toHaveBeenCalledOnce()
 
     await user.click(backgroundToggle)
     expect(backgroundToggle).toHaveAttribute('aria-expanded', 'true')

@@ -6,6 +6,7 @@ All notable changes to Worship Viewer are documented here. The format follows [K
 
 ### Added
 
+- Setlist songs can save AV foreground and geometry settings alongside background overrides, with previews and explicit Save and Cancel controls. Room snapshots retain these settings.
 - Native Tauri desktop apps for macOS, Windows, and Linux, with system-browser Google sign-in and release installers.
 - A version-aware Install page with persistent server-cached installers, PWA installation, and links to older releases and other platforms.
 - AV section shortcuts now jump to repeated or numbered occurrences with Shift and Alt variants.

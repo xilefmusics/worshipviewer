@@ -88,7 +88,11 @@ mod tests {
 
     #[test]
     fn captured_room_strips_user_likes() {
-        use crate::player::{PlayerBackground, PlayerBackgroundImage};
+        use crate::player::{
+            AvFontFamily, AvGeometryOverlay, AvHorizontalAlign, AvTextAlign, AvTextShadow,
+            AvTextTransform, AvVerticalAlign, PlayerBackground, PlayerBackgroundImage,
+            PlayerContentLayer, PlayerForegroundSettings,
+        };
         let mut song = Song {
             id: "song-1".into(),
             user_specific_addons: SongUserSpecificAddons { liked: true },
@@ -115,12 +119,35 @@ mod tests {
                         asset_id: "asset-bg".into(),
                     }),
                     video: None,
+                    geometry_overlay: Some(AvGeometryOverlay::Cross),
+                    geometry_overlay_rotated_background: Some(false),
+                    geometry_overlay_opacity: Some(74),
+                    geometry_overlay_color: Some(68),
+                    geometry_overlay_size: Some(77),
+                    geometry_overlay_thickness: Some(77),
+                }),
+                foreground: Some(PlayerForegroundSettings {
+                    content_layer: PlayerContentLayer {
+                        max_lines_per_slide: 2,
+                        balance_slide_lines: true,
+                        font_size: 60,
+                        font_family: AvFontFamily::Rubik,
+                        text_align: AvTextAlign::Center,
+                        vertical_align: AvVerticalAlign::GeometryCenter,
+                        horizontal_align: AvHorizontalAlign::Center,
+                        text_shadow: AvTextShadow::None,
+                        text_transform: AvTextTransform::Uppercase,
+                        primary_text_lightness: 100,
+                        secondary_text_lightness: 65,
+                    },
+                    bilingual_enabled: true,
                 }),
             }],
         );
         let content = RoomContent::from(&player);
         assert!(!content.toc[0].liked);
         assert_eq!(content.toc[0].background, player.toc()[0].background);
+        assert_eq!(content.toc[0].foreground, player.toc()[0].foreground);
         assert!(!content.items[0].song.user_specific_addons.liked);
     }
 
@@ -153,6 +180,7 @@ mod tests {
             language: None,
             flow: None,
             background: None,
+            foreground: None,
             liked: false,
         }) + Player::from(crate::song::LinkOwned {
             song: chord_song,
@@ -163,6 +191,7 @@ mod tests {
             language: None,
             flow: None,
             background: None,
+            foreground: None,
             liked: true,
         }) + Player::from(PlayerMediaItem {
             id: "media-1".into(),

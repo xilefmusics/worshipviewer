@@ -8,7 +8,7 @@ use surrealdb::types::{Kind, RecordId, SurrealValue, Value, kind};
 
 use crate::resources::media::MediaRecord;
 use crate::resources::surreal_json::JsonObject;
-use shared::player::{Player, PlayerBackground};
+use shared::player::{Player, PlayerBackground, PlayerForegroundSettings};
 use shared::setlist::{SetlistItem, SetlistMediaLink, SongLink as SetlistSongLink};
 use shared::song::{Link as SongLink, LinkOwned as SongLinkOwned};
 
@@ -147,6 +147,7 @@ pub fn player_from_song_links(
                 language: link.language,
                 flow: link.flow,
                 background: link.background,
+                foreground: link.foreground,
             })
         })
         .try_fold(Player::default(), |acc, player| {
@@ -260,6 +261,7 @@ fn song_link_records_to_owned(
             language: link.language,
             flow: None,
             background: None,
+            foreground: None,
             liked: false,
         });
     }
@@ -296,6 +298,7 @@ fn setlist_song_link_records_to_owned(
                 .flow
                 .and_then(|flow| serde_json::from_value(serde_json::Value::Array(flow)).ok()),
             background: link.background.map(|background| background.0),
+            foreground: link.foreground.map(|foreground| foreground.0),
             liked: false,
         });
     }
@@ -340,6 +343,8 @@ pub struct SetlistSongLinkRecord {
     flow: Option<Vec<serde_json::Value>>,
     #[serde(default)]
     background: Option<JsonObject<PlayerBackground>>,
+    #[serde(default)]
+    foreground: Option<JsonObject<PlayerForegroundSettings>>,
 }
 
 impl From<SongLinkRecord> for SongLink {
@@ -385,6 +390,8 @@ pub struct SetlistItemRecord {
     pub flow: Option<Vec<serde_json::Value>>,
     #[serde(default)]
     pub(crate) background: Option<JsonObject<PlayerBackground>>,
+    #[serde(default)]
+    pub(crate) foreground: Option<JsonObject<PlayerForegroundSettings>>,
 }
 
 impl SetlistItemRecord {
@@ -401,6 +408,7 @@ impl SetlistItemRecord {
             language: self.language.clone(),
             flow: self.flow.clone(),
             background: self.background.clone(),
+            foreground: self.foreground.clone(),
         })
     }
 }
@@ -422,6 +430,7 @@ impl From<SetlistItem> for SetlistItemRecord {
                         .collect()
                 }),
                 background: link.background.map(|background| JsonObject(*background)),
+                foreground: link.foreground.map(|foreground| JsonObject(*foreground)),
             },
             SetlistItem::Media(link) => Self {
                 kind: "media".into(),
@@ -433,6 +442,7 @@ impl From<SetlistItem> for SetlistItemRecord {
                 language: None,
                 flow: None,
                 background: None,
+                foreground: None,
             },
         }
     }
@@ -456,6 +466,7 @@ impl From<SetlistItemRecord> for SetlistItem {
                 .flow
                 .and_then(|flow| serde_json::from_value(serde_json::Value::Array(flow)).ok()),
             background: record.background.map(|background| Box::new(background.0)),
+            foreground: record.foreground.map(|foreground| Box::new(foreground.0)),
         })
     }
 }
@@ -475,6 +486,7 @@ impl From<SetlistSongLink> for SetlistSongLinkRecord {
                     .collect()
             }),
             background: link.background.map(|background| JsonObject(*background)),
+            foreground: link.foreground.map(|foreground| JsonObject(*foreground)),
         }
     }
 }
@@ -492,6 +504,7 @@ impl From<SetlistSongLinkRecord> for SetlistSongLink {
                 .flow
                 .and_then(|flow| serde_json::from_value(serde_json::Value::Array(flow)).ok()),
             background: record.background.map(|background| Box::new(background.0)),
+            foreground: record.foreground.map(|foreground| Box::new(foreground.0)),
         }
     }
 }
@@ -584,6 +597,7 @@ mod tests {
                 language: None,
                 flow: None,
                 background: None,
+                foreground: None,
                 liked: false,
             },
             SongLinkOwned {
@@ -595,6 +609,7 @@ mod tests {
                 language: None,
                 flow: None,
                 background: None,
+                foreground: None,
                 liked: false,
             },
         ];

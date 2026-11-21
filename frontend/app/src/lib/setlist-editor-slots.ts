@@ -40,6 +40,9 @@ export function makeSlotRow(link: EditorSongLink): SongSlotRow {
   if (link.background !== undefined) {
     row.background = link.background
   }
+  if (link.foreground !== undefined) {
+    row.foreground = link.foreground
+  }
   return {
     slotId: newSlotId(),
     type: 'song',

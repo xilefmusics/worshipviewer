@@ -1,11 +1,12 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { fetchMediaPage, mediaListKey, type Media } from '@/api/media'
 import { AvGeometryOverlayShape } from '@/components/player/av/AvGeometryOverlayShape'
 import { AvForegroundSelector, type AvForegroundSelectorSettings } from '@/components/player/av/AvForegroundSelector'
 import { AvSlideView } from '@/components/player/av/AvSlideView'
+import type { AvLyricLine } from '@/lib/player/av-lyric-slides'
 import {
   AV_BACKGROUND_PRESETS,
   type AvBackgroundAsset,
@@ -47,11 +48,15 @@ const GEOMETRY_OVERLAY_LABEL_OVERRIDES: Partial<Record<Exclude<AvGeometryOverlay
 type AvBackgroundSelectorProps = {
   backgroundLayer: AvBackgroundLayer
   previewText: string
+  previewLines?: AvLyricLine[]
   contentLayer: AvContentLayer
   foregroundSettings?: AvForegroundSelectorSettings
+  layout?: 'panel' | 'drawer'
   initiallyExpanded?: boolean
   selectedInherited?: boolean
   onSelectInherited?: () => void
+  selectedForegroundInherited?: boolean
+  onSelectForegroundInherited?: () => void
   onSelectPreset: (preset: AvBackgroundPreset) => void
   onSelectBackgroundAsset?: (asset: AvBackgroundAsset) => void
   geometryOverlay?: AvGeometryOverlay
@@ -93,11 +98,15 @@ function geometryOverlayLabel(overlay: Exclude<AvGeometryOverlay, 'none'>): stri
 export function AvBackgroundSelector({
   backgroundLayer,
   previewText,
+  previewLines,
   contentLayer,
   foregroundSettings,
+  layout = 'panel',
   initiallyExpanded = false,
   selectedInherited = false,
   onSelectInherited,
+  selectedForegroundInherited = false,
+  onSelectForegroundInherited,
   onSelectPreset,
   onSelectBackgroundAsset,
   onSelectBackgroundImage,
@@ -116,6 +125,8 @@ export function AvBackgroundSelector({
 }: AvBackgroundSelectorProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const panelId = useId()
+  const drawerTabs = layout === 'drawer'
   const [openPanel, setOpenPanel] = useState<'background' | 'foreground' | null>(
     initiallyExpanded ? 'background' : null,
   )
@@ -159,106 +170,216 @@ export function AvBackgroundSelector({
     Boolean(backgroundLayer.image || backgroundLayer.video) || backgroundLayer.preset === 2
   )
   return (
-    <div className="av-background-selector-panel">
+    <div className={cn(
+      'av-background-selector-panel',
+      drawerTabs && 'av-background-selector-panel--drawer',
+    )}>
       <div
         className={cn(
           'av-background-selector-panel__tabs',
+          drawerTabs && 'av-background-selector-panel__tabs--drawer',
           !foregroundSettings && 'av-background-selector-panel__tabs--single',
         )}
-        role="group"
+        role={drawerTabs ? 'tablist' : 'group'}
         aria-label={t('player.av.layerSelectorAria')}
       >
         <button
           type="button"
+          role={drawerTabs ? 'tab' : undefined}
           className={cn(
             'av-background-selector-panel__toggle',
             backgroundExpanded && 'av-background-selector-panel__toggle--selected',
           )}
-          aria-expanded={backgroundExpanded}
-          aria-controls="av-background-selector-options"
-          aria-label={backgroundExpanded ? t('player.av.backgroundCollapse') : t('player.av.backgroundExpand')}
-          onClick={() => setOpenPanel((open) => open === 'background' ? null : 'background')}
+          aria-expanded={drawerTabs ? undefined : backgroundExpanded}
+          aria-selected={drawerTabs ? backgroundExpanded : undefined}
+          aria-controls={`${panelId}-options`}
+          id={`${panelId}-background-tab`}
+          aria-label={drawerTabs
+            ? t('player.av.backgroundTitle')
+            : backgroundExpanded ? t('player.av.backgroundCollapse') : t('player.av.backgroundExpand')}
+          onClick={() => setOpenPanel((open) => drawerTabs ? 'background' : open === 'background' ? null : 'background')}
         >
           <span className="av-background-selector-panel__toggle-label">
             {t('player.av.backgroundTitle')}
           </span>
-          <span className="av-background-selector-panel__toggle-value">
-            {selectedLabel}
-            {selectedOverlayLabel ? ` · ${selectedOverlayLabel}` : ''}
-          </span>
-          <span
-            className={cn(
-              'av-background-selector-panel__chevron',
-              backgroundExpanded && 'av-background-selector-panel__chevron--expanded',
-            )}
-            aria-hidden
-          />
+          {!drawerTabs ? (
+            <>
+              <span className="av-background-selector-panel__toggle-value">
+                {selectedLabel}
+                {selectedOverlayLabel ? ` · ${selectedOverlayLabel}` : ''}
+              </span>
+              <span
+                className={cn(
+                  'av-background-selector-panel__chevron',
+                  backgroundExpanded && 'av-background-selector-panel__chevron--expanded',
+                )}
+                aria-hidden
+              />
+            </>
+          ) : null}
         </button>
         {foregroundSettings ? (
           <button
             type="button"
+            role={drawerTabs ? 'tab' : undefined}
             className={cn(
               'av-background-selector-panel__toggle',
               'av-background-selector-panel__toggle--foreground',
               foregroundExpanded && 'av-background-selector-panel__toggle--selected',
             )}
-            aria-expanded={foregroundExpanded}
-            aria-controls="av-background-selector-options"
-            aria-label={foregroundExpanded ? t('player.av.foregroundCollapse') : t('player.av.foregroundExpand')}
-            onClick={() => setOpenPanel((open) => open === 'foreground' ? null : 'foreground')}
+            aria-expanded={drawerTabs ? undefined : foregroundExpanded}
+            aria-selected={drawerTabs ? foregroundExpanded : undefined}
+            aria-controls={`${panelId}-options`}
+            id={`${panelId}-foreground-tab`}
+            aria-label={drawerTabs
+              ? t('player.av.foregroundTitle')
+              : foregroundExpanded ? t('player.av.foregroundCollapse') : t('player.av.foregroundExpand')}
+            onClick={() => setOpenPanel((open) => drawerTabs ? 'foreground' : open === 'foreground' ? null : 'foreground')}
           >
             <span className="av-background-selector-panel__toggle-label">
               {t('player.av.foregroundTitle')}
             </span>
-            <span
-              className={cn(
-                'av-background-selector-panel__chevron',
-                foregroundExpanded && 'av-background-selector-panel__chevron--expanded',
-              )}
-              aria-hidden
-            />
+            {!drawerTabs ? (
+              <span
+                className={cn(
+                  'av-background-selector-panel__chevron',
+                  foregroundExpanded && 'av-background-selector-panel__chevron--expanded',
+                )}
+                aria-hidden
+              />
+            ) : null}
           </button>
         ) : null}
       </div>
 
+      {drawerTabs ? (
+        <section
+          className="av-background-selector-panel__drawer-preview"
+          aria-label={t('player.av.settingsPreview')}
+        >
+          <div className="av-background-selector-panel__drawer-preview-layout">
+            <div className="av-background-selector-panel__drawer-preview-main">
+              <h2>{t('player.av.settingsPreview')}</h2>
+              <div className="av-background-selector-panel__drawer-preview-slide">
+                <AvSlideView
+                  contentText={previewLines ? undefined : previewText || t('player.untitled')}
+                  contentLines={previewLines}
+                  contentLayer={foregroundSettings?.contentLayer ?? contentLayer}
+                  backgroundLayer={backgroundLayer}
+                  geometryOverlay={geometryOverlay}
+                  geometryOverlayOpacity={geometryOverlayOpacity}
+                  geometryOverlayColor={geometryOverlayColor}
+                  geometryOverlaySize={geometryOverlaySize}
+                  geometryOverlayThickness={geometryOverlayThickness}
+                  geometryOverlayRotatedBackground={geometryOverlayRotatedBackground}
+                  transition={NO_TRANSITION}
+                  screenState="live"
+                  preview
+                />
+              </div>
+            </div>
+            {backgroundExpanded && onSelectInherited ? (
+              <div className="av-settings-inherit-wrap av-background-selector-panel__drawer-preview-inherit">
+                <button
+                  id={`${panelId}-background-inherit`}
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedInherited}
+                  aria-label={t('player.av.usePlayerBackground')}
+                  className={cn(
+                    'av-settings-inherit',
+                    selectedInherited && 'av-settings-inherit--selected',
+                  )}
+                  onClick={onSelectInherited}
+                >
+                  {t('player.av.usePlayerBackground')}
+                </button>
+              </div>
+            ) : foregroundExpanded && foregroundSettings && onSelectForegroundInherited ? (
+              <div className="av-settings-inherit-wrap av-background-selector-panel__drawer-preview-inherit">
+                <button
+                  type="button"
+                  className={cn(
+                    'av-settings-inherit',
+                    selectedForegroundInherited && 'av-settings-inherit--selected',
+                  )}
+                  aria-pressed={selectedForegroundInherited}
+                  onClick={onSelectForegroundInherited}
+                >
+                  {t('player.av.usePlayerForegroundSettings')}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
       <div
-        id="av-background-selector-options"
+        id={`${panelId}-options`}
         className={cn(
           'av-background-selector-panel__body',
+          drawerTabs && 'av-background-selector-panel__body--drawer',
           panelExpanded && 'av-background-selector-panel__body--expanded',
         )}
-        role="region"
+        role={drawerTabs ? 'tabpanel' : 'region'}
+        aria-labelledby={drawerTabs
+          ? `${panelId}-${foregroundExpanded ? 'foreground' : 'background'}-tab`
+          : undefined}
         aria-label={t(foregroundExpanded ? 'player.av.foregroundTitle' : 'player.av.backgroundTitle')}
       >
         <div className="av-background-selector-panel__body-inner">
           {foregroundExpanded && foregroundSettings ? (
-            <AvForegroundSelector {...foregroundSettings} />
+            <>
+              {onSelectForegroundInherited && !drawerTabs ? (
+                <div className="av-settings-inherit-wrap">
+                  <button
+                    type="button"
+                    className={cn(
+                      'av-settings-inherit',
+                      selectedForegroundInherited && 'av-settings-inherit--selected',
+                    )}
+                    aria-pressed={selectedForegroundInherited}
+                    onClick={onSelectForegroundInherited}
+                  >
+                    {t('player.av.usePlayerForegroundSettings')}
+                  </button>
+                </div>
+              ) : null}
+              <AvForegroundSelector {...foregroundSettings} />
+            </>
           ) : null}
           <div hidden={!backgroundExpanded}>
           <div
-            className="av-background-selector"
+            className={cn(
+              'av-background-selector-panel__background-options',
+              drawerTabs && 'av-background-selector-panel__background-options--drawer',
+            )}
             role="radiogroup"
+            aria-owns={drawerTabs && onSelectInherited ? `${panelId}-background-inherit` : undefined}
             aria-label={t('player.av.backgroundAria')}
           >
+          <div className="av-background-selector">
             {onSelectInherited ? (
-              <button
-                type="button"
-                role="radio"
-                aria-checked={selectedInherited}
-                aria-label={t('player.av.usePlayerBackground')}
-                className={cn(
-                  'av-background-selector__option',
-                  selectedInherited && 'av-background-selector__option--selected',
-                )}
-                onClick={onSelectInherited}
-              >
-                <div className="av-background-selector__preview grid place-items-center px-2 text-xs text-[var(--color-muted-foreground)]">
-                  {t('player.av.usePlayerBackground')}
-                </div>
-                <span className="av-background-selector__label">
-                  {t('player.av.usePlayerBackground')}
-                </span>
-              </button>
+              !drawerTabs ? (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedInherited}
+                  aria-label={t('player.av.usePlayerBackground')}
+                  className={cn(
+                    'av-background-selector__option',
+                    selectedInherited && 'av-background-selector__option--selected',
+                  )}
+                  onClick={onSelectInherited}
+                >
+                  <div className="av-background-selector__preview grid place-items-center px-2 text-xs text-[var(--color-muted-foreground)]">
+                    {t('player.av.usePlayerBackground')}
+                  </div>
+                  <span className="av-background-selector__label">
+                    {t('player.av.usePlayerBackground')}
+                  </span>
+                </button>
+              ) : null
             ) : null}
             {AV_BACKGROUND_PRESETS.map((optionPreset) => {
               const selected =
@@ -354,6 +475,7 @@ export function AvBackgroundSelector({
                 </button>,
               ]
             })}
+          </div>
           </div>
           {onSelectGeometryOverlay ? (
             <div className="av-geometry-selector-panel">
@@ -562,11 +684,6 @@ export function AvBackgroundSelector({
                 {t('hub.error.retry')}
               </button>
             </div>
-          ) : null}
-          {!query.isPending && !query.isError && backgrounds.length === 0 ? (
-            <p className="py-3 text-center text-sm text-[var(--color-muted-foreground)]">
-              {t('player.av.backgroundsEmpty')}
-            </p>
           ) : null}
           {query.hasNextPage ? (
             <button

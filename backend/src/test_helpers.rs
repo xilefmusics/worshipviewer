@@ -368,6 +368,7 @@ pub fn setlist_with_songs(title: &str, song_ids: &[(&str, Option<&str>)]) -> Cre
                     language: None,
                     flow: None,
                     background: None,
+                    foreground: None,
                 })
             })
             .collect(),

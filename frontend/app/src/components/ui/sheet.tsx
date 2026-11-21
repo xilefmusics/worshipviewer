@@ -8,7 +8,7 @@ const SheetTrigger = DialogPrimitive.Trigger
 const SheetClose = DialogPrimitive.Close
 
 type SheetContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
-  side?: 'left' | 'right'
+  side?: 'left' | 'right' | 'bottom'
 }
 
 const SheetContent = React.forwardRef<
@@ -20,11 +20,16 @@ const SheetContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed inset-y-0 z-50 flex w-[min(19rem,85vw)] flex-col bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-[var(--shadow-elevated)]',
+        'fixed z-50 flex flex-col bg-[var(--color-surface)] text-[var(--color-foreground)] shadow-[var(--shadow-elevated)]',
         'data-[state=closed]:animate-out data-[state=open]:animate-in',
-        side === 'right'
-          ? 'right-0 border-l border-[var(--color-border)] data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right'
-          : 'left-0 border-r border-[var(--color-border)] data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left',
+        side === 'bottom'
+          ? 'bottom-0 left-1/2 max-h-[90dvh] w-full max-w-5xl -translate-x-1/2 rounded-t-2xl border border-b-0 border-[var(--color-border)] pb-[env(safe-area-inset-bottom)] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom'
+          : cn(
+              'inset-y-0 w-[min(19rem,85vw)]',
+              side === 'right'
+                ? 'right-0 border-l border-[var(--color-border)] data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right'
+                : 'left-0 border-r border-[var(--color-border)] data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left',
+            ),
         className,
       )}
       {...props}

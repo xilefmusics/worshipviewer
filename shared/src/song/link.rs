@@ -1,5 +1,5 @@
 use super::Song;
-use crate::player::PlayerBackground;
+use crate::player::{PlayerBackground, PlayerForegroundSettings};
 use chordlib::types::SimpleChord;
 use chordlib::types::SongFlowItem;
 use serde::{Deserialize, Serialize};
@@ -35,5 +35,6 @@ pub struct LinkOwned {
     pub language: Option<String>,
     pub flow: Option<Vec<SongFlowItem>>,
     pub background: Option<PlayerBackground>,
+    pub foreground: Option<PlayerForegroundSettings>,
     pub liked: bool,
 }
