@@ -42,8 +42,8 @@ const VERTICAL_ALIGN_CHOICES: Choice<AvVerticalAlign>[] = [
     label: 'settings.playerRoles.content.verticalTop',
   },
   {
-    value: 'cross_center',
-    label: 'settings.playerRoles.content.verticalCrossCenter',
+    value: 'geometry_center',
+    label: 'settings.playerRoles.content.verticalGeometryCenter',
   },
   {
     value: 'center',

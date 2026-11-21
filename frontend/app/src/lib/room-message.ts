@@ -111,7 +111,7 @@ function validRoomAvConfiguration(configuration: RoomAvConfiguration, songCount:
     (content.font_family == null ||
       ['rubik', 'arial', 'verdana', 'trebuchet_ms', 'tahoma', 'georgia', 'palatino', 'garamond'].includes(content.font_family)) &&
     ['left', 'center', 'right'].includes(content.text_align) &&
-    ['top', 'cross_center', 'center', 'bottom'].includes(content.vertical_align) &&
+    ['top', 'geometry_center', 'cross_center', 'center', 'bottom'].includes(content.vertical_align as string) &&
     ['left', 'center', 'right'].includes(content.horizontal_align) &&
     ['none', 'subtle', 'medium', 'strong'].includes(content.text_shadow) &&
     ['none', 'uppercase', 'lowercase', 'capitalize'].includes(content.text_transform) &&

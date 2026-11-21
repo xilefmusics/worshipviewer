@@ -3,7 +3,7 @@ import { getLocalStorage, safeGetItem, safeSetItem } from '@/lib/browser-storage
 import type { PlayerMode } from '@/lib/player/player-mode'
 
 export type AvTextAlign = 'left' | 'center' | 'right'
-export type AvVerticalAlign = 'top' | 'cross_center' | 'center' | 'bottom'
+export type AvVerticalAlign = 'top' | 'geometry_center' | 'center' | 'bottom'
 export type AvHorizontalAlign = 'left' | 'center' | 'right'
 export type AvTextShadow = 'none' | 'subtle' | 'medium' | 'strong'
 export type AvTextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize'
@@ -113,7 +113,7 @@ export const DEFAULT_AV_PREFERENCES: AvPreferences = {
     fontSize: 60,
     fontFamily: 'rubik',
     textAlign: 'center',
-    verticalAlign: 'center',
+    verticalAlign: 'geometry_center',
     horizontalAlign: 'center',
     textShadow: 'none',
     textTransform: 'uppercase',
@@ -171,6 +171,7 @@ export function normalizeAvBackgroundPreset(value: unknown): AvBackgroundPreset 
 
 function mergeContentLayer(raw: Partial<AvContentLayer> | undefined): AvContentLayer {
   const defaults = DEFAULT_AV_PREFERENCES.contentLayer
+  const rawVerticalAlign = raw?.verticalAlign as string | undefined
   return {
     maxLinesPerSlide: clampNumber(raw?.maxLinesPerSlide, defaults.maxLinesPerSlide, 1, 10),
     balanceSlideLines: raw?.balanceSlideLines ?? defaults.balanceSlideLines,
@@ -182,8 +183,8 @@ function mergeContentLayer(raw: Partial<AvContentLayer> | undefined): AvContentL
     ),
     textAlign: parseEnum(raw?.textAlign, ['left', 'center', 'right'], defaults.textAlign),
     verticalAlign: parseEnum(
-      raw?.verticalAlign,
-      ['top', 'cross_center', 'center', 'bottom'],
+      rawVerticalAlign === 'cross_center' ? 'geometry_center' : rawVerticalAlign,
+      ['top', 'geometry_center', 'center', 'bottom'],
       defaults.verticalAlign,
     ),
     horizontalAlign: parseEnum(
