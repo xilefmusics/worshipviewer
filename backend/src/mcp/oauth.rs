@@ -92,6 +92,10 @@ pub fn configure(
         .service(protected_resource_mcp)
         .service(
             web::scope("/oauth")
+                // The consent UI is a frontend route, not an OAuth API endpoint.
+                .guard(actix_web::guard::fn_guard(|ctx| {
+                    ctx.head().uri.path() != "/oauth/consent"
+                }))
                 .wrap(crate::governor_audit::AuditRateLimit429)
                 .wrap(actix_governor::Governor::new(&auth_governor))
                 .service(authorize)

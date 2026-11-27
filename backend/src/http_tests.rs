@@ -4834,6 +4834,40 @@ mod spa_fallback_guard {
     use crate::frontend;
 
     #[actix_web::test]
+    async fn oauth_consent_serves_spa_without_shadowing_oauth_endpoints() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("index.html"), "<html>spa</html>").unwrap();
+        let static_path = dir.path().to_string_lossy().into_owned();
+        let app = test::init_service(
+            App::new()
+                .configure(|cfg| crate::mcp::configure_oauth(cfg, 1000, 1000, 1000, 1000))
+                .service(frontend::rest::scope(&static_path)),
+        )
+        .await;
+
+        let req = test::TestRequest::get()
+            .uri("/oauth/consent?request_id=example")
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert!(String::from_utf8_lossy(&test::read_body(resp).await).contains("<html>spa</html>"));
+
+        let req = test::TestRequest::get()
+            .uri("/oauth/authorize")
+            .peer_addr("127.0.0.1:12345".parse().unwrap())
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+
+        let req = test::TestRequest::get()
+            .uri("/oauth/unknown")
+            .peer_addr("127.0.0.1:12345".parse().unwrap())
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[actix_web::test]
     async fn unknown_path_under_api_or_auth_returns_problem_json() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("index.html"), "<html>spa</html>").unwrap();
