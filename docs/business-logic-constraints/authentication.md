@@ -39,3 +39,4 @@ Session lifecycle (including **BLC-SESS-010** expired rows that stay in the DB u
 - **BLC-MCP-AUTH-006:** The MCP server exposes only read tools for searching and getting songs, setlists, and collections. Resource reads MUST go through the existing per-user resource services so public/team visibility rules remain the same as the REST API.
 - **BLC-MCP-AUTH-007:** The connected-app settings API lists a user's active MCP grants. Revoking a grant deletes its access and refresh tokens so every token in that grant family stops working immediately.
 - **BLC-MCP-AUTH-008:** Enabling MCP OAuth MUST leave unrelated authentication and REST API routes reachable.
+- **BLC-MCP-AUTH-009:** The browser consent page at `/oauth/consent` MUST serve the frontend application when MCP OAuth is enabled, while OAuth protocol endpoints remain reachable.
